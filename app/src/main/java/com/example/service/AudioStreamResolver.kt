@@ -20,6 +20,7 @@ data class ResolvedStreamResult(
 interface AudioStreamResolver {
     suspend fun resolveAudioStream(videoId: String): String?
     suspend fun resolveStreamDetails(videoId: String): ResolvedStreamResult? = null
+    suspend fun resolveStreamDetails(videoId: String, title: String?, artist: String?): ResolvedStreamResult? = resolveStreamDetails(videoId)
     suspend fun getStreamDurationSeconds(videoId: String): Long? = null
     suspend fun searchTracksOnline(query: String): List<Track> = emptyList()
 }

@@ -206,11 +206,11 @@ class AudioPlayerManager(
                 (effectiveTrack.thumbnailUrl.startsWith("http://") || effectiveTrack.thumbnailUrl.startsWith("https://")) -> {
                 effectiveTrack.thumbnailUrl
             }
-            videoId.length == 11 && !videoId.all { it.isDigit() } -> {
+            videoId.length == 11 && !videoId.all { it.isDigit() } && videoId.matches(Regex("^[a-zA-Z0-9_-]{11}$")) -> {
                 "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
             }
             else -> {
-                if (effectiveTrack.thumbnailUrl.isNotBlank()) effectiveTrack.thumbnailUrl else "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"
+                if (effectiveTrack.thumbnailUrl.startsWith("http")) effectiveTrack.thumbnailUrl else "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"
             }
         }
         val cleanTrack = effectiveTrack.copy(thumbnailUrl = reliableThumbnail)
@@ -225,9 +225,12 @@ class AudioPlayerManager(
 
         streamResolutionJob?.cancel()
         streamResolutionJob = scope.launch {
-            // Check if track already has a valid remote streamUrl
+            // Check if track already has a valid remote streamUrl (ignoring 30s preview snippets)
             var streamUrl = if (!cleanTrack.streamUrl.isNullOrBlank() &&
-                (cleanTrack.streamUrl.startsWith("http://") || cleanTrack.streamUrl.startsWith("https://"))
+                (cleanTrack.streamUrl.startsWith("http://") || cleanTrack.streamUrl.startsWith("https://")) &&
+                !cleanTrack.streamUrl.contains("itunes.apple.com") &&
+                !cleanTrack.streamUrl.contains("audio-ssl.itunes") &&
+                !cleanTrack.streamUrl.contains(".plus.aac.p.m4a")
             ) {
                 cleanTrack.streamUrl
             } else {
@@ -236,7 +239,7 @@ class AudioPlayerManager(
 
             var resolvedDuration = 0L
             if (streamUrl == null) {
-                val details = streamResolver.resolveStreamDetails(videoId)
+                val details = streamResolver.resolveStreamDetails(videoId, cleanTrack.title, cleanTrack.artist)
                 if (details != null && details.streamUrl.isNotBlank()) {
                     streamUrl = details.streamUrl
                     if (details.durationSeconds > 0) {

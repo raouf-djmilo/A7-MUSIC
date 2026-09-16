@@ -1,8 +1,13 @@
 package com.example
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -83,6 +88,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Asynchronously pre-warm local database on IO to prevent Choreographer frame drops
+        com.example.data.local.AppDatabase.warmUp(applicationContext)
         setContent {
             MyApplicationTheme {
                 MainAppContent(viewModel = viewModel)
@@ -107,6 +114,25 @@ fun MainAppContent(viewModel: MainViewModel) {
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!hasPermission) {
                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Request exemption from battery optimizations to ensure continuous background and lock-screen playback
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val packageName = context.packageName
+            if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    try {
+                        val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        context.startActivity(fallbackIntent)
+                    } catch (ignored: Exception) {}
+                }
             }
         }
     }

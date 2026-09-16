@@ -58,8 +58,8 @@ fun SongArtwork(
                 // Direct high-res link from Apple Music/iTunes CDN, YouTube CDN, or public artwork
                 trimmed
             }
-            trimmed.length == 11 && !trimmed.all { it.isDigit() } -> {
-                // Standard 11-char YouTube Video ID
+            // Standard 11-char YouTube Video ID (must match standard base64url characters and cannot be all digits)
+            trimmed.length == 11 && !trimmed.all { it.isDigit() } && trimmed.matches(Regex("^[a-zA-Z0-9_-]{11}$")) -> {
                 "https://i.ytimg.com/vi/$trimmed/hqdefault.jpg"
             }
             title.contains("C'est La Vie", ignoreCase = true) -> {

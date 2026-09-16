@@ -13,6 +13,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
@@ -88,7 +89,7 @@ class ExoPlayerAudioEngine(private val context: Context) : CorePlayerEngine {
             .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
         mediaSession = MediaSession.Builder(context, exoPlayer)
@@ -113,14 +114,14 @@ class ExoPlayerAudioEngine(private val context: Context) : CorePlayerEngine {
                     }
                     Player.STATE_READY -> {
                         _isBuffering.value = false
-                        val trackSec = _currentTrack.value?.durationSeconds ?: 0
-                        val trackDurationMs = trackSec.toLong() * 1000L
-                        if (trackDurationMs > 0L) {
-                            _durationMs.value = trackDurationMs
+                        val streamDuration = exoPlayer.duration
+                        if (streamDuration > 0L) {
+                            _durationMs.value = streamDuration
                         } else {
-                            val dur = exoPlayer.duration
-                            if (dur > 0L) {
-                                _durationMs.value = dur
+                            val trackSec = _currentTrack.value?.durationSeconds ?: 0
+                            val trackDurationMs = trackSec.toLong() * 1000L
+                            if (trackDurationMs > 0L) {
+                                _durationMs.value = trackDurationMs
                             }
                         }
                     }
@@ -158,7 +159,7 @@ class ExoPlayerAudioEngine(private val context: Context) : CorePlayerEngine {
                 track.thumbnailUrl.startsWith("http://") || track.thumbnailUrl.startsWith("https://") -> {
                     track.thumbnailUrl
                 }
-                videoId.length == 11 && !videoId.all { it.isDigit() } -> {
+                videoId.length == 11 && !videoId.all { it.isDigit() } && videoId.matches(Regex("^[a-zA-Z0-9_-]{11}$")) -> {
                     "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
                 }
                 else -> null
@@ -282,7 +283,7 @@ object PlayerCacheManager {
         }
     }
 
-    fun buildCacheDataSourceFactory(context: Context): CacheDataSource.Factory {
+    fun buildCacheDataSourceFactory(context: Context): DataSource.Factory {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/122.0.0.0 Mobile Safari/537.36")
             .setConnectTimeoutMs(15000)
@@ -291,9 +292,21 @@ object PlayerCacheManager {
 
         val upstreamFactory = DefaultDataSource.Factory(context, httpFactory)
 
-        return CacheDataSource.Factory()
-            .setCache(getCache(context))
-            .setUpstreamDataSourceFactory(upstreamFactory)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        // Asynchronously pre-warm the disk cache and database on Dispatchers.IO
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                getCache(context)
+            } catch (e: Exception) {
+                Log.w("PlayerCacheManager", "Error pre-warming media cache: ${e.message}")
+            }
+        }
+
+        return DataSource.Factory {
+            CacheDataSource(
+                getCache(context),
+                upstreamFactory.createDataSource(),
+                CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+            )
+        }
     }
 }
