@@ -1,6 +1,0 @@
-{
-  "name": "PurePlay Music",
-  "description": "High-quality ad-free music player with online streaming, playlists, lyrics, and favorites.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

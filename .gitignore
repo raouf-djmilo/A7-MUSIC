@@ -1,18 +1,20 @@
-*.iml
-.gradle
-.kotlin
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# OS Files
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-.env
-debug.keystore
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+node_modules/
+dist/
+.expo/
+*.log
+
+# Sensitive Files
+.env*
+*.pem
+*.key
+*.keystore
+
+# Local IDE configs
+.idea/
+.vscode/
