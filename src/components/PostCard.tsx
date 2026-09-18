@@ -14,10 +14,11 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../providers/AuthProvider';
 import { getFileUrl, apiClient } from '../config/api';
 import { CommentsModal } from './CommentsModal';
-import { Video, ResizeMode } from 'expo-av';
 
-const { width, height } = Dimensions.get('window');
-const POST_HEIGHT   = width * 1.25;
+const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
+const isLargeScreen = windowWidth > 600;
+const CARD_WIDTH = isLargeScreen ? 400 : windowWidth;
+const POST_HEIGHT = CARD_WIDTH * 1.25;
 
 // ─────────────────────────────────────────────────────────────────
 //  ✨ StarParticle
@@ -252,14 +253,14 @@ export const PostCard = ({ post, isActive = false }: any) => {
             horizontal 
             pagingEnabled 
             showsHorizontalScrollIndicator={false}
-            onScroll={e => setImgIdx(Math.round(e.nativeEvent.contentOffset.x / width))} 
+            onScroll={e => setImgIdx(Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH))} 
             renderItem={({ item, index }) => {
               const finalUri = getFileUrl(item.media_url);
               const isCurrent = isActive && imgIdx === index && isFocused;
               
               return (
                 <Pressable 
-                  style={[styles.fullMedia, { width }]} 
+                  style={[styles.fullMedia, { width: CARD_WIDTH }]} 
                   onPress={handleMediaPress}
                   onLongPress={() => setIsPaused(true)}
                   onPressOut={() => {
@@ -350,13 +351,13 @@ export const PostCard = ({ post, isActive = false }: any) => {
 };
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#000', marginBottom: 15 },
+  card: { backgroundColor: '#000', marginBottom: 15, width: CARD_WIDTH, alignSelf: 'center' },
   header: { flexDirection: 'row-reverse', alignItems: 'center', padding: 12 },
   headerText: { flex: 1, marginRight: 10, alignItems: 'flex-end' },
   userName: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
   dateText: { color: '#555', fontSize: 10 },
-  mediaFrame: { width, height: POST_HEIGHT, backgroundColor: '#050505' },
-  fullMedia: { width, height: '100%' },
+  mediaFrame: { width: CARD_WIDTH, height: POST_HEIGHT, backgroundColor: '#050505' },
+  fullMedia: { height: '100%' },
   actionsWrap: { paddingHorizontal: 15, paddingTop: 10 },
   actionsRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   leftActions: { flexDirection: 'row-reverse', gap: 15, alignItems: 'center' },

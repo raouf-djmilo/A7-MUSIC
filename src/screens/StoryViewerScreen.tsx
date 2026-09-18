@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { 
   View, Text, StyleSheet, Dimensions, ActivityIndicator, 
   TouchableOpacity, TouchableWithoutFeedback, Animated, 
-  Platform, SafeAreaView, Alert, PanResponder
+  Platform, Alert, PanResponder
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';

@@ -1,210 +1,560 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
-  StyleSheet, Text, View, Dimensions, TouchableOpacity,
-  StatusBar, Platform, Alert,
-  Modal, TextInput, ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  Dimensions,
+  TouchableOpacity,
+  Platform,
+  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, {
+  Polyline,
+  Marker,
+  PROVIDER_GOOGLE,
+  Region,
+} from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop, Path } from 'react-native-svg';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring,
-  interpolate, Extrapolation, withRepeat, withTiming,
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+  runOnJS,
+  FadeInDown,
+  FadeOutUp,
 } from 'react-native-reanimated';
 import {
-  GestureHandlerRootView, Gesture, GestureDetector,
+  GestureHandlerRootView,
+  Gesture,
+  GestureDetector,
 } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
 import { useSensorFusion } from '../hooks/useSensorFusion';
+import { calculateHaversineDistanceMeters } from '../utils/KalmanGPS';
 import { supabase } from '../lib/supabase';
 import MapSettingsModal, { MapSettings } from '../components/MapSettingsModal';
+import { useAudioStore } from '../store/useAudioStore';
 
-// ─────────────────────────────────────────────────────────────────
-// Types & Constants
-// ─────────────────────────────────────────────────────────────────
-type ActivityType   = 'run' | 'walk';
-type TrackingStatus = 'idle' | 'recording' | 'paused' | 'auto-paused';
-
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOCATION_TASK_NAME = 'nouble-bg-location-task';
-const { width: SW } = Dimensions.get('window');
-const ACCENT_RUN   = '#FF4B2B';
-const ACCENT_WALK  = '#007AFF';
-const CARD_BOTTOM  = Platform.OS === 'ios' ? 36 : 22;
+const KEEP_AWAKE_TAG = 'NOUBLE_STRAVA_TRACKING';
+
+// ── Strava Palette Tokens ──
+const STRAVA_ORANGE = '#FC5200';
+const STRAVA_BLUE = '#00A3FF';
+const STRAVA_GREEN = '#2ECC71';
+const STRAVA_EMERALD = '#00D084';
+const STRAVA_CARD_BG = '#18191E';
+const STRAVA_MAP_BASE = '#12161A';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const CIRCLE_RADIUS = 32;
+const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS; // ~201.06
+
+// ── Instant Fallback Initial Region (Prevents Black Map on Start) ──
+const DEFAULT_INITIAL_REGION: Region = {
+  latitude: 36.7538,
+  longitude: 3.0588,
+  latitudeDelta: 0.009,
+  longitudeDelta: 0.009,
+};
 
 // ─────────────────────────────────────────────────────────────────
-// Background Task (kept for foreground-service fallback on Android)
+// Background Location Task Definition
 // ─────────────────────────────────────────────────────────────────
-TaskManager.defineTask(LOCATION_TASK_NAME, () => {
-  // بيانات الموقع الآن تُعالج داخل useSensorFusion مباشرة
-  // هذا المهمة تُستخدم فقط لإبقاء التطبيق حياً في الخلفية (Android)
+TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
+  if (error) return;
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Strava Dark Minimalist Map Style (Google Maps Android only)
+// ─────────────────────────────────────────────────────────────────
+const STRAVA_DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#12161A' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#7E8B9B' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#12161A' }] },
+  { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#252F3B' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#CFD7E2' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#242D38' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#667484' }] },
+  { featureType: 'road', elementType: 'labels.text.stroke', stylers: [{ color: '#12161A' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#2A3542' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#334050' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#212A35' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17262B' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#455E6B' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#152522', visibility: 'simplified' }] },
+];
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────
 const formatTime = (s: number): string => {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
   return h > 0
     ? `${h}:${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`
     : `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
 };
 
-/**
- * ── formatPace ──────────────────────────────────────────────
- * تحول سرعة (كم/ساعة) إلى بيس (min:sec لكل كيلومتر).
- * مثال: 10 كم/ساعة = 6:00 دقيقة/كم
- */
 const formatPace = (speedKmh: number): string => {
-  if (speedKmh < 0.3) return '--:--';
-  const paceMin = 60 / speedKmh;           // دقائق/كم
-  const mins    = Math.floor(paceMin);
-  const secs    = Math.round((paceMin - mins) * 60);
+  if (speedKmh < 0.3) return "0:00";
+  const paceMin = 60 / speedKmh;
+  const mins = Math.floor(paceMin);
+  const secs = Math.round((paceMin - mins) * 60);
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-/**
- * ═══════════════════════════════════════════════════════
- *  GPS Kalman Filter — محرك التصحيح الرياضي
- * ═══════════════════════════════════════════════════════
- * يجمع بين التنبؤ (بناءً على السرعة) والقياس (إحداثيات GPS الخام)
- * ليعطي تقديراً أدق للموقع الحقيقي.
- *
- * Q: ضوضاء العملية  — كلما زاد، يعطي أهمية أكبر للقراءات الجديدة
- * R: ضوضاء القياس  — يُأخذ من accuracy^2 تلقائياً
- * K: مكسب كالمان   — K=0 ثق بالتنبؤ فقط, K=1 ثق بالقياس فقط
- */
-class GPSKalmanFilter {
-  private variance: number = -1;   // -1 = لم يُهيَّأ بعد
-  private lat: number = 0;
-  private lng: number = 0;
-  private ts:  number = 0;
-  // Q (متر/ث): 3 جيد للركض — ارفعه إذا بدا التنعيم زائداً
-  private readonly Q = 3;
+const formatAveragePace = (movingSeconds: number, distanceKm: number): string => {
+  if (distanceKm <= 0 || movingSeconds <= 0) return "-:--";
+  const paceSecondsPerKm = movingSeconds / distanceKm;
+  const mins = Math.floor(paceSecondsPerKm / 60);
+  const secs = Math.round(paceSecondsPerKm % 60);
+  if (mins >= 60) return "-:--";
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
 
-  reset() { this.variance = -1; }
 
-  filter(
-    lat: number, lng: number,
-    accuracy: number, timestamp: number
-  ): { latitude: number; longitude: number } {
-    const measNoise = accuracy * accuracy;  // R = accuracy²
-
-    if (this.variance < 0) {
-      // القراءة الأولى: تهيئة الحالة
-      this.lat = lat; this.lng = lng;
-      this.variance = measNoise;
-      this.ts = timestamp;
-      return { latitude: lat, longitude: lng };
-    }
-
-    // ── مرحلة التنبؤ: عدم اليقين ينمو مع الوقت (حركة متوقعة) ──
-    const dt = Math.max((timestamp - this.ts) / 1000, 0);
-    this.ts = timestamp;
-    this.variance += dt * this.Q * this.Q;
-
-    // ── مكسب كالمان: وزن ديناميكي بين التنبؤ والقياس ──
-    const K = this.variance / (this.variance + measNoise);
-
-    // ── مرحلة التحديث: سحب التقدير نحو القياس ──
-    this.lat  += K * (lat - this.lat);
-    this.lng  += K * (lng - this.lng);
-    this.variance = Math.max((1 - K) * this.variance, 1);
-
-    return { latitude: this.lat, longitude: this.lng };
-  }
+// ─────────────────────────────────────────────────────────────────
+// Memoized Tracking Map Component (100% iOS & Android Safe)
+// ─────────────────────────────────────────────────────────────────
+interface ThemedTrackingMapProps {
+  userLocation: { latitude: number; longitude: number } | null;
+  compassHeading: number;
+  route: { latitude: number; longitude: number }[];
+  accentColor: string;
+  mapType: 'standard' | 'satellite';
+  isFollowingUser: boolean;
+  is3D: boolean;
+  onPanDrag: () => void;
+  onMapBearingChange?: (bearing: number) => void;
+  mapRef: React.RefObject<MapView | null>;
 }
 
-/**
- * ── Haversine Formula ────────────────────────────────────────────
- * تحسب المسافة بالكيلومترات بين نقطتين على سطح الأرض.
- * تُستخدم في بوابة التفتيش لقياس المسافة بين كل نقطتين GPS متتاليتين.
- * @param coords1 - نقطة البداية { latitude, longitude }
- * @param coords2 - نقطة النهاية { latitude, longitude }
- */
-const calculateHaversineDistance = (
-  coords1: { latitude: number; longitude: number },
-  coords2: { latitude: number; longitude: number }
-): number => {
-  const R = 6371; // نصف قطر الأرض بالكيلومترات
-  const dLat = (coords2.latitude  - coords1.latitude)  * Math.PI / 180;
-  const dLon = (coords2.longitude - coords1.longitude) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(coords1.latitude * Math.PI / 180) *
-    Math.cos(coords2.latitude * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
+const ThemedTrackingMap = React.memo<ThemedTrackingMapProps>(
+  ({
+    userLocation,
+    compassHeading,
+    route,
+    accentColor,
+    mapType,
+    isFollowingUser,
+    is3D,
+    onPanDrag,
+    onMapBearingChange,
+    mapRef,
+  }) => {
+    const [isMapReady, setIsMapReady] = useState(false);
+    const [currentMapBearing, setCurrentMapBearing] = useState(0);
+
+    // Initial camera region with immediate fallback
+    const initialRegion: Region = useMemo(() => {
+      if (userLocation && userLocation.latitude !== 0) {
+        return {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.009,
+          longitudeDelta: 0.009,
+        };
+      }
+      return DEFAULT_INITIAL_REGION;
+    }, []);
+
+    // 🚀 CRITICAL FIX: Cone Rotation = (Device Heading - Map Bearing + 360) % 360
+    const netHeading = useMemo(() => {
+      return ((compassHeading - currentMapBearing) % 360 + 360) % 360;
+    }, [compassHeading, currentMapBearing]);
+
+    // 🚀 Low-Pass Spring Filter: Eliminates hand tremor jitter while keeping 360° fluid response
+    const smoothConeHeading = useSharedValue(netHeading);
+    const prevNetHeadingRef = useRef(netHeading);
+
+    useEffect(() => {
+      // Shortest-arc angular unwrapping avoids 360° spinning across the 0°/360° north boundary
+      const diff = ((netHeading - (prevNetHeadingRef.current % 360) + 540) % 360) - 180;
+      const targetContinuous = prevNetHeadingRef.current + diff;
+      prevNetHeadingRef.current = targetContinuous;
+      smoothConeHeading.value = withSpring(targetContinuous, {
+        damping: 20,
+        stiffness: 180,
+      });
+    }, [netHeading]);
+
+    // 🚀 Marker Geometry: 44x44 container with concentric (22, 22) center anchor
+    const animatedConeStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${smoothConeHeading.value}deg` }],
+    }));
+
+    // 🚀 Camera Flight Control: Distinguishes programmatic animation from user gesture
+    const isProgrammaticFlightRef = useRef(false);
+    const flightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const triggerFlight = useCallback((cameraConfig: any, duration = 400) => {
+      if (!mapRef.current) return;
+      isProgrammaticFlightRef.current = true;
+      if (flightTimerRef.current) clearTimeout(flightTimerRef.current);
+      mapRef.current.animateCamera(cameraConfig, { duration });
+      flightTimerRef.current = setTimeout(() => {
+        isProgrammaticFlightRef.current = false;
+      }, duration + 150);
+    }, [mapRef]);
+
+    // 🚀 Auto-Follow Physics: Only animates when isFollowingUser is explicitly TRUE
+    const prevCameraCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+    useEffect(() => {
+      if (!isMapReady || !isFollowingUser || !userLocation || !mapRef.current) return;
+
+      const hasMoved =
+        !prevCameraCenterRef.current ||
+        Math.abs(prevCameraCenterRef.current.latitude - userLocation.latitude) > 0.00001 ||
+        Math.abs(prevCameraCenterRef.current.longitude - userLocation.longitude) > 0.00001;
+
+      if (hasMoved) {
+        prevCameraCenterRef.current = userLocation;
+        if (Platform.OS === 'ios') {
+          triggerFlight(
+            {
+              center: {
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+              },
+              altitude: 800, // Standard street/building athletic view (Strava benchmark)
+              pitch: is3D ? 50 : 0,
+              heading: is3D ? (compassHeading || 0) : 0,
+            },
+            400
+          );
+        } else {
+          triggerFlight(
+            {
+              center: {
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+              },
+              zoom: 17.5,
+              pitch: is3D ? 50 : 0,
+              heading: is3D ? (compassHeading || 0) : 0,
+            },
+            400
+          );
+        }
+      }
+    }, [isMapReady, isFollowingUser, userLocation?.latitude, userLocation?.longitude, is3D, compassHeading, triggerFlight]);
+
+    return (
+      <MapView
+        ref={mapRef}
+        style={[
+          StyleSheet.absoluteFillObject,
+          { width: SCREEN_WIDTH, height: '100%' },
+        ]}
+        // 🚀 CRITICAL FIX: Use undefined on iOS so Apple Maps uses native Metal rendering (NO BLACK SCREEN)
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        // 🚀 CRITICAL FIX: Only pass Google customMapStyle on Android. iOS Apple Maps natively uses userInterfaceStyle="dark"
+        customMapStyle={
+          Platform.OS === 'android' && mapType === 'standard'
+            ? STRAVA_DARK_MAP_STYLE
+            : undefined
+        }
+        userInterfaceStyle="dark"
+        mapType={mapType}
+        initialRegion={initialRegion}
+        showsUserLocation={false}
+        showsCompass={false}
+        showsScale={false}
+        showsPointsOfInterest={false}
+        showsBuildings={true}
+        loadingEnabled={Platform.OS === 'android'}
+        loadingIndicatorColor={STRAVA_ORANGE}
+        loadingBackgroundColor={Platform.OS === 'android' ? STRAVA_MAP_BASE : undefined}
+        onMapReady={() => setIsMapReady(true)}
+        onTouchStart={() => {
+          onPanDrag();
+        }}
+        onPanDrag={() => {
+          onPanDrag();
+        }}
+        onDoublePress={() => {
+          onPanDrag();
+        }}
+        onRegionChangeStart={() => {
+          if (!isProgrammaticFlightRef.current) {
+            onPanDrag();
+          }
+        }}
+        onRegionChange={() => {
+          if (!isProgrammaticFlightRef.current) {
+            onPanDrag();
+          }
+        }}
+        onRegionChangeComplete={async () => {
+          if (!isProgrammaticFlightRef.current) {
+            onPanDrag();
+          }
+          if (mapRef.current) {
+            try {
+              const camera = await mapRef.current.getCamera();
+              if (camera && typeof camera.heading === 'number') {
+                setCurrentMapBearing(camera.heading);
+                onMapBearingChange?.(camera.heading);
+              }
+            } catch {}
+          }
+        }}
+      >
+        {/* Strava Polyline */}
+        {route.length > 1 && (
+          <Polyline
+            coordinates={route}
+            strokeColor={accentColor}
+            strokeWidth={5}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={10}
+            geodesic={true}
+          />
+        )}
+
+        {/* Start Point Marker (Iconic Strava Green Dot) */}
+        {route.length > 0 && (
+          <Marker
+            coordinate={route[0]}
+            anchor={{ x: 0.5, y: 0.5 }}
+            centerOffset={Platform.select({
+              ios: { x: 0, y: 9 }, // 🚀 Counter-balances MapKit's default -9px (-18/2) pin offset on iOS
+              android: { x: 0, y: 0 },
+            })}
+            flat={Platform.OS === 'android'}
+            zIndex={15}
+            tracksViewChanges={false}
+          >
+            <View style={mapMarkerStyles.startGreenPuck} />
+          </Marker>
+        )}
+
+        {/* User Marker with 45° Heading Radar Cone (Strictly Ground-Locked to GPS userLocation) */}
+        {userLocation && (
+          <Marker
+            coordinate={{
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            centerOffset={Platform.select({
+              ios: { x: 0, y: 22 }, // 🚀 CRITICAL: Cancels MapKit's default -22px (-height/2) pin offset on iOS
+              android: { x: 0, y: 0 },
+            })}
+            zIndex={30}
+            tracksViewChanges={false}
+          >
+            <View style={mapMarkerStyles.puckContainer}>
+              {/* Heading Cone (44x44 centered around (22, 22) anchor) */}
+              <Animated.View style={[mapMarkerStyles.coneRotator, animatedConeStyle]}>
+                <Svg width={44} height={44} viewBox="0 0 44 44">
+                  <Defs>
+                    <SvgLinearGradient id="headingConeGrad" x1="0.5" y1="0.5" x2="0.5" y2="0.05">
+                      <Stop offset="0%" stopColor="#007AFF" stopOpacity="0.65" />
+                      <Stop offset="60%" stopColor="#007AFF" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#007AFF" stopOpacity="0" />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Path
+                    d="M 22 22 L 14.35 3.52 A 20 20 0 0 1 29.65 3.52 Z"
+                    fill="url(#headingConeGrad)"
+                  />
+                </Svg>
+              </Animated.View>
+
+              {/* White Ring with Solid Dot Puck at exact (22, 22) center - Zero dead space */}
+              <View style={mapMarkerStyles.stravaWhiteRing}>
+                <View style={[mapMarkerStyles.stravaBlueCore, { backgroundColor: accentColor }]} />
+              </View>
+            </View>
+          </Marker>
+        )}
+      </MapView>
+    );
+  },
+  (prev, next) => {
+    if (prev.accentColor !== next.accentColor) return false;
+    if (prev.mapType !== next.mapType) return false;
+    if (prev.isFollowingUser !== next.isFollowingUser) return false;
+    if (prev.is3D !== next.is3D) return false;
+    if (prev.compassHeading !== next.compassHeading) return false;
+    if (prev.route.length !== next.route.length) return false;
+    if (prev.userLocation?.latitude !== next.userLocation?.latitude) return false;
+    if (prev.userLocation?.longitude !== next.userLocation?.longitude) return false;
+    return true;
+  }
+);
+
+const mapMarkerStyles = StyleSheet.create({
+  startGreenPuck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: STRAVA_GREEN,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.45,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  puckContainer: {
+    width: 44,
+    height: 44,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coneRotator: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stravaWhiteRing: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  stravaBlueCore: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#007AFF',
+  },
+});
 
 // ─────────────────────────────────────────────────────────────────
-// Share Modal
+// Save Activity Modal
 // ─────────────────────────────────────────────────────────────────
-type ShareModalProps = {
-  visible:  boolean;
-  onClose:  () => void;
-  onShare:  (caption: string) => void;
+interface ShareModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onShare: (caption: string) => void;
   isSaving: boolean;
-  data:     { type: ActivityType; time: number; distance: number; steps: number; pace: string };
-};
+  data: {
+    type: 'run' | 'walk' | 'trail';
+    time: number;
+    distance: number;
+    steps: number;
+    pace: string;
+  };
+}
 
 const ShareModal = ({ visible, onClose, onShare, isSaving, data }: ShareModalProps) => {
   const [caption, setCaption] = useState('');
-  const accent = data.type === 'run' ? ACCENT_RUN : ACCENT_WALK;
+  const accent = data.type === 'trail' ? STRAVA_EMERALD : (data.type === 'run' ? STRAVA_ORANGE : STRAVA_BLUE);
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <BlurView intensity={85} tint="dark" style={StyleSheet.absoluteFill} />
-      <SafeAreaView style={ms.wrap}>
-        <View style={ms.sheet}>
-          <View style={ms.hdr}>
-            <Text style={ms.title}>شارك نشاطك {data.type === 'run' ? '🏃' : '🚶'}</Text>
-            <TouchableOpacity onPress={onClose} style={ms.closeBtn} disabled={isSaving}>
+      <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+      <SafeAreaView style={sms.wrap}>
+        <View style={sms.sheet}>
+          <View style={sms.hdr}>
+            <Text style={sms.title}>حفظ النشاط في سجلي {data.type === 'trail' ? '🏔️' : (data.type === 'run' ? '🏃' : '🚶')}</Text>
+            <TouchableOpacity onPress={onClose} style={sms.closeBtn} disabled={isSaving}>
               <Ionicons name="close" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
 
-          <View style={[ms.statsCard, { borderColor: accent + '55' }]}>
-            <View style={ms.statsRow}>
+          <View style={[sms.statsCard, { borderColor: accent + '55' }]}>
+            <View style={sms.statsRow}>
               {[
                 { v: data.distance.toFixed(2), l: 'KM', c: accent },
-                { v: formatTime(data.time),    l: 'TEMPS', c: '#fff' },
-                { v: data.type === 'run' ? data.pace : data.steps.toLocaleString(), l: data.type === 'run' ? 'PACE' : 'PAS', c: '#fff' },
+                { v: formatTime(data.time), l: 'TIME', c: '#fff' },
+                {
+                  v: (data.type === 'run' || data.type === 'trail') ? data.pace : data.steps.toLocaleString(),
+                  l: (data.type === 'run' || data.type === 'trail') ? 'PACE' : 'STEPS',
+                  c: '#fff',
+                },
               ].map(({ v, l, c }) => (
-                <View key={l} style={ms.statItem}>
-                  <Text style={[ms.statV, { color: c }]}>{v}</Text>
-                  <Text style={ms.statL}>{l}</Text>
+                <View key={l} style={sms.statItem}>
+                  <Text style={[sms.statV, { color: c }]}>{v}</Text>
+                  <Text style={sms.statL}>{l}</Text>
                 </View>
               ))}
             </View>
-            <View style={[ms.badge, { backgroundColor: accent + '20', borderColor: accent + '44' }]}>
-              <Text style={[ms.badgeT, { color: accent }]}>{data.type === 'run' ? '🏃 Run' : '🚶 Walk'}</Text>
+            <View style={[sms.badge, { backgroundColor: accent + '20', borderColor: accent + '44' }]}>
+              <Text style={[sms.badgeT, { color: accent }]}>
+                {data.type === 'trail' ? '🏔️ Trail Run' : (data.type === 'run' ? '🏃 Run' : '🚶 Walk')}
+              </Text>
             </View>
           </View>
 
           <TextInput
-            style={ms.input}
-            placeholder="أضف وصفاً للـ post (اختياري)..."
-            placeholderTextColor="#444"
+            style={sms.input}
+            placeholder="أضف وصفاً أو عنواناً للنشاط (اختياري)..."
+            placeholderTextColor="#888"
             value={caption}
             onChangeText={setCaption}
-            multiline maxLength={280}
+            multiline
+            maxLength={280}
           />
 
-          <View style={ms.actions}>
-            <TouchableOpacity style={[ms.btn, ms.saveBtn]} onPress={() => onShare('')} disabled={isSaving}>
-              {isSaving
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <><Ionicons name="save-outline" size={17} color="#fff" /><Text style={ms.btnT}>حفظ فقط</Text></>
-              }
-            </TouchableOpacity>
-            <TouchableOpacity style={[ms.btn, { backgroundColor: accent }]} onPress={() => onShare(caption)} disabled={isSaving}>
-              {isSaving
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <><Ionicons name="share-social" size={17} color="#fff" /><Text style={ms.btnT}>نشر Post</Text></>
-              }
+          <View style={sms.actions}>
+            <TouchableOpacity
+              style={[sms.btn, { backgroundColor: accent, flex: 1 }]}
+              onPress={() => onShare(caption)}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={19} color="#fff" />
+                  <Text style={sms.btnT}>حفظ النشاط (Save Activity)</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -213,355 +563,413 @@ const ShareModal = ({ visible, onClose, onShare, isSaving, data }: ShareModalPro
   );
 };
 
+const sms = StyleSheet.create({
+  wrap: { flex: 1, justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#18191E',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  hdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  title: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  statsCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 16, borderWidth: 1, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+  statItem: { alignItems: 'center' },
+  statV: { fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  statL: { color: '#888', fontSize: 10, fontWeight: '700', marginTop: 4 },
+  badge: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, marginTop: 12 },
+  badgeT: { fontSize: 12, fontWeight: '800' },
+  input: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 14, color: '#fff', fontSize: 14, minHeight: 70, textAlignVertical: 'top', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 20 },
+  actions: { flexDirection: 'row', gap: 12 },
+  btn: { height: 52, borderRadius: 26, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  btnT: { color: '#fff', fontSize: 15, fontWeight: '800' },
+});
+
 // ─────────────────────────────────────────────────────────────────
-// Recording Screen
+// Main RecordingScreen Component
 // ─────────────────────────────────────────────────────────────────
 export const RecordingScreen = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
-  // ── State ────────────────────────────────────────────────
-  const [activityType,   setActivityType]   = useState<ActivityType>('run');
-  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('idle');
-  // Refs pour les closures (les états ne sont pas à jour dans les callbacks)
-  const statusRef  = useRef<TrackingStatus>('idle');
-  const actTypeRef = useRef<ActivityType>('run');
-  useEffect(() => { statusRef.current  = trackingStatus; }, [trackingStatus]);
-  useEffect(() => { actTypeRef.current = activityType;   }, [activityType]);
+  // ── Audio Store ──
+  const {
+    currentTrack,
+    isPlaying,
+    togglePlay,
+    nextTrack,
+    setPlayerModalVisible,
+    setMiniPlayerSuppressed,
+  } = useAudioStore();
 
-  // ── Sensor Fusion Engine ────────────────────────────────
-  // نستدعي المحرك مرة واحدة — يعمل في الخلفية طوال الوقت
-  const sensor = useSensorFusion({
-    gpsAccuracy:       Location.Accuracy.BestForNavigation,
-    maxAccuracyMeters: 20,
-    gpsInterval:       1000,
-    enableBackground:  true,
-  });
+  // Suppress global root mini-player while in full-screen recording screen
+  useEffect(() => {
+    setMiniPlayerSuppressed(true);
+    return () => {
+      setMiniPlayerSuppressed(false);
+    };
+  }, [setMiniPlayerSuppressed]);
 
-  // ── Activity Stats ──────────────────────────────────────
-  const [route,    setRoute]    = useState<{ latitude: number; longitude: number }[]>([]);
-  const [distance, setDistance] = useState(0);
-  const [timer,    setTimer]    = useState(0);
-  const [pace,     setPace]     = useState('--:--');
-  // آخر نقطة مسجلة (ref لتجنب stale closure داخل useEffect)
-  const lastPointRef = useRef<{ latitude: number; longitude: number } | null>(null);
-
-  // ── Rolling Average — آخر 10 سرعات لحساب بيس ناعم ──
-  const speedWindowRef = useRef<number[]>([]);
-
-  // ── Kalman Filter — محرك تصحيح GPS الرياضي ──
-  const kalmanRef    = useRef(new GPSKalmanFilter());
-  // ── Path Smoothing Buffer — آخر 3 نقاط للمتوسط المرجّح (تجعل الخط انسيابياً) ──
-  const smoothBufRef = useRef<{ latitude: number; longitude: number }[]>([]);
-
-  // ── Smart Auto-Pause Refs ───────────────────────────────
-  // silenceCountRef: عداد الثواني المتتالية بدون حركة (منع False Positives)
-  // lastStepsForAutoRef: آخر قيمة للخطوات لمعرفة إن كانت تتغير
-  // autoStopTimerRef: مؤقت يفحص كل ثانية
-  const silenceCountRef      = useRef<number>(0);
-  const lastStepsForAutoRef  = useRef<number>(0);
-  const autoStopTimerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const [showShare, setShowShare] = useState(false);
-  const [isSaving,  setIsSaving]  = useState(false);
-  const [showMap,   setShowMap]   = useState(false);
-  // زر إعادة التمركز — يظهر عند سحب الخريطة، يختفي عند العودة
-  const [isRecenterVisible, setIsRecenterVisible] = useState(false);
-  // Modal إعدادات الخريطة
-  const [showMapSettings,  setShowMapSettings]  = useState(false);
-  const [mapSettings, setMapSettings] = useState<MapSettings>({
-    mapType:      'hybrid',   // Hybrid: أفضل خيار للياقة — قمر صناعي + شوارع واضحة
-    activeHeatmap: null,      // null = لا توجد خريطة حرارية مفعّلة
-    showWaymarks: false,
-    showTerrain:  false,
-  });
+  // Fast-boot initial GPS fix only if strictly fresh (< 10,000ms old)
+  const [cachedLocation, setCachedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
-    // تأجيل تحميل الخريطة الثقيلة حتى تنتهي حركة الانتقال
-    const t = setTimeout(() => setShowMap(true), 150);
-    return () => clearTimeout(t);
+    Location.getLastKnownPositionAsync({ maxAge: 10000 })
+      .then((loc) => {
+        if (loc?.coords && loc.timestamp && Math.abs(Date.now() - loc.timestamp) < 10000) {
+          setCachedLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const webRef   = useRef<WebView | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const headSub  = useRef<Location.LocationSubscription | null>(null);
+  // ── Activity Telemetry & State ──
+  const [activityType, setActivityType] = useState<'run' | 'walk' | 'trail'>('run');
+  const [trackingStatus, setTrackingStatus] = useState<'idle' | 'recording' | 'paused' | 'auto-paused'>('idle');
+  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [distance, setDistance] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [movingTime, setMovingTime] = useState(0);
+  const timer = movingTime; // Unified athletic moving time
+  const [pace, setPace] = useState("-:--");
+  const [showShare, setShowShare] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFollowingUser, setIsFollowingUser] = useState(true);
+  const [is3D, setIs3D] = useState(false);
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [compassHeading, setCompassHeading] = useState(0);
+  const [currentMapBearing, setCurrentMapBearing] = useState(0);
+  const [regionName, setRegionName] = useState<string | null>(null);
+  const [showMapSettings, setShowMapSettings] = useState(false);
+  const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
 
-  // ── Animated Values ──────────────────────────────────────
-  const translateX  = useSharedValue(0);
-  const savedX      = useSharedValue(0);
-  const pulse       = useSharedValue(0);
-  const toggleAnim  = useSharedValue(0);
+  // ── Auto-Lap Alert ──
+  const [lapAlert, setLapAlert] = useState<{ lap: number; pace: string } | null>(null);
+  const lastLapRef = useRef<number>(0);
+
+  // ── Sensor Fusion Engine (Hardware-level Tuning: BestForNavigation + Fitness) ──
+  const sensor = useSensorFusion({
+    gpsAccuracy: Location.Accuracy.BestForNavigation,
+    activityType: Location.ActivityType.Fitness,
+    maxAccuracyMeters: 14,
+    minDistanceFilter: 1,
+    gpsInterval: 500,
+    enableBackground: true,
+    mayShowUserSettingsDialog: true,
+  });
+
+  // 🚀 User Location for Map & Marker: Derived strictly from GPS Kalman fix with fast-boot cached fallback
+  const userMapLocation = useMemo(() => {
+    if (sensor.data.latitude !== 0 && sensor.data.longitude !== 0) {
+      return {
+        latitude: sensor.data.latitude,
+        longitude: sensor.data.longitude,
+      };
+    }
+    return cachedLocation;
+  }, [sensor.data.latitude, sensor.data.longitude, cachedLocation]);
+
+  // Animate camera smoothly to true location upon first verified live fix
+  const hasAnimatedToFirstFixRef = useRef(false);
+  useEffect(() => {
+    if (!hasAnimatedToFirstFixRef.current && userMapLocation && mapRef.current) {
+      hasAnimatedToFirstFixRef.current = true;
+      if (Platform.OS === 'ios') {
+        mapRef.current.animateCamera(
+          {
+            center: userMapLocation,
+            altitude: 800,
+            pitch: 0,
+            heading: 0,
+          },
+          { duration: 800 }
+        );
+      } else {
+        mapRef.current.animateCamera(
+          {
+            center: userMapLocation,
+            zoom: 17.5,
+            pitch: 0,
+            heading: 0,
+          },
+          { duration: 800 }
+        );
+      }
+    }
+  }, [userMapLocation]);
+
+  // Reverse Geocoding for Top Header Region Name
+  useEffect(() => {
+    if (userMapLocation && !regionName) {
+      Location.reverseGeocodeAsync({
+        latitude: userMapLocation.latitude,
+        longitude: userMapLocation.longitude,
+      })
+        .then((places) => {
+          if (places && places.length > 0) {
+            const p = places[0];
+            const name = p.city || p.subregion || p.district || p.name || 'Douéra';
+            setRegionName(name);
+          }
+        })
+        .catch(() => {
+          setRegionName('Douéra');
+        });
+    }
+  }, [userMapLocation, regionName]);
+
+  // ── Stable Refs ──
+  const statusRef = useRef<'idle' | 'recording' | 'paused' | 'auto-paused'>('idle');
+  const actTypeRef = useRef<'run' | 'walk' | 'trail'>('run');
+  const lastDistancePointRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastPolylinePointRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastHeadingRef = useRef<number>(0);
+  const lowSpeedSecondsRef = useRef<number>(0);
+  const autoStopTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<MapView | null>(null);
+
+  useEffect(() => { statusRef.current = trackingStatus; }, [trackingStatus]);
+  useEffect(() => { actTypeRef.current = activityType; }, [activityType]);
+
+  // ─────────────────────────────────────────────────────────────────
+  // 1. GPS Engine & Sequential Permission Protocol
+  // ─────────────────────────────────────────────────────────────────
+  const verifyGPSProtocol = useCallback(async (): Promise<boolean> => {
+    try {
+      const hasServices = await Location.hasServicesEnabledAsync();
+      if (!hasServices) {
+        setGpsErrorMsg('خدمات الموقع (GPS) معطلة على هاتفك. يرجى تفعيلها للبدء.');
+        return false;
+      }
+
+      const fgStatus = await Location.getForegroundPermissionsAsync();
+      if (fgStatus.status !== 'granted') {
+        const reqFg = await Location.requestForegroundPermissionsAsync();
+        if (reqFg.status !== 'granted') {
+          setGpsErrorMsg('إذن الموقع مطلوب لتسجيل مسار الجري والسرعة على الخريطة.');
+          return false;
+        }
+      }
+
+      try {
+        const bgStatus = await Location.getBackgroundPermissionsAsync();
+        if (bgStatus.status !== 'granted') {
+          await Location.requestBackgroundPermissionsAsync();
+        }
+      } catch {}
+
+      setGpsErrorMsg(null);
+      return true;
+    } catch (err: any) {
+      setGpsErrorMsg('حدث خطأ أثناء فحص خدمات الـ GPS: ' + (err.message ?? ''));
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
-    toggleAnim.value = withSpring(activityType === 'run' ? 0 : 1, { stiffness: 280, damping: 22 });
-  }, [activityType]);
+    verifyGPSProtocol();
+  }, [verifyGPSProtocol]);
 
+  // ─────────────────────────────────────────────────────────────────
+  // 2. Compass Heading Watcher (True Heading with Mag Fallback)
+  // ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let headingSub: Location.LocationSubscription | null = null;
+    Location.watchHeadingAsync((h) => {
+      // 🚀 CRITICAL: Prioritize trueHeading; fallback to magHeading if no geographical fix
+      const angle = (h.trueHeading >= 0 ? h.trueHeading : h.magHeading) || 0;
+      setCompassHeading(Math.round(angle));
+    })
+      .then((sub) => { headingSub = sub; })
+      .catch(() => {});
+
+    return () => {
+      headingSub?.remove();
+    };
+  }, []);
+
+  const resetToNorth = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (mapRef.current) {
+      mapRef.current.animateCamera({ heading: 0 }, { duration: 400 });
+      setCurrentMapBearing(0);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  // 3. Keep-Awake Lifecycle
+  // ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (trackingStatus === 'recording') {
-      pulse.value = withRepeat(withTiming(1, { duration: 650 }), -1, true);
+      activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
     } else {
-      pulse.value = withTiming(0, { duration: 200 });
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
     }
+
+    return () => {
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+    };
   }, [trackingStatus]);
 
-  // ── Gesture: horizontal swipe to hide/show card ──────────
-  const panGesture = useMemo(() =>
-    Gesture.Pan()
-      .activeOffsetX([-12, 12])
-      .onBegin(() => {
-        savedX.value = translateX.value;
-      })
-      .onUpdate((e) => {
-        translateX.value = Math.max(-SW, Math.min(0, savedX.value + e.translationX));
-      })
-      .onEnd((e) => {
-        const finalX = savedX.value + e.translationX;
-        const hide = e.velocityX < -500 || finalX < -(SW * 0.38);
-        translateX.value = withSpring(hide ? -SW : 0, { damping: 20, stiffness: 210 });
-      })
-  , []);
+  // ─────────────────────────────────────────────────────────────────
+  // 4. Background Location Updates
+  // ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (trackingStatus === 'recording') {
+      Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME).then((started) => {
+        if (!started) {
+          Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 500,
+            distanceInterval: 1,
+            showsBackgroundLocationIndicator: true,
+            foregroundService: {
+              notificationTitle: 'Nouble Track (Strava Engine)',
+              notificationBody: 'تسجيل مسار الجري نشط في الخلفية...',
+              notificationColor: STRAVA_ORANGE,
+            },
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    } else if (trackingStatus === 'idle') {
+      Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME).then((started) => {
+        if (started) {
+          Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
-  // ── Animated Styles ──────────────────────────────────────
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    return () => {
+      Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME).then((started) => {
+        if (started) {
+          Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME).catch(() => {});
+        }
+      }).catch(() => {});
+    };
+  }, [trackingStatus]);
+
+  // ── Reanimated Values for Hold-to-Finish ──
+  const holdProgress = useSharedValue(0);
+  const animatedCircleProps = useAnimatedProps(() => ({
+    strokeDashoffset: (1 - holdProgress.value) * CIRCLE_CIRCUMFERENCE,
   }));
 
-  // Pull-tab fades in as card slides away
-  const pullTabStyle = useAnimatedStyle(() => ({
-    opacity:   interpolate(translateX.value, [-SW * 0.2, -SW * 0.55], [0, 1], Extrapolation.CLAMP),
-    transform: [{
-      translateX: interpolate(translateX.value, [-SW * 0.2, -SW * 0.6], [-55, 0], Extrapolation.CLAMP),
-    }],
-  }));
-
-  const dotStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [1, 0.15]),
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.4]) }],
-  }));
-
-  const toggleSliderStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(toggleAnim.value, [0, 1], [0, 109], Extrapolation.CLAMP) }],
-  }));
-
-  // ─────────────────────────────────────────────────────────────────
-  // Smooth Heading — بوصلة سلسة مثل Google Maps
-  // ─────────────────────────────────────────────────────────────────
-  // بدلاً من تحديث التحويل مباشرة، نستدعي window.uch() في الـ WebView
-  // وهي تدير محرك lerp+rAF داخلياً بدون أي فرامات مفقودة
+  // ── Auto-Lap Split Detector (Each 1.0 km) ──
   useEffect(() => {
-    let lastHeading = -1;
-    let sub: Location.LocationSubscription | null = null;
+    if (trackingStatus !== 'recording') return;
+    const currentKm = Math.floor(distance);
+    if (currentKm > 0 && currentKm > lastLapRef.current) {
+      lastLapRef.current = currentKm;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setLapAlert({ lap: currentKm, pace });
+      const hideTimer = setTimeout(() => {
+        setLapAlert(null);
+      }, 4500);
+      return () => clearTimeout(hideTimer);
+    }
+  }, [distance, trackingStatus, pace]);
 
-    Location.watchHeadingAsync((h) => {
-      // نأخذ trueHeading إن كان متاحاً، وإلا magHeading
-      const heading = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
-
-      // ── فلتر الدرجتين — تجاهل التغييرات الصغيرة (تقلل الارتجاف والمعالجة) ──
-      if (lastHeading !== -1 && Math.abs(heading - lastHeading) < 2) return;
-      lastHeading = heading;
-
-      // ── نستدعي window.uch() التي تدير الأنيميشن داخل الـ WebView ──
-      webRef.current?.injectJavaScript(
-        `if(window.uch)window.uch(${heading});true;`
-      );
-    }).then(s => { sub = s; headSub.current = s; });
-
-    return () => { sub?.remove(); };
-  }, []);
-
-  // ── تمركز فوري عند تجهيز المستشعرات (قبل بدء التسجيل) ──
+  // ── Rolling Pace Calculator (Synchronized with 6-Second Window) ──
   useEffect(() => {
-    if (!sensor.isReady || !showMap) return;
-    const { latitude, longitude } = sensor.data;
-    if (latitude === 0) return;
-    // نوجه كاميرا الخريطة فوراً لموقع المستخدم كأول خطوة
-    webRef.current?.injectJavaScript(
-      `if(window.url)window.url(${latitude},${longitude});true;`
-    );
-  }, [sensor.isReady, showMap]);
+    if (statusRef.current === 'recording') {
+      setPace(sensor.data.instantPace);
+    } else if (statusRef.current === 'auto-paused' || statusRef.current === 'paused') {
+      setPace("-:--");
+    }
+  }, [sensor.data.instantPace, trackingStatus]);
 
-  // ── تحديث الخريطة عند تغيير الموقع ─────────────────────
-  useEffect(() => {
-    if (!sensor.isReady) return;
-    const { latitude, longitude, hasValidFix } = sensor.data;
-    if (latitude === 0 || !hasValidFix) return;
-    webRef.current?.injectJavaScript(
-      `if(window.url)window.url(${latitude},${longitude});`
-    );
-  }, [sensor.data.latitude, sensor.data.longitude]);
-
-  // ─────────────────────────────────────────────────────────────────
-  // Rolling Average Pace ─ بيس مستقر من آخر 10 قراءات للسرعة
-  // ─────────────────────────────────────────────────────────────────
-  // بدلاً من حساب البيس من المسافة/الوقت الكليين (متقلب),
-  // نحسبه من متوسط آخر 10 سرعات GPS. هذا يعطي رقماً ناعماً جداً.
-  useEffect(() => {
-    const currentSpeed = sensor.data.speed;
-    if (statusRef.current !== 'recording' || currentSpeed < 0.3) return;
-
-    // أضف السرعة الحالية واحتفظ بآخر 10 فقط (احذف الأقدم)
-    speedWindowRef.current = [
-      ...speedWindowRef.current.slice(-9),
-      currentSpeed,
-    ];
-
-    // حساب متوسط النافذة المتحركة
-    const windowLen = speedWindowRef.current.length;
-    const avgSpeed  = speedWindowRef.current.reduce((a, b) => a + b, 0) / windowLen;
-
-    // تحويل متوسط السرعة إلى بيس (min:sec/km) وتحديث الحالة
-    setPace(formatPace(avgSpeed));
-
-  }, [sensor.data.speed]);
-
-  // ═══════════════════════════════════════════════════════════
-  // ── بوابة التفتيش (Inspection Gate) ──────────────────────
-  //
-  // هذا useEffect هو قلب نظام التتبع.
-  // يستمع لكل تغيير في بيانات المستشعرات ويمررها عبر 4 فلاتر
-  // قبل أن يُسمح لها بتحديث المسار والمسافة.
-  // ═══════════════════════════════════════════════════════════
+  // ── GPS Telemetry: Decoupled Distance Accumulator & Polyline Decimation Gate ──
   useEffect(() => {
     const sd = sensor.data;
-
-    // ── 🔒 الفلتر 1: هل التطبيق في وضع التسجيل الفعلي؟ ──
     if (statusRef.current !== 'recording') return;
-
-    // ── 🔒 الفلتر 2: هل الإحداثيات صالحة؟ ──
     if (sd.latitude === 0 && sd.longitude === 0) return;
+    if (!sd.hasValidFix) return;
 
-    // ── 🔒 الفلتر 3: هل دقة الـ GPS مقبولة؟ ──
-    // عتبة الدقة: 20 متر run | 15 متر walk (walk أكثر حساسية)
-    const maxAccuracy = actTypeRef.current === 'run' ? 20 : 15;
-    if (sd.accuracy > maxAccuracy) return;
+    const currentPoint = { latitude: sd.latitude, longitude: sd.longitude };
 
-    // ── 🔒 الفلتر 4: هل الحركة حقيقية؟ (Anti-GPS-Jitter) ──
-    // isGPSJitter = true تعني: GPS ادعى تحركاً لكن Pedometer قال 0 خطوات
-    // نرفض القراءة لأنها حركة وهمية ناتجة عن اهتزاز الـ GPS
-    if (sd.isGPSJitter) return;
-
-    // ── ✅ اجتازت البوابة — معالجة النقطة ──
-
-    // ── فلتر السرعة الساكنة: لا نجمع نقاطاً عندما يكون المستخدم ساكناً ──
-    // هذا يمنع تكديس النقاط (سحابة) في نفس المكان وتشويه شكل المسار
-    if (sd.speed < 1.0) return;
-
-    // ── فلتر كالمان: تصحيح الارتجاف الرياضي لإحداثيات GPS الخام ──
-    // accuracy تحدد ضوضاء القياس (R) تلقائياً، والفلتر يجمع بين التنبؤ + القياس
-    const filtered = kalmanRef.current.filter(
-      sd.latitude, sd.longitude,
-      sd.accuracy, Date.now()
-    );
-
-    // ── متوسط مرجّح بين آخر 3 نقاط (تنعيم الانعطافات) ──
-    // الأوزان: الجديدة 0.65 | السابقة 0.25 | قبلها 0.10
-    // هذا يجعل الخط انسيابياً عند الانعطافات بدلاً من زاوية حادة
-    const buf = smoothBufRef.current;
-    buf.push(filtered);
-    if (buf.length > 3) buf.shift();
-
-    let smoothed = filtered;
-    if (buf.length === 3) {
-      smoothed = {
-        latitude:  buf[2].latitude  * 0.65 + buf[1].latitude  * 0.25 + buf[0].latitude  * 0.10,
-        longitude: buf[2].longitude * 0.65 + buf[1].longitude * 0.25 + buf[0].longitude * 0.10,
-      };
-    } else if (buf.length === 2) {
-      smoothed = {
-        latitude:  buf[1].latitude  * 0.75 + buf[0].latitude  * 0.25,
-        longitude: buf[1].longitude * 0.75 + buf[0].longitude * 0.25,
-      };
-    }
-
-    // ── نستخدم النقطة المنعّمة للخريطة، والمفلترة للمسافة ──
-    // هذا يمنع نقص المسافة الناتجة عن التنعيم الزائد
-    const distPoint   = filtered;   // لحساب المسافة (Haversine أدق)
-    const renderPoint = smoothed;   // لرسم الخط على الخريطة (منعّم)
-
-    // في أول نقطة: نسجلها كنقطة بداية ونرسمها على الخريطة
-    if (lastPointRef.current === null) {
-      lastPointRef.current = distPoint;
-      setRoute([renderPoint]);
-      webRef.current?.injectJavaScript(
-        `if(window.upl)window.upl(${JSON.stringify([renderPoint])});`
-      );
+    // 0. التهيئة على النقطة الأولى
+    if (lastDistancePointRef.current === null) {
+      lastDistancePointRef.current = currentPoint;
+      lastPolylinePointRef.current = currentPoint;
+      lastHeadingRef.current = sd.heading || 0;
+      setRoute([currentPoint]);
       return;
     }
 
-    // حساب المسافة بين النقطة المفلترة الحالية وآخر نقطة محفوظة
-    const segmentDistance = calculateHaversineDistance(lastPointRef.current, distPoint);
+    // 🚀 1. صمام أمان الأنفاق وانقطاع الإشارة (Tunnel & Blackout Guard):
+    // عند الخروج من نفق أو انقطاع طويل، لا تجمع مسافة القفزة الوهمية عبر المباني
+    if (sd.isBlackoutRecovery) {
+      lastDistancePointRef.current = currentPoint;
+      lastPolylinePointRef.current = currentPoint;
+      lastHeadingRef.current = sd.heading || 0;
+      setRoute((prev) => [...prev, currentPoint]);
+      return;
+    }
 
-    // الحد الأدنى للمسافة: run 3م | walk 4م (منع النقاط المتكدسة)
-    const minSegment = actTypeRef.current === 'run' ? 0.003 : 0.004; // كيلومتر
-    if (segmentDistance < minSegment) return;
+    // 🚀 2. حساب المسافة التراكمية الحقيقية (Pure Breadcrumbs - Zero Snap-to-Roads):
+    // في نمط الـ Trail لا نقتطع أي مسافة: عتبة 0.6m للـ Trail و 1.0m للجري العادي
+    const distDeltaMeters = calculateHaversineDistanceMeters(lastDistancePointRef.current, currentPoint);
+    const minDistThreshold = (actTypeRef.current === 'trail') ? 0.6 : 1.0;
+    if (distDeltaMeters >= minDistThreshold) {
+      setDistance((prev) => prev + distDeltaMeters / 1000);
+      lastDistancePointRef.current = currentPoint;
+    }
 
-    // تحديث المسافة الإجمالية (بالنقطة المفلترة: أدق)
-    setDistance(prev => prev + segmentDistance);
+    // 🚀 3. تفريغ نقاط العرض للخريطة (Polyline Decimation Gate - Switchbacks Preservation):
+    // حماية المنعرجات الجبلية مع الحفاظ على أداء الـ GPU في المسافات الطويلة:
+    // عند الانعطاف أو المنعرج الجبلي (Δheading > 12°) نسجل كل 0.8m لمنع بتر المنحنى
+    // في المسارات المستقيمة نسجل كل 2.5m لتوفير الذاكرة والـ GPU ومنع تخمة النقاط
+    if (lastPolylinePointRef.current) {
+      const renderDeltaMeters = calculateHaversineDistanceMeters(lastPolylinePointRef.current, currentPoint);
+      const deltaHeading = Math.abs((sd.heading || 0) - (lastHeadingRef.current || 0));
 
-    // تحديث المسار ورسم الخط بالنقطة المنعّمة (أجمل بصرياً)
-    lastPointRef.current = distPoint;
-    setRoute(prev => {
-      const next = [...prev, renderPoint];
-      webRef.current?.injectJavaScript(
-        `if(window.upl)window.upl(${JSON.stringify(next)});`
-      );
-      return next;
-    });
+      const isTrail = actTypeRef.current === 'trail';
+      const isCurve = deltaHeading > 12;
+      const isLowSpeedSharpTurn = sd.rollingSpeedMs < 2.2 && deltaHeading > 20;
 
-  // نستمع لتغير latitude فقط — يتغير مع كل قراءة GPS جديدة
-  }, [sensor.data.latitude, sensor.data.longitude, sensor.data.accuracy, sensor.data.isGPSJitter]);
+      const isSwitchback = (isTrail || isLowSpeedSharpTurn) && isCurve && renderDeltaMeters >= 0.8;
+      const isStandardSignificantTurn = deltaHeading > 15 && renderDeltaMeters >= 1.2;
 
-  // ═══════════════════════════════════════════════════════════
-  // Smart Auto-Pause — إيقاف ذكي / استئناف تلقائي
-  //
-  // منطق منع الإيقاف الخاطئ (False Positive Prevention):
-  // ─ لا نوقف بمجرد ثانية واحدة بطيئة
-  // ─ نشترط 5 ثوانٍ متتالية بدون حركة (السرعة < 1.0 km/h والخطوات ثابتة)
-  // ─ عند الاستئناف: إذا عادت السرعة > 2.0 km/h أو زادت الخطوات → إكمال فوري
-  // ═══════════════════════════════════════════════════════════
-  useEffect(() => {
-    // نشغل المؤقت فقط في حالة recording أو auto-paused
-    if (trackingStatus !== 'recording' && trackingStatus !== 'auto-paused') {
-      if (autoStopTimerRef.current) {
-        clearInterval(autoStopTimerRef.current);
-        autoStopTimerRef.current = null;
+      if (renderDeltaMeters >= 2.5 || isSwitchback || isStandardSignificantTurn) {
+        lastPolylinePointRef.current = currentPoint;
+        lastHeadingRef.current = sd.heading || 0;
+        setRoute((prev) => [...prev, currentPoint]);
       }
-      silenceCountRef.current = 0;
-      return;
     }
+  }, [sensor.data.latitude, sensor.data.longitude, sensor.data.isBlackoutRecovery, sensor.data.rollingSpeedMs, sensor.data.heading]);
 
-    if (autoStopTimerRef.current) clearInterval(autoStopTimerRef.current);
+  // ── Smart Auto-Pause State Machine (Strava/Garmin Standard) ──
+  useEffect(() => {
+    if (trackingStatus === 'idle') return;
 
     autoStopTimerRef.current = setInterval(() => {
-      const currentSpeed = sensor.data.speed;
-      const currentSteps = sensor.data.totalSessionSteps;
-
-      // ── كشف تغيير الخطوات منذ آخر فحص ──
-      const stepsChanged = currentSteps !== lastStepsForAutoRef.current;
-      lastStepsForAutoRef.current = currentSteps;
+      const rollingSpeed = sensor.data.rollingSpeedMs;
 
       if (statusRef.current === 'recording') {
-        // ── شرط السكون ──
-        // كل ا لشرطين يجب أن يتحققا معاً لتجنب إيقافات خاطئة:
-        // 1. السرعة أقل من 1.0 km/h (GPS يقرأ سرعة ضعيفة)
-        // 2. الخطوات لم تتغير (كاشف الخداع من Pedometer)
-        if (currentSpeed < 1.0 && !stepsChanged) {
-          silenceCountRef.current += 1;
-
-          // ── تفعيل Auto-Pause بعد 5 ثوانٍ متتالية ──
-          if (silenceCountRef.current >= 5) {
-            silenceCountRef.current = 0;
+        // إذا انخفضت السرعة المفلترة عن 0.5 m/s لمدة 3 ثوانٍ متتالية -> تفعيل Auto-Pause
+        if (rollingSpeed < 0.5) {
+          lowSpeedSecondsRef.current += 1;
+          if (lowSpeedSecondsRef.current >= 3) {
+            lowSpeedSecondsRef.current = 0;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setTrackingStatus('auto-paused');
           }
         } else {
-          // حركة مكتشفة — إعادة تشغيل العداد
-          silenceCountRef.current = 0;
+          lowSpeedSecondsRef.current = 0;
         }
-
       } else if (statusRef.current === 'auto-paused') {
-        // ── شرط الاستئناف ──
-        // تحقق أي من الشرطين لإكمال التسجيل فوراً:
-        if (currentSpeed > 2.0 || stepsChanged) {
-          silenceCountRef.current = 0;
+        // عند تجاوز السرعة 0.8 m/s -> استئناف التسجيل تلقائياً
+        if (rollingSpeed > 0.8) {
+          lowSpeedSecondsRef.current = 0;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           setTrackingStatus('recording');
         }
       }
@@ -573,814 +981,1226 @@ export const RecordingScreen = () => {
         autoStopTimerRef.current = null;
       }
     };
-  }, [trackingStatus]);
+  }, [trackingStatus, sensor.data.rollingSpeedMs]);
 
-  // ── Activity Control ─────────────────────────────────────
-  const startTracking = () => {
-    // إعادة ضبط كل متغيرات الجلسة
+  // ─────────────────────────────────────────────────────────────────
+  // Workout Actions
+  // ─────────────────────────────────────────────────────────────────
+  const startTracking = async () => {
+    const ok = await verifyGPSProtocol();
+    if (!ok) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setRoute([]);
     setDistance(0);
-    setTimer(0);
-    setPace('--:--');
-    lastPointRef.current  = null;
-    speedWindowRef.current = [];        // إعادة نافذة السرعة
-    silenceCountRef.current = 0;        // إعادة عداد الصمت
-    lastStepsForAutoRef.current = 0;    // إعادة مرجع الخطوات
-    kalmanRef.current.reset();          // إعادة فلتر كالمان
-    smoothBufRef.current = [];          // مسح بافر التنعيم
+    setElapsedTime(0);
+    setMovingTime(0);
+    setPace("-:--");
+    lastLapRef.current = 0;
+    setLapAlert(null);
+    lastDistancePointRef.current = null;
+    lastPolylinePointRef.current = null;
+    lastHeadingRef.current = 0;
+    lowSpeedSecondsRef.current = 0;
+    sensor.resetKalman?.();
 
-    // إعادة ضبط عدادات الـ Hook داخلياً
     sensor.resetStepCounter();
     sensor.resetAltitudeBaseline();
 
+    setIsFollowingUser(true);
     setTrackingStatus('recording');
-    webRef.current?.injectJavaScript(`if(window.sac)window.sac(true);`);
 
-    // مؤقت الوقت — يعمل فقط في حالة recording (ال auto-paused يوقفه تلقائياً)
     timerRef.current = setInterval(() => {
-      if (statusRef.current === 'recording') setTimer(p => p + 1);
+      setElapsedTime((p) => p + 1);
+      if (statusRef.current === 'recording') {
+        setMovingTime((p) => p + 1);
+      }
     }, 1000);
   };
 
-  const togglePause = () =>
-    setTrackingStatus(s => (s === 'recording' || s === 'auto-paused') ? 'paused' : 'recording');
+  const togglePause = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTrackingStatus((s) => ((s === 'recording' || s === 'auto-paused') ? 'paused' : 'recording'));
+  };
 
   const stopAll = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    // useSensorFusion يدير مستشعراته الخاصة — نوقفها عند إنهاء الجلسة
     sensor.cleanup();
   };
 
   const handleFinish = () => {
     setTrackingStatus('idle');
     stopAll();
-    setShowShare(true);   // يظهر modal المشاركة الاختياري
+    setShowShare(true);
   };
 
-  // ── Supabase Save ─────────────────────────────────────────────────────────
-  // 1. يحفظ النشاط في جدول activities (دائماً)
-  // 2. إذا أدخل المستخدم caption → ينشئ post في جدول posts ويرتبطان
-  // 3. بعد الحفظ: ينتقل إلى Dashboard لعرض الكارت مباشرة
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── Hold-to-Finish Safe Gesture (1.8s with Immediate Cancellation) ──
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tick1Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tick2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tick3Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHoldingRef = useRef(false);
+
+  const clearHoldTimers = () => {
+    isHoldingRef.current = false;
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+    if (tick1Ref.current) { clearTimeout(tick1Ref.current); tick1Ref.current = null; }
+    if (tick2Ref.current) { clearTimeout(tick2Ref.current); tick2Ref.current = null; }
+    if (tick3Ref.current) { clearTimeout(tick3Ref.current); tick3Ref.current = null; }
+  };
+
+  const startHoldHaptics = () => {
+    clearHoldTimers();
+    isHoldingRef.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    tick1Ref.current = setTimeout(() => {
+      if (isHoldingRef.current) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, 550);
+
+    tick2Ref.current = setTimeout(() => {
+      if (isHoldingRef.current) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }, 1100);
+
+    tick3Ref.current = setTimeout(() => {
+      if (isHoldingRef.current) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }, 1550);
+
+    holdTimerRef.current = setTimeout(() => {
+      if (isHoldingRef.current) {
+        clearHoldTimers();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleFinish();
+      }
+    }, 1800);
+  };
+
+  const cancelHoldFinish = () => {
+    clearHoldTimers();
+  };
+
+  const holdToFinishGesture = Gesture.Pan()
+    .onBegin(() => {
+      runOnJS(startHoldHaptics)();
+      holdProgress.value = withTiming(1, { duration: 1800, easing: Easing.linear });
+    })
+    .onFinalize(() => {
+      runOnJS(cancelHoldFinish)();
+      if (holdProgress.value < 0.99) {
+        holdProgress.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) });
+      }
+    });
+
+  // ── Save Activity to Supabase ──
   const saveActivity = async (caption: string) => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('غير مسجل الدخول');
+      if (!user) throw new Error('يرجى تسجيل الدخول لحفظ النشاط');
 
-      // ── بيانات المستشعرات النهائية ──
-      const finalSteps    = sensor.data.totalSessionSteps;
-      const finalSpeed    = sensor.data.speed;
-      const finalAlt      = sensor.data.altitude;
+      const finalSteps = sensor.data.totalSessionSteps;
+      const finalSpeed = sensor.data.speed;
+      const finalAlt = sensor.data.altitude;
       const finalPressure = sensor.data.pressure;
+      const caloriesRate = activityType === 'trail' ? 90 : (activityType === 'run' ? 75 : 60);
+      const calculatedCalories = Math.round(distance * caloriesRate);
+      const calculatedAvgPace = (distance > 0 && movingTime > 0)
+        ? formatAveragePace(movingTime, distance)
+        : pace;
 
-      // ── (اختياري) إنشاء Post إذا كتب المستخدم caption ──
-      let postId: string | null = null;
-      if (caption.trim() !== '') {
-        const summary = `${activityType === 'run' ? '🏃 Run' : '🚶 Walk'} · ${distance.toFixed(2)} km · ${formatTime(timer)}\n${caption.trim()}`;
-        const { data: p, error: pe } = await supabase
-          .from('posts')
-          .insert({
-            user_id:    user.id,
-            title:      activityType === 'run' ? '🏃 ركضة جديدة' : '🚶 مشي اليوم',
-            description: summary,
-            media_type: 'images',
-            media_urls: [] as string[],
-          })
-          .select('id')
-          .single();
-        if (pe) throw pe;
-        postId = p.id;
-      }
-
-      // ── حفظ النشاط (إجباري دائماً) ──
       const { error: ae } = await supabase.from('activities').insert({
-        user_id:           user.id,
-        activity_type:     activityType,
-        total_time:        timer,
-        total_distance:    distance,
-        total_steps:       finalSteps,
-        average_pace:      pace,
-        average_speed:     finalSpeed,
-        route_coordinates: route,         // المسار المنعّم الكامل
-        post_id:           postId,
-        altitude:          finalAlt,
-        pressure:          finalPressure,
+        user_id: user.id,
+        activity_type: activityType,
+        total_time: elapsedTime > 0 ? elapsedTime : movingTime,
+        total_distance: distance,
+        total_steps: finalSteps,
+        average_pace: calculatedAvgPace,
+        average_speed: finalSpeed,
+        route_coordinates: route,
+        calories: calculatedCalories,
+        notes: caption.trim() ? `${caption.trim()} (Elevation Gain: +${Math.round(sensor.data.elevationGain)}m)` : (sensor.data.elevationGain > 0 ? `Elevation Gain: +${Math.round(sensor.data.elevationGain)}m` : null),
+        altitude: finalAlt,
+        pressure: finalPressure,
       });
+
       if (ae) throw ae;
 
-      // ── نجح الحفظ → أغلق المودال وانتقل للـ Dashboard ──
       setShowShare(false);
-      // تأخير بسيط يسمح للـ Modal بالإغلاق قبل Navigation
       setTimeout(() => navigation.navigate('Dashboard'), 250);
-
     } catch (err: any) {
-      Alert.alert('خطأ في الحفظ', err.message ?? 'فشل الحفظ، حاول مجدداً.');
+      Alert.alert('خطأ في الحفظ', err.message ?? 'فشل حفظ النشاط.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Données dérivées du hook pour l'UI
-  const steps    = sensor.data.totalSessionSteps;
-  const speed    = sensor.data.speed;
-  const altitude = sensor.data.altitude;
-  const altitudeDelta = sensor.data.altitudeDelta;
-  const gpsStrength   = sensor.data.gpsStrength;
+  const accent = activityType === 'trail' ? STRAVA_EMERALD : (activityType === 'run' ? STRAVA_ORANGE : STRAVA_BLUE);
+  const isPaused = trackingStatus === 'paused' || trackingStatus === 'auto-paused';
 
-  // ── Leaflet Map ──────────────────────────────────────────
-  const mapHtml = useMemo(() => {
-    const la  = (sensor.data.latitude  !== 0 ? sensor.data.latitude  : null) || 36.7538;
-    const lo  = (sensor.data.longitude !== 0 ? sensor.data.longitude : null) || 3.0588;
-    const lc  = activityType === 'run' ? ACCENT_RUN : ACCENT_WALK;
-
-    return `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-body,html,#map{margin:0;padding:0;height:100vh;width:100vw;background:#000;overflow:hidden}
-.leaflet-control-attribution{display:none!important}
-
-/* ══ User Marker Wrapper ══ */
-#uhw{
-  width:80px;height:80px;
-  position:absolute;left:-40px;top:-40px;
-  transform-origin:50% 50%;
-  will-change:transform;
-}
-
-/* ══ مخروط الرؤية (Heading Cone) ══ */
-.uhw-cone{
-  position:absolute;
-  width:80px;height:80px;
-  /* التمركز ليكون أسفل المخروط في منتصف الدائرة تماماً */
-  top:-40px;
-  left:0;
-  background:linear-gradient(to bottom, rgba(66,133,244,0.0) 0%, rgba(66,133,244,0.3) 40%, rgba(66,133,244,0.9) 100%);
-  clip-path:polygon(50% 100%, 12% 0, 88% 0);
-  transform-origin:50% 100%;
-  pointer-events:none;
-}
-
-/* ══ دائرة النبض (Pulse Ring) ══ */
-.uhw-pulse{
-  position:absolute;
-  left:50%;top:50%;
-  width:20px;height:20px;
-  margin-left:-10px;margin-top:-10px;
-  background:rgba(66,133,244,0.38);
-  border-radius:50%;
-  animation:gmPulse 2.2s ease-out infinite;
-}
-@keyframes gmPulse{
-  0%  {transform:scale(1);opacity:0.85}
-  65% {transform:scale(3.8);opacity:0}
-  100%{transform:scale(3.8);opacity:0}
-}
-
-/* ══ النواة (Core Dot) ══ */
-.uhw-core{
-  position:absolute;
-  left:50%;top:50%;
-  width:20px;height:20px;
-  margin-left:-10px;margin-top:-10px;
-  background:#4285F4;
-  border:3px solid #fff;
-  border-radius:50%;
-  box-shadow:0 2px 8px rgba(0,0,0,0.5),0 0 0 3px rgba(66,133,244,0.22);
-  z-index:2;
-}
-</style></head><body>
-<div id="map"></div>
-<script>
-const map=L.map('map',{zoomControl:false,attributionControl:false}).setView([${la},${lo}],18);
-// window._tl: مرجع لطبقة الخريطة — نستخدمه لتغيير نوعها بدون إعادة تحميل
-window._tl=L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:22,detectRetina:true});
-window._tl.addTo(map);
-let pl=L.polyline([],{color:'${lc}',weight:7,opacity:.92,lineCap:'round',lineJoin:'round'}).addTo(map);
-
-/* ── المؤشر بثلاث طبقات: مخروط + نبض + نواة ── */
-const ico=L.divIcon({className:'',html:\`
-<div id="uhw">
-  <div class="uhw-cone"></div>
-  <div class="uhw-pulse"></div>
-  <div class="uhw-core"></div>
-</div>\`,iconSize:[0,0]});
-let um=L.marker([${la},${lo}],{icon:ico,zIndexOffset:1000}).addTo(map);
-let ac=true;
-
-/* ── إشعار React Native عند السحب (postMessage) ── */
-map.on('dragstart',()=>{
-  ac=false;
-  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage('PANNED');
-});
-
-window.rac=()=>{
-  ac=true;
-  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage('CENTERED');
-  map.setView(um.getLatLng(),map.getZoom(),{animate:true,duration:0.6});
-};
-window.sac=(f)=>{
-  ac=f;
-  if(f&&window.ReactNativeWebView)window.ReactNativeWebView.postMessage('CENTERED');
-};
-window.url=(la,lo)=>{const p=[la,lo];um.setLatLng(p);if(ac)map.setView(p,map.getZoom(),{animate:true,duration:.7});};
-window.upl=(c)=>{pl.setLatLngs(c.map(x=>[x.latitude,x.longitude]));};
-
-// ═══════════════════════════════════════════════════════════════════
-// window.setMapType(type) — محرك تغيير الخريطة (طبقة أساسية + overlay)
-// ─ Standard/Satellite/Winter: طبقة واحدة فقط
-// ─ Hybrid: قمر صناعي صافي (lyrs=s) + overlay كل الطرق (lyrs=h)
-//   lyrs=h = طبقة شفافة تحتوي: طرق رئيسية + ثانوية + مسارات + أسماء
-//   بدون إعادة تحميل الخريطة (No Reload) — التبديل فوري ✅
-// ═══════════════════════════════════════════════════════════════════
-var _ol=null;
-window.setMapType=function(type){
-  var base={
-    standard:  'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    hybrid:    'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    winter:    'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+  // ─────────────────────────────────────────────────────────────────
+  // Right Action Stack Handlers
+  // ─────────────────────────────────────────────────────────────────
+  const toggleMapType = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMapType((prev) => (prev === 'standard' ? 'satellite' : 'standard'));
   };
-  if(window._tl)window._tl.setUrl(base[type]||base.hybrid);
-  if(_ol){map.removeLayer(_ol);_ol=null;}
-  if(type==='hybrid'){
-    _ol=L.tileLayer(
-      'https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',
-      {maxZoom:22,detectRetina:true,opacity:0.92}
-    );
-    _ol.addTo(map);
-  }
-};
-// ═══════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════
-// window.setHeatmap(type) — طبقة مسارات الجري العالمية (Waymarked Trails)
-// type: 'global_run' → يحمّل طبقة hiking (الرابط الصحيح الوحيد في السيرفر)
-// type: 'off' / أي قيمة أخرى → يزيل الطبقة من الخريطة
-//
-// ⚠️ ملاحظة مهمة:
-//  • 'running' كـ endpoint غير موجود في waymarkedtrails.org → 404
-//  • كل مسارات الجري والمشي والتسلق مجمعة تحت 'hiking' فقط
-//  • zIndex: 100 إجباري لضمان رسم الخطوط فوق صور القمر الصناعي (Hybrid)
-// ═══════════════════════════════════════════════════════════════════
-var _hl=null;
-window.setHeatmap=function(type){
-  if(_hl){map.removeLayer(_hl);_hl=null;}
-  if(type==='global_run'){
-    _hl=L.tileLayer(
-      'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
-      {
-        maxZoom: 18,
-        opacity: 0.8,
-        zIndex:  100,
-        attribution: ''
+  const toggle3DView = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = !is3D;
+    setIs3D(next);
+    if (mapRef.current) {
+      const targetHeading = next ? (compassHeading || 0) : 0;
+      mapRef.current.animateCamera(
+        {
+          pitch: next ? 50 : 0,
+          heading: targetHeading,
+        },
+        { duration: 500 }
+      );
+      setCurrentMapBearing(targetHeading);
+    }
+  };
+
+  const handleRecenter = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsFollowingUser(true);
+    setIs3D(false);
+    setCurrentMapBearing(0);
+    if (userMapLocation && mapRef.current) {
+      if (Platform.OS === 'ios') {
+        mapRef.current.animateCamera(
+          {
+            center: {
+              latitude: userMapLocation.latitude,
+              longitude: userMapLocation.longitude,
+            },
+            altitude: 800, // Standard street/building athletic view (Strava benchmark)
+            pitch: 0,
+            heading: 0,
+          },
+          { duration: 800 }
+        );
+      } else {
+        mapRef.current.animateCamera(
+          {
+            center: {
+              latitude: userMapLocation.latitude,
+              longitude: userMapLocation.longitude,
+            },
+            zoom: 17.5,
+            pitch: 0,
+            heading: 0,
+          },
+          { duration: 800 }
+        );
       }
-    );
-    _hl.addTo(map);
-  }
-};
-// ═══════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════
-// Smooth Heading Engine — lerp + rAF (60fps, بلا اتصال RN ↔ WV)
-// ═══════════════════════════════════════════════════════════════════
-var _curH=0,_tgtH=0,_hAnim=false;
-function _lerp(a,b,t){return a+(b-a)*t;}
-function _shortAngle(from,to){var d=((to-from+540)%360)-180;return from+d;}
-function _animH(){
-  _curH=_lerp(_curH,_tgtH,0.18);
-  var el=document.getElementById('uhw');
-  if(el)el.style.transform='rotate('+_curH+'deg)';
-  if(Math.abs(_curH-_tgtH)>0.15){requestAnimationFrame(_animH);}
-  else{_curH=_tgtH;_hAnim=false;}
-}
-window.uch=function(deg){
-  _tgtH=_shortAngle(_curH,deg);
-  if(!_hAnim){_hAnim=true;requestAnimationFrame(_animH);}
-};
-// ═══════════════════════════════════════════════════════════════════
-</script></body></html>`;
-
-
-
-  }, [activityType]);
-
-  const accent = activityType === 'run' ? ACCENT_RUN : ACCENT_WALK;
-
-  // طبقة الخريطة — تتغير عند تغيير mapType
-  const MAP_TILE_URLS: Record<string, string> = {
-    // Standard  — خريطة عادية بشوارع وأسماء فقط (lyrs=m)
-    standard:  'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    // Satellite — صور القمر الصناعي الصافي بدون أي تداخلات (lyrs=s)
-    satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    // Hybrid    — قمر صناعي + شوارع وأسماء واضحة (lyrs=y) — الأفضل لللياقة
-    hybrid:    'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    // Winter    — خريطة طبوغرافية شتوية (OpenTopoMap — مفتوحة المصدر)
-    winter:    'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+    }
   };
 
-  // عند تغيير نوع الخريطة: نستدعي window.setMapType() في WebView
-  // Hybrid = قمر صناعي (lyrs=s) + overlay كل الطرق (lyrs=h) — بدون reload
-  useEffect(() => {
-    if (!webRef.current) return;
-    const type = mapSettings.mapType;
-    webRef.current.injectJavaScript(
-      `if(window.setMapType)window.setMapType('${type}');true;`
-    );
-  }, [mapSettings.mapType]);
+  // Safe bottom offset calculations
+  const safeBottom = Math.max(insets.bottom, 18);
+  const hudBottomOffset = safeBottom + 138; // 🚀 FIX: Generous 16px+ floating gap above dock preventing any clipping
+  const musicBarBottomOffset = hudBottomOffset + 116; // Sits cleanly above HUD
+  const rightStackBottomOffset = hudBottomOffset + (currentTrack ? 176 : 118);
 
-  // عند تفعيل/إيقاف الخريطة الحرارية: نستدعي window.setHeatmap() في WebView
-  // نرسل نوع الخريطة كسترينج ('global_run') أو null لإزالتها
-  useEffect(() => {
-    if (!webRef.current) return;
-    const heatmapType = mapSettings.activeHeatmap ?? 'off';
-    webRef.current.injectJavaScript(
-      `if(window.setHeatmap)window.setHeatmap('${heatmapType}');true;`
-    );
-  }, [mapSettings.activeHeatmap]);
-
-  // مؤشر قوة GPS للعرض في الـ Header
-  const gpsColor = gpsStrength === 'excellent' ? '#00FF88'
-    : gpsStrength === 'good'      ? '#FFAA00'
-    : gpsStrength === 'poor'      ? '#FF4B2B'
-    : '#555';
-
-  // ── Render ───────────────────────────────────────────────
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <GestureHandlerRootView style={styles.container}>
+      {/* ── 1. Strava Dark Map Engine ── */}
+      <View
+        style={styles.mapContainer}
+        onTouchStart={() => {
+          if (isFollowingUser) {
+            setIsFollowingUser(false);
+          }
+        }}
+      >
+        <ThemedTrackingMap
+          mapRef={mapRef}
+          userLocation={userMapLocation}
+          compassHeading={compassHeading}
+          route={route}
+          accentColor={accent}
+          mapType={mapType}
+          isFollowingUser={isFollowingUser}
+          is3D={is3D}
+          onPanDrag={() => setIsFollowingUser(false)}
+          onMapBearingChange={(b) => setCurrentMapBearing(b)}
+        />
+      </View>
 
-      {/* ─── Full-screen Map ─── */}
-      <View style={StyleSheet.absoluteFillObject}>
-        {showMap ? (
-          <WebView
-            key={activityType}
-            ref={webRef}
-            originWhitelist={['*']}
-            source={{ html: mapHtml }}
-            style={StyleSheet.absoluteFillObject}
-            scrollEnabled
-            // نستقبل رسائل PANNED/CENTERED من الخريطة لإدارة زر Recenter
-            onMessage={(e) => {
-              const msg = e.nativeEvent.data;
-              if (msg === 'PANNED')   setIsRecenterVisible(true);
-              if (msg === 'CENTERED') setIsRecenterVisible(false);
+      {/* ── 2. Top Header Bar ── */}
+      <SafeAreaView style={styles.topSafeArea} pointerEvents="box-none">
+        <View style={styles.topBar}>
+          <View style={styles.topBarLeft}>
+            <TouchableOpacity
+              style={styles.circleIconBtn}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            {regionName && (
+              <Text style={styles.topRegionTitle} numberOfLines={1}>
+                {regionName}
+              </Text>
+            )}
+          </View>
+
+          {trackingStatus === 'recording' && (
+            <View style={styles.liveIndicatorPill}>
+              <View style={[styles.liveDot, { backgroundColor: accent }]} />
+              <Text style={[styles.liveText, { color: accent }]}>REC</Text>
+            </View>
+          )}
+
+          {isPaused && (
+            <View style={styles.liveIndicatorPill}>
+              <View style={[styles.liveDot, { backgroundColor: '#FFAA00' }]} />
+              <Text style={[styles.liveText, { color: '#FFAA00' }]}>PAUSED</Text>
+            </View>
+          )}
+
+          {/* North-pointing Strava compass button with resetToNorth tap */}
+          <TouchableOpacity
+            style={styles.circleIconBtn}
+            onPress={resetToNorth}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="navigate"
+              size={18}
+              color="#FFFFFF"
+              style={{ transform: [{ rotate: `${-currentMapBearing}deg` }] }}
+            />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      {/* ── 3. Right Floating Action Stack (Layers, 3D, Recenter Crosshair) ── */}
+      {!showMapSettings && (
+        <View
+          style={[styles.rightActionStack, { bottom: rightStackBottomOffset }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            style={styles.actionCircleBtn}
+            onPress={toggleMapType}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="layers-outline" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCircleBtn, is3D && { borderColor: STRAVA_ORANGE }]}
+            onPress={toggle3DView}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.action3DText, is3D && { color: STRAVA_ORANGE }]}>3D</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCircleBtn, isFollowingUser && { borderColor: STRAVA_ORANGE }]}
+            onPress={handleRecenter}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="locate-outline"
+              size={22}
+              color={isFollowingUser ? STRAVA_ORANGE : '#FFFFFF'}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── 4. Auto-Lap Toast Alert ── */}
+      {lapAlert && (
+        <Animated.View
+          entering={FadeInDown.duration(300).springify()}
+          exiting={FadeOutUp.duration(250)}
+          style={styles.lapToast}
+        >
+          <Ionicons name="flash" size={18} color="#FFD60A" />
+          <View>
+            <Text style={styles.lapToastTitle}>KM {lapAlert.lap} COMPLETED</Text>
+            <Text style={styles.lapToastSub}>Split Pace: {lapAlert.pace} /km</Text>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* ── 5. In-Run Compact Music Bar (Floats above HUD) ── */}
+      {currentTrack && (
+        <View style={[styles.musicBarContainer, { bottom: musicBarBottomOffset }]}>
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPlayerModalVisible(true);
             }}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}>
-             <ActivityIndicator color="#FF4B2B" />
+          >
+            <Image
+              source={{
+                uri:
+                  currentTrack.thumbnail ||
+                  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100',
+              }}
+              style={styles.musicThumb}
+              contentFit="cover"
+            />
+            <View style={styles.musicInfo}>
+              <Text style={styles.musicTitle} numberOfLines={1}>
+                {currentTrack.title}
+              </Text>
+              <Text style={styles.musicArtist} numberOfLines={1}>
+                {currentTrack.artist}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.musicControls}>
+            <TouchableOpacity
+              style={styles.musicMiniBtn}
+              onPress={() => togglePlay()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={16}
+                color="#FFFFFF"
+                style={{ marginLeft: isPlaying ? 0 : 1 }}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.musicMiniBtn}
+              onPress={() => nextTrack()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="play-skip-forward" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── 6. Central Strava Floating HUD (Raised with Clean Breathing Margin) ── */}
+      <View style={[styles.stravaHudCard, { bottom: hudBottomOffset }]}>
+        <View style={styles.hudTopRow}>
+          <Text style={styles.hudActivityTitle}>
+            {activityType === 'trail' ? 'Trail Run 🏔️' : (activityType === 'run' ? 'Run' : 'Walk')}
+            {trackingStatus === 'auto-paused' ? ' • Auto-Paused' : ''}
+          </Text>
+          {activityType === 'trail' && (
+            <View style={styles.trailSlopeBadge}>
+              <Ionicons name="trending-up" size={13} color={STRAVA_EMERALD} />
+              <Text style={styles.trailSlopeText}>
+                {sensor.data.gradePercent >= 0 ? `+${sensor.data.gradePercent.toFixed(1)}%` : `${sensor.data.gradePercent.toFixed(1)}%`}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="expand-outline" size={16} color="#8E929B" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.hudStatsRow}>
+          {/* Column 1: Time */}
+          <View style={styles.hudCol}>
+            <Text style={styles.hudColVal}>{formatTime(movingTime)}</Text>
+            <Text style={styles.hudColLbl}>{trackingStatus === 'auto-paused' ? 'Paused' : 'Moving Time'}</Text>
+          </View>
+
+          {/* Column 2: Center Hero Pace */}
+          <View style={styles.hudColCenter}>
+            <Text style={styles.hudColCenterVal}>{pace}</Text>
+            <Text style={styles.hudColLbl}>Pace (/km)</Text>
+          </View>
+
+          {/* Column 3: Distance */}
+          <View style={styles.hudCol}>
+            <Text style={styles.hudColVal}>{distance.toFixed(2)}</Text>
+            <Text style={styles.hudColLbl}>Distance (km)</Text>
+          </View>
+        </View>
+
+        {/* Trail Mode: Elevation Gain & % Slope Sub-Row */}
+        {activityType === 'trail' && (
+          <View style={styles.trailStatsSubRow}>
+            <View style={styles.trailSubItem}>
+              <Text style={styles.trailSubLbl}>+D GAIN</Text>
+              <Text style={[styles.trailSubVal, { color: STRAVA_EMERALD }]}>
+                +{Math.round(sensor.data.elevationGain)}m
+              </Text>
+            </View>
+            <View style={styles.trailSubDivider} />
+            <View style={styles.trailSubItem}>
+              <Text style={styles.trailSubLbl}>SLOPE %</Text>
+              <Text style={[styles.trailSubVal, { color: sensor.data.gradePercent >= 0 ? '#FFFFFF' : '#FF6B6B' }]}>
+                {sensor.data.gradePercent >= 0 ? `+${sensor.data.gradePercent.toFixed(1)}%` : `${sensor.data.gradePercent.toFixed(1)}%`}
+              </Text>
+            </View>
+            <View style={styles.trailSubDivider} />
+            <View style={styles.trailSubItem}>
+              <Text style={styles.trailSubLbl}>ELEVATION</Text>
+              <Text style={styles.trailSubVal}>
+                {Math.round(sensor.data.altitude)}m
+              </Text>
+            </View>
           </View>
         )}
       </View>
 
-      {/* ─── Layers FAB (فوق Recenter) ─── */}
-      <TouchableOpacity
-        style={s.layersFab}
-        onPress={() => setShowMapSettings(true)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="layers-outline" size={22} color="#fff" />
-      </TouchableOpacity>
+      {/* ── 7. Bottom Control Dock (Iconic Strava Button) ── */}
+      <View style={[styles.bottomDock, { paddingBottom: safeBottom + 6 }]}>
+        <View style={styles.dockGrabHandle} />
 
-      {/* ─── Recenter FAB ───
-           يظهر عند سحب الخريطة — يختفي فور العودة للمركز ─── */}
-      {isRecenterVisible && (
-        <TouchableOpacity
-          style={s.recenterFab}
-          onPress={() => {
-            webRef.current?.injectJavaScript(`if(window.rac)window.rac();true;`);
-          }}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="locate" size={22} color="#fff" />
-        </TouchableOpacity>
+        {trackingStatus === 'idle' ? (
+          <View style={styles.dockIdleRow}>
+            {/* Activity Switcher (Run 🏃 -> Trail 🏔️ -> Walk 🚶) */}
+            <TouchableOpacity
+              style={styles.dockSideBtnWrap}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActivityType((prev) => (prev === 'run' ? 'trail' : (prev === 'trail' ? 'walk' : 'run')));
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.dockSideCircle, {
+                backgroundColor: activityType === 'trail' ? '#142A22' : (activityType === 'run' ? '#2E221C' : '#142230'),
+                borderColor: activityType === 'trail' ? 'rgba(0,208,132,0.35)' : (activityType === 'run' ? 'rgba(252,82,0,0.35)' : 'rgba(0,163,255,0.35)'),
+              }]}>
+                <Ionicons
+                  name={activityType === 'trail' ? 'trending-up' : (activityType === 'run' ? 'footsteps' : 'walk')}
+                  size={24}
+                  color={accent}
+                />
+                <View style={styles.checkedBadge}>
+                  <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                </View>
+              </View>
+              <Text style={styles.dockSideLbl}>
+                {activityType === 'trail' ? 'Trail' : (activityType === 'run' ? 'Run' : 'Walk')}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Giant Iconic Strava Start Button */}
+            <TouchableOpacity
+              style={styles.stravaPlayButton}
+              onPress={startTracking}
+              activeOpacity={0.9}
+            >
+              <Ionicons name="play" size={32} color="#FFFFFF" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+
+            {/* Add Route Button */}
+            <TouchableOpacity
+              style={styles.dockSideBtnWrap}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowMapSettings(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.dockSideCircle}>
+                <Ionicons name="git-branch-outline" size={22} color="#FFFFFF" />
+              </View>
+              <Text style={styles.dockSideLbl}>Add Route</Text>
+            </TouchableOpacity>
+          </View>
+        ) : trackingStatus === 'recording' ? (
+          <View style={styles.dockActiveRow}>
+            <TouchableOpacity
+              style={styles.stravaActivePauseBtn}
+              onPress={togglePause}
+              activeOpacity={0.88}
+            >
+              <Ionicons name="pause" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.dockPausedRow}>
+            <TouchableOpacity
+              style={styles.resumeCircleBtn}
+              onPress={togglePause}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="play" size={28} color="#FFFFFF" style={{ marginLeft: 3 }} />
+              <Text style={styles.resumeBtnText}>RESUME</Text>
+            </TouchableOpacity>
+
+            <GestureDetector gesture={holdToFinishGesture}>
+              <View style={styles.holdFinishContainer}>
+                <Svg width={74} height={74} style={styles.holdSvg}>
+                  <Circle
+                    cx={37}
+                    cy={37}
+                    r={CIRCLE_RADIUS}
+                    stroke="rgba(255,255,255,0.15)"
+                    strokeWidth={4}
+                    fill="transparent"
+                  />
+                  <AnimatedCircle
+                    cx={37}
+                    cy={37}
+                    r={CIRCLE_RADIUS}
+                    stroke={STRAVA_ORANGE}
+                    strokeWidth={4.5}
+                    fill="transparent"
+                    strokeDasharray={CIRCLE_CIRCUMFERENCE}
+                    animatedProps={animatedCircleProps}
+                    strokeLinecap="round"
+                    transform="rotate(-90 37 37)"
+                  />
+                </Svg>
+
+                <View style={styles.holdCoreBtn}>
+                  <Ionicons name="stop" size={22} color="#FFFFFF" />
+                </View>
+                <Text style={styles.holdTooltip}>HOLD TO FINISH</Text>
+              </View>
+            </GestureDetector>
+          </View>
+        )}
+      </View>
+
+      {/* ── 8. GPS Permission Alert Modal ── */}
+      {gpsErrorMsg && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.errorBackdrop}>
+            <View style={styles.errorCard}>
+              <Ionicons name="location-outline" size={38} color={STRAVA_ORANGE} />
+              <Text style={styles.errorTitle}>خدمات الموقع (GPS) مطلوبة</Text>
+              <Text style={styles.errorDesc}>{gpsErrorMsg}</Text>
+              <View style={styles.errorActions}>
+                <TouchableOpacity
+                  style={[styles.errorBtn, { backgroundColor: STRAVA_ORANGE }]}
+                  onPress={() => Linking.openSettings()}
+                >
+                  <Text style={styles.errorBtnText}>فتح إعدادات الهاتف</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.errorBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                  onPress={() => verifyGPSProtocol()}
+                >
+                  <Text style={[styles.errorBtnText, { color: '#FFFFFF' }]}>إعادة الفحص</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
 
-      {/* ─── Top Header Badge ─── */}
-      <SafeAreaView style={s.headerSafe} pointerEvents="box-none">
-        <View style={s.headerContent} pointerEvents="box-none">
-          <TouchableOpacity 
-            style={s.backBtn} 
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color="#FFF" />
-          </TouchableOpacity>
-
-          <BlurView intensity={65} tint="dark" style={s.headerPill}>
-            {trackingStatus === 'recording' && (
-              <Animated.View style={[s.recDot, { backgroundColor: accent }, dotStyle]} />
-            )}
-            {trackingStatus === 'auto-paused' && (
-              <View style={[s.recDot, { backgroundColor: '#888' }]} />
-            )}
-            <Text style={[s.headerText, {
-              color: trackingStatus === 'recording'   ? accent
-                : trackingStatus === 'auto-paused' ? '#888'
-                : trackingStatus === 'paused'      ? '#FFAA00'
-                : '#999',
-            }]}>
-              {trackingStatus === 'idle'        ? 'NOUBLE TRACK'
-                : trackingStatus === 'recording'  ? 'RECORDING'
-                : trackingStatus === 'auto-paused'? 'AUTO-PAUSED'
-                : 'PAUSED'}
-            </Text>
-          </BlurView>
-
-          <View style={{ width: 44 }} /> 
-        </View>
-      </SafeAreaView>
-
-      {/* ─── Pull-back Tab (shows on left when card is hidden) ─── */}
-      <Animated.View style={[s.pullTabWrap, pullTabStyle]} pointerEvents="box-none">
-        <TouchableOpacity
-          style={s.pullTabBtn}
-          onPress={() => { translateX.value = withSpring(0, { damping: 20, stiffness: 210 }); }}
-          activeOpacity={0.82}
-        >
-          <View style={s.pullGrip}>
-            {[0, 1, 2, 3].map(i => <View key={i} style={s.pullGripLine} />)}
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" style={{ marginTop: 5 }} />
-        </TouchableOpacity>
-      </Animated.View>
-
-      {/* ═══════════════════════════════════════════════════════
-          ─── Sliding Info Card ───
-          Swipe LEFT to hide → full map view
-          ═══════════════════════════════════════════════════════ */}
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={[s.cardOuter, cardStyle]}>
-          <BlurView intensity={58} tint="dark" style={s.card}>
-
-            {/* Drag Handle — right edge grip strip */}
-            <View style={s.dragHandle} pointerEvents="none">
-              {[0, 1, 2, 3, 4].map(i => <View key={i} style={s.dragLine} />)}
-            </View>
-
-            {/* ── Activity Toggle (only when idle) ── */}
-            {trackingStatus === 'idle' && (
-              <View style={s.toggle}>
-                <Animated.View style={[s.toggleSlider, toggleSliderStyle]} />
-                <TouchableOpacity style={s.toggleBtn} onPress={() => setActivityType('run')} activeOpacity={0.85}>
-                  <Ionicons name="body" size={13} color={activityType === 'run' ? ACCENT_RUN : '#3a3a3a'} />
-                  <Text style={[s.toggleText, { color: activityType === 'run' ? ACCENT_RUN : '#3a3a3a' }]}>RUN</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.toggleBtn} onPress={() => setActivityType('walk')} activeOpacity={0.85}>
-                  <Ionicons name="walk" size={13} color={activityType === 'walk' ? ACCENT_WALK : '#3a3a3a'} />
-                  <Text style={[s.toggleText, { color: activityType === 'walk' ? ACCENT_WALK : '#3a3a3a' }]}>WALK</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* ── Paused Banner ── */}
-            {(trackingStatus === 'paused' || trackingStatus === 'auto-paused') && (
-              <View style={s.pausedRow}>
-                {trackingStatus === 'auto-paused' ? (
-                  <Text style={[s.pausedText, { color: '#888', borderColor: 'rgba(136,136,136,0.22)', backgroundColor: 'rgba(136,136,136,0.08)' }]}>
-                    ⏸  AUTO-PAUSED
-                  </Text>
-                ) : (
-                  <Text style={s.pausedText}>⏸  PAUSED</Text>
-                )}
-              </View>
-            )}
-
-            {/* ── Timer ── */}
-            <Text style={s.timer}>{formatTime(timer)}</Text>
-            <Text style={s.timerLbl}>TIME ELAPSED</Text>
-
-            {/* ── Stats Row ── */}
-            <View style={s.statsRow}>
-              {/* KM — المسافة الإجمالية (من Haversine) */}
-              <View style={s.stat}>
-                <Text style={[s.statVal, { color: accent }]}>{distance.toFixed(2)}</Text>
-                <Text style={s.statLbl}>KM</Text>
-              </View>
-              <View style={s.sep} />
-              {/* PACE (run) أو STEPS (walk) — من Pedometer */}
-              <View style={s.stat}>
-                <Text style={s.statVal}>
-                  {activityType === 'run' ? pace : (steps > 0 ? steps.toLocaleString() : '--')}
-                </Text>
-                <Text style={s.statLbl}>{activityType === 'run' ? 'PACE' : 'STEPS'}</Text>
-              </View>
-              <View style={s.sep} />
-              {/* KM/H — من GPS عبر useSensorFusion */}
-              <View style={s.stat}>
-                <Text style={s.statVal}>{speed > 0 ? speed.toFixed(1) : '--'}</Text>
-                <Text style={s.statLbl}>KM/H</Text>
-              </View>
-            </View>
-
-            {/* ── Barometer Row (ارتفاع + ضغط) ── */}
-            {sensor.hasBarometer && trackingStatus !== 'idle' && (
-              <View style={s.baroRow}>
-                <View style={s.baroStat}>
-                  <Ionicons name="trending-up" size={10} color={altitudeDelta >= 0 ? '#00FF88' : '#FF4B2B'} />
-                  <Text style={s.baroVal}>
-                    {altitudeDelta >= 0 ? '+' : ''}{altitudeDelta.toFixed(0)}م
-                  </Text>
-                  <Text style={s.baroLbl}>DÉNIVELÉ</Text>
-                </View>
-                <View style={s.baroStat}>
-                  <Ionicons name="location" size={10} color={gpsColor} />
-                  <Text style={[s.baroVal, { color: gpsColor }]}>{gpsStrength.toUpperCase()}</Text>
-                  <Text style={s.baroLbl}>GPS</Text>
-                </View>
-                <View style={s.baroStat}>
-                  <Ionicons name="arrow-up" size={10} color="#888" />
-                  <Text style={s.baroVal}>{altitude > 0 ? `${altitude.toFixed(0)}م` : '--'}</Text>
-                  <Text style={s.baroLbl}>ALT</Text>
-                </View>
-              </View>
-            )}
-
-            {/* ── Action Buttons ── */}
-            {trackingStatus === 'idle' ? (
-              <TouchableOpacity
-                style={[s.startBtn, { backgroundColor: accent }]}
-                onPress={startTracking}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="play-sharp" size={18} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={s.startText}>START {activityType.toUpperCase()}</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={s.dual}>
-                <TouchableOpacity
-                  style={[s.halfBtn,
-                    (trackingStatus === 'paused' || trackingStatus === 'auto-paused')
-                      ? s.resumeBtn : s.pauseBtn
-                  ]}
-                  onPress={togglePause}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons
-                    name={(trackingStatus === 'paused' || trackingStatus === 'auto-paused')
-                      ? 'play-sharp' : 'pause-sharp'}
-                    size={17}
-                    color={(trackingStatus === 'paused' || trackingStatus === 'auto-paused')
-                      ? '#fff' : '#111'}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={[s.halfText,
-                    trackingStatus === 'recording' && { color: '#111' }
-                  ]}>
-                    {(trackingStatus === 'paused' || trackingStatus === 'auto-paused')
-                      ? 'RESUME' : 'PAUSE'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.halfBtn, s.finishBtn]} onPress={handleFinish} activeOpacity={0.85}>
-                  <Ionicons name="stop-sharp" size={17} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={s.halfText}>FINISH</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-          </BlurView>
-        </Animated.View>
-      </GestureDetector>
-
-      {/* Share Modal */}
+      {/* ── 9. Save Activity & Settings Modals ── */}
       <ShareModal
         visible={showShare}
         onClose={() => setShowShare(false)}
         onShare={saveActivity}
         isSaving={isSaving}
-        data={{ type: activityType, time: timer, distance, steps: sensor.data.totalSessionSteps, pace }}
+        data={{
+          type: activityType,
+          time: timer,
+          distance,
+          steps: sensor.data.totalSessionSteps,
+          pace,
+        }}
       />
 
-      {/* Map Settings Modal */}
       <MapSettingsModal
         visible={showMapSettings}
-        settings={mapSettings}
+        settings={{
+          mapType: mapType === 'satellite' ? 'satellite' : 'standard',
+          activeHeatmap: null,
+          showWaymarks: false,
+          showTerrain: false,
+        }}
         onClose={() => setShowMapSettings(false)}
-        onChange={(s) => setMapSettings(s)}
+        onChange={(s) => setMapType(s.mapType === 'satellite' ? 'satellite' : 'standard')}
       />
     </GestureHandlerRootView>
   );
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Styles
+// StyleSheet (Strava Design System 1:1)
 // ─────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  // Header
-  headerSafe: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 150,
-    paddingTop: Platform.OS === 'ios' ? 58 : 40,
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: STRAVA_MAP_BASE,
   },
-  headerContent: {
+  mapContainer: {
+    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    backgroundColor: STRAVA_MAP_BASE,
+  },
+
+  // ── Top Header Bar ──
+  topSafeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  backBtn: {
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  topRegionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginLeft: 10,
+    maxWidth: SCREEN_WIDTH * 0.45,
+    letterSpacing: -0.2,
+  },
+  circleIconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#1E242B',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  liveIndicatorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#1E242B',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  // ── Right Action Stack (Layers, 3D, Recenter Crosshair) ──
+  rightActionStack: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 120,
+    gap: 12,
+  },
+  actionCircleBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#1E242B',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 7,
+      },
+    }),
+  },
+  action3DText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  // ── Auto-Lap Toast Alert ──
+  lapToast: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: STRAVA_CARD_BG,
+    borderWidth: 1,
+    borderColor: 'rgba(252, 82, 0, 0.4)',
+    zIndex: 250,
+    ...Platform.select({
+      ios: {
+        shadowColor: STRAVA_ORANGE,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  lapToastTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  lapToastSub: {
+    color: '#A0A6B2',
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+
+  // ── In-Run Compact Music Bar ──
+  musicBarContainer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: STRAVA_CARD_BG,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    zIndex: 110,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  musicThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#252930',
+  },
+  musicInfo: {
+    flex: 1,
+    marginLeft: 10,
+    justifyContent: 'center',
+  },
+  musicTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  musicArtist: {
+    color: '#8E929B',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  musicControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  musicMiniBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#252930',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ── Central Strava Floating HUD ──
+  stravaHudCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: STRAVA_CARD_BG,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 14,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    zIndex: 110,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.45,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  hudTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  hudActivityTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  hudStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingBottom: 4,
+  },
+  hudCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  hudColCenter: {
+    flex: 1.2,
+    alignItems: 'center',
+  },
+  hudColVal: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    lineHeight: 28,
+  },
+  hudColCenterVal: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
+    lineHeight: 36,
+  },
+  hudColLbl: {
+    color: '#8E929B',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  trailSlopeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 208, 132, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 208, 132, 0.3)',
+  },
+  trailSlopeText: {
+    color: STRAVA_EMERALD,
+    fontSize: 11,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  trailStatsSubRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 8,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  trailSubItem: {
+    alignItems: 'center',
+  },
+  trailSubLbl: {
+    color: '#8E929B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  trailSubVal: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  trailSubDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+
+  // ── Bottom Control Dock ──
+  bottomDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: STRAVA_CARD_BG,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 10,
+    paddingHorizontal: 24,
+    zIndex: 130,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.45,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
+  },
+  dockGrabHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+
+  // Idle Row
+  dockIdleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+  },
+  dockSideBtnWrap: {
+    alignItems: 'center',
+    width: 68,
+  },
+  dockSideCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#252930',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  checkedBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: STRAVA_ORANGE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: STRAVA_CARD_BG,
+  },
+  dockSideLbl: {
+    color: '#8E929B',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  stravaPlayButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: STRAVA_ORANGE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: STRAVA_ORANGE,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.55,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+
+  // Active In-Run Pause Bar
+  dockActiveRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 8,
+  },
+  stravaActivePauseBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: STRAVA_ORANGE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: STRAVA_ORANGE,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+
+  // Paused Dual Row
+  dockPausedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingBottom: 8,
+  },
+  resumeCircleBtn: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: STRAVA_ORANGE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: STRAVA_ORANGE,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.45,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  resumeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+  holdFinishContainer: {
+    width: 74,
+    height: 74,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  holdSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  holdCoreBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#252930',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  holdTooltip: {
+    position: 'absolute',
+    bottom: -18,
+    color: '#8E929B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  // ── GPS Error Modal ──
+  errorBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: STRAVA_CARD_BG,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  headerPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 18, paddingVertical: 9,
-    borderRadius: 28, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
+  errorTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  headerText: { fontSize: 11, fontWeight: '900', letterSpacing: 2.5 },
-  recDot:     { width: 8, height: 8, borderRadius: 4 },
-
-  // Pull Tab — floats at left edge when card is hidden
-  pullTabWrap: {
-    position: 'absolute', left: 0, bottom: CARD_BOTTOM + 50, zIndex: 200,
+  errorDesc: {
+    color: '#A0A6B2',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
   },
-  pullTabBtn: {
-    width: 42, height: 92,
-    borderTopRightRadius: 22, borderBottomRightRadius: 22,
-    backgroundColor: 'rgba(16,16,16,0.96)',
-    borderWidth: 1, borderLeftWidth: 0,
-    borderColor: 'rgba(255,255,255,0.11)',
-    alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 14,
-    shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.4, shadowRadius: 10, elevation: 10,
+  errorActions: {
+    width: '100%',
+    gap: 10,
   },
-  pullGrip:     { gap: 3, alignItems: 'center', marginBottom: 2 },
-  pullGripLine: { width: 12, height: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)' },
-
-  // ── Card ────────────────────────────────────────────────
-  cardOuter: {
-    position: 'absolute',
-    bottom: CARD_BOTTOM,
-    left: 16, right: 16,
-    zIndex: 100,
-  },
-  card: {
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(8,8,8,0.72)',
-    overflow: 'hidden',
-    paddingTop: 18,
-    paddingBottom: 24,
-    paddingLeft: 20,
-    paddingRight: 42,  // room for drag handle strip
-  },
-
-  // Drag Handle — right edge visual grip
-  dragHandle: {
-    position: 'absolute', right: 9,
-    top: 0, bottom: 0, width: 28,
-    alignItems: 'center', justifyContent: 'center',
-    gap: 5,
-  },
-  dragLine: {
-    width: 14, height: 2.5, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-
-  // Activity Toggle
-  toggle: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 28, padding: 3,
-    marginBottom: 14, alignSelf: 'flex-start',
-    width: 224,
-  },
-  toggleSlider: {
-    position: 'absolute', left: 3, top: 3, bottom: 3,
-    width: 109, borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.11)',
-  },
-  toggleBtn: {
-    width: 109, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', paddingVertical: 8, gap: 5,
-  },
-  toggleText: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5 },
-
-  // Paused Banner
-  pausedRow:  { marginBottom: 8 },
-  pausedText: {
-    alignSelf: 'flex-start',
-    color: '#FFAA00', fontSize: 11, fontWeight: '900', letterSpacing: 2.5,
-    backgroundColor: 'rgba(255,165,0,0.1)',
-    paddingHorizontal: 12, paddingVertical: 5,
-    borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,165,0,0.22)',
-    overflow: 'hidden',
-  },
-
-  // Timer
-  timer:    { color: '#fff', fontSize: 58, fontWeight: '900', fontVariant: ['tabular-nums'], letterSpacing: -1.5 },
-  timerLbl: { color: '#383838', fontSize: 9, fontWeight: '800', letterSpacing: 2.2, marginTop: -2, marginBottom: 14 },
-
-  // Stats
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  stat:     { flex: 1, alignItems: 'center' },
-  statVal:  { color: '#e8e8e8', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  statLbl:  { color: '#383838', fontSize: 9, fontWeight: '800', letterSpacing: 1.8, marginTop: 3 },
-  sep:      { width: 1, height: 34, backgroundColor: 'rgba(255,255,255,0.06)' },
-
-  // Barometer Mini Row
-  baroRow:  {
-    flexDirection: 'row', justifyContent: 'space-around',
-    paddingTop: 10, marginTop: 4,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 16,
-  },
-  baroStat: { alignItems: 'center', gap: 2 },
-  baroVal:  { color: '#aaa', fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  baroLbl:  { color: '#333', fontSize: 8, fontWeight: '800', letterSpacing: 1.5 },
-
-  // Buttons
-  startBtn:  {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    height: 56, borderRadius: 28,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  startText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 2.5 },
-  dual:      { flexDirection: 'row', gap: 10 },
-  halfBtn:   {
-    flex: 1, flexDirection: 'row', height: 52, borderRadius: 26,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
-  },
-  halfText:  { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 1.2 },
-  pauseBtn:  { backgroundColor: '#f0f0f0' },
-  resumeBtn: { backgroundColor: '#FF9500' },
-  finishBtn: { backgroundColor: '#FF2A2A' },
-
-  // ── Recenter FAB ──
-  recenterFab: {
-    position: 'absolute',
-    right: 16,
-    bottom: CARD_BOTTOM + 320,
-    width: 48, height: 48,
+  errorBtn: {
+    height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(18,18,18,0.92)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45, shadowRadius: 10, elevation: 10,
-    zIndex: 900,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  // ── Layers FAB (فوق Recenter بـ 60px) ──
-  layersFab: {
-    position: 'absolute',
-    right: 16,
-    bottom: CARD_BOTTOM + 380, // 60px فوق recenterFab
-    width: 48, height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(18,18,18,0.92)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45, shadowRadius: 10, elevation: 10,
-    zIndex: 900,
+  errorBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
-});
-
-// ─────────────────────────────────────────────────────────────────
-// Share Modal Styles
-// ─────────────────────────────────────────────────────────────────
-const ms = StyleSheet.create({
-  wrap:      { flex: 1, justifyContent: 'flex-end' },
-  sheet:     {
-    backgroundColor: '#0d0d0d',
-    borderTopLeftRadius: 36, borderTopRightRadius: 36,
-    padding: 24, paddingBottom: Platform.OS === 'ios' ? 38 : 24,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', borderBottomWidth: 0,
-  },
-  hdr:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title:     { color: '#fff', fontSize: 18, fontWeight: '900' },
-  closeBtn:  { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' },
-  statsCard: { borderWidth: 1, borderRadius: 20, padding: 16, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.025)' },
-  statsRow:  { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 },
-  statItem:  { alignItems: 'center' },
-  statV:     { fontSize: 24, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  statL:     { color: '#444', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginTop: 3 },
-  badge:     { alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 5, borderRadius: 18, borderWidth: 1 },
-  badgeT:    { fontSize: 12, fontWeight: '700' },
-  input:     {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14, padding: 14, color: '#fff', fontSize: 14,
-    minHeight: 72, textAlignVertical: 'top',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', marginBottom: 16,
-  },
-  actions:   { flexDirection: 'row', gap: 10 },
-  btn:       { flex: 1, flexDirection: 'row', height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', gap: 7 },
-  saveBtn:   { backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' },
-  btnT:      { color: '#fff', fontSize: 14, fontWeight: '900' },
 });
 
 export default RecordingScreen;

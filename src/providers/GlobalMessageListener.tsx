@@ -4,12 +4,17 @@ import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../config/api';
 import { useAuth } from './AuthProvider';
 import { ToastManager } from '../components/InAppToast';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { apiClient } from '../config/api';
+import {
+  safeSetNotificationHandler,
+  safeGetPermissionsAsync,
+  safeRequestPermissionsAsync,
+  safeGetExpoPushTokenAsync,
+} from '../services/notificationService';
 
-// Foreground notification configuration
-Notifications.setNotificationHandler({
+// Foreground notification configuration (Safe guarded for Expo Go on Android)
+safeSetNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
@@ -42,18 +47,20 @@ export const GlobalMessageListener = ({ children }: { children: React.ReactNode 
     if (!Device.isDevice) return;
 
     try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } = await safeGetPermissionsAsync();
       let finalStatus = existingStatus;
       if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
+        const { status } = await safeRequestPermissionsAsync();
         finalStatus = status;
       }
 
       if (finalStatus !== 'granted') return;
 
-      const token = (await Notifications.getExpoPushTokenAsync({
+      const tokenData = await safeGetExpoPushTokenAsync({
         projectId: 'e4a2fac6-c96c-4930-825a-dc56ce8bcc75'
-      })).data;
+      });
+      const token = tokenData?.data;
+      if (!token) return;
       
       // Update only if changed or not present
       if (user?.push_token !== token) {
@@ -72,7 +79,9 @@ export const GlobalMessageListener = ({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!user?.id) return;
 
-    const socket = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket']
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {

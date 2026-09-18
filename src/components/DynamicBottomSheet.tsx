@@ -156,7 +156,7 @@ export const DynamicBottomSheet = React.forwardRef<DynamicBottomSheetRef, Dynami
       <View style={styles.overlay}>
         {/* Tap outside to close */}
         <TouchableOpacity
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           activeOpacity={1}
           onPress={() => { Keyboard.dismiss(); onClose(); }}
         />

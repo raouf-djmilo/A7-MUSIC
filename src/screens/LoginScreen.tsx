@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   blackBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
   },
   lightLeakTop: {

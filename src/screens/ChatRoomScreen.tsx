@@ -14,7 +14,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import io from 'socket.io-client';
@@ -86,6 +86,20 @@ const RepliedMessageContext = ({ msg, isMe }: { msg: Message; isMe: boolean }) =
   );
 };
 
+const ChatVideoBubble = ({ uri }: { uri: string }) => {
+  const player = useVideoPlayer(uri, p => {
+    p.loop = true;
+  });
+  return (
+    <VideoView
+      player={player}
+      style={{ width: '100%', height: '100%', borderRadius: 14 }}
+      contentFit="cover"
+      nativeControls
+    />
+  );
+};
+
 // ─── Media Bubble ─────────────────────────────────────────────────────────────
 const MediaContent = ({ msg, isMe }: { msg: Message; isMe: boolean }) => {
   const fullUrl = `${API_BASE_URL.replace('/api', '')}/api/uploads${msg.media_url}`;
@@ -96,12 +110,7 @@ const MediaContent = ({ msg, isMe }: { msg: Message; isMe: boolean }) => {
         <Image source={{ uri: fullUrl }} style={styles.mediaBubbleImage} contentFit="cover" />
       ) : msg.media_type === 'video' ? (
         <View style={styles.mediaBubbleImage}>
-          <Video
-            source={{ uri: fullUrl }}
-            style={{ width: '100%', height: '100%', borderRadius: 14 }}
-            resizeMode={ResizeMode.COVER}
-            useNativeControls
-          />
+          <ChatVideoBubble uri={fullUrl} />
         </View>
       ) : msg.media_type === 'file' ? (
         <View style={[styles.fileBox, isMe ? styles.fileBoxMe : styles.fileBoxThem]}>
@@ -264,7 +273,9 @@ export const ChatRoomScreen = () => {
     fetchMessages();
     if (!user?.id || !otherUserId) return;
     setActiveChatPartner(otherUserId);
-    socketRef.current = io(API_BASE_URL.replace('/api', ''));
+    socketRef.current = io(API_BASE_URL.replace('/api', ''), {
+      transports: ['websocket']
+    });
     socketRef.current.emit('join_chat', { userId1: user.id, userId2: otherUserId });
     markAsRead();
 

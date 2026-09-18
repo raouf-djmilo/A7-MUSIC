@@ -1,6 +1,7 @@
-// export const API_BASE_URL = 'https://api.a7flow.pro/api';
-export const API_BASE_URL = 'http://192.168.100.9:3005/api'; // Local Development IP (Wi-Fi)
-// export const API_BASE_URL = 'http://localhost:3005/api'; // Local Web only
+export const APP_VERSION = '1.0.0';
+export const API_BASE_URL = __DEV__ 
+  ? 'http://192.168.100.9:3005/api' // Local Development (Wi-Fi)
+  : 'https://api.a7flow.pro/api';    // Production (Global Tunnel)
 
 // Helper function to build full URLs for files/images
 export const getFileUrl = (path?: string) => {
@@ -17,6 +18,24 @@ export const getFileUrl = (path?: string) => {
 };
 
 // Generic fetch wrapper
+// Generic fetch wrapper with timeout
+const fetchWithTimeout = async (url: string, options: any, timeout = 10000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 export const apiClient = {
   get: async (endpoint: string, params: Record<string, any> = {}, headers = {}) => {
     try {
@@ -25,7 +44,7 @@ export const apiClient = {
         .join('&');
       const url = query ? `${API_BASE_URL}${endpoint}?${query}` : `${API_BASE_URL}${endpoint}`;
       
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -33,8 +52,9 @@ export const apiClient = {
         },
       });
       return await response.json();
-    } catch (error) {
-      console.error(`API GET Error [${endpoint}]:`, error);
+    } catch (error: any) {
+      const isTimeout = error.name === 'AbortError';
+      console.error(`API GET Error [${endpoint}]:`, isTimeout ? 'Request Timeout' : error.message);
       throw error;
     }
   },

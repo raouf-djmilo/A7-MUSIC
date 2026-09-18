@@ -1,32 +1,36 @@
 /**
  * MapSettingsModal.tsx
  * ─────────────────────────────────────────────────────────────────
- * نافذة "إعدادات الخريطة" بنمط Strava:
- *  - 4 أقسام: Map Type / Heatmaps / Layers / Terrain
- *  - كروت أفقية قابلة للتمرير
- *  - إطار برتقالي للخيار المحدد
- *  - أيقونة قفل للميزات المدفوعة
- *  - الخيار المُختار يُرسَل للخريطة عبر callback
+ * نافذة إعدادات الخريطة بنمط Strava الداكن الاحترافي:
+ *  - مدعومة بـ Modal أصيل مع خلفية معتمة (Backdrop) تحجب أزرار الشاشة بالكامل
+ *  - zIndex: 9999 لمنع أي تداخل بصري
+ *  - ستايل داكن فخم (#1C2026) متناسق مع معمارية Strava
  */
 
-import React, { useCallback, useRef, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Dimensions,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Platform,
+  Switch,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
-// ── Tipos ──────────────────────────────────────────────────────────
 export type MapType = 'standard' | 'satellite' | 'hybrid' | 'winter';
 export type HeatmapType = 'global_run' | null;
 
 export interface MapSettings {
-  mapType:      MapType;
-  activeHeatmap: HeatmapType;  // null = aucune heatmap active
+  mapType: MapType;
+  activeHeatmap: HeatmapType;
   showWaymarks: boolean;
-  showTerrain:  boolean;
+  showTerrain: boolean;
 }
 
 interface Props {
@@ -36,338 +40,365 @@ interface Props {
   onChange: (s: MapSettings) => void;
 }
 
-// ── Données des options ────────────────────────────────────────────
+const STRAVA_ORANGE = '#FC5200';
+
 const MAP_TYPES: {
   key: MapType;
   label: string;
   icon: string;
   iconLib: 'ion' | 'mci';
   bg: string;
-  locked?: boolean;
 }[] = [
   {
     key: 'standard',
     label: 'Standard',
     icon: 'map-outline',
     iconLib: 'ion',
-    bg: '#1E3A2A',   // vert foncé
+    bg: '#181E24',
   },
   {
     key: 'satellite',
     label: 'Satellite',
     icon: 'planet-outline',
     iconLib: 'ion',
-    bg: '#0D1B2A',   // bleu nuit
+    bg: '#0E1724',
   },
   {
     key: 'hybrid',
     label: 'Hybrid',
-    icon: 'globe-outline',
+    icon: 'layers-outline',
     iconLib: 'ion',
-    bg: '#1A1A3A',   // indigo
+    bg: '#16222F',
   },
   {
     key: 'winter',
     label: 'Winter',
     icon: 'snow-outline',
     iconLib: 'ion',
-    bg: '#1A2E3A',   // bleu glacier
+    bg: '#1A242B',
   },
 ];
 
-const HEATMAP_OPTS = [
-  { key: 'global_run', label: 'Global Run', icon: 'trail-sign-outline', iconLib: 'ion' as const, bg: '#2A1400', locked: false },
-  { key: 'rides',      label: 'Rides',      icon: 'bicycle',            iconLib: 'ion' as const, bg: '#1A1A3A', locked: true  },
-  { key: 'walks',      label: 'Walks',      icon: 'walk',               iconLib: 'ion' as const, bg: '#1A2D1A', locked: true  },
-];
-
-const LAYER_OPTS = [
-  { key: 'waymarks', label: 'Waymarks',    icon: 'location-outline',     iconLib: 'ion' as const, bg: '#2A2A2A', locked: false },
-  { key: 'photos',   label: 'Photos',      icon: 'image-outline',        iconLib: 'ion' as const, bg: '#2A1A2D', locked: true },
-  { key: 'segments', label: 'Segments',    icon: 'stats-chart-outline',  iconLib: 'ion' as const, bg: '#1A2A2D', locked: true },
-];
-
-// ── Option Card ────────────────────────────────────────────────────
-interface CardProps {
-  label:      string;
-  icon:       string;
-  iconLib:    'ion' | 'mci';
-  bg:         string;
-  selected:   boolean;
-  locked?:    boolean;
-  onPress:    () => void;
-}
-
-const MapOptionCard: React.FC<CardProps> = ({
-  label, icon, iconLib, bg, selected, locked, onPress,
-}) => (
+const OptionCard: React.FC<{
+  label: string;
+  icon: string;
+  iconLib?: 'ion' | 'mci';
+  bg: string;
+  selected: boolean;
+  onPress: () => void;
+}> = ({ label, icon, iconLib = 'ion', bg, selected, onPress }) => (
   <TouchableOpacity
-    onPress={locked ? undefined : onPress}
-    activeOpacity={locked ? 1 : 0.75}
-    style={[
-      cs.card,
-      selected && cs.cardSelected,
-      locked  && cs.cardLocked,
-    ]}
+    style={[styles.card, selected && styles.cardSelected]}
+    onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }}
+    activeOpacity={0.8}
   >
-    {/* Thumbnail */}
-    <View style={[cs.thumb, { backgroundColor: bg }]}>
+    <View style={[styles.thumb, { backgroundColor: bg }]}>
       {iconLib === 'ion' ? (
         <Ionicons
-          name={icon as keyof typeof Ionicons.glyphMap}
-          size={26}
-          color={selected ? '#FF5A00' : '#8A9BA8'}
+          name={icon as any}
+          size={24}
+          color={selected ? STRAVA_ORANGE : '#A0A6B2'}
         />
       ) : (
         <MaterialCommunityIcons
           name={icon as any}
-          size={26}
-          color={selected ? '#FF5A00' : '#8A9BA8'}
+          size={24}
+          color={selected ? STRAVA_ORANGE : '#A0A6B2'}
         />
       )}
     </View>
-
-    {/* Label */}
-    <Text style={[cs.cardLabel, selected && cs.cardLabelSelected]}>
+    <Text
+      style={[styles.cardLabel, selected && styles.cardLabelSelected]}
+      numberOfLines={1}
+    >
       {label}
     </Text>
-
-    {/* Checkmark */}
     {selected && (
-      <View style={cs.checkBadge}>
-        <Ionicons name="checkmark" size={10} color="#fff" />
-      </View>
-    )}
-
-    {/* Lock */}
-    {locked && (
-      <View style={cs.lockBadge}>
-        <Ionicons name="lock-closed" size={10} color="#fff" />
+      <View style={styles.checkBadge}>
+        <Ionicons name="checkmark" size={11} color="#fff" />
       </View>
     )}
   </TouchableOpacity>
 );
 
-// ── Main Component ─────────────────────────────────────────────────
-const MapSettingsModal: React.FC<Props> = ({
-  visible, settings, onClose, onChange,
+export const MapSettingsModal: React.FC<Props> = ({
+  visible,
+  settings,
+  onClose,
+  onChange,
 }) => {
-  const sheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['55%', '85%'], []);
-
-  // Ouvre / ferme le BottomSheet selon `visible`
-  React.useEffect(() => {
-    if (visible) sheetRef.current?.snapToIndex(0);
-    else         sheetRef.current?.close();
-  }, [visible]);
+  const insets = useSafeAreaInsets();
 
   const set = useCallback(
     (patch: Partial<MapSettings>) => onChange({ ...settings, ...patch }),
     [settings, onChange]
   );
 
-  if (!visible) return null;
-
   return (
-    <BottomSheet
-      ref={sheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      enablePanDownToClose
-      onClose={onClose}
-      backgroundStyle={cs.sheetBg}
-      handleIndicatorStyle={cs.handle}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
     >
-      <BottomSheetScrollView
-        contentContainerStyle={cs.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={cs.header}>
-          <Text style={cs.headerTitle}>Map Settings</Text>
-          <TouchableOpacity style={cs.closeBtn} onPress={onClose}>
-            <Ionicons name="close" size={18} color="#333" />
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Section: Map Type ── */}
-        <Text style={cs.sectionTitle}>MAP TYPE</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={cs.hScroll}
+      {/* ── 1. Full-Screen Dim Backdrop (Blocks All Underlying Clicks & Buttons) ── */}
+      <View style={styles.modalRoot} pointerEvents="auto">
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
         >
-          {MAP_TYPES.map(opt => (
-            <MapOptionCard
-              key={opt.key}
-              label={opt.label}
-              icon={opt.icon}
-              iconLib={opt.iconLib}
-              bg={opt.bg}
-              selected={settings.mapType === opt.key}
-              locked={opt.locked}
-              onPress={() => set({ mapType: opt.key })}
-            />
-          ))}
-        </ScrollView>
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+        </TouchableOpacity>
 
-        <View style={cs.divider} />
+        {/* ── 2. Bottom Sheet Content (Strava Dark Theme) ── */}
+        <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
+          {/* Sheet Handle */}
+          <View style={styles.handle} />
 
-        {/* ── Section: Heatmaps ── */}
-        <View style={cs.sectionRow}>
-          <Text style={cs.sectionTitle}>HEATMAPS</Text>
-          <View style={cs.proBadge}><Text style={cs.proText}>BETA</Text></View>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={cs.hScroll}
-        >
-          {HEATMAP_OPTS.map(opt => (
-            <MapOptionCard
-              key={opt.key}
-              label={opt.label}
-              icon={opt.icon}
-              iconLib={opt.iconLib}
-              bg={opt.bg}
-              selected={settings.activeHeatmap === opt.key}
-              locked={opt.locked}
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Map Settings</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
+              <Ionicons name="close" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Section 1: Map Type ── */}
+          <Text style={styles.sectionTitle}>MAP TYPE</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {MAP_TYPES.map((opt) => (
+              <OptionCard
+                key={opt.key}
+                label={opt.label}
+                icon={opt.icon}
+                iconLib={opt.iconLib}
+                bg={opt.bg}
+                selected={settings.mapType === opt.key}
+                onPress={() => set({ mapType: opt.key })}
+              />
+            ))}
+          </ScrollView>
+
+          <View style={styles.divider} />
+
+          {/* ── Section 2: Global Heatmap ── */}
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>HEATMAPS</Text>
+            <View style={styles.proBadge}>
+              <Text style={styles.proText}>STRAVA</Text>
+            </View>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            <OptionCard
+              label="Run Heatmap"
+              icon="flame-outline"
+              bg="#2E1B15"
+              selected={settings.activeHeatmap === 'global_run'}
               onPress={() =>
                 set({
                   activeHeatmap:
-                    settings.activeHeatmap === opt.key
-                      ? null
-                      : opt.key,
+                    settings.activeHeatmap === 'global_run' ? null : 'global_run',
                 })
               }
             />
-          ))}
-        </ScrollView>
+          </ScrollView>
 
-        <View style={cs.divider} />
+          <View style={styles.divider} />
 
-        {/* ── Section: Layers ── */}
-        <Text style={cs.sectionTitle}>LAYERS</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={cs.hScroll}
-        >
-          {LAYER_OPTS.map(opt => (
-            <MapOptionCard
-              key={opt.key}
-              label={opt.label}
-              icon={opt.icon}
-              iconLib={opt.iconLib}
-              bg={opt.bg}
-              selected={opt.key === 'waymarks' && settings.showWaymarks}
-              locked={opt.locked}
-              onPress={() => set({ showWaymarks: !settings.showWaymarks })}
+          {/* ── Section 3: 3D Terrain Switch ── */}
+          <View style={styles.terrainRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.terrainTitle}>3D Terrain & Contours</Text>
+              <Text style={styles.terrainDesc}>عرض الارتفاعات والتضاريس ثلاثية الأبعاد</Text>
+            </View>
+            <Switch
+              value={settings.showTerrain}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                set({ showTerrain: val });
+              }}
+              trackColor={{ false: '#2C323B', true: STRAVA_ORANGE }}
+              thumbColor="#FFFFFF"
             />
-          ))}
-        </ScrollView>
-
-        <View style={cs.divider} />
-
-        {/* ── Section: Terrain ── */}
-        <Text style={cs.sectionTitle}>TERRAIN</Text>
-        <View style={cs.terrainRow}>
-          <Text style={cs.terrainDesc}>
-            Show 3D-style elevation shading on the map.
-          </Text>
-          <TouchableOpacity
-            style={[cs.toggle, settings.showTerrain && cs.toggleOn]}
-            onPress={() => set({ showTerrain: !settings.showTerrain })}
-          >
-            <View style={[cs.toggleThumb, settings.showTerrain && cs.toggleThumbOn]} />
-          </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={{ height: 32 }} />
-      </BottomSheetScrollView>
-    </BottomSheet>
+      </View>
+    </Modal>
   );
 };
 
 export default MapSettingsModal;
 
-// ── Styles ─────────────────────────────────────────────────────────
-const cs = StyleSheet.create({
-  // Sheet
-  sheetBg:  { backgroundColor: '#F7F7F7', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  handle:   { backgroundColor: '#CCCCCC', width: 40 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 8 },
-
-  // Header
+const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    zIndex: 99999,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  sheetContainer: {
+    backgroundColor: '#18191E',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    zIndex: 100000,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 24,
+      },
+    }),
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: '#111', letterSpacing: 0.3 },
-  closeBtn:    {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-    alignItems: 'center', justifyContent: 'center',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
-
-  // Sections
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  sectionTitle: { fontSize: 11, fontWeight: '800', color: '#888', letterSpacing: 1.4, marginBottom: 10 },
-  divider:      { height: 1, backgroundColor: 'rgba(0,0,0,0.07)', marginVertical: 18 },
-
-  // PRO badge
-  proBadge:  {
-    marginLeft: 8, marginBottom: 10,
-    backgroundColor: '#FF5A00',
-    borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#252930',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  proText:   { fontSize: 9, fontWeight: '900', color: '#fff', letterSpacing: 1 },
-
-  // Horizontal scroll
-  hScroll: { paddingRight: 8, gap: 12, flexDirection: 'row' },
-
-  // Card
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8E929B',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 16,
+  },
+  proBadge: {
+    marginLeft: 8,
+    marginBottom: 10,
+    backgroundColor: STRAVA_ORANGE,
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  proText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: 0.8,
+  },
+  hScroll: {
+    gap: 12,
+    flexDirection: 'row',
+    paddingBottom: 4,
+  },
   card: {
-    width: 82, alignItems: 'center',
-    borderRadius: 14, padding: 6,
-    borderWidth: 2, borderColor: 'transparent',
+    width: 84,
+    alignItems: 'center',
+    borderRadius: 14,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
   },
-  cardSelected: { borderColor: '#FF5A00' },
-  cardLocked:   { opacity: 0.55 },
-
+  cardSelected: {
+    borderColor: STRAVA_ORANGE,
+    backgroundColor: 'rgba(252, 82, 0, 0.08)',
+  },
   thumb: {
-    width: 70, height: 70, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
+    width: 72,
+    height: 64,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  cardLabel:         { fontSize: 11, fontWeight: '700', color: '#555', textAlign: 'center' },
-  cardLabelSelected: { color: '#FF5A00' },
-
-  // Badges
+  cardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8E929B',
+    textAlign: 'center',
+  },
+  cardLabelSelected: {
+    color: '#FFFFFF',
+  },
   checkBadge: {
-    position: 'absolute', top: 4, right: 4,
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#FF5A00',
-    alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: STRAVA_ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#18191E',
   },
-  lockBadge: {
-    position: 'absolute', top: 4, right: 4,
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  // Terrain toggle
   terrainRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
-  terrainDesc: { flex: 1, fontSize: 13, color: '#555', marginRight: 16 },
-  toggle: {
-    width: 50, height: 28, borderRadius: 14,
-    backgroundColor: '#CCC', justifyContent: 'center', paddingHorizontal: 3,
+  terrainTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
   },
-  toggleOn:      { backgroundColor: '#FF5A00' },
-  toggleThumb:   { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
-  toggleThumbOn: { alignSelf: 'flex-end' },
+  terrainDesc: {
+    color: '#8E929B',
+    fontSize: 12,
+  },
 });

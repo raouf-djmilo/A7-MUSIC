@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../providers/AuthProvider';
 import { colors } from '../theme/colors';
-import { apiClient } from '../config/api';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -108,12 +108,17 @@ export const SignUpScreen = ({ navigation }: any) => {
 
       setCheckingUsername(true);
       try {
-        const res = await apiClient.post('/auth/check-username', { username: uname });
-        if (res?.available !== undefined) {
-          setIsUsernameTaken(!res.available);
-          setUsernameSuggestions(res?.suggestions || []);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('username', uname)
+          .maybeSingle();
+
+        const isTaken = !!data;
+        setIsUsernameTaken(isTaken);
+        if (isTaken) {
+          setUsernameSuggestions([`${uname}_dz`, `${uname}1`, `${uname}_official`]);
         } else {
-          setIsUsernameTaken(res?.exists);
           setUsernameSuggestions([]);
         }
       } catch (e) {

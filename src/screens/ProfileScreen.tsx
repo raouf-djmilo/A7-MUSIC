@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity,
   Modal, ActivityIndicator, Alert, ScrollView, TextInput, Linking,
-  KeyboardAvoidingView, Platform
+  Platform, RefreshControl
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -10,164 +10,119 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 import { colors } from '../theme/colors';
-import { apiClient, getFileUrl } from '../config/api';
 import { useNavigation } from '@react-navigation/native';
-import { PostCard } from '../components/PostCard';
-import { ActivityPostCard } from '../components/ActivityPostCard';
-import { GridVideoThumbnail } from '../components/GridVideoThumbnail';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import { FollowListModal } from '../components/FollowListModal';
 import { DynamicBottomSheet, DynamicBottomSheetRef } from '../components/DynamicBottomSheet';
-import { ProfileQRCodeModal } from '../components/ProfileQRCodeModal';
+import { useAudioStore } from '../store/useAudioStore';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { ThemeTokens } from '../theme/types';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const COLUMN_WIDTH = width / 3;
+const formatTime = (s: number): string => {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h > 0
+    ? `${h}:${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`
+    : `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
+};
+
+const formatDate = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleDateString('ar-DZ', {
+    weekday: 'short', day: 'numeric', month: 'short'
+  });
+};
 
 export const ProfileScreen = () => {
   const { user, logout, updateUser } = useAuth();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  
+  const { playTrack, currentTrack, isPlaying } = useAudioStore();
+  const { theme, isDark, toggleTheme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+
   const [profile, setProfile] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'posts' | 'activities'>('posts');
+  const [musicLikes, setMusicLikes] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'activities' | 'music'>('activities');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [showQRView, setShowQRView] = useState(false);
 
   // Edit States
   const [editFullName, setEditFullName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editBio, setEditBio] = useState('');
-  const [link1Title, setLink1Title] = useState('');
-  const [link1Url, setLink1Url] = useState('');
-  const [link2Title, setLink2Title] = useState('');
-  const [link2Url, setLink2Url] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Stats States
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
-  const [likesCount, setLikesCount] = useState(0);
-  const [showFollowList, setShowFollowList] = useState(false);
-  const [followListType, setFollowListType] = useState<'followers' | 'following'>('followers');
   const editSheetRef = useRef<DynamicBottomSheetRef>(null);
 
-  useEffect(() => {
-    if (user) {
-      setProfile(user);
-      setEditFullName(user.full_name || '');
-      setEditUsername(user.username || '');
-      setEditBio(user.bio || '');
-      setLink1Title(user.link_1_title || '');
-      setLink1Url(user.link_1_url || '');
-      setLink2Title(user.link_2_title || '');
-      setLink2Url(user.link_2_url || '');
-      
-      // Temporary bypass for Supabase migrations
-      // loadUserPosts();
-      // loadUserActivities();
-      // fetchStats();
-      // setupRealtime();
-      
-      fetchProfileData();
-
-      setLoading(false);
-    }
-  }, [user]);
-
-  const fetchProfileData = async () => {
-    if (!user) return;
+  const fetchProfileData = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const data = await apiClient.get(`/users/${user.id}/profile-data`);
-      console.log('API FETCH PROFILE DATA:', JSON.stringify(data.user));
-      if (data && !data.error) {
-        setProfile(data.user);
-        setPosts(data.posts || []);
-        setFollowersCount(data.stats?.followers || 0);
-        setFollowingCount(data.stats?.following || 0);
-        
-        // Use fresh data to sync edit states if we are editing
-        if (data.user) {
-          setEditFullName(data.user.full_name || '');
-          setEditUsername(data.user.username || '');
-          setEditBio(data.user.bio || '');
-          setLink1Title(data.user.link_1_title || '');
-          setLink1Url(data.user.link_1_url || '');
-          setLink2Title(data.user.link_2_title || '');
-          setLink2Url(data.user.link_2_url || '');
-        }
+      // 1. Fetch Profile
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (prof) {
+        setProfile(prof);
+        setEditFullName(prof.full_name || '');
+        setEditUsername(prof.username || '');
+        setEditBio(prof.bio || '');
       }
+
+      // 2. Fetch Activities
+      const { data: acts } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (acts) setActivities(acts);
+
+      // 3. Fetch Liked Music
+      const { data: likes } = await supabase
+        .from('music_likes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (likes) setMusicLikes(likes);
+
     } catch (err) {
-      console.error('Error fetching profile data:', err);
+      console.warn('Error loading profile data:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProfileData();
   };
 
-  const fetchStats = async () => {
-    if (!user) return;
-    
-    // 1. Followers Count
-    const { count: fers } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id);
-    setFollowersCount(fers || 0);
-
-    // 2. Following Count
-    const { count: fing } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id);
-    setFollowingCount(fing || 0);
-
-    // 3. Likes Count (from notifications type='like')
-    const { count: lks } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('receiver_id', user.id).eq('type', 'like');
-    setLikesCount(lks || 0);
-  };
-
-  const setupRealtime = () => {
-    // Temporarily disabled due to custom backend migration
-    return () => {};
-    /*
-    const channelId = `stats-${user?.id}-${Date.now()}`;
-    const channel = supabase.channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, () => fetchStats())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `receiver_id=eq.${user?.id}` }, () => fetchStats())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-    */
-  };
-
-  const loadProfile = async () => {
-    // try {
-    //   // If we had a GET /users/:id endpoint, we'd use it here. 
-    //   // For now, Auth user data usually acts as profile.
-    // } catch (e) {}
-  };
-
-  const loadUserPosts = async () => {
-    if (!user) return;
-    try {
-      const data = await apiClient.get(`/users/${user.id}/profile-data`);
-      if (data && data.posts) setPosts(data.posts);
-    } catch (e) {}
-    setLoading(false);
-  };
-
-  const loadUserActivities = async () => {
-    const { data } = await supabase.from('activities').select('*').eq('user_id', user?.id).order('created_at', { ascending: false });
-    if (data) setActivities(data);
-  };
+  const totalDistance = activities.reduce((acc, a) => acc + (Number(a.total_distance) || 0), 0);
+  const totalDuration = activities.reduce((acc, a) => acc + (Number(a.total_time) || 0), 0);
 
   const handleLogout = async () => {
     Alert.alert('تسجيل الخروج', 'هل أنت متأكد أنك تريد تسجيل الخروج؟', [
       { text: 'إلغاء', style: 'cancel' },
       { 
         text: 'خروج', 
-        style: 'destructive',
+        style: 'destructive', 
         onPress: async () => {
           setShowMenu(false);
           await logout();
@@ -175,266 +130,375 @@ export const ProfileScreen = () => {
       }
     ]);
   };
+
+  const cleanUsername = (text: string) => {
+    const cleaned = text.replace(/\s+/g, '_').toLowerCase();
+    setEditUsername(cleaned);
+  };
+
   const handleSaveProfile = async () => {
-    if (!editFullName.trim() || !editUsername.trim()) return;
+    if (!user?.id || !editFullName.trim() || !editUsername.trim()) return;
     setSaving(true);
     setUsernameError('');
 
     try {
-      // 1. Send Update to API
-      const updates: any = { 
-        id: user?.id,
-        full_name: editFullName, 
-        username: editUsername,
-        bio: editBio,
-        link_1_title: link1Title,
-        link_1_url: link1Url,
-        link_2_title: link2Title,
-        link_2_url: link2Url
-      };
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editFullName.trim(),
+          username: editUsername.trim().toLowerCase(),
+          bio: editBio.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-      const updateRes = await apiClient.put('/users/update', updates);
-      
-      if (updateRes.error) {
-        throw new Error(updateRes.error);
-      }
+      if (updateError) throw updateError;
 
-      // Update global context so other screens (like Home) reflect changes instantly
       await updateUser({
-        full_name: editFullName,
-        username: editUsername,
-        bio: editBio
+        full_name: editFullName.trim(),
+        username: editUsername.trim().toLowerCase(),
+        bio: editBio.trim(),
       });
 
-      // Re-fetch to update ui
       await fetchProfileData();
       setShowEdit(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('خطأ', err.message);
+      Alert.alert('خطأ في التحديث', err.message || 'تعذر حفظ التغييرات');
     } finally {
       setSaving(false);
     }
   };
-  
+
   const handlePickAvatar = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      uploadAvatar(result.assets[0].uri);
-    }
-  };
-
-  const uploadAvatar = async (uri: string) => {
-    if (!user) return;
-    setUploadingAvatar(true);
     try {
-      // 1. Compress & Resize the cropped image
-      const manipResult = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 500, height: 500 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
 
-      // 2. Prepare upload payload
-      const formData = new FormData();
-      formData.append('user_id', user.id);
-      formData.append('upload_type', 'avatars');
-      const filename = manipResult.uri.split('/').pop() || 'avatar.jpg';
-      formData.append('media', {
-        uri: manipResult.uri,
-        name: filename,
-        type: 'image/jpeg',
-      } as any);
+      if (!result.canceled && result.assets[0]?.uri && user?.id) {
+        setUploadingAvatar(true);
+        const avatarUri = result.assets[0].uri;
+        
+        // Update user profile avatar_url
+        const { error } = await supabase
+          .from('profiles')
+          .update({ avatar_url: avatarUri, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
 
-      // 3. Send to Server (/upload endpoint expects 'media')
-      const uploadRes = await apiClient.post('/upload', formData);
-      
-      if (uploadRes.urls && uploadRes.urls.length > 0) {
-        const newAvatarUrl = uploadRes.urls[0];
-
-        // 4. Update MySQL Database using /users/update
-        await apiClient.put('/users/update', { id: user.id, avatar_url: newAvatarUrl });
-
-        // 5. Update global context instantly (fix Home story circle)
-        await updateUser({ avatar_url: newAvatarUrl });
-
-        // 6. Sync local UI 
-        setProfile((prev: any) => ({ ...prev, avatar_url: newAvatarUrl }));
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        throw new Error('لم يستجب الخادم برابط الصورة المرفوعة.');
+        if (!error) {
+          await updateUser({ avatar_url: avatarUri });
+          setProfile((prev: any) => ({ ...prev, avatar_url: avatarUri }));
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
     } catch (err: any) {
-      console.error('Avatar upload error:', err);
-      Alert.alert('خطأ', 'فشل في رفع وتحديث الصورة الشخصية.');
+      Alert.alert('خطأ', 'فشل في تحديث الصورة');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  const cleanUsername = (text: string) => {
-    // Rule: No spaces, only alphanumeric and . _ -
-    const cleaned = text.replace(/\s+/g, '_').toLowerCase();
-    setEditUsername(cleaned);
-  };
-
   const renderHeader = () => {
-    const displayUser = profile || user; // fallback to stale auth user if profile not yet loaded
+    const displayUser = profile || user;
 
     return (
-    <View style={styles.headerContent}>
-      <View style={styles.profileMain}>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{likesCount}</Text>
-            <Text style={styles.statLabel}>إعجاب</Text>
-          </View>
-          <TouchableOpacity style={styles.statBox} onPress={() => { setFollowListType('following'); setShowFollowList(true); }}>
-            <Text style={styles.statNum}>{followingCount}</Text>
-            <Text style={styles.statLabel}>يتابع</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.statBox} onPress={() => { setFollowListType('followers'); setShowFollowList(true); }}>
-            <Text style={styles.statNum}>{followersCount}</Text>
-            <Text style={styles.statLabel}>متابع</Text>
-          </TouchableOpacity>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{posts.length}</Text>
-            <Text style={styles.statLabel}>منشور</Text>
-          </View>
-        </View>
-        <View style={styles.avatarBorder}>
-          <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar}>
-            <Image 
-              source={{ uri: displayUser?.avatar_url ? getFileUrl(displayUser.avatar_url) : `https://i.pravatar.cc/150?u=${displayUser?.id || 'default'}` }} 
-              style={styles.avatar} 
-              contentFit="cover" 
-            />
-            {uploadingAvatar && (
-              <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
-                <ActivityIndicator color="#FFF" />
+      <View style={styles.headerContent}>
+        {/* User Info Header */}
+        <View style={styles.profileMain}>
+          <View style={styles.avatarBorder}>
+            <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar}>
+              <Image 
+                source={{ 
+                  uri: displayUser?.avatar_url || `https://i.pravatar.cc/150?u=${displayUser?.id || 'default'}` 
+                }} 
+                style={styles.avatar} 
+                contentFit="cover" 
+              />
+              {uploadingAvatar && (
+                <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
+                  <ActivityIndicator color="#FFF" />
+                </View>
+              )}
+              <View style={styles.avatarEditIcon}>
+                <Ionicons name="camera" size={14} color="#000" />
               </View>
-            )}
-            <View style={styles.avatarEditIcon}>
-              <Ionicons name="camera" size={16} color="#000" />
-            </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.profileInfoText}>
+            <Text style={styles.profileTitle}>{displayUser?.full_name || 'عدّاء Nouble'}</Text>
+            <Text style={styles.usernameHandle}>@{displayUser?.username || 'runner'}</Text>
+            {displayUser?.bio ? (
+              <Text style={styles.bioTxt}>{displayUser.bio}</Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── Sport + Music Athletic Stats Row ── */}
+        <View style={styles.statsCard}>
+          <View style={styles.statBox}>
+            <Text style={[styles.statNum, { color: '#FF4B2B' }]}>{totalDistance.toFixed(1)}</Text>
+            <Text style={styles.statLabel}>KM مسافة</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{activities.length}</Text>
+            <Text style={styles.statLabel}>تمارين 🏃</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={[styles.statNum, { color: colors.primary }]}>{musicLikes.length}</Text>
+            <Text style={styles.statLabel}>أغانٍ 🎵</Text>
+          </View>
+        </View>
+
+        {/* Edit Profile Button */}
+        <TouchableOpacity style={styles.editBtn} onPress={() => setShowEdit(true)}>
+          <Ionicons name="create-outline" size={18} color="#FFF" style={{ marginRight: 6 }} />
+          <Text style={styles.editBtnTxt}>تعديل الملف الشخصي</Text>
+        </TouchableOpacity>
+
+        {/* Tab Switcher: Activities vs Music */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity 
+            style={[styles.tabContent, activeTab === 'activities' && styles.tabActive]} 
+            onPress={() => setActiveTab('activities')}
+          >
+            <Ionicons 
+              name="fitness-outline" 
+              size={20} 
+              color={activeTab === 'activities' ? '#FF4B2B' : '#777'} 
+            />
+            <Text style={[styles.tabLabel, activeTab === 'activities' && { color: '#FF4B2B', fontWeight: 'bold' }]}>
+              سجل التمارين ({activities.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tabContent, activeTab === 'music' && styles.tabActive]} 
+            onPress={() => setActiveTab('music')}
+          >
+            <Ionicons 
+              name="musical-notes-outline" 
+              size={20} 
+              color={activeTab === 'music' ? colors.primary : '#777'} 
+            />
+            <Text style={[styles.tabLabel, activeTab === 'music' && { color: colors.primary, fontWeight: 'bold' }]}>
+              الموسيقى المفضلة ({musicLikes.length})
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
-      
-      <Text style={styles.profileTitle}>{displayUser?.full_name || 'مستخدم'}</Text>
-      
-      <Text style={styles.bioTxt}>{displayUser?.bio || 'لا توجد سيرة ذاتية بعد'}</Text>
+    );
+  };
 
-      <View style={styles.linksRow}>
-        {displayUser?.link_1_url && (
-          <TouchableOpacity style={styles.linkBadge} onPress={() => Linking.openURL(displayUser.link_1_url)}>
-            <Ionicons name="link-outline" size={14} color={colors.primary} />
-            <Text style={styles.linkBadgeTxt}>{displayUser.link_1_title || 'رابط 1'}</Text>
-          </TouchableOpacity>
-        )}
-        {displayUser?.link_2_url && (
-          <TouchableOpacity style={[styles.linkBadge, { marginLeft: 8 }]} onPress={() => Linking.openURL(displayUser.link_2_url)}>
-            <Ionicons name="link-outline" size={14} color={colors.primary} />
-            <Text style={styles.linkBadgeTxt}>{displayUser.link_2_title || 'رابط 2'}</Text>
-          </TouchableOpacity>
-        )}
+  const renderActivityItem = ({ item }: { item: any }) => {
+    const isRun = item.activity_type === 'run';
+    const accent = isRun ? '#FF4B2B' : '#007AFF';
+
+    return (
+      <View style={styles.activityItem}>
+        <View style={[styles.activityBadge, { backgroundColor: accent + '20', borderColor: accent + '50' }]}>
+          <Ionicons name={isRun ? 'fitness' : 'walk'} size={24} color={accent} />
+        </View>
+
+        <View style={styles.activityMain}>
+          <View style={styles.activityTopRow}>
+            <Text style={styles.activityTitle}>{isRun ? 'ركض 🏃' : 'مشي 🚶'}</Text>
+            <Text style={styles.activityDate}>{formatDate(item.created_at)}</Text>
+          </View>
+          {item.notes ? <Text style={styles.activityNotes}>{item.notes}</Text> : null}
+
+          <View style={styles.activityMetricsRow}>
+            <Text style={[styles.metricText, { color: accent, fontWeight: 'bold' }]}>
+              {Number(item.total_distance || 0).toFixed(2)} km
+            </Text>
+            <Text style={styles.metricDot}>•</Text>
+            <Text style={styles.metricText}>{formatTime(item.total_time || 0)}</Text>
+            <Text style={styles.metricDot}>•</Text>
+            <Text style={styles.metricText}>{item.average_pace || '--:--'}/km</Text>
+            {item.calories ? (
+              <>
+                <Text style={styles.metricDot}>•</Text>
+                <Text style={styles.metricText}>{item.calories} kcal</Text>
+              </>
+            ) : null}
+          </View>
+        </View>
       </View>
-      
-      <TouchableOpacity style={styles.editBtn} onPress={() => setShowEdit(true)}>
-        <Text style={styles.editBtnTxt}>تعديل الملف الشخصي</Text>
+    );
+  };
+
+  const renderMusicItem = ({ item }: { item: any }) => {
+    const isCurrent = currentTrack?.videoId === item.video_id;
+
+    return (
+      <TouchableOpacity 
+        style={[styles.musicItem, isCurrent && styles.musicItemActive]}
+        onPress={() => {
+          playTrack({
+            videoId: item.video_id,
+            title: item.title,
+            artist: item.artist || 'Unknown Artist',
+            thumbnail: item.thumbnail || '',
+            duration: item.duration,
+          });
+        }}
+      >
+        <Image 
+          source={{ uri: item.thumbnail || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200' }} 
+          style={styles.trackThumb} 
+        />
+        <View style={styles.trackInfo}>
+          <Text style={[styles.trackTitle, isCurrent && { color: colors.primary }]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.trackArtist} numberOfLines={1}>
+            {item.artist || 'فنان'}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.playBtn}
+          onPress={() => {
+            playTrack({
+              videoId: item.video_id,
+              title: item.title,
+              artist: item.artist || 'Unknown Artist',
+              thumbnail: item.thumbnail || '',
+              duration: item.duration,
+            });
+          }}
+        >
+          <Ionicons 
+            name={isCurrent && isPlaying ? "pause-circle" : "play-circle"} 
+            size={34} 
+            color={isCurrent ? colors.primary : "#FFF"} 
+          />
+        </TouchableOpacity>
       </TouchableOpacity>
-
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={[styles.tabContent, activeTab === 'posts' && styles.tabActive]} onPress={() => setActiveTab('posts')}>
-          <Ionicons name="grid" size={22} color={activeTab === 'posts' ? colors.primary : '#555'} />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabContent, activeTab === 'activities' && styles.tabActive]} onPress={() => setActiveTab('activities')}>
-          <Ionicons name="pulse" size={24} color={activeTab === 'activities' ? colors.primary : '#555'} />
-        </TouchableOpacity>
-      </View>
-    </View>
     );
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-      {/* Top Action Bar */}
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      {/* Top Header Bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.menuBtn} onPress={() => setShowMenu(true)}>
-          <Ionicons name="menu" size={28} color="#FFF" />
-        </TouchableOpacity><Text style={styles.topUsername}>@{profile?.username || user?.username || 'user'}</Text><TouchableOpacity style={styles.menuBtn} onPress={() => setShowQRView(true)}>
-          <Ionicons name="qr-code-outline" size={24} color="#FFF" />
+        <TouchableOpacity style={styles.iconBtn} onPress={() => setShowMenu(true)}>
+          <Ionicons name="settings-outline" size={24} color={theme.textPrimary} />
         </TouchableOpacity>
+        <Text style={styles.topTitle}>الملف الشخصي</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleTheme();
+            }}
+          >
+            <Ionicons
+              name={isDark ? 'sunny-outline' : 'moon-outline'}
+              size={22}
+              color={theme.textPrimary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Dashboard')}>
+            <Ionicons name="stats-chart" size={22} color="#FF4B2B" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {activeTab === 'posts' ? (
-        <FlatList
-          key="posts-grid"
-          data={posts}
-          numColumns={3}
-          ListHeaderComponent={renderHeader}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.postThumb} onPress={() => setSelectedPost(item)}>
-              {item.media_type === 'video' ? (
-                <GridVideoThumbnail uri={getFileUrl(item.media_urls[0])} />
-              ) : (
-                <Image source={{ uri: getFileUrl(item.media_urls[0]) }} style={styles.thumbImage} contentFit="cover" />
-              )}
-              {item.media_type === 'video' && <View style={styles.playIcon}><Ionicons name="play" size={14} color="#FFF" /></View>}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={!loading ? <View style={styles.empty}><Ionicons name="images-outline" size={50} color="#333" /><Text style={styles.emptyTxt}>لا توجد منشورات حتى الآن</Text></View> : null}
-        />
-      ) : (
-        <FlatList
-          key="activities-list"
-          data={activities}
-          ListHeaderComponent={renderHeader}
-          keyExtractor={item => item.id}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <ActivityPostCard activity={item} profile={profile} />
-          )}
-          ListEmptyComponent={!loading ? <View style={styles.empty}><Ionicons name="walk" size={50} color="#333" /><Text style={styles.emptyTxt}>لا توجد نشاطات مسجلة</Text></View> : null}
-        />
-      )}
+      {/* Main Tab Content */}
+      <FlatList
+        data={activeTab === 'activities' ? activities : musicLikes}
+        keyExtractor={item => item.id || item.video_id}
+        ListHeaderComponent={renderHeader}
+        renderItem={activeTab === 'activities' ? renderActivityItem : renderMusicItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textPrimary} />
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyWrap}>
+              <Ionicons 
+                name={activeTab === 'activities' ? "fitness-outline" : "musical-notes-outline"} 
+                size={54} 
+                color={theme.textMuted} 
+              />
+              <Text style={styles.emptyTitle}>
+                {activeTab === 'activities' ? 'لا توجد أنشطة مسجلة بعد' : 'لا توجد أغانٍ مفضلة بعد'}
+              </Text>
+              <Text style={styles.emptyDesc}>
+                {activeTab === 'activities' 
+                  ? 'ابدأ تسجيل ركضتك أو مشيتك الأولى من زر التسجيل!' 
+                  : 'أضف أغانيك المفضلة أثناء الاستماع في تبويب الموسيقى!'}
+              </Text>
+            </View>
+          ) : null
+        }
+      />
 
       {/* Settings Menu Modal */}
       <Modal visible={showMenu} animationType="slide" transparent onRequestClose={() => setShowMenu(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMenu(false)} />
-        <View style={[styles.menuSheet, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.menuSheet, { paddingBottom: insets.bottom + 25 }]}>
           <View style={styles.dragHandle} />
-          <Text style={styles.menuTitle}>الإعدادات والخصوصية</Text>
+          <Text style={styles.menuTitle}>الإعدادات والخيارات</Text>
           
+          {/* Quick Theme Switcher */}
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleTheme();
+            }}
+          >
+            <View style={[styles.menuIconWrap, { backgroundColor: theme.surfaceSubtle }]}>
+              <Ionicons name={isDark ? "sunny" : "moon"} size={22} color={theme.textPrimary} />
+            </View>
+            <Text style={styles.menuItemTxt}>
+              {isDark ? "التحويل للوضع الفاتح الدافئ" : "التحويل للوضع الداكن"}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity 
             style={styles.menuItem} 
             onPress={() => { setShowMenu(false); navigation.navigate('Settings'); }}
           >
-            <View style={styles.menuIconWrap}><Ionicons name="settings-outline" size={22} color="#FFF" /></View>
-            <Text style={styles.menuItemTxt}>الإعدادات</Text>
+            <View style={styles.menuIconWrap}>
+              <Ionicons name="settings-sharp" size={22} color={theme.textPrimary} />
+            </View>
+            <Text style={styles.menuItemTxt}>إعدادات التطبيق</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconWrap}><Ionicons name="shield-checkmark-outline" size={22} color="#FFF" /></View>
-            <Text style={styles.menuItemTxt}>الأمان</Text>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => { setShowMenu(false); navigation.navigate('Dashboard'); }}
+          >
+            <View style={[styles.menuIconWrap, { backgroundColor: 'rgba(255,75,43,0.2)' }]}>
+              <Ionicons name="stats-chart" size={22} color="#FF4B2B" />
+            </View>
+            <Text style={styles.menuItemTxt}>سجل الأنشطة الكامل</Text>
           </TouchableOpacity>
+
 
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-            <View style={[styles.menuIconWrap, { backgroundColor: '#300' }]}><Ionicons name="log-out-outline" size={22} color="#FF4D4D" /></View>
+            <View style={[styles.menuIconWrap, { backgroundColor: 'rgba(255,77,77,0.15)' }]}>
+              <Ionicons name="log-out-outline" size={22} color="#FF4D4D" />
+            </View>
             <Text style={[styles.menuItemTxt, { color: '#FF4D4D' }]}>تسجيل الخروج</Text>
           </TouchableOpacity>
         </View>
       </Modal>
 
+      {/* Edit Profile BottomSheet */}
       <DynamicBottomSheet 
         ref={editSheetRef}
         isVisible={showEdit} 
@@ -454,24 +518,21 @@ export const ProfileScreen = () => {
                 style={styles.editInput} 
                 value={editFullName} 
                 onChangeText={setEditFullName} 
-                onFocus={() => editSheetRef.current?.expand()}
                 placeholder="الاسم المعروض" 
-                placeholderTextColor="#444"
+                placeholderTextColor="#555"
               />
             </View>
 
             <View style={styles.editInputGroup}>
-              <Text style={styles.inputLabel}>Nouble Name (@)</Text>
+              <Text style={styles.inputLabel}>اسم المستخدم (@)</Text>
               <TextInput 
                 style={[styles.editInput, usernameError ? { borderColor: '#F44' } : {}]} 
                 value={editUsername} 
                 onChangeText={cleanUsername} 
-                onFocus={() => editSheetRef.current?.expand()}
                 autoCapitalize="none"
-                placeholder="nouble_name" 
-                placeholderTextColor="#444"
+                placeholder="runner_name" 
+                placeholderTextColor="#555"
               />
-              {usernameError ? <Text style={styles.errorTxt}>{usernameError}</Text> : <Text style={styles.inputHint}>يجب أن يكون فريداً وبدون مسافات.</Text>}
             </View>
 
             <View style={styles.editInputGroup}>
@@ -480,26 +541,11 @@ export const ProfileScreen = () => {
                 style={[styles.editInput, { height: 80, textAlignVertical: 'top' }]} 
                 value={editBio} 
                 onChangeText={setEditBio} 
-                onFocus={() => editSheetRef.current?.expand()}
                 multiline 
-                maxLength={2500}
-                placeholder="أخبر العالم عنك..." 
-                placeholderTextColor="#444"
+                maxLength={250}
+                placeholder="أخبرنا عن أهدافك الرياضية أو اهتماماتك..." 
+                placeholderTextColor="#555"
               />
-            </View>
-
-            <View style={styles.linksEditRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputLabel}>رابط 1</Text>
-                <TextInput style={styles.miniInput} value={link1Title} onChangeText={setLink1Title} onFocus={() => editSheetRef.current?.expand()} placeholder="العنوان" placeholderTextColor="#444" />
-                <TextInput style={styles.miniInput} value={link1Url} onChangeText={setLink1Url} onFocus={() => editSheetRef.current?.expand()} placeholder="https://..." placeholderTextColor="#444" />
-              </View>
-              <View style={{ width: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputLabel}>رابط 2</Text>
-                <TextInput style={styles.miniInput} value={link2Title} onChangeText={setLink2Title} onFocus={() => editSheetRef.current?.expand()} placeholder="العنوان" placeholderTextColor="#444" />
-                <TextInput style={styles.miniInput} value={link2Url} onChangeText={setLink2Url} onFocus={() => editSheetRef.current?.expand()} placeholder="https://..." placeholderTextColor="#444" />
-              </View>
             </View>
           </ScrollView>
 
@@ -513,99 +559,198 @@ export const ProfileScreen = () => {
         </View>
       </DynamicBottomSheet>
 
-      {/* Post Detail Modal */}
-      <Modal visible={!!selectedPost} animationType="fade" onRequestClose={() => setSelectedPost(null)}>
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
-          <TouchableOpacity style={[styles.closeBtn, { top: insets.top + 10 }]} onPress={() => setSelectedPost(null)}>
-            <Ionicons name="chevron-back" size={30} color="#FFF" />
-          </TouchableOpacity>
-          <ScrollView style={{ marginTop: insets.top + 60 }}>
-            {selectedPost && <PostCard post={selectedPost} isActive={true} />}
-          </ScrollView>
+      {loading && (
+        <View style={StyleSheet.absoluteFill}>
+          <ActivityIndicator color={colors.primary} size="large" style={{ flex: 1 }} />
         </View>
-      </Modal>
-
-      {loading && <View style={StyleSheet.absoluteFill}><ActivityIndicator color={colors.primary} size="large" style={{ flex: 1 }} /></View>}
-      
-      {user && (
-        <FollowListModal 
-          visible={showFollowList} 
-          onClose={() => setShowFollowList(false)} 
-          userId={user.id} 
-          type={followListType} 
-        />
-      )}
-
-      {profile && (
-        <ProfileQRCodeModal 
-          visible={showQRView} 
-          onClose={() => setShowQRView(false)} 
-          user={{ id: user.id, username: profile.username || profile.full_name }} 
-        />
       )}
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  topBar: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, marginBottom: 15 },
-  topUsername: { color: '#FFF', fontSize: 17, fontWeight: 'bold' },
-  menuBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerContent: { paddingHorizontal: 20 },
-  profileMain: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
-  avatarBorder: { width: 90, height: 90, borderRadius: 45, borderWidth: 2, borderColor: colors.primary, padding: 3 },
-  avatar: { width: '100%', height: '100%', borderRadius: 45, backgroundColor: '#111' },
-  avatarOverlay: { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 45, justifyContent: 'center', alignItems: 'center' },
-  avatarEditIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: colors.primary, width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000' },
-  statsRow: { flex: 1, flexDirection: 'row-reverse', justifyContent: 'space-around', marginLeft: 10 },
-  statBox: { alignItems: 'center' },
-  statNum: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  statLabel: { color: '#888', fontSize: 12, marginTop: 2 },
-  profileTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', textAlign: 'right', marginBottom: 5 },
-  bioTxt: { color: '#AAA', fontSize: 13, textAlign: 'right', marginBottom: 15, lineHeight: 18 },
-  linksRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  linkBadge: { flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: '#111', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15, borderWidth: 1, borderColor: '#222', gap: 5 },
-  linkBadgeTxt: { color: colors.primary, fontSize: 12, fontWeight: '500' },
-  editBtn: { backgroundColor: '#1A1A1A', borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginBottom: 25 },
-  editBtnTxt: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
-  tabBar: { borderBottomWidth: 1, borderBottomColor: '#222', flexDirection: 'row-reverse' },
-  tabContent: { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: colors.primary },
-  postThumb: { width: COLUMN_WIDTH, height: COLUMN_WIDTH, padding: 1 },
-  thumbImage: { width: '100%', height: '100%', backgroundColor: '#111' },
-  playIcon: { position: 'absolute', top: 5, left: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 4 },
-  empty: { flex: 1, alignItems: 'center', marginTop: 100 },
-  emptyTxt: { color: '#333', marginTop: 10, fontSize: 16 },
-  
-  // Menu Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
-  menuSheet: { backgroundColor: '#111', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20 },
-  dragHandle: { width: 40, height: 4, backgroundColor: '#333', alignSelf: 'center', borderRadius: 2, marginBottom: 20 },
-  menuTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', textAlign: 'right', marginBottom: 25 },
-  menuItem: { flexDirection: 'row-reverse', alignItems: 'center', paddingVertical: 15 },
-  menuIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#222', justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
-  menuItemTxt: { color: '#FFF', fontSize: 16, fontWeight: '500' },
-  divider: { height: 1, backgroundColor: '#222', marginVertical: 10 },
-  
-  // Close Btn
-  closeBtn: { position: 'absolute', left: 20, zIndex: 10, padding: 5 },
+const createStyles = (theme: ThemeTokens) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderSubtle,
+    },
+    topTitle: { color: theme.textPrimary, fontSize: 18, fontWeight: 'bold' },
+    iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    headerContent: { paddingHorizontal: 16, paddingTop: 16 },
+    profileMain: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 20,
+    },
+    avatarBorder: {
+      width: 84,
+      height: 84,
+      borderRadius: 42,
+      borderWidth: 2.5,
+      borderColor: theme.border,
+      padding: 3,
+    },
+    avatar: { width: '100%', height: '100%', borderRadius: 42, backgroundColor: theme.surfaceSubtle },
+    avatarOverlay: { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 42, justifyContent: 'center', alignItems: 'center' },
+    avatarEditIcon: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      backgroundColor: theme.textPrimary,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: theme.background,
+    },
+    profileInfoText: { flex: 1 },
+    profileTitle: { color: theme.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 2 },
+    usernameHandle: { color: theme.textMuted, fontSize: 14, marginBottom: 6 },
+    bioTxt: { color: theme.textSecondary, fontSize: 13, lineHeight: 18 },
+    
+    // Stats Card
+    statsCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+      backgroundColor: theme.surface,
+      borderRadius: 20,
+      paddingVertical: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: theme.cardShadow.shadowColor,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: theme.cardShadow.shadowOpacity,
+          shadowRadius: 10,
+        },
+        android: {
+          elevation: 4,
+        },
+      }),
+    },
+    statBox: { alignItems: 'center', flex: 1 },
+    statNum: { color: theme.textPrimary, fontSize: 22, fontWeight: 'bold', marginBottom: 2 },
+    statLabel: { color: theme.textMuted, fontSize: 12, fontWeight: '600' },
+    statDivider: { width: 1, height: 28, backgroundColor: theme.borderSubtle },
 
-  // Edit Profile Styles
-  noubleName: { color: colors.primary, fontSize: 13, textAlign: 'right', marginBottom: 15, fontWeight: '500' },
-  editSheet: { backgroundColor: '#111', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25 },
-  sheetHeaderEdit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
-  editTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  editInputGroup: { marginBottom: 20 },
-  inputLabel: { color: '#888', fontSize: 12, marginBottom: 8, paddingRight: 5, textAlign: 'right' },
-  editInput: { backgroundColor: '#1A1A1A', borderRadius: 12, padding: 15, color: '#FFF', textAlign: 'right', borderWidth: 1, borderColor: '#222' },
-  inputHint: { color: '#555', fontSize: 11, marginTop: 5, textAlign: 'right' },
-  errorTxt: { color: '#F44', fontSize: 11, marginTop: 5, textAlign: 'right' },
-  linksEditRow: { flexDirection: 'row-reverse', marginTop: 10 },
-  miniInput: { backgroundColor: '#1A1A1A', borderRadius: 8, padding: 10, color: '#FFF', fontSize: 12, textAlign: 'right', marginBottom: 8, borderWidth: 1, borderColor: '#222' },
-  editSheetContent: { flex: 1, padding: 20 },
-  saveBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 10 },
-  saveBtnTxt: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-});
+    editBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      paddingVertical: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    editBtnTxt: { color: theme.textPrimary, fontWeight: '700', fontSize: 14 },
+
+    tabBar: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderSubtle,
+      marginBottom: 10,
+    },
+    tabContent: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      borderBottomWidth: 2.5,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: { borderBottomColor: theme.textPrimary },
+    tabLabel: { color: theme.textMuted, fontSize: 14, fontWeight: '600' },
+
+    // List Items
+    listContent: { paddingBottom: 100 },
+    activityItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      marginHorizontal: 16,
+      marginBottom: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      gap: 12,
+    },
+    activityBadge: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+    },
+    activityMain: { flex: 1 },
+    activityTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    activityTitle: { color: theme.textPrimary, fontSize: 16, fontWeight: 'bold' },
+    activityDate: { color: theme.textMuted, fontSize: 12 },
+    activityNotes: { color: theme.textSecondary, fontSize: 13, marginBottom: 4 },
+    activityMetricsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+    metricText: { color: theme.textSecondary, fontSize: 13 },
+    metricDot: { color: theme.textMuted, marginHorizontal: 6 },
+
+    // Music Items
+    musicItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      padding: 10,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      gap: 12,
+    },
+    musicItemActive: { borderColor: theme.textPrimary, backgroundColor: theme.surfaceSubtle },
+    trackThumb: { width: 50, height: 50, borderRadius: 10, backgroundColor: theme.surfaceSubtle },
+    trackInfo: { flex: 1 },
+    trackTitle: { color: theme.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 3 },
+    trackArtist: { color: theme.textMuted, fontSize: 13 },
+    playBtn: { padding: 4 },
+
+    // Empty State
+    emptyWrap: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
+    emptyTitle: { color: theme.textPrimary, fontSize: 17, fontWeight: 'bold', marginTop: 14, marginBottom: 6 },
+    emptyDesc: { color: theme.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
+
+    // Menu Modal
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    menuSheet: { backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
+    dragHandle: { width: 36, height: 4, backgroundColor: theme.border, alignSelf: 'center', borderRadius: 2, marginBottom: 16 },
+    menuTitle: { color: theme.textPrimary, fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
+    menuIconWrap: { width: 42, height: 42, borderRadius: 12, backgroundColor: theme.surfaceSubtle, justifyContent: 'center', alignItems: 'center' },
+    menuItemTxt: { color: theme.textPrimary, fontSize: 16, fontWeight: '600' },
+    divider: { height: 1, backgroundColor: theme.borderSubtle, marginVertical: 10 },
+
+    // Edit Sheet
+    editSheetContent: { flex: 1, padding: 20 },
+    editInputGroup: { marginBottom: 18 },
+    inputLabel: { color: theme.textSecondary, fontSize: 13, marginBottom: 8, fontWeight: '600' },
+    editInput: { backgroundColor: theme.surfaceSubtle, borderRadius: 12, padding: 14, color: theme.textPrimary, borderWidth: 1, borderColor: theme.borderSubtle, fontSize: 15 },
+    saveBtn: { backgroundColor: theme.textPrimary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 10 },
+    saveBtnTxt: { color: theme.mode === 'light' ? '#FFF' : '#000', fontWeight: 'bold', fontSize: 16 },
+  });
 
 export default ProfileScreen;
+

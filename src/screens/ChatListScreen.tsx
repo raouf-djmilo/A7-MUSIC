@@ -45,7 +45,9 @@ export const ChatListScreen = () => {
     if (!user?.id) return;
 
     // Connect to Socket.io (using root URL)
-    socketRef.current = io(API_BASE_URL.replace('/api', ''));
+    socketRef.current = io(API_BASE_URL.replace('/api', ''), {
+      transports: ['websocket']
+    });
 
     // If a message arrives, we refresh the list if needed
     socketRef.current.on('receive_message', (msg: any) => {

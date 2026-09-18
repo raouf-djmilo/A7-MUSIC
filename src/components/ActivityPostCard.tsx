@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import NativeMap from './NativeMap';
+import NativeMap from './NativeMap.native';
 
 const { width } = Dimensions.get('window');
 
@@ -203,6 +203,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });

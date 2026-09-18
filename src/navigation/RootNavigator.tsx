@@ -4,8 +4,6 @@ import { useAuth } from '../providers/AuthProvider';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
-import { CreateMenuScreen } from '../screens/CreateMenuScreen';
-import { CreatePostScreen } from '../screens/CreatePostScreen';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -28,17 +26,6 @@ export const RootNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainNavigator} />
-      
-      {/* Modals & Full Screens */}
-      <Stack.Screen 
-        name="CreateMenu" 
-        component={CreateMenuScreen} 
-        options={{ 
-            presentation: 'overFullScreenModal',
-            animation: 'fade_from_bottom' 
-        }} 
-      />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} />
     </Stack.Navigator>
   );
 };

@@ -1,72 +1,71 @@
 /**
- * ┌─────────────────────────────────────────────────────────────────┐
- * │   useSensorFusion — دمج المستشعرات (Sensor Fusion)              │
- * │                                                                  │
- * │  يجمع 3 مستشعرات في hook واحد نظيف:                            │
- * │  1. GPS (expo-location)    → lat, lng, accuracy, altitude       │
- * │  2. Pedometer (expo-sensors) → steps (كاشف الكذب للـ GPS)      │
- * │  3. Barometer (expo-sensors) → pressure → altitude حقيقي        │
- * │                                                                  │
- * │  مبدأ العمل:                                                     │
- * │  ─ GPS يعطينا الموقع لكنه يرتجف                                 │
- * │  ─ Pedometer "يكشف الكذب": لو GPS قال تحركت لكن Pedometer      │
- * │    قال 0 خطوات → نرفض القراءة (GPS Jitter)                      │
- * │  ─ Barometer أدق من GPS في حساب الارتفاع بمعدل 10-50x          │
- * └─────────────────────────────────────────────────────────────────┘
+ * 🏃 useSensorFusion - Athletic-Grade Sensor Engine (Strava / Garmin Level)
+ * 
+ * الميزات:
+ * 1. دمج GPS مع مقياس الخطوات (Pedometer) لكشف الارتجاج المكتبي (Jitter).
+ * 2. دمج البارومتر (Barometer) مع عتبة صعود صافية (+3.5m Elevation Deadband) لمنع الارتفاع الوهمي.
+ * 3. فلتر كالمان الحركي (2D Kalman Filter) مع صمام أمان الأنفاق (Tunnel Guard) والتثبيت الأولي (3-Point Consensus).
+ * 4. حساب السرعة والـ Pace بالنافذة المتحركة لآخر 6 ثوانٍ (Rolling Window Pace) مع تنسيق MM:SS /km.
+ * 5. بوابات فيزيائية صارمة: إسقاط الدقة الضعيفة، إسقاط قفزات الـ GPS، وتجميد السكون.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Location from 'expo-location';
 import { Pedometer, Barometer } from 'expo-sensors';
+import { PermissionStatus } from 'expo-modules-core';
+import { KalmanGPS, calculateHaversineDistanceMeters } from '../utils/KalmanGPS';
 
 // ─────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────
 
-/** حالة الصلاحيات */
-export type PermissionStatus = 'pending' | 'granted' | 'denied';
-
-/** قراءة GPS خام */
-export interface GPSReading {
+export interface RawGPSPoint {
   latitude:  number;
   longitude: number;
-  accuracy:  number;    // بالمتر — كلما كان أصغر، كلما كان أدق
-  altitude:  number;    // ارتفاع GPS (أقل دقة)
-  speed:     number;    // م/ث
-  heading:   number;    // الاتجاه بالدرجات (0-360)
+  accuracy:  number;
+  altitude:  number | null;
+  speed:     number | null;
+  heading:   number | null;
   timestamp: number;
 }
 
-/** قراءة البارومتر المحولة إلى ارتفاع */
 export interface BarometerReading {
-  pressure:        number;   // الضغط الجوي بـ hPa
-  relativeAltitude: number;  // الارتفاع النسبي عن نقطة البداية
+  pressure:         number;  // hPa
+  relativeAltitude: number;  // الارتفاع بالنسبة لنقطة البداية (م)
   absoluteAltitude: number;  // الارتفاع المحسوب من الضغط المطلق
 }
 
 /** بيانات المستشعرات المدموجة */
 export interface SensorFusionData {
   // ── GPS ──
-  latitude:  number;
-  longitude: number;
-  accuracy:  number;
-  speed:     number;
-  heading:   number;
-  timestamp: number;
+  latitude:           number;
+  longitude:          number;
+  accuracy:           number;
+  speed:              number;    // كم/س لحظي
+  heading:            number;
+  timestamp:          number;
+
+  // ── Rolling Metrics (6-Second Window) ──
+  rollingSpeedMs:     number;    // متوسط سرعة آخر 6 ثوانٍ بالمتر/ثانية
+  rollingSpeedKmh:    number;    // متوسط سرعة آخر 6 ثوانٍ بالكم/ساعة
+  instantPace:        string;    // Pace اللحظي المنسق (MM:SS /km)
 
   // ── Pedometer ──
-  steps:             number;
-  totalSessionSteps: number;
+  steps:              number;
+  totalSessionSteps:  number;
 
-  // ── Barometer (أدق من GPS في الارتفاع) ──
-  altitude:          number;    // يفضل Barometer على GPS altitude
-  altitudeDelta:     number;    // الفرق عن نقطة البداية
-  pressure:          number;    // hPa
+  // ── Barometer & Elevation (Deadband +3.5m & % Grade) ──
+  altitude:           number;    // يفضل Barometer على GPS altitude
+  altitudeDelta:      number;    // الفرق عن نقطة البداية
+  elevationGain:      number;    // إجمالي الصعود التراكمي المفلتر بعتبة +3.5م
+  pressure:           number;    // hPa
+  gradePercent:       number;    // نسبة انحدار التلال اللحظية % Grade = (Δalt / Δdist) * 100
 
   // ── Fusion Status ──
-  isGPSJitter:       boolean;   // true إذا GPS يرتجف (تحرك بدون خطوات)
-  hasValidFix:       boolean;   // true إذا accuracy < maxAccuracyMeters
-  gpsStrength:       'excellent' | 'good' | 'poor' | 'none';
+  isGPSJitter:        boolean;   // true إذا GPS يرتجف (تحرك بدون خطوات)
+  hasValidFix:        boolean;   // true إذا accuracy < maxAccuracyMeters
+  gpsStrength:        'excellent' | 'good' | 'poor' | 'none';
+  isBlackoutRecovery: boolean;   // true عند أول نقطة بعد انقطاع طويل للـ GPS (> 8s)
 }
 
 export interface SensorFusionState {
@@ -85,32 +84,44 @@ export interface SensorFusionState {
 export interface UseSensorFusionOptions {
   /** الدقة الجغرافية المطلوبة للـ GPS (default: BestForNavigation) */
   gpsAccuracy?: Location.Accuracy;
-  /** الحد الأقصى للدقة المقبولة بالمتر. فوق هذا الحد = قراءة مرفوضة (default: 25م) */
+  /** نوع النشاط المخصص لـ iOS (default: Fitness لأعلى دقة جري ومشي) */
+  activityType?: Location.ActivityType;
+  /** الحد الأقصى للدقة المقبولة بالمتر. فوق هذا الحد = قراءة مرفوضة (default: 14م) */
   maxAccuracyMeters?: number;
   /** الحد الأدنى للمسافة بالمتر كي تُقبل القراءة (default: 1م) */
   minDistanceFilter?: number;
-  /** الفترة الزمنية بين قراءات GPS بالمللي ثانية (default: 1000ms) */
+  /** الفترة الزمنية بين قراءات GPS بالمللي ثانية (default: 500ms) */
   gpsInterval?: number;
   /** تفعيل وضع الخلفية (default: true) */
   enableBackground?: boolean;
+  /** إظهار نافذة إعدادات المستخدم إن لزم (default: true) */
+  mayShowUserSettingsDialog?: boolean;
+  /** أقصى سرعة بشرية مقبولة بالمتر/ثانية (default: 11.5 m/s ≈ 41.4 km/h) لمنع قفزات الـ GPS */
+  maxSpeedMetersPerSecond?: number;
 }
 
 // القيم الافتراضية
 const DEFAULT_DATA: SensorFusionData = {
-  latitude:          0,
-  longitude:         0,
-  accuracy:          0,
-  speed:             0,
-  heading:           0,
-  timestamp:         0,
-  steps:             0,
-  totalSessionSteps: 0,
-  altitude:          0,
-  altitudeDelta:     0,
-  pressure:          0,
-  isGPSJitter:       false,
-  hasValidFix:       false,
-  gpsStrength:       'none',
+  latitude:           0,
+  longitude:          0,
+  accuracy:           0,
+  speed:              0,
+  heading:            0,
+  timestamp:          0,
+  rollingSpeedMs:     0,
+  rollingSpeedKmh:    0,
+  instantPace:        '-:--',
+  steps:              0,
+  totalSessionSteps:  0,
+  altitude:           0,
+  altitudeDelta:      0,
+  elevationGain:      0,
+  pressure:           0,
+  gradePercent:       0,
+  isGPSJitter:        false,
+  hasValidFix:        false,
+  gpsStrength:        'none',
+  isBlackoutRecovery: false,
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -119,8 +130,6 @@ const DEFAULT_DATA: SensorFusionData = {
 
 /** تحويل ضغط جوي (hPa) إلى ارتفاع (م) باستخدام معادلة بارومترية */
 const pressureToAltitude = (pressure: number): number => {
-  // معادلة هايبسومترية (Hypsometric formula)
-  // الضغط عند مستوى البحر = 1013.25 hPa
   return 44307.69 * (1 - Math.pow(pressure / 1013.25, 0.190284));
 };
 
@@ -128,9 +137,19 @@ const pressureToAltitude = (pressure: number): number => {
 const getGPSStrength = (accuracy: number): SensorFusionData['gpsStrength'] => {
   if (accuracy <= 0)   return 'none';
   if (accuracy <= 5)   return 'excellent';
-  if (accuracy <= 15)  return 'good';
+  if (accuracy <= 14)  return 'good';
   if (accuracy <= 30)  return 'poor';
   return 'none';
+};
+
+/** تحويل سرعة (م/ث) إلى Pace رياضي دقيق (MM:SS /km) مع حماية من السرعات الخاملة */
+export const speedToPace = (speedMs: number): string => {
+  if (speedMs < 0.4) return '-:--'; // حماية السكون والوقوف
+  const paceSecondsPerKm = 1000 / speedMs;
+  const mins = Math.floor(paceSecondsPerKm / 60);
+  const secs = Math.round(paceSecondsPerKm % 60);
+  if (mins >= 60) return '-:--';
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -139,11 +158,14 @@ const getGPSStrength = (accuracy: number): SensorFusionData['gpsStrength'] => {
 
 export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
   const {
-    gpsAccuracy        = Location.Accuracy.BestForNavigation,
-    maxAccuracyMeters  = 25,
-    minDistanceFilter  = 1,
-    gpsInterval        = 1000,
-    enableBackground   = true,
+    gpsAccuracy                = Location.Accuracy.BestForNavigation,
+    activityType               = Location.ActivityType.Fitness,
+    maxAccuracyMeters          = 14,
+    minDistanceFilter          = 1,
+    gpsInterval                = 500,
+    enableBackground           = true,
+    mayShowUserSettingsDialog = true,
+    maxSpeedMetersPerSecond    = 11.5,
   } = options;
 
   // ── State ─────────────────────────────────────────────────────
@@ -156,10 +178,26 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     error:       null,
   });
 
-  // ── Internal Refs (لتجنب stale closures في callbacks) ─────────
+  // ── Internal Subscriptions ────────────────────────────────────
   const locSubscription  = useRef<Location.LocationSubscription | null>(null);
   const pedSubscription  = useRef<ReturnType<typeof Pedometer.watchStepCount> | null>(null);
   const baroSubscription = useRef<ReturnType<typeof Barometer.addListener> | null>(null);
+
+  // 🛰️ 2D Kinematic Kalman Filter Ref & Last Accepted Fix
+  const kalmanFilter       = useRef(new KalmanGPS()).current;
+  const lastValidFixRef    = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
+
+  // 🏃 Rolling Speed Buffer (Last 6 seconds of valid speeds in m/s)
+  const speedBufferRef     = useRef<number[]>([]);
+
+  // 🏔️ Elevation Deadband (+3.5m threshold hysteresis) & % Grade Window
+  const elevationMinRef           = useRef<number | null>(null);
+  const elevationMaxRef           = useRef<number | null>(null);
+  const elevationCommittedGainRef = useRef<number>(0);
+  const totalElevationGainRef     = useRef<number>(0);
+  const gradePointsRef            = useRef<{ dist: number; alt: number }[]>([]);
+  const cumulativeDistRef         = useRef<number>(0);
+  const smoothedGradeRef          = useRef<number>(0);
 
   // بيانات حية بدون re-render — لكشف الـ Jitter
   const liveStepsRef          = useRef<number>(0);       // الخطوات منذ آخر قراءة GPS
@@ -167,6 +205,48 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
   const lastGPSPositionRef    = useRef<{ lat: number; lng: number } | null>(null);
   const baseBaroPressureRef   = useRef<number | null>(null); // ضغط نقطة البداية
   const baseBaroAltitudeRef   = useRef<number>(0);           // ارتفاع نقطة البداية
+
+  /**
+   * 🏔️ معالجة صعود الارتفاع التراكمي بعتبة عازلة (+3.5m Deadband Threshold)
+   * تمنع تراكم ضوضاء البارومتر وحساس الـ GPS في الطرق المستوية.
+   */
+  const processElevationDeadband = useCallback((currAlt: number): number => {
+    if (elevationMinRef.current === null || elevationMaxRef.current === null) {
+      elevationMinRef.current = currAlt;
+      elevationMaxRef.current = currAlt;
+      elevationCommittedGainRef.current = 0;
+      return totalElevationGainRef.current;
+    }
+
+    // إذا هبط الرياضي إلى وادٍ أعمق
+    if (currAlt < elevationMinRef.current) {
+      elevationMinRef.current = currAlt;
+      elevationMaxRef.current = currAlt;
+      elevationCommittedGainRef.current = 0;
+    }
+    // إذا صعد الرياضي فوق القمة الحالية
+    else if (currAlt > elevationMaxRef.current) {
+      elevationMaxRef.current = currAlt;
+      const climbFromValley = currAlt - elevationMinRef.current;
+
+      // تطبيق عتبة الصعود المستمر: لا يُحسب إلا بعد تجاوز +3.5 متر متصلة
+      if (climbFromValley >= 3.5) {
+        const uncommittedGain = climbFromValley - elevationCommittedGainRef.current;
+        if (uncommittedGain > 0) {
+          totalElevationGainRef.current += uncommittedGain;
+          elevationCommittedGainRef.current = climbFromValley;
+        }
+      }
+    }
+    // إذا هبط الرياضي بمقدار >= 2.0 متر من القمة، تُغلق موجة الصعود وتبدأ عتبة وادٍ جديدة
+    else if (elevationMaxRef.current - currAlt >= 2.0) {
+      elevationMinRef.current = currAlt;
+      elevationMaxRef.current = currAlt;
+      elevationCommittedGainRef.current = 0;
+    }
+
+    return totalElevationGainRef.current;
+  }, []);
 
   // ── Permission Request ────────────────────────────────────────
   const requestPermissions = useCallback(async () => {
@@ -176,7 +256,7 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     perms.foreground = fgStatus === 'granted' ? 'granted' : 'denied';
 
-    // 2. Background Location (اختاري)
+    // 2. Background Location (اختياري)
     if (perms.foreground === 'granted' && enableBackground) {
       try {
         const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
@@ -186,7 +266,7 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
       }
     }
 
-    // 3. Pedometer Permissions (iOS يحتاج إلى إذن خاص)
+    // 3. Pedometer Permissions
     try {
       const motionAvailable = await Pedometer.isAvailableAsync();
       perms.motion = motionAvailable ? 'granted' : 'denied';
@@ -197,7 +277,7 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     return perms;
   }, [enableBackground]);
 
-  // ── GPS Subscription ──────────────────────────────────────────
+  // ── GPS Subscription with Athletic Pipeline ──────────────────
   const startGPS = useCallback(async () => {
     if (locSubscription.current) {
       locSubscription.current.remove();
@@ -206,12 +286,93 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
 
     locSubscription.current = await Location.watchPositionAsync(
       {
-        accuracy:        gpsAccuracy,
-        timeInterval:    gpsInterval,
-        distanceInterval: minDistanceFilter,
+        accuracy:                          gpsAccuracy,
+        activityType:                      activityType,
+        timeInterval:                      gpsInterval,
+        distanceInterval:                  minDistanceFilter,
+        mayShowUserSettingsDialog:        mayShowUserSettingsDialog,
+        showsBackgroundLocationIndicator:  true,
       },
       (location) => {
+        // ── Drop Stale Point (> 10,000ms old) ──
+        const pointAge = Math.abs(Date.now() - location.timestamp);
+        if (pointAge > 10000) {
+          return;
+        }
+
         const { latitude, longitude, accuracy, altitude, speed, heading } = location.coords;
+
+        // ═══════════════════════════════════════════════════
+        // المرحلة 1: بوابة الفحص الفيزيائي (Kinematic Sanity Gate)
+        // ═══════════════════════════════════════════════════
+
+        // 1.1 فحص الدقة الأفقية: إسقاط أي قراءة accuracy > 14m
+        if (accuracy == null || accuracy > maxAccuracyMeters) {
+          return;
+        }
+
+        const timeSinceLastFixSec = lastValidFixRef.current
+          ? (location.timestamp - lastValidFixRef.current.timestamp) / 1000
+          : 0;
+        const isBlackoutGap = timeSinceLastFixSec > 8.0;
+
+        // 1.2 فحص القفزات المستحيلة وسكون الحركة:
+        if (lastValidFixRef.current && !isBlackoutGap) {
+          const deltaDistanceMeters = calculateHaversineDistanceMeters(
+            lastValidFixRef.current,
+            { latitude, longitude }
+          );
+          const dtSeconds = Math.max(timeSinceLastFixSec, 0.1);
+          const computedSpeedMs = deltaDistanceMeters / dtSeconds;
+
+          // إذا تجاوزت السرعة المحسوبة 11.5 m/s (أقصى سرعة جري بشري) -> قفزة وهمية (Spike) تسقط فوراً
+          if (computedSpeedMs > maxSpeedMetersPerSecond) {
+            return;
+          }
+
+          // 1.3 فحص السكون: إذا كانت الحركة مجهرية (< 1.2m) والسرعة شبه معدومة (< 0.4 m/s)
+          // نجمد الإحداثية الحالية لمنع الانجراف المكتبي وتراكم الأمتار الوهمية
+          const currentSpeedMs = speed ?? 0;
+          if (deltaDistanceMeters < 1.2 && currentSpeedMs < 0.4) {
+            speedBufferRef.current = [...speedBufferRef.current.slice(-5), 0];
+            const avgSpeedMs = speedBufferRef.current.reduce((a, b) => a + b, 0) / speedBufferRef.current.length;
+            setState(prev => ({
+              ...prev,
+              data: {
+                ...prev.data,
+                speed: 0,
+                rollingSpeedMs: avgSpeedMs,
+                rollingSpeedKmh: avgSpeedMs * 3.6,
+                instantPace: speedToPace(avgSpeedMs),
+                heading: heading ?? prev.data.heading,
+                timestamp: location.timestamp,
+              },
+            }));
+            return;
+          }
+        }
+
+        // ═══════════════════════════════════════════════════
+        // المرحلة 2: فلتر كالمان ثنائي الأبعاد (2D Kalman Filter)
+        // مع صمام أمان الأنفاق (Tunnel Guard) والتثبيت الأولي
+        // ═══════════════════════════════════════════════════
+        const smoothed = kalmanFilter.process(latitude, longitude, accuracy, location.timestamp);
+        lastValidFixRef.current = {
+          latitude: smoothed.latitude,
+          longitude: smoothed.longitude,
+          timestamp: location.timestamp,
+        };
+
+        // ── حساب السرعة والـ Pace بالنافذة المتحركة (Rolling 6s Buffer) ──
+        const rawSpeedMs = Math.max(0, speed ?? 0);
+        if (smoothed.isBlackoutRecovery) {
+          speedBufferRef.current = [rawSpeedMs];
+        } else {
+          speedBufferRef.current = [...speedBufferRef.current.slice(-5), rawSpeedMs];
+        }
+        const rollingSpeedMs = speedBufferRef.current.reduce((a, b) => a + b, 0) / speedBufferRef.current.length;
+        const rollingSpeedKmh = rollingSpeedMs * 3.6;
+        const instantPace = speedToPace(rollingSpeedMs);
 
         // ═══════════════════════════════════════════════════
         // نقطة دمج GPS × Pedometer (Anti-Jitter Logic)
@@ -219,68 +380,95 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
         const currentSteps    = liveStepsRef.current;
         const stepsSinceCheck = currentSteps - baseStepsRef.current;
 
-        // احسب المسافة عن آخر نقطة
         let movedDistance = 0;
         if (lastGPSPositionRef.current) {
-          const dLat = (latitude - lastGPSPositionRef.current.lat) * 111000;
-          const dLng = (longitude - lastGPSPositionRef.current.lng) * 111000;
-          movedDistance = Math.sqrt(dLat * dLat + dLng * dLng);
+          movedDistance = calculateHaversineDistanceMeters(
+            { latitude: lastGPSPositionRef.current.lat, longitude: lastGPSPositionRef.current.lng },
+            { latitude: smoothed.latitude, longitude: smoothed.longitude }
+          );
         }
 
-        /**
-         * ─ منطق كشف الاهتزاز (GPS Jitter Detection) ─
-         * إذا ادعى GPS أنك تحركت أكثر من 3 أمتار
-         * لكن Pedometer يقول 0 خطوات خلال نفس الفترة
-         * → الحركة وهمية (GPS Jitter) — نمررها لكن نضع العلم
-         */
         const movedButNoSteps = movedDistance > 3 && stepsSinceCheck === 0;
-        const isJitter        = movedButNoSteps && accuracy > 10;
+        const isJitter        = movedButNoSteps && (accuracy > 10);
 
-        // تحديث نقطة المرجع
-        lastGPSPositionRef.current = { lat: latitude, lng: longitude };
+        lastGPSPositionRef.current = { lat: smoothed.latitude, lng: smoothed.longitude };
         baseStepsRef.current       = currentSteps;
 
-        // ═══════════════════════════════════════════════════
-        // دمج البارومتر مع GPS للحصول على ارتفاع أدق
-        // ═══════════════════════════════════════════════════
-        // (سيتم تحديثه عبر listener البارومتر لكن نحتفظ بـ fallback)
         const fallbackAltitude = altitude ?? 0;
+        // معالجة صعود الارتفاع إذا لم يكن هناك بارومتر
+        const currentElevationGain = state.data.pressure > 0
+          ? totalElevationGainRef.current
+          : processElevationDeadband(fallbackAltitude);
+
+        // 🏔️ حساب نسبة انحدار التلال المنعمة % Grade Slope: (Δalt / Δdist) * 100
+        // تعتمد على نافذة مسافة حقيقية ممتدة (12-25 متراً) مع تنعيم أسي (EMA) لمنع تذبذب الرياح والسرعات البطيئة
+        cumulativeDistRef.current += movedDistance;
+        const effectiveAltitude = state.data.pressure > 0 ? state.data.altitude : fallbackAltitude;
+        gradePointsRef.current.push({ dist: cumulativeDistRef.current, alt: effectiveAltitude });
+
+        // تقليص النقاط القديمة التي تبعد أكثر من 25 متراً عن الموقع الحالي
+        while (
+          gradePointsRef.current.length > 2 &&
+          cumulativeDistRef.current - gradePointsRef.current[0].dist > 25
+        ) {
+          gradePointsRef.current.shift();
+        }
+
+        let computedGradePercent = smoothedGradeRef.current;
+        if (rollingSpeedMs >= 0.4 && gradePointsRef.current.length >= 2) {
+          const oldest = gradePointsRef.current[0];
+          const newest = gradePointsRef.current[gradePointsRef.current.length - 1];
+          const deltaDist = newest.dist - oldest.dist;
+          const deltaAlt = newest.alt - oldest.alt;
+
+          // لا يتم حساب الانحدار إلا بعد قطع مسافة أفقية كافية (>= 12م) لمنع قفزات ضوضاء البارومتر
+          if (deltaDist >= 12.0) {
+            const rawGrade = (deltaAlt / deltaDist) * 100;
+            const clampedRaw = Math.max(-45, Math.min(45, rawGrade));
+            // تنعيم أسي (EMA: 75% تاريخي + 25% لحظي) لمنع قفزات الرياح وهزات الخطوات
+            const smoothed = smoothedGradeRef.current * 0.75 + clampedRaw * 0.25;
+            smoothedGradeRef.current = Math.round(smoothed * 10) / 10;
+            computedGradePercent = smoothedGradeRef.current;
+          }
+        }
 
         setState(prev => ({
           ...prev,
           data: {
             ...prev.data,
-            latitude,
-            longitude,
-            accuracy:    accuracy ?? 0,
-            speed:       Math.max(0, (speed ?? 0) * 3.6),  // تحويل م/ث → كم/س
-            heading:     heading ?? prev.data.heading,
-            timestamp:   location.timestamp,
-            isGPSJitter: isJitter,
-            hasValidFix: (accuracy ?? 999) <= maxAccuracyMeters,
-            gpsStrength: getGPSStrength(accuracy ?? 999),
-            // نحدث الارتفاع فقط إذا لم يكن البارومتر نشطاً
-            altitude:    prev.data.pressure > 0 ? prev.data.altitude : fallbackAltitude,
+            latitude:           smoothed.latitude,
+            longitude:          smoothed.longitude,
+            accuracy:           accuracy,
+            speed:              Math.max(0, rawSpeedMs * 3.6),
+            rollingSpeedMs:     rollingSpeedMs,
+            rollingSpeedKmh:    rollingSpeedKmh,
+            instantPace:        instantPace,
+            heading:            heading ?? prev.data.heading,
+            timestamp:          location.timestamp,
+            isGPSJitter:        isJitter,
+            hasValidFix:        accuracy <= maxAccuracyMeters,
+            gpsStrength:        getGPSStrength(accuracy),
+            altitude:           effectiveAltitude,
+            elevationGain:      currentElevationGain,
+            gradePercent:       computedGradePercent,
+            isBlackoutRecovery: smoothed.isBlackoutRecovery,
           },
         }));
       }
     );
-  }, [gpsAccuracy, gpsInterval, minDistanceFilter, maxAccuracyMeters]);
+  }, [gpsAccuracy, activityType, gpsInterval, minDistanceFilter, maxAccuracyMeters, maxSpeedMetersPerSecond, processElevationDeadband, state.data.pressure]);
 
   // ── Pedometer Subscription ────────────────────────────────────
   const startPedometer = useCallback((available: boolean) => {
     if (!available) return;
     if (pedSubscription.current) { pedSubscription.current.remove(); }
 
-    let sessionBase = 0; // عداد بداية الجلسة
+    let sessionBase = 0;
 
     pedSubscription.current = Pedometer.watchStepCount((result) => {
-      // عند أول قراءة، نضبط خط القاعدة
       if (sessionBase === 0) sessionBase = result.steps;
 
       const sessionSteps = result.steps - sessionBase;
-
-      // نحفظ الخطوات في ref (بدون render) لكشف الـ GPS Jitter
       liveStepsRef.current = result.steps;
 
       setState(prev => ({
@@ -294,40 +482,35 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     });
   }, []);
 
-  // ── Barometer Subscription ────────────────────────────────────
+  // ── Barometer Subscription (مع عتبة Deadband +3.5m) ───────────
   const startBarometer = useCallback(async (): Promise<boolean> => {
     try {
       const available = await Barometer.isAvailableAsync();
       if (!available) return false;
 
-      // ضبط حساسية الـ listener (كل 200ms كافية)
       Barometer.setUpdateInterval(200);
 
       baroSubscription.current = Barometer.addListener((data) => {
         const { pressure } = data;
-        if (!pressure || pressure < 800 || pressure > 1100) return; // تصفية قراءات غير منطقية
+        if (!pressure || pressure < 800 || pressure > 1100) return;
 
         const absoluteAltitude = pressureToAltitude(pressure);
 
-        // في أول قراءة: نضبط خط قاعدة الارتفاع النسبي
         if (baseBaroPressureRef.current === null) {
           baseBaroPressureRef.current = pressure;
           baseBaroAltitudeRef.current = absoluteAltitude;
         }
 
-        // الارتفاع النسبي = الفرق عن نقطة البداية (مفيد لتحليل المنحدرات)
         const relativeAltitude = absoluteAltitude - baseBaroAltitudeRef.current;
+        const gain = processElevationDeadband(absoluteAltitude);
 
         setState(prev => ({
           ...prev,
           data: {
             ...prev.data,
-            // ═══════════════════════════════════════════════
-            // دمج البارومتر: نستبدل GPS altitude بدقة أعلى
-            // البارومتر أدق من GPS في الارتفاع بمعدل 10-50x
-            // ═══════════════════════════════════════════════
             altitude:      absoluteAltitude,
             altitudeDelta: relativeAltitude,
+            elevationGain: gain,
             pressure,
           },
         }));
@@ -337,7 +520,7 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     } catch {
       return false;
     }
-  }, []);
+  }, [processElevationDeadband]);
 
   // ── Master Initialization ─────────────────────────────────────
   useEffect(() => {
@@ -345,7 +528,6 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
 
     const initialize = async () => {
       try {
-        // 1. طلب الصلاحيات
         const permissions = await requestPermissions();
         if (!mounted) return;
 
@@ -358,108 +540,97 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
           return;
         }
 
-        // 2. تشغيل المستشعرات بالتوازي
-        const [, hasBarometer] = await Promise.all([
-          startGPS(),
+        const [baroOk] = await Promise.all([
           startBarometer(),
+          startPedometer(permissions.motion === 'granted'),
+          startGPS(),
         ]);
 
-        // 3. Pedometer (يبدأ بعد تأكيد الصلاحية)
-        startPedometer(permissions.motion === 'granted');
-
-        if (!mounted) return;
-
-        // 4. اجلب الموقع الحالي بسرعة (نقطة بداية فورية)
-        try {
-          const initial = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          if (mounted) {
-            setState(prev => ({
-              ...prev,
-              data: {
-                ...prev.data,
-                latitude:   initial.coords.latitude,
-                longitude:  initial.coords.longitude,
-                accuracy:   initial.coords.accuracy ?? 0,
-                altitude:   initial.coords.altitude ?? 0,
-                hasValidFix: (initial.coords.accuracy ?? 999) <= maxAccuracyMeters,
-                gpsStrength: getGPSStrength(initial.coords.accuracy ?? 999),
-              },
-            }));
-          }
-        } catch {
-          // الموقع الحالي اختياري — GPS listener سيعوضه لاحقاً
+        if (mounted) {
+          setState(prev => ({
+            ...prev,
+            permissions,
+            isReady:      true,
+            hasBarometer: baroOk,
+            hasPedometer: permissions.motion === 'granted',
+            error:        null,
+          }));
         }
-
-        if (!mounted) return;
-
-        setState(prev => ({
-          ...prev,
-          permissions,
-          isReady:     true,
-          hasBarometer: !!hasBarometer,
-          hasPedometer: permissions.motion === 'granted',
-          error:       null,
-        }));
-
       } catch (err: any) {
-        if (!mounted) return;
-        setState(prev => ({
-          ...prev,
-          error: err.message ?? 'خطأ غير معروف في تهيئة المستشعرات',
-        }));
+        if (mounted) {
+          setState(prev => ({
+            ...prev,
+            error: err.message ?? 'فشل تهيئة مستشعرات التتبع',
+          }));
+        }
       }
     };
 
     initialize();
 
-    // ── Cleanup: نطفئ كل المستشعرات عند إيقاف الـ hook ─────────
     return () => {
       mounted = false;
       cleanup();
     };
-  }, []); // mount مرة واحدة فقط
+  }, [startGPS, startPedometer, startBarometer, requestPermissions]);
 
-  // ── Cleanup Function (قابلة للاستدعاء يدوياً عند إيقاف التسجيل) ──
+  // ── Cleanup & Reset Methods ───────────────────────────────────
   const cleanup = useCallback(() => {
-    // 1. إيقاف GPS
     if (locSubscription.current) {
       locSubscription.current.remove();
       locSubscription.current = null;
     }
-
-    // 2. إيقاف Pedometer
     if (pedSubscription.current) {
       pedSubscription.current.remove();
       pedSubscription.current = null;
     }
-
-    // 3. إيقاف Barometer
     if (baroSubscription.current) {
       baroSubscription.current.remove();
       baroSubscription.current = null;
     }
 
-    // 4. إعادة ضبط المراجع الداخلية
-    liveStepsRef.current        = 0;
-    baseStepsRef.current        = 0;
-    lastGPSPositionRef.current  = null;
-    baseBaroPressureRef.current = null;
-    baseBaroAltitudeRef.current = 0;
-  }, []);
+    liveStepsRef.current              = 0;
+    baseStepsRef.current              = 0;
+    lastGPSPositionRef.current        = null;
+    baseBaroPressureRef.current       = null;
+    baseBaroAltitudeRef.current       = 0;
+    elevationMinRef.current           = null;
+    elevationMaxRef.current           = null;
+    elevationCommittedGainRef.current = 0;
+    totalElevationGainRef.current     = 0;
+    gradePointsRef.current            = [];
+    cumulativeDistRef.current         = 0;
+    smoothedGradeRef.current          = 0;
+    speedBufferRef.current            = [];
+    kalmanFilter.reset();
+    lastValidFixRef.current           = null;
+  }, [kalmanFilter]);
 
-  /** إعادة ضبط خط قاعدة الارتفاع (يُستدعى عند بداية جلسة جديدة) */
+  /** إعادة ضبط فلتر كالمان ونافذة السرعة */
+  const resetKalman = useCallback(() => {
+    kalmanFilter.reset();
+    lastValidFixRef.current = null;
+    speedBufferRef.current  = [];
+  }, [kalmanFilter]);
+
+  /** إعادة ضبط خط قاعدة الارتفاع وعتبة الـ Deadband التراكمية */
   const resetAltitudeBaseline = useCallback(() => {
-    baseBaroPressureRef.current = null;
-    baseBaroAltitudeRef.current = 0;
+    baseBaroPressureRef.current       = null;
+    baseBaroAltitudeRef.current       = 0;
+    elevationMinRef.current           = null;
+    elevationMaxRef.current           = null;
+    elevationCommittedGainRef.current = 0;
+    totalElevationGainRef.current     = 0;
+    gradePointsRef.current            = [];
+    cumulativeDistRef.current         = 0;
+    smoothedGradeRef.current          = 0;
     setState(prev => ({
       ...prev,
-      data: { ...prev.data, altitudeDelta: 0 },
+      data: { ...prev.data, altitudeDelta: 0, elevationGain: 0, gradePercent: 0 },
     }));
   }, []);
 
-  /** إعادة ضبط عداد الخطوات (يُستدعى عند بداية جلسة جديدة) */
+  /** إعادة ضبط عداد الخطوات */
   const resetStepCounter = useCallback(() => {
     liveStepsRef.current = 0;
     baseStepsRef.current = 0;
@@ -474,6 +645,7 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     cleanup,
     resetAltitudeBaseline,
     resetStepCounter,
+    resetKalman,
   };
 };
 
