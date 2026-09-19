@@ -1,0 +1,31 @@
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { useAuth } from '../providers/AuthProvider';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AuthNavigator } from './AuthNavigator';
+import { MainNavigator } from './MainNavigator';
+import { colors } from '../theme/colors';
+
+const Stack = createNativeStackNavigator();
+
+export const RootNavigator = () => {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <AuthNavigator />;
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={MainNavigator} />
+    </Stack.Navigator>
+  );
+};

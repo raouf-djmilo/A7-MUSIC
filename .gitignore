@@ -10,3 +10,4 @@ Thumbs.db
 *.apk
 *.ipa
 *.aab
+node_modules
