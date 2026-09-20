@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-clipboard/ios/NSAttributedString+utilities.swift b/node_modules/expo-clipboard/ios/NSAttributedString+utilities.swift
+index a8e29a3..3686ae2 100644
+--- a/node_modules/expo-clipboard/ios/NSAttributedString+utilities.swift
++++ b/node_modules/expo-clipboard/ios/NSAttributedString+utilities.swift
+@@ -1,6 +1,8 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
++import Foundation
+ #if !os(macOS)
++import UIKit
+ import MobileCoreServices
+ #endif
+ 
