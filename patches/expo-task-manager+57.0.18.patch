@@ -30,8 +30,8 @@ index 4d32678..7d828d2 100644
  
    s.pod_target_xcconfig = {
      'DEFINES_MODULE' => 'YES',
-+    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/ExpoTaskManager-Bridging-Header.h',
-+    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/ios/EXTaskManager"',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ExpoTaskManager-Bridging-Header.h',
++    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/EXTaskManager"',
    }
    s.resource_bundles = {
      'ExpoTaskManager_privacy' => ['PrivacyInfo.xcprivacy']
