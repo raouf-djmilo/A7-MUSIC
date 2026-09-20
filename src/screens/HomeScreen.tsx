@@ -181,7 +181,7 @@ export const HomeScreen = () => {
           <NotificationBell />
         </View>
         <Image 
-          source={require('../../assets/nouble-svg.svg')} 
+          source={require('../../assets/logo.png')} 
           style={styles.logoIcon} 
           contentFit="contain"
         />
@@ -233,8 +233,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoIcon: {
-    width: 60,
-    height: 30,
+    width: 44,
+    height: 36,
   },
   storiesContainer: {
     paddingVertical: 12,

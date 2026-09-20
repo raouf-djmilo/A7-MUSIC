@@ -30,8 +30,6 @@ const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
-import { NoubleMiniPlayer } from '../components/NoubleMiniPlayer';
-import { FullPlayerModal } from '../components/FullPlayerModal';
 
 // ======================================================
 // Tab Navigator (Apple Liquid Glass - Unified Tabs + Search)
@@ -46,7 +44,7 @@ const TabNavigator = () => {
       detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        freezeOnBlur: true,
+        animation: 'fade',
         sceneStyle: {
           backgroundColor: theme.background,
         },
@@ -77,7 +75,6 @@ export const MainNavigator = () => (
           options={{ 
             animation: 'fade_from_bottom',
             gestureEnabled: false,
-            presentation: 'fullScreenModal',
           }}
         />
 
@@ -88,7 +85,6 @@ export const MainNavigator = () => (
           options={{
             animation: 'slide_from_right',
             gestureEnabled: false,
-            presentation: 'fullScreenModal',
           }}
         />
 
@@ -105,20 +101,21 @@ export const MainNavigator = () => (
           component={PublicProfileScreen}
           options={{ animation: 'slide_from_right' }}
         />
+        {/* Artist & Album Detail Screens */}
+        <Stack.Screen 
+          name="ArtistDetail" 
+          component={ArtistDetailsScreen} 
+          options={{ animation: 'slide_from_right' }} 
+        />
         <Stack.Screen 
           name="AlbumDetails" 
           component={AlbumDetailsScreen} 
           options={{ animation: 'slide_from_right' }} 
         />
         <Stack.Screen 
-          name="ArtistDetails" 
-          component={ArtistDetailsScreen} 
-          options={{ animation: 'slide_from_right' }} 
-        />
-        <Stack.Screen 
           name="Settings" 
           component={SettingsScreen} 
-          options={{ headerShown: false, presentation: 'fullScreenModal' }} 
+          options={{ headerShown: false, animation: 'slide_from_right' }} 
         />
         <Stack.Screen 
           name="Notifications" 
@@ -126,10 +123,6 @@ export const MainNavigator = () => (
           options={{ headerShown: false, presentation: 'pageSheet' }} 
         />
       </Stack.Navigator>
-
-      {/* 🎵 Universal Global Mini-Player & Full Modal */}
-      <NoubleMiniPlayer />
-      <FullPlayerModal />
     </BottomSheetModalProvider>
   </GestureHandlerRootView>
 );

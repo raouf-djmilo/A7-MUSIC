@@ -11,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   Linking,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, {
@@ -50,6 +51,7 @@ import { LapSplit } from '../utils/RunningEngine';
 import { supabase } from '../lib/supabase';
 import MapSettingsModal, { MapSettings } from '../components/MapSettingsModal';
 import { useAudioStore } from '../store/useAudioStore';
+import { useNetworkStore, queueOfflineActivity } from '../services/networkService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOCATION_TASK_NAME = 'nouble-bg-location-task';
@@ -242,7 +244,7 @@ const ThemedTrackingMap = React.memo<ThemedTrackingMapProps>(
       <MapView
         ref={mapRef}
         style={[
-          StyleSheet.absoluteFillObject,
+          StyleSheet.absoluteFill,
           { width: SCREEN_WIDTH, height: '100%' },
         ]}
         // 🚀 CRITICAL FIX: Use undefined on iOS so Apple Maps uses native Metal rendering (NO BLACK SCREEN)
@@ -260,14 +262,14 @@ const ThemedTrackingMap = React.memo<ThemedTrackingMapProps>(
         showsMyLocationButton={false}
         showsCompass={false}
         showsScale={false}
-        showsPointsOfInterest={false}
+        showsPointsOfInterests={false}
         showsBuildings={true}
         userLocationPriority="high"
         userLocationUpdateInterval={1000}
         userLocationFastestInterval={500}
-        loadingEnabled={Platform.OS === 'android'}
+        loadingEnabled={true}
         loadingIndicatorColor={STRAVA_ORANGE}
-        loadingBackgroundColor={Platform.OS === 'android' ? STRAVA_MAP_BASE : undefined}
+        loadingBackgroundColor={STRAVA_MAP_BASE}
         onMapReady={() => setIsMapReady(true)}
         onTouchStart={() => {
           onPanDrag();
@@ -493,14 +495,12 @@ export const RecordingScreen = () => {
   const insets = useSafeAreaInsets();
 
   // ── Audio Store ──
-  const {
-    currentTrack,
-    isPlaying,
-    togglePlay,
-    nextTrack,
-    setPlayerModalVisible,
-    setMiniPlayerSuppressed,
-  } = useAudioStore();
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const togglePlay = useAudioStore((s) => s.togglePlay);
+  const nextTrack = useAudioStore((s) => s.nextTrack);
+  const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
+  const setMiniPlayerSuppressed = useAudioStore((s) => s.setMiniPlayerSuppressed);
 
   // Suppress global root mini-player while in full-screen recording screen
   useEffect(() => {
@@ -514,16 +514,19 @@ export const RecordingScreen = () => {
   const [cachedLocation, setCachedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
-    Location.getLastKnownPositionAsync({ maxAge: 10000 })
-      .then((loc) => {
-        if (loc?.coords && loc.timestamp && Math.abs(Date.now() - loc.timestamp) < 10000) {
-          setCachedLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-        }
-      })
-      .catch(() => {});
+    const handle = InteractionManager.runAfterInteractions(() => {
+      Location.getLastKnownPositionAsync({ maxAge: 10000 })
+        .then((loc) => {
+          if (loc?.coords && loc.timestamp && Math.abs(Date.now() - loc.timestamp) < 10000) {
+            setCachedLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+          }
+        })
+        .catch(() => {});
+    });
+    return () => handle.cancel();
   }, []);
 
   // ── Activity Telemetry & State ──
@@ -1097,12 +1100,25 @@ export const RecordingScreen = () => {
       }
     });
 
-  // ── Save Activity to Supabase ──
+  // ── Save Activity to Supabase (with Offline Queue Fallback) ──
   const saveActivity = async (caption: string) => {
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('يرجى تسجيل الدخول لحفظ النشاط');
+      // In offline mode or unstable network, getSession retrieves the locally cached user
+      let userId: string | null = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        userId = session?.user?.id || null;
+      } catch (e) {}
+
+      if (!userId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          userId = user?.id || null;
+        } catch (e) {}
+      }
+
+      if (!userId) throw new Error('يرجى تسجيل الدخول لحفظ النشاط');
 
       const finalSteps = sensor.data.totalSessionSteps;
       const finalSpeed = sensor.data.speed;
@@ -1114,8 +1130,8 @@ export const RecordingScreen = () => {
         ? formatAveragePace(movingTime, distance)
         : pace;
 
-      const { error: ae } = await supabase.from('activities').insert({
-        user_id: user.id,
+      const activityPayload = {
+        user_id: userId,
         activity_type: activityType,
         total_time: elapsedTime > 0 ? elapsedTime : movingTime,
         total_distance: distance,
@@ -1127,9 +1143,36 @@ export const RecordingScreen = () => {
         notes: caption.trim() ? `${caption.trim()} (Elevation Gain: +${Math.round(sensor.data.elevationGain)}m)` : (sensor.data.elevationGain > 0 ? `Elevation Gain: +${Math.round(sensor.data.elevationGain)}m` : null),
         altitude: finalAlt,
         pressure: finalPressure,
-      });
+      };
 
-      if (ae) throw ae;
+      const isOnline = useNetworkStore.getState().isOnline;
+
+      if (!isOnline) {
+        // Save locally for offline sync
+        await queueOfflineActivity(activityPayload);
+        setShowShare(false);
+        Alert.alert(
+          'تم الحفظ في ذاكرة الهاتف 💾',
+          'تم حفظ بيانات تمرينك بنجاح في الوضع غير المتصل (Offline). ستتم المزامنة تلقائياً مع خوادم السحابة بمجرد عودة الإنترنت.'
+        );
+        setTimeout(() => navigation.navigate('Dashboard'), 250);
+        return;
+      }
+
+      const { error: ae } = await supabase.from('activities').insert(activityPayload);
+
+      if (ae) {
+        // If network failed during insert, fallback to offline queue
+        console.warn('[RecordingScreen] Online insert failed, saving to offline queue:', ae);
+        await queueOfflineActivity(activityPayload);
+        setShowShare(false);
+        Alert.alert(
+          'تم الحفظ أوفلاين 💾',
+          'تعذر الاتصال بالخادم مؤقتاً، تم حفظ التمرين محلياً وستتم المزامنة تلقائياً فور استقرار الشبكة.'
+        );
+        setTimeout(() => navigation.navigate('Dashboard'), 250);
+        return;
+      }
 
       setShowShare(false);
       setTimeout(() => navigation.navigate('Dashboard'), 250);
@@ -1141,7 +1184,7 @@ export const RecordingScreen = () => {
   };
 
   const accent = activityType === 'trail' ? STRAVA_EMERALD : (activityType === 'run' ? STRAVA_ORANGE : STRAVA_BLUE);
-  const isPaused = trackingStatus === 'paused' || trackingStatus === 'auto-paused';
+  const isPaused = (trackingStatus as string) === 'paused' || (trackingStatus as string) === 'auto-paused';
 
   // ─────────────────────────────────────────────────────────────────
   // Right Action Stack Handlers
@@ -1638,7 +1681,7 @@ const styles = StyleSheet.create({
     backgroundColor: STRAVA_MAP_BASE,
   },
   mapContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flex: 1,
     backgroundColor: STRAVA_MAP_BASE,
   },

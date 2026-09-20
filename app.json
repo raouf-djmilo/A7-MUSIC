@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "myapp",
+    "name": "A7 MUSIC",
     "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,14 +17,15 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
-          "audio"
+          "audio",
+          "location"
         ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { useAudioStore } from '../store/useAudioStore';
+import { useNetworkStore } from '../services/networkService';
 
 export type User = {
   id: string;
@@ -73,6 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(currentUser);
           await AsyncStorage.setItem('userToken', initialSession.access_token);
           await AsyncStorage.setItem('userData', JSON.stringify(currentUser));
+          useNetworkStore.getState().recordSuccessfulLogin();
         } else {
           // Fallback to local storage
           const storedToken = await AsyncStorage.getItem('userToken');
@@ -80,6 +83,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (storedToken && storedUser) {
             setSession(storedToken);
             setUser(JSON.parse(storedUser));
+            useNetworkStore.getState().recordSuccessfulLogin();
           }
         }
       } catch (e) {
@@ -159,6 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(loggedInUser));
+      await useNetworkStore.getState().recordSuccessfulLogin();
 
       return { data: { token, user: loggedInUser }, error: null };
     } catch (e: any) {
@@ -227,6 +232,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await AsyncStorage.setItem('userToken', token);
       }
       await AsyncStorage.setItem('userData', JSON.stringify(registeredUser));
+      await useNetworkStore.getState().recordSuccessfulLogin();
 
       return { data: { token, user: registeredUser }, error: null };
     } catch (e: any) {
@@ -236,6 +242,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
+      try {
+        await useAudioStore.getState().stopTrack();
+      } catch (audioErr) {
+        console.warn('Error stopping audio on logout:', audioErr);
+      }
       await supabase.auth.signOut();
       setSession(null);
       setUser(null);

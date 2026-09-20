@@ -12,6 +12,11 @@ import {
   startListeningHeartbeat, 
   stopListeningHeartbeat 
 } from '../services/listeningTimeService';
+import { configureAudioSession, updateNowPlayingLockScreen } from '../services/audioSessionService';
+import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { ToastManager } from '../components/InAppToast';
+import { musicDnaService } from '../services/musicDnaService';
+import { downloadService } from '../services/downloadService';
 
 const emitStatus = (userId: string | null, track: any, isPlaying: boolean) => {
   if (!userId) return;
@@ -42,6 +47,7 @@ export interface Track {
   type?: string;
   isOfficial?: boolean;
   channelId?: string;
+  artistAvatar?: string;
 }
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -53,6 +59,7 @@ export interface AudioEngineAction {
   url?: string;
   position?: number; // in seconds
   quality?: 'hd1080' | 'hd720' | 'highres' | 'medium' | 'small';
+  isOfflinePlayback?: boolean;
   id: number;
 }
 
@@ -69,25 +76,50 @@ export interface AudioState {
   loadingTrackId: string | null;
 
   queue: Track[];
+  currentQueue: Track[];
   currentIndex: number;
   currentContextName: string | null;
+  queueContextName: string | null;
   isShuffle: boolean;
   repeatMode: RepeatMode;
   shuffledIndices: number[];
   likedTrackIds: string[];
   preferredQuality: AudioQuality;
   history: Track[];
+  audioEngineAction?: AudioEngineAction | null;
+
+  // Route navigation tracking for dynamic UI and bar docking
+  currentRouteName: string;
+  setCurrentRouteName: (name: string) => void;
+
+  // Followed artists engine (Persistent with AsyncStorage & Supabase)
+  followedArtistIds: string[];
+  followedArtists: { id: string; name: string; avatar: string }[];
+  toggleFollowArtist: (artist: { id: string; name: string; avatar: string }) => Promise<void>;
+  loadFollowedArtists: () => Promise<void>;
 
   // Mini-player suppression flag (e.g. for full-screen workout recording screens)
   isMiniPlayerSuppressed: boolean;
   setMiniPlayerSuppressed: (suppressed: boolean) => void;
+
+  // Background Audio and Lock Screen Settings
+  backgroundAudioEnabled: boolean;
+  setBackgroundAudioEnabled: (enabled: boolean) => void;
+  pauseTrack: () => void;
+  resumeTrack: () => void;
 
   setPlayerModalVisible: (visible: boolean) => void;
   setActiveUserId: (userId: string | null) => void;
   fetchInitialLikes: (userId: string) => Promise<void>;
   loadHistory: () => Promise<void>;
   getUserTopVibe: () => { vibeName: string; query: string };
-  playTrack: (track: Track, userId?: any, initialPosition?: number, contextQueue?: Track[]) => Promise<void>;
+  playTrack: (
+    track: Track,
+    queueOrUserId?: Track[] | string | null,
+    indexOrInitialPos?: number,
+    contextQueueOrContextName?: Track[] | string,
+    contextName?: string
+  ) => Promise<void>;
   playAlbumContext: (tracks: Track[], startIndex: number, contextName: string) => Promise<void>;
   playAlbum: (tracks: Track[], startIndex?: number) => Promise<void>;
   nextTrack: () => Promise<void>;
@@ -99,6 +131,8 @@ export interface AudioState {
   stopTrack: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
   setAudioQuality: (quality: AudioQuality) => void;
+  isOfflinePlayback: boolean;
+  playDownloadedQueue: (startIndex?: number) => Promise<void>;
   updateProgress: (positionMillis: number, durationMillis: number) => void;
   handleTrackEnded: () => Promise<void>;
 }
@@ -107,6 +141,9 @@ let lastNavTimestamp = 0;
 const NAV_THROTTLE_MS = 300;
 let lastUserToggleTimestamp = 0;
 let lastReportedPlaybackSec = 0;
+let isAudioLoadingMutex = false;
+let lastTrackRequestTimestamp = 0;
+let loadingSafetyTimer: any = null;
 
 export const getLastUserToggleTimestamp = () => lastUserToggleTimestamp;
 
@@ -121,15 +158,96 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   activeUserId: null,
   loadingTrackId: null,
   queue: [],
+  currentQueue: [],
   currentIndex: -1,
   currentContextName: null,
+  queueContextName: null,
   isShuffle: false,
   repeatMode: 'off',
   shuffledIndices: [],
   likedTrackIds: [],
   preferredQuality: 'hd320',
+  isOfflinePlayback: false,
   history: [],
-  audioEngineAction: null,
+  currentRouteName: 'DashboardTab',
+  setCurrentRouteName: (name: string) => set({ currentRouteName: name }),
+  backgroundAudioEnabled: true,
+  setBackgroundAudioEnabled: (enabled: boolean) => {
+    set({ backgroundAudioEnabled: enabled });
+    AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => {});
+  },
+
+  followedArtistIds: [],
+  followedArtists: [],
+
+  toggleFollowArtist: async (artist) => {
+    const { followedArtistIds, followedArtists, activeUserId } = get();
+    const exists = followedArtistIds.includes(artist.id);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    let newIds: string[];
+    let newArtists: { id: string; name: string; avatar: string }[];
+
+    if (exists) {
+      newIds = followedArtistIds.filter((id) => id !== artist.id);
+      newArtists = followedArtists.filter((a) => a.id !== artist.id);
+    } else {
+      newIds = [artist.id, ...followedArtistIds];
+      newArtists = [artist, ...followedArtists];
+    }
+
+    set({ followedArtistIds: newIds, followedArtists: newArtists });
+
+    try {
+      await AsyncStorage.setItem('@nouble_followed_artists', JSON.stringify(newArtists));
+      await AsyncStorage.setItem('@nouble_followed_artist_ids', JSON.stringify(newIds));
+    } catch (e) {
+      console.warn('[AudioStore] AsyncStorage save followed artists error:', e);
+    }
+
+    if (activeUserId) {
+      try {
+        if (exists) {
+          await supabase
+            .from('user_followed_artists')
+            .delete()
+            .eq('user_id', activeUserId)
+            .eq('artist_id', artist.id);
+        } else {
+          await supabase
+            .from('user_followed_artists')
+            .upsert({
+              user_id: activeUserId,
+              artist_id: artist.id,
+              artist_name: artist.name,
+              artist_avatar: artist.avatar,
+              created_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,artist_id' });
+        }
+      } catch (e) {
+        console.warn('[AudioStore] Supabase followed artists sync error:', e);
+      }
+    }
+  },
+
+  loadFollowedArtists: async () => {
+    try {
+      const raw = await AsyncStorage.getItem('@nouble_followed_artists');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          set({
+            followedArtists: parsed,
+            followedArtistIds: parsed.map((a: any) => a.id),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[AudioStore] Load followed artists error:', e);
+    }
+  },
+
   isMiniPlayerSuppressed: false,
   setMiniPlayerSuppressed: (suppressed: boolean) => set({ isMiniPlayerSuppressed: suppressed }),
 
@@ -209,7 +327,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   setPlayerModalVisible: (visible) => set({ isPlayerModalVisible: visible }),
-  setActiveUserId: (userId) => set({ activeUserId: userId }),
+  setActiveUserId: (userId) => {
+    set({ activeUserId: userId });
+    musicDnaService.setUserId(userId);
+  },
 
   fetchInitialLikes: async (userId) => {
     try {
@@ -225,106 +346,257 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
   },
 
-  playTrack: async (track, userId, initialPosition = 0, contextQueue = []) => {
+  playTrack: async (track, queueOrUserId, indexOrInitialPos = 0, contextQueueOrContextName, contextName) => {
+    if (!track) return;
     const state = get();
-    const finalUserId = userId || state.activeUserId;
-    const newRequestId = state.playRequestId + 1;
-    lastUserToggleTimestamp = Date.now();
-    
-    if (contextQueue.length > 0) {
-      const idx = contextQueue.findIndex(t => t.videoId === track.videoId);
-      set({ queue: contextQueue, currentIndex: idx >= 0 ? idx : 0 });
-    }
 
-    // ── 1. Instant 0ms Haptic Feedback ──
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // ── Parse Overloaded Arguments ──
+    let targetQueue: Track[] = [];
+    let targetIndex = -1;
+    let resolvedContextName: string | null = null;
+    let finalUserId: string | null = state.activeUserId;
+    let initialPosition = 0;
 
-    let streamUrl: string | undefined = track.audioUrl;
-    let finalTitle = track.title || 'Unknown Title';
-    let finalArtist = track.artist || 'Unknown Artist';
-    let totalDurationSec = track.duration ? Math.floor(track.duration / 1000) : 180;
-
-    // If audioUrl is not specified and not a YouTube videoId, pick fallback stream
-    if (!streamUrl && (!track.videoId || track.videoId.startsWith('http') || track.videoId.length < 5)) {
-      const matchingCurated = CURATED_TRACKS.find(t => 
-        t.videoId === track.videoId ||
-        t.title.toLowerCase() === track.title?.toLowerCase()
-      );
-      streamUrl = matchingCurated?.audioUrl || CURATED_TRACKS[0].audioUrl;
-      if (!track.duration && matchingCurated?.duration) {
-        totalDurationSec = Math.floor(matchingCurated.duration / 1000);
+    if (Array.isArray(queueOrUserId)) {
+      // Signature A: playTrack(track, queue, index, contextName)
+      targetQueue = queueOrUserId;
+      targetIndex = typeof indexOrInitialPos === 'number' ? indexOrInitialPos : -1;
+      resolvedContextName = typeof contextQueueOrContextName === 'string' ? contextQueueOrContextName : (contextName || null);
+    } else {
+      // Signature B: playTrack(track, userId, initialPosition, contextQueue, contextName)
+      finalUserId = (queueOrUserId as string | null) || state.activeUserId;
+      initialPosition = typeof indexOrInitialPos === 'number' ? indexOrInitialPos : 0;
+      if (Array.isArray(contextQueueOrContextName)) {
+        targetQueue = contextQueueOrContextName;
       }
+      resolvedContextName = contextName || (typeof contextQueueOrContextName === 'string' ? contextQueueOrContextName : null);
     }
 
-    const finalTrack: Track = {
-      ...track,
-      title: finalTitle,
-      artist: finalArtist,
-      thumbnail: track.thumbnail,
-      duration: totalDurationSec * 1000,
-      audioUrl: streamUrl,
-    };
+    // ── 0. Idempotent Play/Pause Guard ──
+    // If clicking the same active track, toggle play/pause directly without reloading
+    const isSameTrack = Boolean(
+      state.currentTrack &&
+      ((track.videoId && state.currentTrack.videoId === track.videoId) ||
+       ((track as any).id && (state.currentTrack as any).id === (track as any).id))
+    );
 
-    // ── 2. Instant 0ms Optimistic UI Update in Store ──
-    set({ 
-      playRequestId: newRequestId,
-      currentTrack: finalTrack,
-      isPlaying: true,
-      isLoading: false,
-      loadingTrackId: null,
-      durationMillis: totalDurationSec * 1000,
-      positionMillis: initialPosition * 1000,
-      // Dispatch to GlobalAudioBridge for YouTube / HTML5 audio
-      audioEngineAction: {
-        type: 'play',
-        videoId: track.videoId,
-        url: streamUrl,
-        position: initialPosition,
-        id: Date.now(),
-      },
-    });
+    if (isSameTrack && (!targetQueue.length || targetQueue === state.queue)) {
+      await get().togglePlay();
+      return;
+    }
 
-    // ── 3. Background Persistence & Native Audio Mode ──
+    // ── 1. Rapid Click Guard: Record timestamp, latest request supersedes ──
+    const now = Date.now();
+    lastTrackRequestTimestamp = now;
+
+    set({ isLoading: true, loadingTrackId: track.videoId, positionMillis: 0 });
+
+    // Safety timeout: 7 seconds auto-unlock to guarantee zero UI deadlock
+    if (loadingSafetyTimer) clearTimeout(loadingSafetyTimer);
+    loadingSafetyTimer = setTimeout(() => {
+      const s = get();
+      if (s.isLoading) {
+        set({ isLoading: false, loadingTrackId: null });
+      }
+    }, 7000);
+
     try {
-      const currentHistory = get().history;
-      const updatedHistory = [finalTrack, ...currentHistory.filter(t => t.videoId !== finalTrack.videoId)].slice(0, 30);
-      set({ history: updatedHistory });
-      AsyncStorage.setItem('@nouble_music_history', JSON.stringify(updatedHistory)).catch(() => {});
-
-      if (NativeModules.TrackPlayerModule) {
-        try {
-          await TrackPlayer.reset();
-          await TrackPlayer.add({
-            id: track.videoId,
-            url: streamUrl,
-            title: finalTitle,
-            artist: finalArtist,
-            artwork: finalTrack.thumbnail || undefined,
-            duration: totalDurationSec,
+      const newRequestId = state.playRequestId + 1;
+      lastUserToggleTimestamp = Date.now();
+      
+      // ── Context Queue & Index Calibration ──
+      if (targetQueue.length > 0) {
+        const foundIdx = (targetIndex >= 0 && targetIndex < targetQueue.length)
+          ? targetIndex
+          : targetQueue.findIndex(t => t.videoId === track.videoId);
+        const resolvedIdx = foundIdx >= 0 ? foundIdx : 0;
+        set({
+          queue: targetQueue,
+          currentQueue: targetQueue,
+          currentIndex: resolvedIdx,
+          currentContextName: resolvedContextName,
+          queueContextName: resolvedContextName,
+        });
+      } else {
+        // If no queue passed, check if track is in existing queue
+        const existingIdx = state.queue.findIndex(t => t.videoId === track.videoId);
+        if (existingIdx >= 0) {
+          set({ currentIndex: existingIdx });
+        } else {
+          set({
+            queue: [track],
+            currentQueue: [track],
+            currentIndex: 0,
+            currentContextName: resolvedContextName || 'single',
+            queueContextName: resolvedContextName || 'single',
           });
-          await TrackPlayer.play();
-        } catch (tpErr) {
-          // Native TrackPlayer fallback is non-blocking
         }
       }
-    } catch (error: any) {
-      console.warn('[AudioStore] Background Play Error:', error);
+
+      // Instant 0ms Haptic Feedback
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      let streamUrl: string | undefined = track.audioUrl;
+      let finalTitle = track.title || 'Unknown Title';
+      let finalArtist = track.artist || 'Unknown Artist';
+      let finalArtwork = track.thumbnail;
+      let totalDurationSec = track.duration ? Math.floor(track.duration / 1000) : 180;
+      let isOffline = false;
+
+      // ── Hardware Download Check (0ms latency, zero cellular data, works in Airplane Mode) ──
+      try {
+        const localTrack = await downloadService.getLocalTrack(track.videoId);
+        if (localTrack && localTrack.audioLocalUri) {
+          streamUrl = localTrack.audioLocalUri;
+          isOffline = true;
+          if (localTrack.artworkLocalUri) {
+            finalArtwork = localTrack.artworkLocalUri;
+          }
+          console.log('[AudioStore] ⚡ Playing from local device storage:', streamUrl);
+        }
+      } catch (localErr) {
+        console.warn('[AudioStore] Local track check non-fatal error:', localErr);
+      }
+
+      // If audioUrl is not specified and not a YouTube videoId, pick fallback stream
+      if (!streamUrl && (!track.videoId || track.videoId.startsWith('http') || track.videoId.length < 5)) {
+        const matchingCurated = CURATED_TRACKS.find(t => 
+          t.videoId === track.videoId ||
+          t.title.toLowerCase() === track.title?.toLowerCase()
+        );
+        streamUrl = matchingCurated?.audioUrl || CURATED_TRACKS[0].audioUrl;
+        if (!track.duration && matchingCurated?.duration) {
+          totalDurationSec = Math.floor(matchingCurated.duration / 1000);
+        }
+      }
+
+      const finalTrack: Track = {
+        ...track,
+        title: finalTitle,
+        artist: finalArtist,
+        thumbnail: finalArtwork,
+        duration: totalDurationSec * 1000,
+        audioUrl: streamUrl,
+      };
+
+      // Instant 0ms Optimistic UI Update in Store
+      set({ 
+        playRequestId: newRequestId,
+        currentTrack: finalTrack,
+        isPlaying: true,
+        isLoading: false,
+        loadingTrackId: null,
+        isOfflinePlayback: isOffline,
+        durationMillis: totalDurationSec * 1000,
+        positionMillis: initialPosition * 1000,
+        // Dispatch to GlobalAudioBridge for YouTube / HTML5 audio
+        audioEngineAction: {
+          type: 'play',
+          videoId: isOffline ? '' : track.videoId,
+          url: streamUrl,
+          position: initialPosition,
+          isOfflinePlayback: isOffline,
+          id: Date.now(),
+        },
+      });
+
+      // Background Persistence & Native Audio Mode
+      try {
+        const currentHistory = get().history;
+        const updatedHistory = [finalTrack, ...currentHistory.filter(t => t.videoId !== finalTrack.videoId)].slice(0, 30);
+        set({ history: updatedHistory });
+        AsyncStorage.setItem('@nouble_music_history', JSON.stringify(updatedHistory)).catch(() => {});
+        musicDnaService.recordListeningSignal(finalTrack, 'play').catch(() => {});
+
+        // Configure native audio session for background playback
+        configureAudioSession(get().backgroundAudioEnabled);
+
+        // Lock Screen NowPlaying sync (immediate force update)
+        updateNowPlayingLockScreen(finalTrack, initialPosition * 1000, totalDurationSec * 1000, true);
+
+        // One-time informational toast
+        AsyncStorage.getItem('@nouble_bg_audio_toast_shown').then((shown) => {
+          if (!shown) {
+            AsyncStorage.setItem('@nouble_bg_audio_toast_shown', 'true').catch(() => {});
+            setTimeout(() => {
+              ToastManager.show({
+                title: '🎵 الصوت يعمل في الخلفية',
+                subtitle: 'الموسيقى تستمر بالعمل عند قفل الشاشة أو تصفح التطبيقات',
+                icon: 'musical-notes',
+                duration: 3500,
+              });
+            }, 1200);
+          }
+        }).catch(() => {});
+
+        if (NativeModules.TrackPlayerModule) {
+          try {
+            await TrackPlayer.reset();
+            await TrackPlayer.add({
+              id: track.videoId || 'unknown',
+              url: streamUrl || 'https://lonelycpp.github.io/assets/silence.mp3',
+              title: finalTitle,
+              artist: finalArtist,
+              artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+              duration: totalDurationSec,
+            });
+            await TrackPlayer.play();
+          } catch (tpErr) {
+            // Native TrackPlayer fallback is non-blocking
+          }
+        }
+      } catch (error: any) {
+        console.warn('[AudioStore] Background Play Error:', error);
+      }
+    } catch (err) {
+      console.warn('[AudioStore] Audio playback safely caught error:', err);
+      set({ isLoading: false, loadingTrackId: null });
+    } finally {
+      isAudioLoadingMutex = false;
+      if (loadingSafetyTimer) {
+        clearTimeout(loadingSafetyTimer);
+        loadingSafetyTimer = null;
+      }
     }
   },
 
   playAlbumContext: async (tracks, startIndex, contextName) => {
     set({ 
       queue: tracks, 
+      currentQueue: tracks,
       currentIndex: startIndex, 
       currentContextName: contextName,
+      queueContextName: contextName,
       isShuffle: false,
       shuffledIndices: [] 
     });
-    await get().playTrack(tracks[startIndex], get().activeUserId, 0, tracks);
+    await get().playTrack(tracks[startIndex], tracks, startIndex, contextName);
   },
 
   playAlbum: async (tracks: Track[], startIndex = 0) => {
     await get().playAlbumContext(tracks, startIndex, 'Album');
+  },
+
+  playDownloadedQueue: async (startIndex = 0) => {
+    try {
+      const downloaded = await downloadService.getDownloadedTracks();
+      if (downloaded.length === 0) return;
+
+      const trackQueue: Track[] = downloaded.map((d) => ({
+        videoId: d.videoId,
+        title: d.title,
+        artist: d.artist,
+        thumbnail: d.artworkLocalUri || d.thumbnail,
+        audioUrl: d.audioLocalUri,
+        duration: d.duration,
+      }));
+
+      const safeIdx = Math.max(0, Math.min(startIndex, trackQueue.length - 1));
+      set({ isOfflinePlayback: true });
+      await get().playAlbumContext(trackQueue, safeIdx, 'Downloads');
+    } catch (e) {
+      console.warn('[AudioStore] Error playing downloaded queue:', e);
+    }
   },
 
   nextTrack: async () => {
@@ -333,27 +605,60 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (now - lastNavTimestamp < NAV_THROTTLE_MS) return;
     lastNavTimestamp = now;
 
-    const { queue, currentIndex, isShuffle, shuffledIndices, repeatMode } = get();
+    const { queue, currentIndex, isShuffle, shuffledIndices, repeatMode, currentTrack, positionMillis, durationMillis } = get();
     if (queue.length === 0) return;
+
+    // Record skip signal for Music DNA if skipped early (< 25s)
+    if (currentTrack && positionMillis < 25000 && (durationMillis || 0) > 45000) {
+      musicDnaService.recordListeningSignal(currentTrack, 'skip').catch(() => {});
+    }
+
+    // 1. Repeat ONE mode: replay current track from beginning
+    if (repeatMode === 'one' && currentTrack) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await get().seekTo(0);
+      get().resumeTrack();
+      return;
+    }
 
     let nextIdx = -1;
 
+    // 2. Shuffle mode
     if (isShuffle && shuffledIndices.length > 0) {
       const currentPosInShuffle = shuffledIndices.indexOf(currentIndex);
       if (currentPosInShuffle !== -1 && currentPosInShuffle < shuffledIndices.length - 1) {
         nextIdx = shuffledIndices[currentPosInShuffle + 1];
-      } else if (repeatMode === 'all') {
-        nextIdx = shuffledIndices[0];
+      } else {
+        // End of shuffled list reached
+        if (repeatMode === 'all') {
+          nextIdx = shuffledIndices[0]; // Loop back to start
+        } else {
+          // Repeat OFF: gracefully stop at end of queue
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          get().pauseTrack();
+          await get().seekTo(0);
+          return;
+        }
       }
     } else {
-      if (currentIndex < queue.length - 1) {
+      // 3. Normal Sequential mode
+      if (currentIndex < queue.length - 1 && currentIndex >= 0) {
         nextIdx = currentIndex + 1;
-      } else if (repeatMode === 'all') {
-        nextIdx = 0;
+      } else {
+        // End of queue reached
+        if (repeatMode === 'all') {
+          nextIdx = 0; // Wrap around to start
+        } else {
+          // Repeat OFF: gracefully stop at end of queue
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          get().pauseTrack();
+          await get().seekTo(0);
+          return;
+        }
       }
     }
 
-    if (nextIdx !== -1) {
+    if (nextIdx >= 0 && nextIdx < queue.length) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       set({ currentIndex: nextIdx });
       await get().playTrack(queue[nextIdx]);
@@ -362,14 +667,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   prevTrack: async () => {
     const now = Date.now();
-    // ── 300ms Command Throttling Guard ──
-    if (now - lastNavTimestamp < NAV_THROTTLE_MS) return;
+    // ── 250ms Command Throttling Guard ──
+    if (now - lastNavTimestamp < 250) return;
     lastNavTimestamp = now;
 
-    const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices } = get();
+    const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices, repeatMode } = get();
     if (queue.length === 0) return;
     
-    // If more than 3 seconds in, restart track
+    // Spotify Standard: If played >3 seconds, restart current track from 0
     if (positionMillis > 3000) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await get().seekTo(0);
@@ -378,18 +683,40 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     let prevIdx = -1;
 
+    // 1. Shuffle mode
     if (isShuffle && shuffledIndices.length > 0) {
       const currentPosInShuffle = shuffledIndices.indexOf(currentIndex);
       if (currentPosInShuffle > 0) {
         prevIdx = shuffledIndices[currentPosInShuffle - 1];
+      } else {
+        // At first song of shuffle
+        if (repeatMode === 'all') {
+          prevIdx = shuffledIndices[shuffledIndices.length - 1];
+        } else {
+          // Repeat OFF: restart from 0
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await get().seekTo(0);
+          return;
+        }
       }
     } else {
+      // 2. Normal Sequential mode
       if (currentIndex > 0) {
         prevIdx = currentIndex - 1;
+      } else {
+        // At index 0
+        if (repeatMode === 'all') {
+          prevIdx = queue.length - 1; // Wrap to end
+        } else {
+          // Repeat OFF: restart current song from 0
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await get().seekTo(0);
+          return;
+        }
       }
     }
 
-    if (prevIdx !== -1) {
+    if (prevIdx >= 0 && prevIdx < queue.length) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       set({ currentIndex: prevIdx });
       await get().playTrack(queue[prevIdx]);
@@ -435,6 +762,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       : [...likedTrackIds, track.videoId];
     
     set({ likedTrackIds: newLikedIds });
+
+    musicDnaService.recordListeningSignal(track, isLiked ? 'unlike' : 'like').catch(() => {});
 
     try {
       if (isLiked) {
@@ -492,13 +821,45 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
   },
 
-  seekTo: async (position) => {
+  pauseTrack: () => {
+    if (!get().isPlaying) return;
+    lastUserToggleTimestamp = Date.now();
     set({ 
-      positionMillis: position,
-      audioEngineAction: { type: 'seek', position: position / 1000, id: Date.now() },
+      isPlaying: false,
+      audioEngineAction: { type: 'pause', id: Date.now() },
     });
+    flushListeningSecondsToSupabase();
+    const state = get();
+    updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
     if (NativeModules.TrackPlayerModule) {
-      try { await TrackPlayer.seekTo(position / 1000); } catch(e){}
+      try { TrackPlayer.pause(); } catch(e) {}
+    }
+  },
+
+  resumeTrack: () => {
+    if (get().isPlaying) return;
+    lastUserToggleTimestamp = Date.now();
+    set({ 
+      isPlaying: true,
+      audioEngineAction: { type: 'resume', id: Date.now() },
+    });
+    const state = get();
+    updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
+    if (NativeModules.TrackPlayerModule) {
+      try { TrackPlayer.play(); } catch(e) {}
+    }
+  },
+
+  seekTo: async (position) => {
+    const validPos = Math.max(0, position);
+    set({ 
+      positionMillis: validPos,
+      audioEngineAction: { type: 'seek', position: validPos / 1000, id: Date.now() },
+    });
+    const state = get();
+    updateNowPlayingLockScreen(state.currentTrack, validPos, state.durationMillis, true);
+    if (NativeModules.TrackPlayerModule) {
+      try { await TrackPlayer.seekTo(validPos / 1000); } catch(e){}
     }
   },
 
@@ -515,6 +876,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     }
 
+    // Synchronize Lock Screen & Control Center position
+    updateNowPlayingLockScreen(state.currentTrack, pos, dur);
+
     set((s) => ({
       positionMillis: pos,
       durationMillis: dur > 0 ? dur : s.durationMillis,
@@ -524,7 +888,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   handleTrackEnded: async () => {
     flushListeningSecondsToSupabase();
     const { repeatMode, currentTrack } = get();
-    if (repeatMode === 'one' && currentTrack?.audioUrl) {
+    if (currentTrack) {
+      musicDnaService.recordListeningSignal(currentTrack, 'complete').catch(() => {});
+    }
+    if (repeatMode === 'one' && currentTrack) {
       await get().seekTo(0);
       set({ 
         audioEngineAction: {
@@ -536,6 +903,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         },
         isPlaying: true,
       });
+      if (NativeModules.TrackPlayerModule) {
+        try {
+          await TrackPlayer.seekTo(0);
+          await TrackPlayer.play();
+        } catch (e) {}
+      }
     } else {
       await get().nextTrack();
     }
@@ -599,5 +972,6 @@ useAudioStore.subscribe((state) => {
   }, 400);
 });
 
-// Hydrate listening history on startup
+// Hydrate listening history and followed artists on startup
 useAudioStore.getState().loadHistory();
+useAudioStore.getState().loadFollowedArtists();

@@ -1,15 +1,36 @@
 import { NativeModules } from 'react-native';
 import TrackPlayer, { Capability, Event } from 'react-native-track-player';
 import { useAudioStore } from '../store/useAudioStore';
+import { setupAudioInterruptionListeners } from '../services/audioSessionService';
 
 export const PlaybackService = async () => {
   if (!NativeModules.TrackPlayerModule) return;
   try {
-    TrackPlayer.addEventListener(Event.RemotePlay, () => useAudioStore.getState().togglePlay());
-    TrackPlayer.addEventListener(Event.RemotePause, () => useAudioStore.getState().togglePlay());
+    TrackPlayer.addEventListener(Event.RemotePlay, () => useAudioStore.getState().resumeTrack());
+    TrackPlayer.addEventListener(Event.RemotePause, () => useAudioStore.getState().pauseTrack());
     TrackPlayer.addEventListener(Event.RemoteNext, () => useAudioStore.getState().nextTrack());
     TrackPlayer.addEventListener(Event.RemotePrevious, () => useAudioStore.getState().prevTrack());
     TrackPlayer.addEventListener(Event.RemoteStop, () => useAudioStore.getState().stopTrack());
+    TrackPlayer.addEventListener(Event.RemoteSeek, async (event) => {
+      if (typeof event.position === 'number') {
+        await useAudioStore.getState().seekTo(event.position * 1000);
+      }
+    });
+    TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event) => {
+      const interval = (event.interval || 10) * 1000;
+      const { positionMillis, durationMillis, seekTo } = useAudioStore.getState();
+      await seekTo(Math.min(durationMillis, positionMillis + interval));
+    });
+    TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event) => {
+      const interval = (event.interval || 10) * 1000;
+      const { positionMillis, seekTo } = useAudioStore.getState();
+      await seekTo(Math.max(0, positionMillis - interval));
+    });
+    TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
+      if (event.paused || event.permanent) {
+        useAudioStore.getState().pauseTrack();
+      }
+    });
   } catch (e) {
     // Ignored in Expo Go
   }
@@ -38,6 +59,9 @@ export const SetupService = async () => {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.Stop,
+            Capability.SeekTo,
+            Capability.JumpForward,
+            Capability.JumpBackward,
           ],
           compactCapabilities: [
             Capability.Play,
@@ -45,9 +69,21 @@ export const SetupService = async () => {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
           ],
+          notificationCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.SeekTo,
+            Capability.JumpForward,
+            Capability.JumpBackward,
+          ],
+          forwardJumpInterval: 10,
+          backwardJumpInterval: 10,
           progressUpdateEventInterval: 2,
         });
       }
+      setupAudioInterruptionListeners();
       isSetup = true;
     } catch (e) {
       console.log('[SetupService] TrackPlayer setup skipped');

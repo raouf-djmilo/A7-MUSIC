@@ -16,7 +16,8 @@ import { useAudioStore } from '../store/useAudioStore';
 export const SocialBar: React.FC = () => {
   const { friends, isFetching } = useSocialStore();
   const { user } = useAuth();
-  const { currentTrack, isPlaying } = useAudioStore();
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
   
   const [selectedFriend, setSelectedFriend] = useState<FriendActivity | null>(null);
   const [modalVisible, setModalVisible] = useState(false);

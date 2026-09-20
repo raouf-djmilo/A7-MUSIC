@@ -63,19 +63,22 @@ const STRAVA_CARD_BG = '#1A1D24';
 const STRAVA_CARD_BORDER = 'rgba(255, 255, 255, 0.08)';
 
 export interface WorkoutSummaryParams {
-  route: { latitude: number; longitude: number }[];
-  sportType: 'run' | 'trail' | 'walk';
-  distanceKm: number;
-  movingTimeSeconds: number;
-  elapsedTimeSeconds: number;
-  stoppedTimeSeconds: number;
-  avgPace: string;
-  avgCadence: number;
-  maxAltitude: number;
-  elevationGain: number;
-  calories: number;
-  splits: LapSplit[];
-  startTime: string;
+  workout?: any;
+  workoutId?: string;
+  isExistingWorkout?: boolean;
+  route?: { latitude: number; longitude: number }[];
+  sportType?: 'run' | 'trail' | 'walk';
+  distanceKm?: number;
+  movingTimeSeconds?: number;
+  elapsedTimeSeconds?: number;
+  stoppedTimeSeconds?: number;
+  avgPace?: string;
+  avgCadence?: number;
+  maxAltitude?: number;
+  elevationGain?: number;
+  calories?: number;
+  splits?: LapSplit[];
+  startTime?: string;
   startLocationName?: string;
   initialLocation?: { latitude: number; longitude: number };
 }
@@ -109,6 +112,17 @@ const formatFullTime = (totalSeconds: number): string => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
+const formatStravaPace = (totalSeconds: number): string => {
+  if (!totalSeconds || totalSeconds <= 0) return '-:--';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  if (h > 0) {
+    return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+};
+
 const getDefaultActivityTitle = (sportType: string, date: Date): string => {
   const hour = date.getHours();
   let timeOfDay = 'Afternoon';
@@ -123,28 +137,31 @@ const getDefaultActivityTitle = (sportType: string, date: Date): string => {
 
 export const WorkoutSummaryScreen = () => {
   const navigation = useNavigation<any>();
-  const routeParams = useRoute().params as WorkoutSummaryParams;
+  const rawParams = (useRoute().params as any) || {};
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
+  // ── Existing vs Fresh Workout Discrimination ──
+  const existingWorkout = rawParams.workout;
+  const existingWorkoutId = rawParams.workoutId || existingWorkout?.id;
+  const isExistingWorkout = Boolean(existingWorkoutId);
+
   // ── Safe Params Extraction with Fallbacks ──
-  const {
-    route = [],
-    sportType = 'run',
-    distanceKm = 0,
-    movingTimeSeconds = 0,
-    elapsedTimeSeconds = 0,
-    stoppedTimeSeconds = 0,
-    avgPace = '-:--',
-    avgCadence = 0,
-    maxAltitude = 0,
-    elevationGain = 0,
-    calories = 0,
-    splits = [],
-    startTime = new Date().toISOString(),
-    startLocationName = 'Ouled Chebel, Algiers',
-    initialLocation,
-  } = routeParams || {};
+  const route = existingWorkout?.route_coordinates || rawParams.route || [];
+  const sportType: 'run' | 'trail' | 'walk' = existingWorkout?.activity_type || rawParams.sportType || 'run';
+  const distanceKm: number = Number(existingWorkout?.total_distance ?? rawParams.distanceKm ?? 0);
+  const movingTimeSeconds: number = Number(existingWorkout?.moving_time ?? existingWorkout?.total_time ?? rawParams.movingTimeSeconds ?? 0);
+  const elapsedTimeSeconds: number = Number(existingWorkout?.elapsed_time ?? existingWorkout?.total_time ?? rawParams.elapsedTimeSeconds ?? 0);
+  const stoppedTimeSeconds: number = Number(existingWorkout?.stopped_time ?? rawParams.stoppedTimeSeconds ?? 0);
+  const avgPace: string = existingWorkout?.average_pace || rawParams.avgPace || '-:--';
+  const avgCadence: number = Number(existingWorkout?.avg_cadence ?? rawParams.avgCadence ?? 0);
+  const maxAltitude: number = Number(existingWorkout?.max_altitude ?? existingWorkout?.altitude ?? rawParams.maxAltitude ?? 0);
+  const elevationGain: number = Number(existingWorkout?.elevation_gain ?? rawParams.elevationGain ?? 0);
+  const calories: number = Number(existingWorkout?.calories ?? rawParams.calories ?? 0);
+  const splits: LapSplit[] = existingWorkout?.splits || rawParams.splits || [];
+  const startTime: string = existingWorkout?.created_at || rawParams.startTime || new Date().toISOString();
+  const startLocationName: string = rawParams.startLocationName || 'Ouled Chebel, Algiers';
+  const initialLocation = rawParams.initialLocation;
 
   // 🚀 CRITICAL FIX: Pace Sanitization - Strictly '-:--' when distance < 50m or moving time = 0
   const isPaceValid = distanceKm >= 0.05 && movingTimeSeconds > 0 && avgPace !== '-:--' && Boolean(avgPace);
@@ -156,10 +173,13 @@ export const WorkoutSummaryScreen = () => {
   const accent = sportType === 'trail' ? STRAVA_EMERALD : (sportType === 'walk' ? STRAVA_BLUE : STRAVA_ORANGE);
 
   // ── Editable State ──
-  const [title, setTitle] = useState(getDefaultActivityTitle(sportType, startDate));
-  const [notes, setNotes] = useState('');
+  const defaultInitialTitle = existingWorkout?.notes?.split(' — ')[0] || getDefaultActivityTitle(sportType, startDate);
+  const defaultInitialNotes = existingWorkout?.notes?.includes(' — ') ? existingWorkout.notes.split(' — ')[1] : '';
+  const [title, setTitle] = useState(defaultInitialTitle);
+  const [notes, setNotes] = useState(defaultInitialNotes);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
 
   const mapRef = useRef<MapView | null>(null);
@@ -338,15 +358,44 @@ export const WorkoutSummaryScreen = () => {
     } catch {}
   };
 
-  const handleDiscard = () => {
+  const handleDeleteWorkout = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
-      'تجاهل التمرين؟ (Discard)',
-      'هل أنت متأكد من رغبتك في حذف هذا النشاط؟ لن يتم تسجيل المسار أو الإحصائيات.',
+      'حذف النشاط',
+      'هل أنت متأكد من رغبتك في حذف هذا التمرين نهائياً من السجل؟',
       [
         { text: 'إلغاء', style: 'cancel' },
         {
           text: 'حذف النشاط',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              if (existingWorkoutId) {
+                await supabase.from('activities').delete().eq('id', existingWorkoutId);
+              }
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert('خطأ', 'تعذر حذف النشاط من قاعدة البيانات');
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDiscard = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'تجاهل التمرين؟ (Discard)',
+      'هل أنت متأكد من رغبتك في تجاهل هذا النشاط؟ لن يتم تسجيل المسار أو الإحصائيات.',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'تجاهل النشاط',
           style: 'destructive',
           onPress: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -362,7 +411,7 @@ export const WorkoutSummaryScreen = () => {
 
   return (
     <View style={styles.safeArea}>
-      {/* ── Top Header Navigation Bar ── */}
+      {/* ── Top Header Navigation Bar (Close purely goes back) ── */}
       <View
         style={[
           styles.navBar,
@@ -371,7 +420,10 @@ export const WorkoutSummaryScreen = () => {
       >
         <TouchableOpacity
           style={styles.navBackBtn}
-          onPress={handleDiscard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.goBack();
+          }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -725,21 +777,23 @@ export const WorkoutSummaryScreen = () => {
 
         {/* ── 8. Action Buttons Dock ── */}
         <View style={styles.actionSection}>
-          <TouchableOpacity
-            style={[styles.saveButton, { backgroundColor: accent }]}
-            onPress={handleSave}
-            disabled={isSaving}
-            activeOpacity={0.88}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.saveButtonText}>Save Activity</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {!isExistingWorkout && (
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: accent }]}
+              onPress={handleSave}
+              disabled={isSaving}
+              activeOpacity={0.88}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.saveButtonText}>حفظ النشاط في سجلك</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           <View style={styles.secondaryActionRow}>
             <TouchableOpacity
@@ -748,16 +802,25 @@ export const WorkoutSummaryScreen = () => {
               activeOpacity={0.8}
             >
               <Ionicons name="share-social-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.shareButtonText}>Share</Text>
+              <Text style={styles.shareButtonText}>مشاركة</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.discardButton}
-              onPress={handleDiscard}
+              onPress={isExistingWorkout ? handleDeleteWorkout : handleDiscard}
+              disabled={isDeleting}
               activeOpacity={0.8}
             >
-              <Ionicons name="trash-outline" size={18} color="#FF4D4D" style={{ marginRight: 6 }} />
-              <Text style={styles.discardButtonText}>Discard</Text>
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#FF4D4D" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={18} color="#FF4D4D" style={{ marginRight: 6 }} />
+                  <Text style={styles.discardButtonText}>
+                    {isExistingWorkout ? 'حذف النشاط' : 'تجاهل'}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>

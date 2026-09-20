@@ -20,6 +20,7 @@ import Animated, {
 import { Track } from '../store/useAudioStore';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
+import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -333,13 +334,10 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
           {/* Artist Pill */}
           <View style={styles.artistPill} pointerEvents="none">
             <Image
-              source={{
-                uri:
-                  track.thumbnail ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-              }}
+              source={{ uri: getUniversalStudioArtwork(track.thumbnail) }}
               style={styles.artistAvatar}
               contentFit="cover"
+              cachePolicy="memory-disk"
             />
             <View style={styles.artistPillText}>
               <Text style={styles.artistName} numberOfLines={1}>
@@ -384,13 +382,11 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
           style={styles.artworkWrapper}
         >
           <Image
-            source={{
-              uri:
-                track.thumbnail ||
-                'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600',
-            }}
+            source={{ uri: getUniversalStudioArtwork(track.thumbnail) }}
             style={styles.artwork}
             contentFit="cover"
+            priority="high"
+            cachePolicy="memory-disk"
             transition={200}
           />
 

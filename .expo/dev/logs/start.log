@@ -5157,3 +5157,1024 @@
 {"_e":"metro:bundling:done","_t":1789780655944,"id":"1i","total":1,"ms":324.6548}
 {"_e":"metro:client_log","_t":1789780658252,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
 {"_e":"metro:client_log","_t":1789780728624,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"root:init","_t":1789832052195,"format":"v0-jsonl","version":"57.0.25"}
+{"_e":"env:mode","_t":1789832052200,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1789832052214,"mode":"development","files":["../..\\..\\.env.local"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoc3BmY3hkcmdqb3F2Ymtkd3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzYwNzYsImV4cCI6MjEwNTE1MjA3Nn0.jTw0gSAeFEROacEKEKawyfCC6ZHbpIY6FQUEdvdvblM","EXPO_PUBLIC_SUPABASE_KEY":"sb_publishable_89-kHm3KgJCzS4DAT3Bi-w_-Couo9ac","EXPO_PUBLIC_SUPABASE_URL":"https://shspfcxdrgjoqvbkdwzz.supabase.co"}}
+{"_e":"devserver:start","_t":1789832054670,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1789832056584,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1789832057920,"plugins":[]}
+{"_e":"metro:instantiate","_t":1789832142997,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1789832148871,"id":"4","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789832148873,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789832148895,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789832148996,"id":"4","progress":0.01938791860278801,"total":79,"current":11}
+{"_e":"metro:bundling:progress","_t":1789832149099,"id":"4","progress":0.03160493827160494,"total":225,"current":40}
+{"_e":"metro:bundling:progress","_t":1789832149199,"id":"4","progress":0.06409229290177856,"total":316,"current":80}
+{"_e":"metro:bundling:progress","_t":1789832149300,"id":"4","progress":0.16219928692062302,"total":365,"current":147}
+{"_e":"metro:bundling:progress","_t":1789832149400,"id":"4","progress":0.21704636678200692,"total":425,"current":198}
+{"_e":"metro:bundling:progress","_t":1789832149500,"id":"4","progress":0.3404833526275091,"total":473,"current":276}
+{"_e":"metro:bundling:progress","_t":1789832149601,"id":"4","progress":0.3404833526275091,"total":594,"current":298}
+{"_e":"metro:bundling:progress","_t":1789832149700,"id":"4","progress":0.3404833526275091,"total":621,"current":353}
+{"_e":"metro:bundling:progress","_t":1789832149804,"id":"4","progress":0.3490136940192744,"total":672,"current":397}
+{"_e":"metro:bundling:progress","_t":1789832149904,"id":"4","progress":0.36725921240509696,"total":731,"current":443}
+{"_e":"metro:bundling:progress","_t":1789832150004,"id":"4","progress":0.39482685221884584,"total":783,"current":492}
+{"_e":"metro:bundling:progress","_t":1789832150104,"id":"4","progress":0.39482685221884584,"total":847,"current":525}
+{"_e":"metro:bundling:progress","_t":1789832150206,"id":"4","progress":0.39482685221884584,"total":936,"current":555}
+{"_e":"metro:bundling:progress","_t":1789832150307,"id":"4","progress":0.39482685221884584,"total":1010,"current":606}
+{"_e":"metro:bundling:progress","_t":1789832150407,"id":"4","progress":0.39965649359228433,"total":1044,"current":660}
+{"_e":"metro:bundling:progress","_t":1789832150507,"id":"4","progress":0.4765120294052128,"total":1072,"current":740}
+{"_e":"metro:bundling:progress","_t":1789832150613,"id":"4","progress":0.5437065842119668,"total":1108,"current":817}
+{"_e":"metro:bundling:progress","_t":1789832150715,"id":"4","progress":0.5637633348071058,"total":1188,"current":892}
+{"_e":"metro:bundling:progress","_t":1789832150815,"id":"4","progress":0.5728796997023817,"total":1234,"current":934}
+{"_e":"metro:bundling:progress","_t":1789832150918,"id":"4","progress":0.5728796997023817,"total":1318,"current":994}
+{"_e":"metro:bundling:progress","_t":1789832151018,"id":"4","progress":0.6076540404548206,"total":1338,"current":1043}
+{"_e":"metro:bundling:progress","_t":1789832151189,"id":"4","progress":0.6076540404548206,"total":1377,"current":1072}
+{"_e":"metro:bundling:progress","_t":1789832151288,"id":"4","progress":0.6209217245814033,"total":1415,"current":1115}
+{"_e":"metro:bundling:progress","_t":1789832151388,"id":"4","progress":0.6567751736111112,"total":1440,"current":1167}
+{"_e":"metro:bundling:progress","_t":1789832151489,"id":"4","progress":0.6577154261286475,"total":1455,"current":1180}
+{"_e":"metro:bundling:progress","_t":1789832151593,"id":"4","progress":0.6802343253601308,"total":1478,"current":1219}
+{"_e":"metro:bundling:progress","_t":1789832151693,"id":"4","progress":0.6802343253601308,"total":1554,"current":1256}
+{"_e":"metro:bundling:progress","_t":1789832151793,"id":"4","progress":0.6867401279565786,"total":1582,"current":1311}
+{"_e":"metro:bundling:progress","_t":1789832151904,"id":"4","progress":0.6892132431470275,"total":1590,"current":1320}
+{"_e":"metro:bundling:progress","_t":1789832152003,"id":"4","progress":0.7012277443063551,"total":1642,"current":1375}
+{"_e":"metro:bundling:progress","_t":1789832152103,"id":"4","progress":0.7371492345499302,"total":1697,"current":1457}
+{"_e":"metro:bundling:progress","_t":1789832152204,"id":"4","progress":0.7371492345499302,"total":1821,"current":1560}
+{"_e":"metro:bundling:progress","_t":1789832152416,"id":"4","progress":0.743227455404773,"total":1842,"current":1588}
+{"_e":"metro:bundling:progress","_t":1789832152502,"id":"4","progress":0.7441638048620617,"total":1842,"current":1589}
+{"_e":"metro:bundling:progress","_t":1789832152603,"id":"4","progress":0.7544270637571475,"total":1849,"current":1606}
+{"_e":"metro:bundling:progress","_t":1789832152703,"id":"4","progress":0.7797612940733901,"total":1881,"current":1661}
+{"_e":"metro:bundling:progress","_t":1789832152803,"id":"4","progress":0.7897065601047055,"total":1895,"current":1684}
+{"_e":"metro:bundling:progress","_t":1789832152903,"id":"4","progress":0.8757913504326252,"total":1917,"current":1794}
+{"_e":"metro:bundling:progress","_t":1789832153030,"id":"4","progress":0.8820828184087676,"total":1957,"current":1838}
+{"_e":"metro:bundling:progress","_t":1789832153182,"id":"4","progress":0.8830429084802038,"total":1957,"current":1839}
+{"_e":"metro:bundling:progress","_t":1789832153278,"id":"4","progress":0.88400352076544,"total":1957,"current":1840}
+{"_e":"metro:bundling:progress","_t":1789832153381,"id":"4","progress":0.9182420984660478,"total":1988,"current":1905}
+{"_e":"metro:bundling:progress","_t":1789832153481,"id":"4","progress":0.9636840309285658,"total":2019,"current":1982}
+{"_e":"metro:bundling:progress","_t":1789832153587,"id":"4","progress":0.9817267614180027,"total":2070,"current":2051}
+{"_e":"metro:bundling:progress","_t":1789832153689,"id":"4","progress":0.9980732181739004,"total":2075,"current":2073}
+{"_e":"metro:bundling:progress","_t":1789832153940,"id":"4","progress":0.999,"total":2075,"current":2074}
+{"_e":"metro:bundling:progress","_t":1789832154067,"id":"4","progress":0.999,"total":2075,"current":2075}
+{"_e":"metro:bundling:done","_t":1789832154518,"id":"4","total":2075,"ms":5646.9895}
+{"_e":"metro:client_log","_t":1789832156382,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789832338532,"id":"7","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789832338533,"id":"7","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789832339002,"id":"7","total":1,"ms":469.3139}
+{"_e":"metro:client_log","_t":1789832340915,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789832657193,"id":"b","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789832657194,"id":"b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789832657830,"id":"b","total":1,"ms":635.8982}
+{"_e":"metro:client_log","_t":1789832659781,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789833019789,"id":"e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789833019789,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789833019792,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789833019895,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789833020148,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789833020574,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789833020971,"id":"e","total":1,"ms":1182.4496}
+{"_e":"metro:client_log","_t":1789833022858,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789833101166,"id":"f","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789833101167,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789833101623,"id":"f","total":1,"ms":456.4545}
+{"_e":"metro:client_log","_t":1789833103842,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789833521548,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789834450610,"id":"j","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789834450611,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834450616,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834450993,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451275,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451375,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451475,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451575,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451676,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451778,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451879,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834451980,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452080,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452180,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452280,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452381,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452499,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452599,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452699,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452799,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834452899,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453031,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453245,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453378,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453483,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453583,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834453832,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834454215,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834454338,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834454383,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834456590,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789834456950,"id":"j","total":1,"ms":6339.84}
+{"_e":"metro:client_log","_t":1789834458843,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789834459046,"level":"error","data":["[ReferenceError: Property 'useCallback' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789834505139,"level":"error","data":["[ReferenceError: Property 'useCallback' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789834512427,"level":"error","data":["[ReferenceError: Property 'useCallback' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789834532441,"level":"error","data":["[ReferenceError: Property 'useCallback' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789834549852,"level":"error","data":["[ReferenceError: Property 'useCallback' doesn't exist]"]}
+{"_e":"metro:bundling:started","_t":1789834715549,"id":"w","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789834715549,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834715553,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834715771,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834715908,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716008,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716108,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716208,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716308,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716408,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716514,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716616,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716716,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716835,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789834716935,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789834717317,"id":"w","total":1,"ms":1767.8435}
+{"_e":"metro:client_log","_t":1789834719728,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789834724479,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"root:init","_t":1789843326291,"format":"v0-jsonl","version":"57.0.25"}
+{"_e":"env:mode","_t":1789843326295,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1789843326308,"mode":"development","files":["../..\\..\\.env.local"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoc3BmY3hkcmdqb3F2Ymtkd3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzYwNzYsImV4cCI6MjEwNTE1MjA3Nn0.jTw0gSAeFEROacEKEKawyfCC6ZHbpIY6FQUEdvdvblM","EXPO_PUBLIC_SUPABASE_KEY":"sb_publishable_89-kHm3KgJCzS4DAT3Bi-w_-Couo9ac","EXPO_PUBLIC_SUPABASE_URL":"https://shspfcxdrgjoqvbkdwzz.supabase.co"}}
+{"_e":"devserver:start","_t":1789843329342,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1789843332335,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1789843333895,"plugins":[]}
+{"_e":"metro:instantiate","_t":1789843460062,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1789843678458,"id":"2","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789843678460,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789843681690,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789843684217,"id":"2","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1789843684832,"id":"2","progress":0.010000000000000002,"total":7,"current":1}
+{"_e":"metro:bundling:progress","_t":1789843686937,"id":"2","progress":0.04000000000000001,"total":7,"current":2}
+{"_e":"metro:bundling:progress","_t":1789843687575,"id":"2","progress":0.04000000000000001,"total":58,"current":7}
+{"_e":"metro:bundling:progress","_t":1789843689607,"id":"2","progress":0.04000000000000001,"total":58,"current":8}
+{"_e":"metro:bundling:progress","_t":1789843689707,"id":"2","progress":0.04000000000000001,"total":222,"current":32}
+{"_e":"metro:bundling:progress","_t":1789843690532,"id":"2","progress":0.04000000000000001,"total":299,"current":58}
+{"_e":"metro:bundling:progress","_t":1789843692484,"id":"2","progress":0.04000000000000001,"total":299,"current":59}
+{"_e":"metro:bundling:progress","_t":1789843692585,"id":"2","progress":0.10197019984464373,"total":357,"current":114}
+{"_e":"metro:bundling:progress","_t":1789843692685,"id":"2","progress":0.16825926100480723,"total":412,"current":169}
+{"_e":"metro:bundling:progress","_t":1789843692785,"id":"2","progress":0.26558652662357646,"total":456,"current":235}
+{"_e":"metro:bundling:progress","_t":1789843692886,"id":"2","progress":0.34128915417896705,"total":481,"current":281}
+{"_e":"metro:bundling:progress","_t":1789843693594,"id":"2","progress":0.34128915417896705,"total":601,"current":299}
+{"_e":"metro:bundling:progress","_t":1789843695814,"id":"2","progress":0.34128915417896705,"total":601,"current":300}
+{"_e":"metro:bundling:progress","_t":1789843695914,"id":"2","progress":0.34128915417896705,"total":678,"current":379}
+{"_e":"metro:bundling:progress","_t":1789843696016,"id":"2","progress":0.37419722471768296,"total":734,"current":449}
+{"_e":"metro:bundling:progress","_t":1789843696115,"id":"2","progress":0.3817008860528114,"total":853,"current":527}
+{"_e":"metro:bundling:progress","_t":1789843696215,"id":"2","progress":0.3817008860528114,"total":963,"current":573}
+{"_e":"metro:bundling:progress","_t":1789843696940,"id":"2","progress":0.3817008860528114,"total":1008,"current":601}
+{"_e":"metro:bundling:progress","_t":1789843698838,"id":"2","progress":0.3817008860528114,"total":1008,"current":602}
+{"_e":"metro:bundling:progress","_t":1789843698938,"id":"2","progress":0.43442911649863,"total":1059,"current":698}
+{"_e":"metro:bundling:progress","_t":1789843699038,"id":"2","progress":0.4659975671088816,"total":1106,"current":755}
+{"_e":"metro:bundling:progress","_t":1789843699138,"id":"2","progress":0.5486038494685435,"total":1180,"current":874}
+{"_e":"metro:bundling:progress","_t":1789843699238,"id":"2","progress":0.5724893582326755,"total":1282,"current":970}
+{"_e":"metro:bundling:progress","_t":1789843699928,"id":"2","progress":0.5767291369500579,"total":1326,"current":1007}
+{"_e":"metro:bundling:progress","_t":1789843701854,"id":"2","progress":0.5778751458815339,"total":1326,"current":1008}
+{"_e":"metro:bundling:progress","_t":1789843701954,"id":"2","progress":0.6170183005387051,"total":1366,"current":1073}
+{"_e":"metro:bundling:progress","_t":1789843702054,"id":"2","progress":0.6757397299626544,"total":1416,"current":1164}
+{"_e":"metro:bundling:progress","_t":1789843702154,"id":"2","progress":0.6886887636835259,"total":1493,"current":1239}
+{"_e":"metro:bundling:progress","_t":1789843702255,"id":"2","progress":0.7089662172499233,"total":1519,"current":1279}
+{"_e":"metro:bundling:progress","_t":1789843703159,"id":"2","progress":0.7089662172499233,"total":1586,"current":1324}
+{"_e":"metro:bundling:progress","_t":1789843703187,"id":"2","progress":0.7089662172499233,"total":1586,"current":1325}
+{"_e":"metro:bundling:progress","_t":1789843703865,"id":"2","progress":0.7089662172499233,"total":1593,"current":1325}
+{"_e":"metro:bundling:progress","_t":1789843703932,"id":"2","progress":0.7089662172499233,"total":1593,"current":1326}
+{"_e":"metro:bundling:progress","_t":1789843704570,"id":"2","progress":0.7089662172499233,"total":1595,"current":1326}
+{"_e":"metro:bundling:progress","_t":1789843705171,"id":"2","progress":0.7089662172499233,"total":1595,"current":1327}
+{"_e":"metro:bundling:progress","_t":1789843705293,"id":"2","progress":0.7094702276255418,"total":1617,"current":1362}
+{"_e":"metro:bundling:progress","_t":1789843705394,"id":"2","progress":0.7144880190480265,"total":1661,"current":1404}
+{"_e":"metro:bundling:progress","_t":1789843705496,"id":"2","progress":0.7764419239655534,"total":1725,"current":1520}
+{"_e":"metro:bundling:progress","_t":1789843706465,"id":"2","progress":0.7764419239655534,"total":1845,"current":1586}
+{"_e":"metro:bundling:progress","_t":1789843706497,"id":"2","progress":0.7764419239655534,"total":1845,"current":1587}
+{"_e":"metro:bundling:progress","_t":1789843707591,"id":"2","progress":0.7764419239655534,"total":1846,"current":1593}
+{"_e":"metro:bundling:progress","_t":1789843707601,"id":"2","progress":0.7764419239655534,"total":1846,"current":1594}
+{"_e":"metro:bundling:progress","_t":1789843708225,"id":"2","progress":0.7764419239655534,"total":1847,"current":1595}
+{"_e":"metro:bundling:progress","_t":1789843708925,"id":"2","progress":0.7764419239655534,"total":1847,"current":1596}
+{"_e":"metro:bundling:progress","_t":1789843709046,"id":"2","progress":0.7841679704580667,"total":1887,"current":1671}
+{"_e":"metro:bundling:progress","_t":1789843709146,"id":"2","progress":0.8384831882405807,"total":1957,"current":1792}
+{"_e":"metro:bundling:progress","_t":1789843709731,"id":"2","progress":0.883331722711124,"total":1962,"current":1844}
+{"_e":"metro:bundling:progress","_t":1789843709744,"id":"2","progress":0.8842900429256797,"total":1962,"current":1845}
+{"_e":"metro:bundling:progress","_t":1789843710544,"id":"2","progress":0.8852488826957868,"total":1962,"current":1846}
+{"_e":"metro:bundling:progress","_t":1789843711207,"id":"2","progress":0.8862082420214451,"total":1962,"current":1847}
+{"_e":"metro:bundling:progress","_t":1789843711835,"id":"2","progress":0.8862082420214451,"total":1963,"current":1847}
+{"_e":"metro:bundling:progress","_t":1789843711845,"id":"2","progress":0.8862644610469437,"total":1963,"current":1848}
+{"_e":"metro:bundling:progress","_t":1789843712636,"id":"2","progress":0.9415333409645237,"total":2022,"current":1962}
+{"_e":"metro:bundling:progress","_t":1789843713781,"id":"2","progress":0.9424933545049949,"total":2022,"current":1963}
+{"_e":"metro:bundling:progress","_t":1789843714515,"id":"2","progress":0.9424933545049949,"total":2023,"current":1963}
+{"_e":"metro:bundling:progress","_t":1789843714533,"id":"2","progress":0.9425213602640324,"total":2023,"current":1964}
+{"_e":"metro:bundling:progress","_t":1789843715407,"id":"2","progress":0.9653205722105584,"total":2058,"current":2022}
+{"_e":"metro:bundling:progress","_t":1789843716831,"id":"2","progress":0.9662756258966171,"total":2058,"current":2023}
+{"_e":"metro:bundling:progress","_t":1789843717256,"id":"2","progress":0.9662756258966171,"total":2065,"current":2023}
+{"_e":"metro:bundling:progress","_t":1789843717266,"id":"2","progress":0.9662756258966171,"total":2065,"current":2024}
+{"_e":"metro:bundling:progress","_t":1789843717704,"id":"2","progress":0.9836815793293656,"total":2075,"current":2058}
+{"_e":"metro:bundling:progress","_t":1789843718616,"id":"2","progress":0.9846377703585427,"total":2075,"current":2059}
+{"_e":"metro:bundling:progress","_t":1789843719158,"id":"2","progress":0.9884782526555258,"total":2077,"current":2065}
+{"_e":"metro:bundling:progress","_t":1789843719168,"id":"2","progress":0.9894358483878618,"total":2077,"current":2066}
+{"_e":"metro:bundling:progress","_t":1789843719792,"id":"2","progress":0.995198086168639,"total":2080,"current":2075}
+{"_e":"metro:bundling:progress","_t":1789843721213,"id":"2","progress":0.9961575443786982,"total":2080,"current":2076}
+{"_e":"metro:bundling:progress","_t":1789843721855,"id":"2","progress":0.9971174648668639,"total":2080,"current":2077}
+{"_e":"metro:bundling:progress","_t":1789843721863,"id":"2","progress":0.9980778476331361,"total":2080,"current":2078}
+{"_e":"metro:bundling:progress","_t":1789843722619,"id":"2","progress":0.999,"total":2080,"current":2080}
+{"_e":"metro:bundling:done","_t":1789843727255,"id":"2","total":2080,"ms":48795.1685}
+{"_e":"metro:client_log","_t":1789843730732,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789844297596,"id":"4","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789844297597,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789844297600,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789844306390,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789844306607,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789844314927,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789844315531,"id":"4","total":1,"ms":17933.8789}
+{"_e":"metro:client_log","_t":1789844319916,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:failed","_t":1789844595036,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\screens\\ArtistDetailsScreen.tsx: Unexpected token, expected \",\" (859:14)\n\n  857 |       color: theme.textMuted,\n  858 |       fontSize: 11,\n> 859 |       marginTo\n      |               ^","importStack":null,"filename":"src\\screens\\ArtistDetailsScreen.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1789844601424,"level":"error","data":["[ReferenceError: Property 'Artis' doesn't exist]"]}
+{"_e":"metro:server_log","_t":1789844684244,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789844765981,"id":"9","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789844765982,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789844766255,"id":"9","total":1,"ms":273.2045}
+{"_e":"metro:client_log","_t":1789844769083,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789845309337,"id":"e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789845309337,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845309339,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845309748,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845313407,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845314493,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845315010,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845315543,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789845316031,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789845316305,"id":"e","total":1,"ms":6967.9231}
+{"_e":"metro:client_log","_t":1789845318998,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789845344410,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789845439659,"id":"f","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789845439659,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789845439924,"id":"f","total":1,"ms":265.1305}
+{"_e":"metro:client_log","_t":1789845443033,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789846179807,"id":"j","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789846179808,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846179810,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846180334,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846182971,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846184392,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789846184691,"id":"j","total":1,"ms":4883.4781}
+{"_e":"metro:client_log","_t":1789846188507,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789846371199,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789846874889,"id":"m","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789846874889,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846874892,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846875036,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876428,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876529,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876630,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876730,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876830,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846876931,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877322,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877342,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877442,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877542,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877642,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877742,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846877843,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846878358,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846878379,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846878856,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846878897,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789846879277,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789846879601,"id":"m","total":1,"ms":4712.2092}
+{"_e":"metro:client_log","_t":1789846882711,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789847633885,"level":"error","data":["[ReferenceError: Property 'useAudioStore' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789847647974,"level":"error","data":["[ReferenceError: Property 'useAudioStore' doesn't exist]"]}
+{"_e":"metro:bundling:started","_t":1789847926596,"id":"s","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789847926596,"id":"s","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789847926853,"id":"s","total":1,"ms":257.0268}
+{"_e":"metro:client_log","_t":1789847930050,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789848687211,"id":"w","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789848687211,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848687213,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848687550,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848689394,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848689729,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848690136,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789848690495,"id":"w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789848690752,"id":"w","total":1,"ms":3541.4539}
+{"_e":"metro:client_log","_t":1789848695048,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789849388066,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789850034943,"id":"z","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789850034944,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850034946,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850035629,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850038295,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850038700,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850039021,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850039730,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850040445,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850040842,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850041165,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789850041880,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789850042139,"id":"z","total":1,"ms":7195.3147}
+{"_e":"metro:client_log","_t":1789850044874,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789853492374,"id":"13","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789853492374,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853492378,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853492508,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853493999,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494099,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494200,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494300,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494400,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494500,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494891,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853494900,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853495000,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853495100,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853495200,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853495300,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853495400,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853496076,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853496101,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853496652,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853496755,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853497295,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853497752,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853498212,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853498789,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853499592,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853500399,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853501176,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853502035,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853502879,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853503682,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853504553,"id":"13","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789853504864,"id":"13","total":1,"ms":12489.5122}
+{"_e":"metro:client_log","_t":1789853508038,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789853832883,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1789853861313,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1789853867790,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1789853888330,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:bundling:started","_t":1789853897830,"id":"1d","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789853897831,"id":"1d","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789853898093,"id":"1d","total":1,"ms":262.7275}
+{"_e":"metro:client_log","_t":1789853899215,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789853899215,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789853899216,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789853899216,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789853926286,"id":"1e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789853926286,"id":"1e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789853926539,"id":"1e","total":1,"ms":253.5958}
+{"_e":"metro:client_log","_t":1789853929326,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789853929326,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExponentAV'"]}
+{"_e":"metro:bundling:started","_t":1789853943464,"id":"1f","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789853943464,"id":"1f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789853943769,"id":"1f","total":1,"ms":304.5549}
+{"_e":"metro:client_log","_t":1789853945472,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789853945472,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789853945473,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789853945473,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789853982375,"id":"1g","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789853982376,"id":"1g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853982377,"id":"1g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789853987450,"id":"1g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789853987979,"id":"1g","total":1,"ms":5603.7738}
+{"_e":"metro:client_log","_t":1789853992550,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789853992550,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExponentAV'"]}
+{"_e":"metro:bundling:started","_t":1789854053699,"id":"1h","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854053699,"id":"1h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854054009,"id":"1h","total":1,"ms":309.5931}
+{"_e":"metro:client_log","_t":1789854057823,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854057824,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExponentAV'"]}
+{"_e":"metro:bundling:started","_t":1789854093702,"id":"1i","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854093702,"id":"1i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854093954,"id":"1i","total":1,"ms":252.5928}
+{"_e":"metro:client_log","_t":1789854096985,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854096985,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExponentAV'"]}
+{"_e":"metro:bundling:started","_t":1789854179498,"id":"1j","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854179498,"id":"1j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854179945,"id":"1j","total":1,"ms":446.6115}
+{"_e":"metro:client_log","_t":1789854181103,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854181103,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789854181103,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789854181103,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789854298804,"id":"1k","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854298804,"id":"1k","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854299062,"id":"1k","total":1,"ms":257.9689}
+{"_e":"metro:client_log","_t":1789854302135,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854302135,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789854302135,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854311953,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854589758,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854594205,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789854650654,"id":"1l","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854650654,"id":"1l","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854650911,"id":"1l","total":1,"ms":257.4055}
+{"_e":"metro:client_log","_t":1789854652549,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854652549,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789854652549,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789854652549,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789854678367,"id":"1m","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789854678367,"id":"1m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789854678619,"id":"1m","total":1,"ms":251.8927}
+{"_e":"metro:client_log","_t":1789854681993,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789854681993,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789854681993,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:server_log","_t":1789855420380,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789856681609,"id":"1q","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789856681609,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856681612,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856681738,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856682956,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683056,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683156,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683256,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683356,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683456,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683566,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683666,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856683770,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856684149,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856684163,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856684536,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856684872,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856685324,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856685330,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856685687,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856686371,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856687086,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856688167,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856688521,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789856689189,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789856689464,"id":"1q","total":1,"ms":7855.0296}
+{"_e":"metro:client_log","_t":1789856692494,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789856692494,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789856692495,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789856907335,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789857726727,"id":"1t","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789857726727,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857726730,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857726855,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728101,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728201,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728302,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728403,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728503,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728605,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728705,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857728805,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857729232,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857729250,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857729752,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857730069,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857730594,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857730603,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789857730964,"id":"1t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789857731320,"id":"1t","total":1,"ms":4592.3622}
+{"_e":"metro:client_log","_t":1789857735139,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789857735139,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789857735139,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789857747479,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789858036407,"id":"1w","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789858036407,"id":"1w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858036409,"id":"1w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858039039,"id":"1w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789858039299,"id":"1w","total":1,"ms":2891.9731}
+{"_e":"metro:client_log","_t":1789858043046,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789858043046,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789858043046,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789858199840,"id":"1x","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789858199840,"id":"1x","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789858200103,"id":"1x","total":1,"ms":262.599}
+{"_e":"metro:client_log","_t":1789858203490,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789858203490,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789858203490,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789858444770,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:failed","_t":1789858455289,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\components\\UnifiedPlayerSheet.tsx: Expected corresponding JSX closing tag for <>. (963:6)\n\n  961 |           </View>\n  962 |         </GestureDetector>\n> 963 |       </Animated.View>\n      |       ^\n  964 |     </GestureHandlerRootView>\n  965 |   );\n  966 | });","importStack":null,"filename":"src\\components\\UnifiedPlayerSheet.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:failed","_t":1789858462777,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\components\\UnifiedPlayerSheet.tsx: Expected corresponding JSX closing tag for <>. (963:6)\n\n  961 |           </View>\n  962 |         </GestureDetector>\n> 963 |       </Animated.View>\n      |       ^\n  964 |     </GestureHandlerRootView>\n  965 |   );\n  966 | });","importStack":null,"filename":"src\\components\\UnifiedPlayerSheet.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:failed","_t":1789858643053,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\components\\UnifiedPlayerSheet.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (976:4)\n\n  974 |         </GestureDetector>\n  975 |       </Animated.View>\n> 976 |     </GestureHandlerRootView>\n      |     ^\n  977 |   );\n  978 | });\n  979 |","importStack":null,"filename":"src\\components\\UnifiedPlayerSheet.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1789858646232,"level":"error","data":["[TypeError: undefined is not a function]"]}
+{"_e":"metro:client_log","_t":1789858646232,"level":"error","data":["[TypeError: An error was thrown when attempting to render log messages via LogBox.\n\nundefined is not a function]"]}
+{"_e":"metro:bundling:started","_t":1789858737822,"id":"25","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789858737822,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858737825,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858737978,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739386,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739486,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739586,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739687,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739787,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858739887,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858740019,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858740119,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858740219,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858740730,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858740754,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858741414,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858741841,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789858742319,"id":"25","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789858742751,"id":"25","total":1,"ms":4929.1033}
+{"_e":"metro:client_log","_t":1789858747055,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789858747056,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789858747056,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789858956319,"level":"warn","data":["InteractionManager has been deprecated and will be removed in a future release. Please refactor long tasks into smaller ones, and  use 'requestIdleCallback' instead."]}
+{"_e":"metro:client_log","_t":1789858956319,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:server_log","_t":1789859894038,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789860232392,"id":"29","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789860232392,"id":"29","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789860232646,"id":"29","total":1,"ms":253.885}
+{"_e":"metro:client_log","_t":1789860235554,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789860235554,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789860235554,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789868023328,"id":"2e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789868023328,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868023331,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868023520,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868025680,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868025780,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868025882,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868025983,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026083,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026184,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026283,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026428,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026528,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868026628,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868027185,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868027209,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868027657,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868027996,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868028382,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868028391,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868028790,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868031080,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789868031366,"id":"2e","total":1,"ms":8038.3117}
+{"_e":"metro:client_log","_t":1789868035343,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789868035343,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789868035344,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789868926499,"id":"2g","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789868926500,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868926506,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868926808,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930130,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930230,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930330,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930430,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930530,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930630,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930730,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930830,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868930932,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931032,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931138,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931239,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931339,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931439,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868931539,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868932384,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868932436,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868933666,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868934465,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868934599,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868936344,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789868937850,"id":"2g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789868938168,"id":"2g","total":1,"ms":11668.2348}
+{"_e":"metro:client_log","_t":1789868942302,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789868942303,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789868942303,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789869130320,"id":"2i","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789869130320,"id":"2i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789869130625,"id":"2i","total":1,"ms":305.2564}
+{"_e":"metro:client_log","_t":1789869134634,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789869134635,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789869134635,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:server_log","_t":1789870601813,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789870933358,"id":"2m","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789870933358,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870933359,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870933727,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870935666,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870936088,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870936434,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789870937982,"id":"2m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789870938268,"id":"2m","total":1,"ms":4909.7351}
+{"_e":"metro:client_log","_t":1789870941772,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789870941772,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789870941772,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789870974706,"level":"error","data":["[ReferenceError: Property 'useSharedValue' doesn't exist]"]}
+{"_e":"metro:server_log","_t":1789871043323,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:client_log","_t":1789871047530,"level":"error","data":["[ReferenceError: Property 'Animated' doesn't exist]"]}
+{"_e":"metro:bundling:started","_t":1789871123196,"id":"2t","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789871123196,"id":"2t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789871123527,"id":"2t","total":1,"ms":330.7309}
+{"_e":"metro:client_log","_t":1789871125455,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789871125456,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789871125456,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789871125456,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789871201558,"id":"2u","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789871201558,"id":"2u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789871201821,"id":"2u","total":1,"ms":263.1391}
+{"_e":"metro:client_log","_t":1789871205126,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789871205126,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789871205126,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:server_log","_t":1789871310132,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789872110781,"id":"2y","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789872110782,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872110787,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872111026,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113437,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113536,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113636,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113738,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113838,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872113938,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114038,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114138,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114238,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114339,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114438,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114538,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114642,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114744,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114848,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872114948,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872115049,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872115798,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872115831,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872116706,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872117377,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872117520,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872118258,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872118976,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789872119379,"id":"2y","total":1,"ms":8597.6172}
+{"_e":"metro:client_log","_t":1789872122686,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872122686,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789872122686,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872403029,"level":"warn","data":["InteractionManager has been deprecated and will be removed in a future release. Please refactor long tasks into smaller ones, and  use 'requestIdleCallback' instead."]}
+{"_e":"metro:client_log","_t":1789872403029,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:bundling:started","_t":1789872524944,"id":"2z","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789872524944,"id":"2z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789872525207,"id":"2z","total":1,"ms":262.691}
+{"_e":"metro:client_log","_t":1789872526800,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872526801,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789872526801,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789872526801,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:failed","_t":1789872536389,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\utils\\artworkHelper.ts: Identifier 'ImageSource' has already been declared. (46:9)\n\n  44 | };\n  45 |\n> 46 | import { ImageSource } from 'expo-image';\n     |          ^\n  47 |\n  48 | // Runtime dynamic cache for artists discovered on the fly\n  49 | const dynamicArtistAvatarCache = new Map<string, string>();","importStack":null,"filename":"src\\utils\\artworkHelper.ts","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1789872592055,"id":"30","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789872592056,"id":"30","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872592058,"id":"30","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872596461,"id":"30","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789872596745,"id":"30","total":1,"ms":4689.2823}
+{"_e":"metro:client_log","_t":1789872600597,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872600598,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789872600598,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789872609514,"id":"31","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789872609514,"id":"31","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789872609795,"id":"31","total":1,"ms":281.3704}
+{"_e":"metro:client_log","_t":1789872611381,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872611382,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789872611382,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789872611382,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789872649484,"id":"32","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789872649484,"id":"32","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789872651218,"id":"32","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789872651483,"id":"32","total":1,"ms":1999.2005}
+{"_e":"metro:client_log","_t":1789872654728,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789872654728,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789872654728,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:started","_t":1789874553700,"id":"34","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789874553701,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874553706,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874553913,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874555847,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874555948,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556048,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556149,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556248,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556348,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556448,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556549,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556649,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556749,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556849,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874556949,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874557517,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874557543,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874558207,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874558705,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874559117,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874559543,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874559959,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874560862,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874561748,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874562538,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874562949,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874563309,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874563661,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874564892,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874565306,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874565728,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874566218,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874567674,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874568031,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874568373,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874570673,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874571139,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874571501,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874571871,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874572984,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874573374,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874573779,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874574122,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874574667,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874576291,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874578464,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789874578773,"id":"34","total":1,"ms":25073.2561}
+{"_e":"metro:client_log","_t":1789874581931,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789874581931,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789874581931,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789874585046,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874585046,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874585046,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874585046,"level":"warn","data":["[DownloadService] Error reading manifest file:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874596745,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874596745,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874596745,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874596745,"level":"warn","data":["[DownloadService] Error reading manifest file:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874614231,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874614231,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874618039,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874618039,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874618039,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874618040,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874622913,"level":"warn","data":["Audio Setup Error:","[ReferenceError: Property 'AsyncStorage' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1789874630865,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874630865,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874630865,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874631617,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874631617,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874631617,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874647506,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874652545,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874664846,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874664846,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874664846,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874664846,"level":"warn","data":["[DownloadService] Error reading manifest file:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874670936,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874670936,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874672389,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874672389,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874672389,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874672389,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874690462,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874690463,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874691324,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874691324,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874691324,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874691324,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874705153,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874705154,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874705941,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874705941,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874705941,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874705941,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874711268,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874711268,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874711268,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874711268,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874711269,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874711269,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874732213,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874732213,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874732213,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874732213,"level":"warn","data":["[DownloadService] Error reading manifest file:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874736924,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874736924,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874736924,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874736924,"level":"warn","data":["[DownloadService] Error reading manifest file:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874757705,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874757705,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874757706,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874757706,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874757706,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874757706,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874767946,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874793068,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874793069,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874793069,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874793846,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874793846,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874793846,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"warn","data":["Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"warn","data":["[DownloadService] Failed to create directories:","[Error: Method getInfoAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"warn","data":["Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"warn","data":["[DownloadService] Artwork download non-fatal fallback:","[Error: Method downloadAsync imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"warn","data":["Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/"]}
+{"_e":"metro:client_log","_t":1789874815231,"level":"error","data":["[DownloadService] Download error:","[Error: Method createDownloadResumable imported from \"expo-file-system\" is deprecated.\nYou can migrate to the new filesystem API using \"File\" and \"Directory\" classes or import the legacy API from \"expo-file-system/legacy\".\nAPI reference and examples are available in the filesystem docs: https://docs.expo.dev/versions/v54.0.0/sdk/filesystem/]"]}
+{"_e":"metro:bundling:started","_t":1789874821263,"id":"3u","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789874821263,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:client_log","_t":1789874823110,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:bundling:progress","_t":1789874823110,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:client_log","_t":1789874823110,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:bundling:progress","_t":1789874823110,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:client_log","_t":1789874823110,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:bundling:progress","_t":1789874823110,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874823111,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:client_log","_t":1789874823111,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:progress","_t":1789874823111,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874824253,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874824799,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789874828881,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789874829172,"id":"3u","total":1,"ms":7908.7437}
+{"_e":"metro:bundling:started","_t":1789874858731,"id":"3v","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789874858731,"id":"3v","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789874859048,"id":"3v","total":1,"ms":317.8846}
+{"_e":"metro:client_log","_t":1789874862269,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789874862269,"level":"warn","data":["Require cycle: src/store/useAudioStore.ts -> src/services/audioSessionService.ts -> src/store/useAudioStore.ts\n\nRequire cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle."]}
+{"_e":"metro:client_log","_t":1789874862269,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789874940913,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789874940913,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874940913,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874944433,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789874944433,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874944433,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874963808,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789874963808,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874963808,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874964781,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789874964781,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874964781,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874972545,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789874972545,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874972545,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874978607,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789874978607,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874978607,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789874994555,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789874994556,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789874994556,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789875237711,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789875237711,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789875237711,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:server_log","_t":1789875504304,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1789876201459,"id":"3z","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789876201459,"id":"3z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789876201719,"id":"3z","total":1,"ms":259.7213}
+{"_e":"metro:client_log","_t":1789876204663,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876204663,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876204664,"level":"log","data":["[Storage Check] Nombre de fichiers: 4"]}
+{"_e":"metro:client_log","_t":1789876204664,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789876204664,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 8.10 MB"]}
+{"_e":"metro:client_log","_t":1789876204664,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 7.88 MB"]}
+{"_e":"metro:client_log","_t":1789876204664,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789876212500,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789876212500,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789876212500,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789876212500,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789876212500,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","4"]}
+{"_e":"metro:client_log","_t":1789876240859,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789876240859,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789876240859,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789876240860,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789876240860,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","4"]}
+{"_e":"metro:bundling:failed","_t":1789876412584,"id":null,"message":"SyntaxError: C:\\Users\\Tech Informatique\\Desktop\\app b8d\\src\\components\\GlobalAudioBridge.tsx: Identifier 'styles' has already been declared. (695:6)\n\n  693 | export default GlobalAudioBridge;\n  694 |\n> 695 | const styles = StyleSheet.create({\n      |       ^\n  696 |   hiddenContainer: {\n  697 |     position: 'absolute',\n  698 |     bottom: 0,","importStack":null,"filename":"src\\components\\GlobalAudioBridge.tsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1789876422753,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789876422753,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","404"]}
+{"_e":"metro:client_log","_t":1789876422753,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","404"]}
+{"_e":"metro:client_log","_t":1789876422753,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789876422753,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","4"]}
+{"_e":"metro:bundling:started","_t":1789876446835,"id":"43","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789876446835,"id":"43","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1789876447389,"id":"43","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789876447643,"id":"43","total":1,"ms":808.0642}
+{"_e":"metro:client_log","_t":1789876451189,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["[Storage Check] Nombre de fichiers: 4"]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 8.10 MB"]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 7.88 MB"]}
+{"_e":"metro:client_log","_t":1789876451189,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789876487896,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789876487896,"level":"log","data":["[NativeAudio] ⚡ Native hardware audio playing from disk:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789876514632,"level":"warn","data":["[DownloadService] ❌ Downloaded file is invalid or under 500 KB (134.4 KB). Deleting corrupted file!"]}
+{"_e":"metro:client_log","_t":1789876514632,"level":"error","data":["[DownloadService] Download error:","[Error: Downloaded audio stream was invalid or corrupted (size < 500 KB).]"]}
+{"_e":"metro:bundling:started","_t":1789876883420,"id":"47","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789876883420,"id":"47","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789876883682,"id":"47","total":1,"ms":262.1818}
+{"_e":"metro:client_log","_t":1789876886500,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876886500,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789876886500,"level":"log","data":["[Storage Check] Nombre de fichiers: 1"]}
+{"_e":"metro:client_log","_t":1789876886500,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789876902673,"level":"log","data":["[Storage Check] Nombre de fichiers: 3"]}
+{"_e":"metro:client_log","_t":1789876902673,"level":"log","data":["- File: AWizIRTnxi0.mp3 | Size: 8.53 MB"]}
+{"_e":"metro:client_log","_t":1789876902673,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789876902673,"level":"log","data":["- File: AWizIRTnxi0_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789877150914,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:bundling:started","_t":1789877262806,"id":"4c","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789877262807,"id":"4c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789877263077,"id":"4c","total":1,"ms":270.3874}
+{"_e":"metro:client_log","_t":1789877265894,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877265894,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExponentAV'"]}
+{"_e":"metro:bundling:started","_t":1789877370198,"id":"4d","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789877370198,"id":"4d","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789877370462,"id":"4d","total":1,"ms":263.3239}
+{"_e":"metro:client_log","_t":1789877371815,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877371815,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789877371815,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789877371816,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789877469278,"id":"4e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789877469278,"id":"4e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789877469592,"id":"4e","total":1,"ms":313.9812}
+{"_e":"metro:client_log","_t":1789877473387,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877473388,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877473388,"level":"log","data":["[Storage Check] Nombre de fichiers: 3"]}
+{"_e":"metro:client_log","_t":1789877473388,"level":"log","data":["- File: AWizIRTnxi0.mp3 | Size: 8.53 MB"]}
+{"_e":"metro:client_log","_t":1789877473388,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789877473388,"level":"log","data":["- File: AWizIRTnxi0_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789877494339,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/AWizIRTnxi0.mp3"]}
+{"_e":"metro:client_log","_t":1789877494339,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1789877494339,"level":"warn","data":["[AvOffline] expo-av not available, using Base64 WebView fallback"]}
+{"_e":"metro:client_log","_t":1789877494339,"level":"log","data":["[Base64Fallback] Reading file into memory data URL for WebView..."]}
+{"_e":"metro:client_log","_t":1789877516956,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789877537558,"level":"log","data":["[Storage Check] Nombre de fichiers: 2"]}
+{"_e":"metro:client_log","_t":1789877537558,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789877537558,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:client_log","_t":1789877560740,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789877561769,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/lC_oE025a1g.mp3"]}
+{"_e":"metro:client_log","_t":1789877561769,"level":"warn","data":["[AvOffline] expo-av not available, using Base64 WebView fallback"]}
+{"_e":"metro:client_log","_t":1789877561769,"level":"log","data":["[Base64Fallback] Reading file into memory data URL for WebView..."]}
+{"_e":"metro:client_log","_t":1789877591707,"level":"log","data":["[Storage Check] Nombre de fichiers: 2"]}
+{"_e":"metro:client_log","_t":1789877591707,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789877591707,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:bundling:started","_t":1789877607831,"id":"4h","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789877607831,"id":"4h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789877608179,"id":"4h","total":1,"ms":348.2192}
+{"_e":"metro:client_log","_t":1789877609324,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877609324,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1789877609332,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1789877609333,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1789877728141,"id":"4i","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789877728142,"id":"4i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789877728405,"id":"4i","total":1,"ms":263.4031}
+{"_e":"metro:client_log","_t":1789877731574,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877731575,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789877731575,"level":"log","data":["[Storage Check] Nombre de fichiers: 2"]}
+{"_e":"metro:client_log","_t":1789877731575,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789877731575,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:client_log","_t":1789877743121,"level":"log","data":["[Storage Check] Nombre de fichiers: 4"]}
+{"_e":"metro:client_log","_t":1789877743121,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.75 MB"]}
+{"_e":"metro:client_log","_t":1789877743121,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789877743121,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:client_log","_t":1789877743121,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1789877750430,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:bundling:started","_t":1789878814735,"id":"4m","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789878814735,"id":"4m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789878815022,"id":"4m","total":1,"ms":286.8597}
+{"_e":"metro:client_log","_t":1789878818047,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789878818047,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789878818047,"level":"log","data":["[Storage Check] Nombre de fichiers: 4"]}
+{"_e":"metro:client_log","_t":1789878818047,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.75 MB"]}
+{"_e":"metro:client_log","_t":1789878818048,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789878818048,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:client_log","_t":1789878818048,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1789878835384,"level":"warn","data":["[DownloadService] Converter endpoint https://loader.to/ajax/download.php?format=mp3&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DEXUEn28ajSA failed:","[Error: fetch failed: FetchRequestCanceledException: Fetch request has been canceled (at Expo/NativeResponse.swift:63)]"]}
+{"_e":"metro:client_log","_t":1789878857732,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1789878857732,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.75 MB"]}
+{"_e":"metro:client_log","_t":1789878857732,"level":"log","data":["- File: lC_oE025a1g_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1789878857732,"level":"log","data":["- File: lC_oE025a1g.mp3 | Size: 6.92 MB"]}
+{"_e":"metro:client_log","_t":1789878857732,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1789878857733,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1789878857733,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789878862169,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1789878862169,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1789878874927,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1789878875773,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1789878875773,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:bundling:started","_t":1789879377165,"id":"4n","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1789879377166,"id":"4n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1789879377504,"id":"4n","total":1,"ms":338.6545}
+{"_e":"metro:client_log","_t":1789879381783,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789879381783,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1789879381783,"level":"log","data":["[Storage Check] Nombre de fichiers: 2"]}
+{"_e":"metro:client_log","_t":1789879381783,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1789879381783,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789879426611,"level":"log","data":["[Storage Check] Nombre de fichiers: 4"]}
+{"_e":"metro:client_log","_t":1789879426611,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1789879426611,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789879426611,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1789879426611,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}

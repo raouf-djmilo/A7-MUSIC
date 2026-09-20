@@ -1,147 +1,178 @@
 <div align="center">
 
-<img src="assets/logo.png" width="180" alt="A7 MUSIC Logo" />
+<img src="assets/icon.png" width="150" alt="A7 MUSIC Logo" style="border-radius: 30px;" />
 
-# A7 MUSIC
+# A7 MUSIC 🎵🏃
 
-### 🎵 Music & Sport — All in One App
+### The App That Runs With You — Music & Sport, Perfectly Fused.
 
 [![Platform - Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/raouf-djmilo/A7-MUSIC/releases)
 [![Platform - iOS](https://img.shields.io/badge/Platform-iOS-000000?logo=apple&logoColor=white&style=for-the-badge)](https://github.com/raouf-djmilo/A7-MUSIC/releases)
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge)]()
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)]()
+[![Version](https://img.shields.io/badge/Version-1.0.0-6C63FF?style=for-the-badge)](https://github.com/raouf-djmilo/A7-MUSIC/releases)
+[![Free](https://img.shields.io/badge/100%25-FREE-00C853?style=for-the-badge)]()
+[![No Ads](https://img.shields.io/badge/NO-ADS-FF6B35?style=for-the-badge)]()
 
-**A7 MUSIC** is a premium mobile application that uniquely combines **Music Streaming** with **Sport & Fitness Tracking** into a single, powerful experience. Whether you're listening to your favorite tracks or tracking your workouts, A7 MUSIC keeps you in the zone.
+> **Imagine Spotify and Strava had a baby — that's A7 MUSIC.**
+>
+> Stream unlimited music. Track every run, walk, and trail. No ads. No subscriptions. No limits. Forever free.
 
 ---
 
-[📥 Download APK](#-download) · [📥 Download IPA](#-download) · [📧 Contact](#-contact--get-the-project)
+[📥 Download APK](#-android-download) · [📥 Download IPA](#-ios-download) · [🔨 Build It Yourself](#-build-from-source-github-actions) · [📧 Contact](#-contact)
 
 </div>
 
 ---
 
-## 🌟 What Makes A7 MUSIC Unique?
+## 🔥 Why A7 MUSIC?
 
-A7 MUSIC is the **first app** to merge a full-featured music platform with a complete sport and fitness tracker. No more switching between apps — one app for your entire active lifestyle.
+Most music apps don't track sports. Most fitness apps can't stream music properly. **A7 MUSIC does both — simultaneously, flawlessly, and for free.**
 
----
-
-## 🎵 Music Features
-
-| Feature | Description |
-|---------|-------------|
-| 🎧 **Music Streaming** | Stream millions of tracks with high-quality audio playback |
-| 🔍 **Smart Search** | Find songs, artists, and albums instantly |
-| 📚 **Music Library** | Organize your favorite tracks, playlists, and albums |
-| 🎤 **Artist Profiles** | Explore artist discographies, bios, and related artists |
-| 💿 **Album Details** | Browse full album tracklists with artwork |
-| 🎛️ **Full Player** | Immersive full-screen player with controls, lyrics, and visualizations |
-| 🎵 **Mini Player** | Keep listening while browsing — always-visible mini player |
-| 📱 **Background Playback** | Music continues playing when the app is in the background |
-| 🤝 **Listen Together** | Share what you're listening to and listen with friends in real-time |
-
-## 🏃 Sport & Fitness Features
-
-| Feature | Description |
-|---------|-------------|
-| 📍 **GPS Activity Tracking** | Track runs, walks, and cycling with real-time GPS mapping |
-| 🗺️ **Live Map View** | See your route on an interactive map as you exercise |
-| 📊 **Activity Dashboard** | View detailed stats: distance, pace, calories, duration |
-| 🏋️ **Workout Recording** | Record and save your workouts with full session details |
-| 📈 **Progress Analytics** | Track your fitness progress over time with charts and stats |
-| ⚙️ **Sensor Fusion** | Advanced GPS + accelerometer + gyroscope tracking for accuracy |
-| 🎯 **Kalman GPS Filter** | Military-grade GPS smoothing for precise route tracking |
-
-## 📱 Social & Community Features
-
-| Feature | Description |
-|---------|-------------|
-| 👥 **Social Feed** | Share posts, activities, and music moments with the community |
-| 💬 **Real-time Chat** | Message friends directly with instant messaging |
-| 📸 **Stories** | Share stories with photos, text, and creative editing |
-| 🔔 **Notifications** | Stay updated with real-time push notifications |
-| 👤 **User Profiles** | Customizable profiles with QR code sharing |
-| 🤝 **Follow System** | Follow friends and discover new people |
-| ❤️ **Reactions & Comments** | Engage with the community through likes and comments |
-
-## ⚙️ App Features
-
-| Feature | Description |
-|---------|-------------|
-| 🌙 **Dark & Light Mode** | Beautiful UI themes that adapt to your preference |
-| 🔐 **Secure Authentication** | Login and signup with encrypted credentials |
-| ⚡ **Real-time Updates** | Live data synchronization across all features |
-| 🌐 **Online Presence** | See who's online and available |
-| 📲 **Cross-Platform** | Available on both Android and iOS |
-| 🎨 **Modern UI/UX** | Premium glass-morphism design with smooth animations |
+| | Spotify | Strava | A7 MUSIC |
+|---|:---:|:---:|:---:|
+| Music Streaming | ✅ | ❌ | ✅ |
+| Sport Tracking (GPS) | ❌ | ✅ | ✅ |
+| Run + Music Together | ❌ | ❌ | ✅ |
+| Social Community | ✅ | ✅ | ✅ |
+| **100% Free (No Ads)** | ❌ Premium | ❌ Premium | **✅ Always** |
+| Real-time Friends | ❌ | ❌ | ✅ |
 
 ---
 
-## 📥 Download
+## 🎵 Music — Your Entire Library, Anytime
 
-### Android (APK)
-> Download the latest APK from the **Releases** page:
+- 🎧 **Unlimited Streaming** — Stream millions of tracks with crystal-clear audio quality
+- 🔍 **Smart Search** — Find any song, artist, or album instantly
+- 📚 **Personal Library** — Organize your playlists, favorites, and albums
+- 🎛️ **Immersive Player** — Full-screen player with visualizations, lyrics & controls
+- 🎵 **Always-on Mini Player** — Persistent mini player while you browse or exercise
+- 📱 **Background Playback** — Music keeps playing when your screen is off
+- 🤝 **Listen Together** — Sync up and listen to the same song with friends in real-time
+- 🎤 **Artist Profiles** — Explore full discographies, bios, and related artists
+- 💿 **Album Details** — Browse tracklists, artwork, and complete album info
+
+**No ads. No premium tiers. No monthly fees. Just music.**
+
+---
+
+## 🏃 Sport — Track Every Move, Every Mile
+
+Whether you're going for a morning jog, hiking a mountain trail, or doing a casual walk — A7 MUSIC has you covered.
+
+### Supported Activities
+| Activity | GPS Tracking | Live Map | Pace | Calories |
+|----------|:---:|:---:|:---:|:---:|
+| 🏃 Running | ✅ | ✅ | ✅ | ✅ |
+| 🚶 Walking | ✅ | ✅ | ✅ | ✅ |
+| 🥾 Trail / Hiking | ✅ | ✅ | ✅ | ✅ |
+
+### Sport Features
+- 📍 **Real-time GPS Tracking** — Military-grade Kalman filter GPS for centimeter accuracy
+- 🗺️ **Live Route Map** — Watch your path draw in real-time on an interactive map
+- 📊 **Activity Dashboard** — Full stats: distance, pace, speed, duration, and calories
+- ⚙️ **Sensor Fusion** — GPS + accelerometer + gyroscope combined for maximum precision
+- 📈 **Progress Analytics** — Charts and statistics to monitor your fitness journey over time
+- 💾 **Session History** — All your workouts saved, organized, and ready to review
+
+**Run your way. Walk your trail. All while your music plays — seamlessly.**
+
+---
+
+## 👥 Social — Your Active Community
+
+- 📸 **Activity Feed** — Share your workouts and music moments with the community
+- 💬 **Real-time Chat** — Direct messaging with friends
+- 📖 **Stories** — Share moments with photos and creative editing
+- 👤 **Profiles with QR Code** — Shareable profile cards
+- 🔔 **Live Notifications** — Stay updated instantly
+- ❤️ **Reactions & Comments** — Engage with the community
+- 🌐 **Online Presence** — See who's active right now
+
+---
+
+## 📥 Android Download
+
+> ⬇️ Get the latest APK directly from the **Releases** page:
 >
-> 👉 [**Download A7 MUSIC APK**](https://github.com/raouf-djmilo/A7-MUSIC/releases)
+> ### 👉 [Download A7 MUSIC APK (Latest Release)](https://github.com/raouf-djmilo/A7-MUSIC/releases/latest)
 
-**Installation Steps:**
-1. Download the `.apk` file from Releases
-2. On your Android device, go to **Settings → Security → Unknown Sources** (enable it)
-3. Open the downloaded APK file and tap **Install**
-4. Launch **A7 MUSIC** and enjoy! 🎉
+**How to install:**
+1. Download the `.apk` file
+2. On your Android phone: **Settings → Security → Install Unknown Apps** → Enable for your browser
+3. Open the `.apk` file and tap **Install**
+4. Open **A7 MUSIC** and enjoy 🎉
 
-### iOS (IPA)
-> Download the latest IPA from the **Releases** page:
+> **Minimum:** Android 7.0 (API 24) or higher
+
+---
+
+## 📥 iOS Download
+
+> ⬇️ Get the latest IPA from the **Releases** page:
 >
-> 👉 [**Download A7 MUSIC IPA**](https://github.com/raouf-djmilo/A7-MUSIC/releases)
+> ### 👉 [Download A7 MUSIC IPA (Latest Release)](https://github.com/raouf-djmilo/A7-MUSIC/releases/latest)
 
-**Installation Steps:**
-1. Download the `.ipa` file from Releases
-2. Use **AltStore**, **Sideloadly**, or **TrollStore** to install
-3. Trust the developer certificate in **Settings → General → VPN & Device Management**
-4. Launch **A7 MUSIC** and enjoy! 🎉
+**How to install (sideloading):**
+1. Download the `.ipa` file
+2. Use one of these tools to install:
+   - **[AltStore](https://altstore.io/)** — Free, no jailbreak required
+   - **[Sideloadly](https://sideloadly.io/)** — Easy drag & drop install
+   - **[TrollStore](https://github.com/opa334/TrollStore)** — For supported iOS versions
+3. Trust the developer: **Settings → General → VPN & Device Management → Trust**
+4. Open **A7 MUSIC** and enjoy 🎉
 
----
-
-## 📸 Screenshots
-
-> *Screenshots coming soon — Stay tuned!*
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
-|-----------|---------|
-| React Native | Cross-platform mobile development |
-| Expo | Development framework & build tools |
-| TypeScript | Type-safe code |
-| Supabase | Backend, Auth & Real-time Database |
-| React Navigation | App navigation |
-| Track Player | Audio streaming engine |
-| MapView | GPS & Activity mapping |
+> **Minimum:** iOS 14.0 or higher
 
 ---
 
-## 📋 Requirements
+## 🔨 Build From Source (GitHub Actions)
 
-| Platform | Minimum Version |
-|----------|----------------|
-| Android | 7.0 (API 24) or higher |
-| iOS | 14.0 or higher |
+Want to build the app yourself? Use our **automated GitHub Actions** to compile your own APK or IPA.
+
+### Build Android APK
+1. Fork or clone this repository
+2. Go to **Actions** tab → **"Build A7 MUSIC Android APK"**
+3. Click **"Run workflow"** → **"Run workflow"**
+4. Wait ~10–15 minutes for the build to complete
+5. Download the APK from the **Artifacts** section of the completed run
+
+### Build iOS IPA
+1. Fork or clone this repository
+2. Go to **Actions** tab → **"Build A7-MUSIC iOS IPA (Unsigned)"**
+3. Click **"Run workflow"** → **"Run workflow"**
+4. Wait ~20–30 minutes for the build
+5. Download the IPA from the **Artifacts** section
+
+> ⚠️ **Note:** The iOS IPA is unsigned. You'll need to sideload it using AltStore or Sideloadly.
 
 ---
 
-## 📧 Contact & Get the Project
+## ⚙️ Tech Stack
+
+| Technology | Role |
+|-----------|------|
+| React Native 0.86 | Cross-platform mobile framework |
+| Expo SDK 57 | Build tooling & native modules |
+| TypeScript | Type-safe development |
+| Supabase | Backend, Auth & Real-time DB |
+| React Navigation | In-app routing |
+| react-native-track-player | Audio engine & background playback |
+| react-native-maps | GPS mapping & live route display |
+| react-native-reanimated | Fluid animations |
+| Socket.IO | Real-time chat & presence |
+| Zustand | App state management |
+
+---
+
+## 📧 Contact
 
 <div align="center">
 
-### 🔒 This is a **private project**
+### 🔒 Private Project
 
-The source code is **not publicly available**. Only compiled APK and IPA versions are distributed here.
+The source code is **not publicly available**. Only compiled APK and IPA builds are distributed here.
 
-**If you're interested in the project, want to collaborate, or need a custom version:**
+**Interested in collaborating, or want a custom version?**
 
 📧 **Email:** [raouf.djmilo@gmail.com](mailto:raouf.djmilo@gmail.com)
 
@@ -156,15 +187,17 @@ The source code is **not publicly available**. Only compiled APK and IPA version
 This project is **proprietary software**. All rights reserved.
 
 - ❌ Source code is NOT included in this repository
-- ❌ Redistribution of the source code is NOT permitted
-- ✅ APK and IPA files are provided for personal use only
-- ✅ Contact the developer for licensing inquiries
+- ❌ Redistribution is NOT permitted
+- ✅ APK and IPA are provided for **personal use only**
+- ✅ Contact for licensing inquiries
 
 ---
 
 <div align="center">
 
 **Built with ❤️ by [raouf-djmilo](https://github.com/raouf-djmilo)**
+
+*A7 MUSIC — Where Music Meets Movement.*
 
 © 2024–2026 A7 MUSIC. All rights reserved.
 

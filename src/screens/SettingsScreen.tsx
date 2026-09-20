@@ -29,18 +29,27 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens, ThemePreference } from '../theme/types';
 import { GlassCard } from '../components/GlassCard';
 import { useAudioStore, AudioQuality } from '../store/useAudioStore';
+import { configureAudioSession } from '../services/audioSessionService';
+import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 
 const STORAGE_UNITS_KEY = '@nouble_units_pref';
 const STORAGE_TRAIL_KEY = '@nouble_trail_elevation_pref';
 const STORAGE_HAPTICS_KEY = '@nouble_haptics_pref';
 const STORAGE_DUCKING_KEY = '@nouble_audio_ducking_pref';
+const STORAGE_BG_PLAYBACK_KEY = '@nouble_background_playback_pref';
 
 export const SettingsScreen = () => {
   const navigation = useNavigation<any>();
   const { user, updateUser, logout } = useAuth();
   const { theme, isDark, themePreference, setThemeMode } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { preferredQuality, setAudioQuality } = useAudioStore();
+  const {
+    preferredQuality,
+    setAudioQuality,
+    backgroundAudioEnabled,
+    setBackgroundAudioEnabled,
+  } = useAudioStore();
+  const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   const [loading, setLoading] = useState(false);
 
@@ -51,6 +60,7 @@ export const SettingsScreen = () => {
 
   // Audio Preferences
   const [audioDucking, setAudioDucking] = useState(true);
+  const [bgPlayback, setBgPlayback] = useState(backgroundAudioEnabled);
 
   // Notification Preferences
   const [notificationsEnabled, setNotificationsEnabled] = useState(!!user?.notifications_enabled);
@@ -62,17 +72,25 @@ export const SettingsScreen = () => {
   useEffect(() => {
     const loadStoredPreferences = async () => {
       try {
-        const [savedUnits, savedTrail, savedHaptics, savedDucking] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_UNITS_KEY),
-          AsyncStorage.getItem(STORAGE_TRAIL_KEY),
-          AsyncStorage.getItem(STORAGE_HAPTICS_KEY),
-          AsyncStorage.getItem(STORAGE_DUCKING_KEY),
-        ]);
+        const [savedUnits, savedTrail, savedHaptics, savedDucking, savedBgPlayback] =
+          await Promise.all([
+            AsyncStorage.getItem(STORAGE_UNITS_KEY),
+            AsyncStorage.getItem(STORAGE_TRAIL_KEY),
+            AsyncStorage.getItem(STORAGE_HAPTICS_KEY),
+            AsyncStorage.getItem(STORAGE_DUCKING_KEY),
+            AsyncStorage.getItem(STORAGE_BG_PLAYBACK_KEY),
+          ]);
 
         if (savedUnits === 'km' || savedUnits === 'mi') setUnits(savedUnits);
         if (savedTrail !== null) setTrailMode(savedTrail === 'true');
         if (savedHaptics !== null) setHapticsEnabled(savedHaptics === 'true');
         if (savedDucking !== null) setAudioDucking(savedDucking === 'true');
+        if (savedBgPlayback !== null) {
+          const isEnabled = savedBgPlayback === 'true';
+          setBgPlayback(isEnabled);
+          // Pure in-memory update on mount to guarantee active audio playback is never reset
+          useAudioStore.setState({ backgroundAudioEnabled: isEnabled });
+        }
       } catch (e) {}
     };
 
@@ -108,6 +126,22 @@ export const SettingsScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAudioDucking(val);
     await AsyncStorage.setItem(STORAGE_DUCKING_KEY, String(val));
+  };
+
+  const updateBgPlayback = async (val: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setBgPlayback(val);
+    setBackgroundAudioEnabled(val);
+    await AsyncStorage.setItem(STORAGE_BG_PLAYBACK_KEY, String(val));
+    await configureAudioSession(val);
+    ToastManager.show({
+      title: val ? 'تم تفعيل التشغيل في الخلفية' : 'تم إيقاف التشغيل في الخلفية',
+      subtitle: val
+        ? 'الموسيقى ستستمر في العمل عند قفل الشاشة أو استخدام تطبيقات أخرى'
+        : 'سيتوقف الصوت تلقائياً عند مغادرة التطبيق لتوفير الموارد',
+      icon: val ? 'musical-notes' : 'pause-circle',
+      duration: 3000,
+    });
   };
 
   const updateQuality = (q: AudioQuality) => {
@@ -199,7 +233,10 @@ export const SettingsScreen = () => {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: miniPlayerBottomGap + 24 },
+          ]}
         >
           {/* ═════════════════════════════════════════════════ */}
           {/* 1. Account & Identity Group                       */}
@@ -468,6 +505,34 @@ export const SettingsScreen = () => {
                   thumbColor="#FFF"
                 />
               </View>
+
+              <View style={styles.rowDivider} />
+
+              {/* Background Audio Playback */}
+              <View style={styles.insetRow}>
+                <View style={styles.rowRightInfo}>
+                  <View
+                    style={[
+                      styles.rowIconWrap,
+                      { backgroundColor: 'rgba(29, 185, 84, 0.12)' },
+                    ]}
+                  >
+                    <Ionicons name="play-circle-outline" size={20} color="#1DB954" />
+                  </View>
+                  <View style={styles.textStack}>
+                    <Text style={styles.rowTitle}>تشغيل الموسيقى في الخلفية</Text>
+                    <Text style={styles.rowSubtitle}>
+                      إبقاء الصوت نشطاً عند قفل الشاشة أو استخدام تطبيقات أخرى
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={bgPlayback}
+                  onValueChange={updateBgPlayback}
+                  trackColor={{ false: theme.surfaceSubtle, true: '#1DB954' }}
+                  thumbColor="#FFF"
+                />
+              </View>
             </GlassCard>
           </View>
 
@@ -649,7 +714,7 @@ export const SettingsScreen = () => {
 
           {/* Footer App Info */}
           <View style={styles.footerWrap}>
-            <Text style={styles.versionTxt}>Nouble v1.1.0</Text>
+            <Text style={styles.versionTxt}>A7 MUSIC v1.1.0</Text>
             <Text style={styles.buildTag}>Glass-Matte Unified Engine • 2026</Text>
           </View>
         </ScrollView>
@@ -886,7 +951,7 @@ const createStyles = (theme: ThemeTokens) =>
     },
 
     loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...(StyleSheet.absoluteFill as object),
       backgroundColor: 'rgba(0,0,0,0.3)',
       justifyContent: 'center',
       alignItems: 'center',

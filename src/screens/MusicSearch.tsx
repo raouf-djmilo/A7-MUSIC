@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,20 +6,22 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Dimensions,
   ScrollView,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioStore } from '../store/useAudioStore';
-import { colors } from '../theme/colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
 import { searchYouTubeMusicWithArtist, ArtistMatch } from '../services/youtubeMusicService';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeTokens } from '../theme/types';
+import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 
 const { width } = Dimensions.get('window');
 const RECENT_SEARCHES_KEY = '@nouble_recent_searches';
@@ -35,8 +37,11 @@ const GENRES = [
   { id: '8', title: 'Deep Focus & Chill 🧘', query: 'Cool down stretching lofi focus', color: '#ff9f1c' },
 ];
 
-export const MusicSearch = ({ navigation }: any) => {
-  const insets = useSafeAreaInsets();
+export const MusicSearch = ({ navigation, route }: any) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme, isDark), [theme, isDark]);
+  const miniPlayerBottomGap = useMiniPlayerBottomGap();
+
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,9 +49,12 @@ export const MusicSearch = ({ navigation }: any) => {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'tracks' | 'artists'>('all');
   
-  const { playTrack, currentTrack, isPlaying, setPlayerModalVisible } = useAudioStore();
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const playTrack = useAudioStore((s) => s.playTrack);
+  const togglePlay = useAudioStore((s) => s.togglePlay);
+  const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
 
-  // Load Recent Searches
   useEffect(() => {
     const loadRecent = async () => {
       const data = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
@@ -55,7 +63,14 @@ export const MusicSearch = ({ navigation }: any) => {
     loadRecent();
   }, []);
 
-  // Sync Debounce
+  // Reactively consume initialQuery passed from MusicHome filter chips
+  useEffect(() => {
+    const initialQuery = route?.params?.initialQuery;
+    if (initialQuery && typeof initialQuery === 'string' && initialQuery.trim()) {
+      setQuery(initialQuery.trim());
+    }
+  }, [route?.params?.initialQuery]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
@@ -63,7 +78,6 @@ export const MusicSearch = ({ navigation }: any) => {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Execute Search
   useEffect(() => {
     if (!debouncedQuery.trim()) {
       setResults(null);
@@ -76,7 +90,6 @@ export const MusicSearch = ({ navigation }: any) => {
     if (!searchTerm.trim()) return;
     setLoading(true);
     try {
-      // 1. Live search directly on YouTube with Artist extraction
       const { artist, tracks } = await searchYouTubeMusicWithArtist(searchTerm);
       if (tracks && tracks.length > 0) {
         const formatted = tracks.map(t => ({
@@ -84,12 +97,11 @@ export const MusicSearch = ({ navigation }: any) => {
           durationFormatted: `${Math.floor((t.duration || 180000) / 60000)}:${String(Math.floor(((t.duration || 180000) % 60000) / 1000)).padStart(2, '0')}`
         }));
         setResults({
-          artist,
+          artist: artist || null,
           tracks: formatted,
         });
         saveRecentSearch(searchTerm);
       } else {
-        // Fallback to local curated search if network is offline
         const localMatches = searchCuratedMusic(searchTerm);
         const fallbackList = (localMatches.length > 0 ? localMatches : CURATED_TRACKS.slice(0, 8)).map(t => ({
           ...t,
@@ -125,18 +137,37 @@ export const MusicSearch = ({ navigation }: any) => {
         style={styles.trackRow} 
         activeOpacity={0.7}
         onPress={async () => {
-          await playTrack(item, null, 0, results?.tracks || []);
-          setPlayerModalVisible(true);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (isCurrent) {
+            setPlayerModalVisible(true);
+          } else {
+            await playTrack(item, null, 0, results?.tracks || []);
+            setPlayerModalVisible(true);
+          }
         }}
       >
-        <Image source={{ uri: item.thumbnail }} style={styles.trackThumb} />
+        <Image
+          source={{ uri: getUniversalStudioArtwork(item.thumbnail) }}
+          style={styles.trackThumb}
+          contentFit="cover"
+          priority="high"
+          cachePolicy="memory-disk"
+          transition={150}
+        />
         <View style={styles.trackInfo}>
-          <Text style={[styles.trackTitle, isCurrent && { color: colors.primary }]} numberOfLines={1}>
+          <Text style={[styles.trackTitle, isCurrent && { color: '#1DB954' }]} numberOfLines={1}>
             {item.title}
           </Text>
           <View style={styles.artistRow}>
             <TouchableOpacity 
-              onPress={() => navigation.navigate('ArtistDetails', { artistName: item.artist })}
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate('ArtistDetail', { 
+                  artistName: item.artist,
+                  artistId: item.channelId || item.artistId,
+                });
+              }}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               <Text style={styles.clickableArtist}>{item.artist}</Text>
@@ -152,11 +183,26 @@ export const MusicSearch = ({ navigation }: any) => {
             </View>
           </View>
         </View>
-        <Ionicons 
-          name={isCurrent && isPlaying ? "pause-circle" : "play-circle"} 
-          size={28} 
-          color={isCurrent ? colors.primary : "rgba(255,255,255,0.4)"} 
-        />
+        {/* Isolated Play/Pause Icon Button (Audio toggle only, does not open modal) */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={(e) => {
+            e.stopPropagation();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (isCurrent) {
+              togglePlay();
+            } else {
+              playTrack(item, null, 0, results?.tracks || []);
+            }
+          }}
+        >
+          <Ionicons 
+            name={isCurrent && isPlaying ? "pause-circle" : "play-circle"} 
+            size={28} 
+            color={isCurrent ? '#1DB954' : theme.textMuted} 
+          />
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -165,8 +211,10 @@ export const MusicSearch = ({ navigation }: any) => {
     <TouchableOpacity 
       style={[styles.genreCard, { backgroundColor: item.color }]}
       onPress={() => {
-        setQuery(item.title);
-        performSearch(item.query || item.title);
+        // Bug 4 fix: use clean query string, not emoji-polluted display title
+        const cleanQuery = item.query || item.title;
+        setQuery(cleanQuery);
+        performSearch(cleanQuery);
       }}
     >
       <Text style={styles.genreText}>{item.title}</Text>
@@ -175,23 +223,23 @@ export const MusicSearch = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Search Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={styles.header}>
         <View style={styles.searchBarContainer}>
-          <Ionicons name="search" size={20} color="rgba(255,255,255,0.5)" style={{ marginLeft: 15 }} />
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 15 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search artists, songs, workout beats..."
-            placeholderTextColor="rgba(255,255,255,0.4)"
+            placeholderTextColor={theme.textMuted}
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#FFF" style={{ marginRight: 15 }} />
+              <Ionicons name="close-circle" size={20} color={theme.textSecondary} style={{ marginRight: 15 }} />
             </TouchableOpacity>
           )}
         </View>
@@ -223,7 +271,7 @@ export const MusicSearch = ({ navigation }: any) => {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#1DB954" />
           <Text style={styles.loadingText}>Searching High-Fidelity Music...</Text>
         </View>
       ) : !query.trim() ? (
@@ -254,7 +302,7 @@ export const MusicSearch = ({ navigation }: any) => {
             scrollEnabled={false}
             columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 20 }}
           />
-          <View style={{ height: 120 }} />
+          <View style={{ height: miniPlayerBottomGap }} />
         </ScrollView>
       ) : results ? (
         /* Search Results UI */
@@ -262,7 +310,7 @@ export const MusicSearch = ({ navigation }: any) => {
           data={activeFilter === 'artists' ? [] : results.tracks}
           keyExtractor={(it, index) => `${it.videoId}-${index}`}
           renderItem={renderTrackItem}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: miniPlayerBottomGap }}
           ListHeaderComponent={
             <View style={{ paddingHorizontal: 20 }}>
               {/* Verified Artist Card */}
@@ -272,12 +320,22 @@ export const MusicSearch = ({ navigation }: any) => {
                   <TouchableOpacity 
                     style={styles.artistFeaturedCard}
                     activeOpacity={0.85}
-                    onPress={() => navigation.navigate('ArtistDetails', { 
-                      artistName: results.artist?.name, 
-                      artist: results.artist 
-                    })}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate('ArtistDetail', { 
+                        artistName: results.artist?.name, 
+                        artist: results.artist 
+                      });
+                    }}
                   >
-                    <Image source={{ uri: results.artist.avatar }} style={styles.artistAvatar} />
+                    <Image
+                      source={{ uri: getUniversalArtistAvatar(results.artist.avatar, results.artist.name) || results.artist.avatar }}
+                      style={styles.artistAvatar}
+                      contentFit="cover"
+                      priority="high"
+                      cachePolicy="memory-disk"
+                      transition={200}
+                    />
                     <View style={styles.artistMeta}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={styles.artistName} numberOfLines={1}>{results.artist.name}</Text>
@@ -286,7 +344,7 @@ export const MusicSearch = ({ navigation }: any) => {
                       <Text style={styles.artistSubText}>{results.artist.subscriberCount || 'Official Artist Channel'}</Text>
                       <View style={styles.artistActionBtn}>
                         <Text style={styles.artistActionText}>View Official Profile</Text>
-                        <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                        <Ionicons name="chevron-forward" size={14} color="#1DB954" />
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -300,7 +358,7 @@ export const MusicSearch = ({ navigation }: any) => {
           }
           ListEmptyComponent={
             <View style={styles.center}>
-               <Ionicons name="search-outline" size={64} color="rgba(255,255,255,0.1)" />
+               <Ionicons name="search-outline" size={64} color={theme.textMuted} />
                <Text style={styles.emptyTitle}>Nothing found for "{query}"</Text>
                <Text style={styles.emptySub}>Try searching for another artist, song, or workout genre.</Text>
             </View>
@@ -311,188 +369,199 @@ export const MusicSearch = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212' },
-  header: { paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#121212' },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    paddingLeft: 10,
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  filterPillActive: {
-    backgroundColor: colors.primary,
-  },
-  filterPillText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterPillTextActive: {
-    color: '#000',
-  },
-  scrollContent: { paddingTop: 10 },
-  sectionTitle: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 15,
-  },
-  sectionTitleHeader: {
-    color: '#FFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 12,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingRight: 20,
-  },
-  clearText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
-    marginTop: 5,
-  },
-  historyRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  historyChip: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  historyText: { color: '#FFF', fontSize: 13 },
-  genreCard: {
-    width: (width - 50) / 2,
-    height: 90,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    justifyContent: 'flex-end',
-  },
-  genreText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
-  loadingText: { color: colors.primary, marginTop: 15, fontWeight: 'bold' },
-  
-  // Verified Artist Card
-  artistSection: {
-    marginBottom: 15,
-  },
-  artistFeaturedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    gap: 16,
-  },
-  artistAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  artistMeta: {
-    flex: 1,
-    gap: 4,
-  },
-  artistName: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  artistSubText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  artistActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  artistActionText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12, backgroundColor: theme.background },
+    searchBarContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    searchInput: {
+      flex: 1,
+      height: '100%',
+      paddingLeft: 10,
+      color: theme.textPrimary,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    filterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 12,
+    },
+    filterPill: {
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: theme.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    filterPillActive: {
+      backgroundColor: theme.textPrimary,
+      borderColor: theme.textPrimary,
+    },
+    filterPillText: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    filterPillTextActive: {
+      color: isDark ? '#000000' : '#FFFFFF',
+    },
+    scrollContent: { paddingTop: 10 },
+    sectionTitle: {
+      color: theme.textPrimary,
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginHorizontal: 20,
+      marginTop: 20,
+      marginBottom: 15,
+    },
+    sectionTitleHeader: {
+      color: theme.textPrimary,
+      fontSize: 17,
+      fontWeight: 'bold',
+      marginTop: 15,
+      marginBottom: 12,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingRight: 20,
+    },
+    clearText: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      marginTop: 5,
+    },
+    historyRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 20,
+      gap: 8,
+    },
+    historyChip: {
+      backgroundColor: theme.surfaceSubtle,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    historyText: { color: theme.textPrimary, fontSize: 13 },
+    genreCard: {
+      width: (width - 50) / 2,
+      height: 90,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 12,
+      justifyContent: 'flex-end',
+    },
+    genreText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
+    loadingText: { color: '#1DB954', marginTop: 15, fontWeight: 'bold' },
+    
+    // Verified Artist Card
+    artistSection: {
+      marginBottom: 15,
+    },
+    artistFeaturedCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : theme.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 16,
+      shadowColor: theme.cardShadow.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.2 : 0.06,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    artistAvatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: theme.surfaceSubtle,
+    },
+    artistMeta: {
+      flex: 1,
+      gap: 4,
+    },
+    artistName: {
+      color: theme.textPrimary,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    artistSubText: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    artistActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    artistActionText: {
+      color: '#1DB954',
+      fontSize: 13,
+      fontWeight: '700',
+    },
 
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
-  },
-  trackThumb: { width: 50, height: 50, borderRadius: 8 },
-  trackInfo: { flex: 1 },
-  trackTitle: { color: '#FFF', fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  artistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  clickableArtist: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  trackDuration: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-  },
-  hdBadgeSmall: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  hdBadgeSmallText: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '900',
-  },
+    trackRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      gap: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderSubtle,
+    },
+    trackThumb: { width: 50, height: 50, borderRadius: 8, backgroundColor: theme.surfaceSubtle },
+    trackInfo: { flex: 1 },
+    trackTitle: { color: theme.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
+    artistRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    clickableArtist: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    trackDuration: {
+      color: theme.textMuted,
+      fontSize: 12,
+    },
+    hdBadgeSmall: {
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 4,
+    },
+    hdBadgeSmallText: {
+      color: '#1DB954',
+      fontSize: 9,
+      fontWeight: '900',
+    },
 
-  emptyTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginTop: 20 },
-  emptySub: { color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', paddingHorizontal: 40, marginTop: 10 },
-});
+    emptyTitle: { color: theme.textPrimary, fontSize: 18, fontWeight: 'bold', marginTop: 20 },
+    emptySub: { color: theme.textSecondary, fontSize: 14, textAlign: 'center', paddingHorizontal: 40, marginTop: 10 },
+  });
+
+export default MusicSearch;

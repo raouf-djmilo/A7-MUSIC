@@ -6,16 +6,24 @@ import {
   Dimensions,
   FlatList,
   TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   Alert,
   ScrollView,
   TextInput,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -31,8 +39,10 @@ import {
 } from '../services/listeningTimeService';
 import { DynamicBottomSheet, DynamicBottomSheetRef } from '../components/DynamicBottomSheet';
 import { GlassCard } from '../components/GlassCard';
+import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const formatActivityTime = (s: number): string => {
   const h = Math.floor(s / 3600);
@@ -58,11 +68,171 @@ const formatStravaDate = (iso: string): string => {
   }
 };
 
+// ────────────────────────────────────────────────────────
+// MEMOIZED ACTIVITY CARD (Strava-Grade 1:1)
+// ────────────────────────────────────────────────────────
+const StravaActivityCard = memo(({ item, onSelect }: { item: any; onSelect: (activity: any) => void }) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  const isTrail = item.activity_type === 'trail';
+  const isRun = item.activity_type === 'run' || (!isTrail && item.activity_type !== 'walk');
+  const sportColor = isTrail ? '#00D084' : (isRun ? '#FC5200' : '#007AFF');
+  const sportIcon = isTrail ? 'terrain' : (isRun ? 'run-fast' : 'walk');
+  const sportTitle = item.notes || (isTrail ? 'جري مسارات جبلية 🏔️' : (isRun ? 'Afternoon Run 🏃' : 'مشي استشفائي 🚶'));
+
+  return (
+    <GlassCard
+      style={styles.stravaCard}
+      borderRadius={20}
+      onPress={() => onSelect(item)}
+    >
+      {/* Strava Header: Sport Icon + Title + Date */}
+      <View style={styles.stravaHeader}>
+        <View style={[styles.stravaIconCircle, { backgroundColor: sportColor + '18' }]}>
+          <MaterialCommunityIcons name={sportIcon} size={22} color={sportColor} />
+        </View>
+        <View style={styles.stravaHeaderTextCol}>
+          <Text style={styles.stravaTitle} numberOfLines={1}>
+            {sportTitle}
+          </Text>
+          <Text style={styles.stravaDate}>{formatStravaDate(item.created_at)}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+      </View>
+
+      {/* Strava 4-Column Metric Grid */}
+      <View style={styles.stravaMetricsRow}>
+        {/* Distance */}
+        <View style={styles.stravaMetricItem}>
+          <Text style={styles.stravaMetricLabel}>المسافة</Text>
+          <Text style={[styles.stravaMetricValue, { color: sportColor }]}>
+            {Number(item.total_distance || 0).toFixed(2)}{' '}
+            <Text style={styles.stravaMetricUnit}>km</Text>
+          </Text>
+        </View>
+
+        {/* Pace */}
+        <View style={styles.stravaMetricItem}>
+          <Text style={styles.stravaMetricLabel}>الوتيرة</Text>
+          <Text style={styles.stravaMetricValue}>
+            {item.average_pace || '--:--'}{' '}
+            <Text style={styles.stravaMetricUnit}>/km</Text>
+          </Text>
+        </View>
+
+        {/* Moving Time */}
+        <View style={styles.stravaMetricItem}>
+          <Text style={styles.stravaMetricLabel}>الوقت</Text>
+          <Text style={styles.stravaMetricValue}>
+            {formatActivityTime(item.total_time || 0)}
+          </Text>
+        </View>
+
+        {/* Elevation / Calories */}
+        <View style={styles.stravaMetricItem}>
+          <Text style={styles.stravaMetricLabel}>
+            {item.elevation_gain ? 'الارتفاع' : 'السعرات'}
+          </Text>
+          <Text style={styles.stravaMetricValue}>
+            {item.elevation_gain
+              ? `+${Math.round(item.elevation_gain)}m`
+              : (item.calories ? `${Math.round(item.calories)}` : '--')}
+          </Text>
+        </View>
+      </View>
+
+      {/* Verified GPS Pill */}
+      <View style={styles.stravaFooterPill}>
+        <Ionicons name="shield-checkmark" size={13} color="#10B981" />
+        <Text style={styles.stravaFooterTxt}>نشاط رياضي موثق بنظام GPS</Text>
+      </View>
+    </GlassCard>
+  );
+});
+
+// ────────────────────────────────────────────────────────
+// MEMOIZED MUSIC ITEM
+// ────────────────────────────────────────────────────────
+const MemoizedMusicItem = memo(({ item }: { item: any }) => {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const playTrack = useAudioStore((s) => s.playTrack);
+  const togglePlay = useAudioStore((s) => s.togglePlay);
+  const isCurrent = currentTrack?.videoId === item.video_id;
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isCurrent) {
+      togglePlay();
+    } else {
+      playTrack({
+        videoId: item.video_id,
+        title: item.title,
+        artist: item.artist || 'Unknown Artist',
+        thumbnail: item.thumbnail || '',
+        duration: item.duration,
+      });
+    }
+  };
+
+  return (
+    <GlassCard
+      style={[styles.musicCard, isCurrent && { borderColor: '#007AFF' }]}
+      borderRadius={18}
+      onPress={handlePress}
+    >
+      <View style={styles.musicRow}>
+        <Image
+          source={{
+            uri: getUniversalStudioArtwork(item.thumbnail),
+          }}
+          style={styles.musicThumb}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          priority="high"
+          transition={150}
+        />
+
+        <View style={styles.musicInfoCol}>
+          <Text
+            style={[styles.musicTitleTxt, isCurrent && { color: '#007AFF' }]}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          <Text style={styles.musicArtistTxt} numberOfLines={1}>
+            {item.artist || 'فنان'}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.musicPlayBtn}
+          onPress={handlePress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
+            size={36}
+            color={isCurrent ? '#007AFF' : theme.textPrimary}
+          />
+        </TouchableOpacity>
+      </View>
+    </GlassCard>
+  );
+});
+
 export const ProfileScreen = () => {
   const { user, updateUser } = useAuth();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { playTrack, togglePlay, currentTrack, isPlaying } = useAudioStore();
+  const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const playTrack = useAudioStore((s) => s.playTrack);
+  const togglePlay = useAudioStore((s) => s.togglePlay);
   const { theme, isDark, toggleTheme } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -83,6 +253,25 @@ export const ProfileScreen = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const editSheetRef = useRef<DynamicBottomSheetRef>(null);
+
+  // Reanimated Tab Indicator
+  const tabOffset = useSharedValue<number>(0);
+
+  const switchTab = useCallback((tab: 'activities' | 'music') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+    tabOffset.value = withTiming(tab === 'activities' ? 0 : 1, {
+      duration: 180,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+  }, [tabOffset]);
+
+  const animatedIndicatorStyle = useAnimatedStyle(() => {
+    const tabWidth = (SCREEN_WIDTH - 24 - 8) / 2;
+    return {
+      transform: [{ translateX: tabOffset.value * tabWidth }],
+    };
+  });
 
   const fetchProfileData = useCallback(async () => {
     if (!user?.id) return;
@@ -221,18 +410,23 @@ export const ProfileScreen = () => {
     }
   };
 
+  const handleSelectActivity = useCallback((activity: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('WorkoutSummary', { workoutId: activity.id, workout: activity });
+  }, [navigation]);
+
   const displayUser = profile || user;
 
   // ────────────────────────────────────────────────────────
-  // HEADER COMPONENT (Athlete ID + Minimalist 2x2 Grid + Carousel)
+  // HEADER COMPONENT (Athlete ID + Clean 2x2 Grid + Carousel)
   // ────────────────────────────────────────────────────────
   const renderHeader = () => {
     return (
       <View style={styles.headerContainer}>
-        {/* ── 1. Athlete Identity Card (Cleaned, NO duplicate settings icon) ── */}
+        {/* ── 1. Athlete Identity Card (ONLY avatar, name, handle, badge, edit) ── */}
         <GlassCard style={styles.identityCard} borderRadius={20}>
           <View style={styles.identityRow}>
-            {/* Neon Ring Avatar with fixed expo-image */}
+            {/* Neon Ring Avatar */}
             <View style={styles.avatarNeonWrapper}>
               <TouchableOpacity
                 onPress={handlePickAvatar}
@@ -261,7 +455,7 @@ export const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Athlete Info */}
+            {/* Athlete Details */}
             <View style={styles.identityDetails}>
               <Text style={styles.athleteName} numberOfLines={1}>
                 {displayUser?.full_name || 'عدّاء Nouble'}
@@ -280,7 +474,7 @@ export const ProfileScreen = () => {
             </View>
           </View>
 
-          {/* Bio if available */}
+          {/* Bio snippet */}
           {displayUser?.bio ? (
             <Text style={styles.bioText} numberOfLines={2}>
               {displayUser.bio}
@@ -298,7 +492,7 @@ export const ProfileScreen = () => {
           </TouchableOpacity>
         </GlassCard>
 
-        {/* ── 2. Clean Minimalist 2x2 Telemetry Grid (Apple / Strava Style) ── */}
+        {/* ── 2. Clean Minimalist 2x2 Telemetry Grid (Strava/Apple Pure Style) ── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>مؤشرات الأداء</Text>
         </View>
@@ -341,7 +535,7 @@ export const ProfileScreen = () => {
             </Text>
           </GlassCard>
 
-          {/* Card 3: Completed Workouts */}
+          {/* Card 3: Workouts */}
           <GlassCard style={styles.metricCard} borderRadius={18}>
             <View style={styles.metricTopRow}>
               <View
@@ -362,7 +556,7 @@ export const ProfileScreen = () => {
             </Text>
           </GlassCard>
 
-          {/* Card 4: Liked Music Tracks */}
+          {/* Card 4: Liked Music */}
           <GlassCard style={styles.metricCard} borderRadius={18}>
             <View style={styles.metricTopRow}>
               <View
@@ -382,7 +576,7 @@ export const ProfileScreen = () => {
           </GlassCard>
         </View>
 
-        {/* ── 3. Favorite Music Carousel (Glitches Fixed with memo-ready expo-image) ── */}
+        {/* ── 3. Favorite Music Carousel (Fixed expo-image) ── */}
         {musicLikes.length > 0 && (
           <View style={styles.carouselSection}>
             <View style={styles.sectionHeaderRow}>
@@ -449,14 +643,14 @@ export const ProfileScreen = () => {
           </View>
         )}
 
-        {/* ── 4. Tab Switcher ── */}
+        {/* ── 4. Instant Profile Tab Switcher (0ms Pressable + Reanimated Indicator) ── */}
         <View style={styles.tabSwitchContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'activities' && styles.tabBtnActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab('activities');
-            }}
+          {/* Smooth Sliding Pill Indicator */}
+          <Animated.View style={[styles.slidingIndicator, animatedIndicatorStyle]} />
+
+          <Pressable
+            style={styles.pressableTabBtn}
+            onPress={() => switchTab('activities')}
           >
             <Ionicons
               name="fitness-outline"
@@ -466,19 +660,16 @@ export const ProfileScreen = () => {
             <Text
               style={[
                 styles.tabBtnTxt,
-                activeTab === 'activities' && { color: '#FC5200', fontWeight: 'bold' },
+                activeTab === 'activities' && { color: '#FC5200', fontWeight: '800' },
               ]}
             >
               سجل التمارين ({activities.length})
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'music' && styles.tabBtnActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab('music');
-            }}
+          <Pressable
+            style={styles.pressableTabBtn}
+            onPress={() => switchTab('music')}
           >
             <Ionicons
               name="musical-notes-outline"
@@ -488,173 +679,30 @@ export const ProfileScreen = () => {
             <Text
               style={[
                 styles.tabBtnTxt,
-                activeTab === 'music' && { color: '#007AFF', fontWeight: 'bold' },
+                activeTab === 'music' && { color: '#007AFF', fontWeight: '800' },
               ]}
             >
               المفضلة ({musicLikes.length})
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     );
   };
 
-  // ────────────────────────────────────────────────────────
-  // STRAVA-GRADE WORKOUT ACTIVITY CARD
-  // ────────────────────────────────────────────────────────
-  const renderActivityItem = ({ item }: { item: any }) => {
-    const isTrail = item.activity_type === 'trail';
-    const isRun = item.activity_type === 'run' || (!isTrail && item.activity_type !== 'walk');
-    const sportColor = isTrail ? '#00D084' : (isRun ? '#FC5200' : '#007AFF');
-    const sportIcon = isTrail ? 'terrain' : (isRun ? 'run-fast' : 'walk');
-    const sportTitle = item.notes || (isTrail ? 'جري مسارات جبلية 🏔️' : (isRun ? 'Afternoon Run 🏃' : 'مشي استشفائي 🚶'));
+  const renderActivityItem = useCallback(
+    ({ item }: { item: any }) => (
+      <StravaActivityCard item={item} onSelect={handleSelectActivity} />
+    ),
+    [handleSelectActivity]
+  );
 
-    return (
-      <GlassCard
-        style={styles.stravaCard}
-        borderRadius={20}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate('WorkoutSummary', { workoutId: item.id, workout: item });
-        }}
-      >
-        {/* Strava Header: Sport Icon + Title + Date */}
-        <View style={styles.stravaHeader}>
-          <View style={[styles.stravaIconCircle, { backgroundColor: sportColor + '18' }]}>
-            <MaterialCommunityIcons name={sportIcon} size={22} color={sportColor} />
-          </View>
-          <View style={styles.stravaHeaderTextCol}>
-            <Text style={styles.stravaTitle} numberOfLines={1}>
-              {sportTitle}
-            </Text>
-            <Text style={styles.stravaDate}>{formatStravaDate(item.created_at)}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-        </View>
+  const renderMusicItem = useCallback(
+    ({ item }: { item: any }) => <MemoizedMusicItem item={item} />,
+    []
+  );
 
-        {/* Strava 4-Column Metric Grid */}
-        <View style={styles.stravaMetricsRow}>
-          {/* Distance */}
-          <View style={styles.stravaMetricItem}>
-            <Text style={styles.stravaMetricLabel}>المسافة</Text>
-            <Text style={[styles.stravaMetricValue, { color: sportColor }]}>
-              {Number(item.total_distance || 0).toFixed(2)}{' '}
-              <Text style={styles.stravaMetricUnit}>km</Text>
-            </Text>
-          </View>
-
-          {/* Pace */}
-          <View style={styles.stravaMetricItem}>
-            <Text style={styles.stravaMetricLabel}>الوتيرة</Text>
-            <Text style={styles.stravaMetricValue}>
-              {item.average_pace || '--:--'}{' '}
-              <Text style={styles.stravaMetricUnit}>/km</Text>
-            </Text>
-          </View>
-
-          {/* Moving Time */}
-          <View style={styles.stravaMetricItem}>
-            <Text style={styles.stravaMetricLabel}>الوقت</Text>
-            <Text style={styles.stravaMetricValue}>
-              {formatActivityTime(item.total_time || 0)}
-            </Text>
-          </View>
-
-          {/* Elevation / Calories */}
-          <View style={styles.stravaMetricItem}>
-            <Text style={styles.stravaMetricLabel}>
-              {item.elevation_gain ? 'الارتفاع' : 'السعرات'}
-            </Text>
-            <Text style={styles.stravaMetricValue}>
-              {item.elevation_gain
-                ? `+${Math.round(item.elevation_gain)}m`
-                : (item.calories ? `${Math.round(item.calories)}` : '--')}
-            </Text>
-          </View>
-        </View>
-
-        {/* Strava Achievement Pill if applicable */}
-        <View style={styles.stravaFooterPill}>
-          <Ionicons name="shield-checkmark" size={13} color="#10B981" />
-          <Text style={styles.stravaFooterTxt}>نشاط رياضي موثق بنظام GPS</Text>
-        </View>
-      </GlassCard>
-    );
-  };
-
-  // ────────────────────────────────────────────────────────
-  // MUSIC ITEM RENDERER
-  // ────────────────────────────────────────────────────────
-  const renderMusicItem = ({ item }: { item: any }) => {
-    const isCurrent = currentTrack?.videoId === item.video_id;
-
-    return (
-      <GlassCard
-        style={[styles.musicCard, isCurrent && { borderColor: '#007AFF' }]}
-        borderRadius={18}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          playTrack({
-            videoId: item.video_id,
-            title: item.title,
-            artist: item.artist || 'Unknown Artist',
-            thumbnail: item.thumbnail || '',
-            duration: item.duration,
-          });
-        }}
-      >
-        <View style={styles.musicRow}>
-          <Image
-            source={{
-              uri:
-                item.thumbnail ||
-                'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200',
-            }}
-            style={styles.musicThumb}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            priority="high"
-          />
-
-          <View style={styles.musicInfoCol}>
-            <Text
-              style={[styles.musicTitleTxt, isCurrent && { color: '#007AFF' }]}
-              numberOfLines={1}
-            >
-              {item.title}
-            </Text>
-            <Text style={styles.musicArtistTxt} numberOfLines={1}>
-              {item.artist || 'فنان'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.musicPlayBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (isCurrent) {
-                togglePlay();
-              } else {
-                playTrack({
-                  videoId: item.video_id,
-                  title: item.title,
-                  artist: item.artist || 'Unknown Artist',
-                  thumbnail: item.thumbnail || '',
-                  duration: item.duration,
-                });
-              }
-            }}
-          >
-            <Ionicons
-              name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
-              size={36}
-              color={isCurrent ? '#007AFF' : theme.textPrimary}
-            />
-          </TouchableOpacity>
-        </View>
-      </GlassCard>
-    );
-  };
+  const keyExtractor = useCallback((item: any) => item.id || item.video_id, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
@@ -693,17 +741,21 @@ export const ProfileScreen = () => {
         </View>
       </View>
 
-      {/* ── Virtualized List Content ── */}
+      {/* ── Optimized Virtualized List (0ms latency, memoized items) ── */}
       <FlatList
         data={activeTab === 'activities' ? activities : musicLikes}
-        keyExtractor={(item) => item.id || item.video_id}
+        keyExtractor={keyExtractor}
         ListHeaderComponent={renderHeader}
         renderItem={activeTab === 'activities' ? renderActivityItem : renderMusicItem}
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingBottom: insets.bottom + 90 },
+          { paddingBottom: miniPlayerBottomGap },
         ]}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -969,7 +1021,7 @@ const createStyles = (theme: ThemeTokens) =>
       marginBottom: 12,
     },
     metricCard: {
-      width: (width - 24 - 12) / 2,
+      width: (SCREEN_WIDTH - 24 - 12) / 2,
       padding: 12,
     },
     metricTopRow: {
@@ -1028,7 +1080,7 @@ const createStyles = (theme: ThemeTokens) =>
       height: 100,
     },
     carouselPlayOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.25)',
       justifyContent: 'center',
       alignItems: 'center',
@@ -1046,15 +1098,28 @@ const createStyles = (theme: ThemeTokens) =>
       marginTop: 2,
     },
 
-    // ── Tab Switcher ──
+    // ── Instant Tab Switcher (0ms Pressable + Reanimated Indicator) ──
     tabSwitchContainer: {
       flexDirection: 'row',
       backgroundColor: theme.surfaceSubtle,
       borderRadius: 14,
-      padding: 3,
+      padding: 4,
       marginBottom: 12,
+      position: 'relative',
     },
-    tabBtn: {
+    slidingIndicator: {
+      position: 'absolute',
+      top: 4,
+      left: 4,
+      bottom: 4,
+      width: (SCREEN_WIDTH - 24 - 8) / 2,
+      backgroundColor: theme.glassCard,
+      borderRadius: 11,
+      zIndex: 1,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+    },
+    pressableTabBtn: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
@@ -1062,9 +1127,7 @@ const createStyles = (theme: ThemeTokens) =>
       paddingVertical: 9,
       borderRadius: 11,
       gap: 6,
-    },
-    tabBtnActive: {
-      backgroundColor: theme.glassCard,
+      zIndex: 2,
     },
     tabBtnTxt: {
       color: theme.textSecondary,
@@ -1241,7 +1304,7 @@ const createStyles = (theme: ThemeTokens) =>
       fontWeight: 'bold',
     },
     loaderOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.3)',
       justifyContent: 'center',
       alignItems: 'center',

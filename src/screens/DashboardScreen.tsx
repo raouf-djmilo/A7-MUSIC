@@ -18,10 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { supabase } from '../lib/supabase';
@@ -30,12 +26,9 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
 import { useAudioStore, Track } from '../store/useAudioStore';
 import { CURATED_TRACKS, CuratedTrack } from '../data/curatedMusic';
-import {
-  HomeGlassMusicCard,
-  CARD_WIDTH,
-  SPACING,
-  SNAP_INTERVAL,
-} from '../components/HomeGlassMusicCard';
+import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { cleanArtistName } from '../services/youtubeMusicService';
+import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 
 const { width } = Dimensions.get('window');
 
@@ -70,6 +63,13 @@ const formatDate = (iso: string): string => {
     day: 'numeric',
     month: 'short',
   });
+};
+
+const cleanText = (str?: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '')
+    .trim();
 };
 
 const createStyles = (theme: ThemeTokens) =>
@@ -161,10 +161,122 @@ const createStyles = (theme: ThemeTokens) =>
       fontSize: 12,
       fontWeight: '600',
     },
-    musicCardWrapper: {
-      marginTop: 6,
-      marginBottom: 6,
+    // ── Compact Smart Music Widget Styles (~110px) ──
+    smartWidgetContainer: {
+      marginHorizontal: 16,
+      marginTop: 4,
+      marginBottom: 10,
+      height: 106,
+      borderRadius: 18,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      ...Platform.select({
+        ios: {
+          shadowColor: theme.cardShadow.shadowColor,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: theme.cardShadow.shadowOpacity,
+          shadowRadius: 8,
+        },
+        android: {
+          elevation: theme.cardShadow.elevation,
+        },
+      }),
+    },
+    smartWidgetArtworkWrap: {
+      width: 82,
+      height: 82,
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: theme.surfaceSubtle,
+      position: 'relative',
+    },
+    smartWidgetArtwork: {
       width: '100%',
+      height: '100%',
+    },
+    smartWidgetPlayBadge: {
+      position: 'absolute',
+      bottom: 4,
+      right: 4,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    smartWidgetInfo: {
+      flex: 1,
+      paddingHorizontal: 12,
+      justifyContent: 'center',
+    },
+    smartWidgetBadgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 3,
+    },
+    smartWidgetTag: {
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+    smartWidgetTitle: {
+      color: theme.textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+      marginBottom: 2,
+    },
+    smartWidgetArtistRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    smartWidgetArtist: {
+      color: theme.textSecondary,
+      fontSize: 12,
+      fontWeight: '500',
+      maxWidth: 130,
+    },
+    smartWidgetProgressTrack: {
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: theme.surfaceSubtle,
+      overflow: 'hidden',
+      width: '100%',
+    },
+    smartWidgetProgressFill: {
+      height: '100%',
+      backgroundColor: '#1DB954',
+      borderRadius: 1.5,
+    },
+    smartWidgetControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    smartWidgetControlBtn: {
+      padding: 4,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    smartWidgetPlayBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: '#1DB954',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      elevation: 3,
     },
     latestActivityRibbon: {
       flexDirection: 'row',
@@ -340,6 +452,7 @@ export const DashboardScreen: React.FC = () => {
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -347,105 +460,42 @@ export const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Audio Store & State ──
-  const {
-    currentTrack,
-    isPlaying,
-    positionMillis,
-    durationMillis,
-    togglePlay,
-    toggleLike,
-    likedTrackIds,
-    playTrack,
-    setPlayerModalVisible,
-    history,
-  } = useAudioStore();
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const positionMillis = useAudioStore((s) => s.positionMillis);
+  const durationMillis = useAudioStore((s) => s.durationMillis);
+  const togglePlay = useAudioStore((s) => s.togglePlay);
+  const toggleLike = useAudioStore((s) => s.toggleLike);
+  const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
+  const playTrack = useAudioStore((s) => s.playTrack);
+  const nextTrack = useAudioStore((s) => s.nextTrack);
+  const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
+  const history = useAudioStore((s) => s.history);
 
-  const flatListRef = useRef<any>(null);
-  const scrollX = useSharedValue(0);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-
-  // ── Flag to prevent double execution on programmatic Next/Prev button presses ──
-  const isProgrammaticScroll = useRef<boolean>(false);
-
-  // ── 1. "Your Vibe" Intelligent Recommendation Engine (Frozen on mount for 60fps stability) ──
+  // ── 1. "Your Vibe" Intelligent Recommendation Queue ──
   const [tracks, setTracks] = useState<DashboardTrack[]>(() =>
     buildYourVibeQueue(currentTrack, history, likedTrackIds)
   );
 
-  // ── Explicit Snap Offsets for Mathematical Centering ──
-  const snapOffsets = useMemo(
-    () => tracks.map((_, i) => i * SNAP_INTERVAL),
-    [tracks]
-  );
-
-  // ── 3. Bi-directional Sync: Auto-scroll carousel when track changes from MiniPlayer or outside ──
   useEffect(() => {
     if (currentTrack?.videoId) {
       const foundIdx = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
-      if (foundIdx !== -1) {
-        if (foundIdx !== currentTrackIndex) {
-          isProgrammaticScroll.current = true;
-          setCurrentTrackIndex(foundIdx);
-          flatListRef.current?.scrollToOffset({
-            offset: foundIdx * SNAP_INTERVAL,
-            animated: true,
-          });
-        }
-      } else {
-        // Track was played externally (e.g. Music tab or Search): dynamically add to Card #0
+      if (foundIdx === -1) {
         const newTrack: DashboardTrack = {
           ...currentTrack,
           id: currentTrack.videoId,
         };
         setTracks((prev) => [newTrack, ...prev.filter((t) => t.videoId !== currentTrack.videoId)]);
-        setCurrentTrackIndex(0);
-        flatListRef.current?.scrollToOffset({
-          offset: 0,
-          animated: true,
-        });
       }
     }
   }, [currentTrack?.videoId]);
 
-  // ── Smooth Reanimated Scroll Handler on UI Thread (Zero State Glitches) ──
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollX.value = event.contentOffset.x;
-    },
-  });
-
-  // ── 2. Smart Audio Switch on Momentum Scroll End ──
-  // Respects playback state: If paused, previews silently; if playing, changes audio immediately
-  const onMomentumScrollEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      // If scroll was triggered programmatically (via Next/Prev button), ignore to avoid double fire
-      if (isProgrammaticScroll.current) {
-        isProgrammaticScroll.current = false;
-        return;
-      }
-
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const newIndex = Math.round(offsetX / SNAP_INTERVAL);
-      const clampedIndex = Math.max(0, Math.min(newIndex, tracks.length - 1));
-
-      if (clampedIndex !== currentTrackIndex) {
-        setCurrentTrackIndex(clampedIndex);
-        Haptics.selectionAsync();
-        const selectedTrack = tracks[clampedIndex];
-
-        if (isPlaying) {
-          playTrack(selectedTrack);
-        } else {
-          useAudioStore.setState({
-            currentTrack: selectedTrack,
-            positionMillis: 0,
-            durationMillis: selectedTrack.duration || 180000,
-          });
-        }
-      }
-    },
-    [currentTrackIndex, tracks, isPlaying, playTrack]
-  );
+  const activeTrack: Track = currentTrack || tracks[0] || CURATED_TRACKS[0];
+  const isLiked = activeTrack?.videoId ? likedTrackIds.includes(activeTrack.videoId) : false;
+  const progressPercent =
+    (durationMillis || 0) > 0
+      ? Math.min(100, Math.max(0, (positionMillis / (durationMillis || 180000)) * 100))
+      : 0;
 
   const handlePressPlay = useCallback(
     (track: Track) => {
@@ -453,10 +503,10 @@ export const DashboardScreen: React.FC = () => {
       if (currentTrack?.videoId === track.videoId) {
         togglePlay();
       } else {
-        playTrack(track);
+        playTrack(track, tracks, 0, 'Dashboard');
       }
     },
-    [currentTrack?.videoId, togglePlay, playTrack]
+    [currentTrack?.videoId, togglePlay, playTrack, tracks]
   );
 
   const handlePressLike = useCallback(
@@ -465,124 +515,6 @@ export const DashboardScreen: React.FC = () => {
       toggleLike(track);
     },
     [toggleLike]
-  );
-
-  const handleShare = useCallback(async (track: Track) => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await Share.share({
-        message: `Listening to "${track.title}" by ${track.artist} on Nouble!`,
-      });
-    } catch (e) {}
-  }, []);
-
-  // ── 4. Card Controls: Smooth programmatic snapping with debounce flag ──
-  const handlePressPrev = useCallback(
-    (index: number) => {
-      if (index > 0) {
-        const prevIdx = index - 1;
-        isProgrammaticScroll.current = true;
-        flatListRef.current?.scrollToOffset({
-          offset: prevIdx * SNAP_INTERVAL,
-          animated: true,
-        });
-        setCurrentTrackIndex(prevIdx);
-        Haptics.selectionAsync();
-        const selectedTrack = tracks[prevIdx];
-
-        if (isPlaying) {
-          playTrack(selectedTrack);
-        } else {
-          useAudioStore.setState({
-            currentTrack: selectedTrack,
-            positionMillis: 0,
-            durationMillis: selectedTrack.duration || 180000,
-          });
-        }
-      }
-    },
-    [tracks, isPlaying, playTrack]
-  );
-
-  const handlePressNext = useCallback(
-    (index: number) => {
-      if (index < tracks.length - 1) {
-        const nextIdx = index + 1;
-        isProgrammaticScroll.current = true;
-        flatListRef.current?.scrollToOffset({
-          offset: nextIdx * SNAP_INTERVAL,
-          animated: true,
-        });
-        setCurrentTrackIndex(nextIdx);
-        Haptics.selectionAsync();
-        const selectedTrack = tracks[nextIdx];
-
-        if (isPlaying) {
-          playTrack(selectedTrack);
-        } else {
-          useAudioStore.setState({
-            currentTrack: selectedTrack,
-            positionMillis: 0,
-            durationMillis: selectedTrack.duration || 180000,
-          });
-        }
-      }
-    },
-    [tracks, isPlaying, playTrack]
-  );
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: DashboardTrack; index: number }) => {
-      const isCurrent = currentTrack?.videoId === item.videoId;
-      const isLiked = item.videoId ? likedTrackIds.includes(item.videoId) : false;
-
-      return (
-        <HomeGlassMusicCard
-          track={item}
-          index={index}
-          scrollX={scrollX}
-          isCurrent={isCurrent}
-          isPlaying={isPlaying}
-          positionMillis={positionMillis}
-          durationMillis={durationMillis}
-          isLiked={isLiked}
-          onPressArtwork={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (currentTrack?.videoId !== item.videoId) {
-              if (isPlaying) {
-                playTrack(item);
-              } else {
-                useAudioStore.setState({
-                  currentTrack: item,
-                  positionMillis: 0,
-                  durationMillis: item.duration || 180000,
-                });
-              }
-            }
-            setPlayerModalVisible(true);
-          }}
-          onPressPlay={() => handlePressPlay(item)}
-          onPressLike={() => handlePressLike(item)}
-          onPressShare={() => handleShare(item)}
-          onPressPrev={() => handlePressPrev(index)}
-          onPressNext={() => handlePressNext(index)}
-        />
-      );
-    },
-    [
-      currentTrack?.videoId,
-      likedTrackIds,
-      scrollX,
-      isPlaying,
-      positionMillis,
-      durationMillis,
-      setPlayerModalVisible,
-      handlePressPlay,
-      handlePressLike,
-      handleShare,
-      handlePressPrev,
-      handlePressNext,
-    ]
   );
 
   // ── Database activities & Profile Fetch ──
@@ -684,29 +616,143 @@ export const DashboardScreen: React.FC = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* ── 2. Prominent Visual Focal Center: Apple Music Carousel with Forced LTR and Fixed Snap Offsets ── */}
-        <View style={[styles.musicCardWrapper, { direction: 'ltr' }]}>
-          <Animated.FlatList
-            ref={flatListRef}
-            data={tracks}
-            keyExtractor={(item) => item.videoId || item.id}
-            renderItem={renderItem}
-            horizontal={true}
-            inverted={false}
-            snapToOffsets={snapOffsets}
-            snapToAlignment="center"
-            decelerationRate="fast"
-            disableIntervalMomentum={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: (width - CARD_WIDTH) / 2,
-            }}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={onMomentumScrollEnd}
-            nestedScrollEnabled={true}
+        {/* ── 2. Compact Smart Music Widget (~110px) ── */}
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (currentTrack?.videoId !== activeTrack.videoId) {
+              if (isPlaying) {
+                playTrack(activeTrack, tracks, 0, 'Dashboard');
+              } else {
+                useAudioStore.setState({
+                  currentTrack: activeTrack,
+                  positionMillis: 0,
+                  durationMillis: activeTrack.duration || 180000,
+                });
+              }
+            }
+            setPlayerModalVisible(true);
+          }}
+          style={styles.smartWidgetContainer}
+        >
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 45 : 40}
+            tint={theme.blurTint}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
           />
-        </View>
+
+          {/* 82x82 Square Studio Artwork (contentFit="cover" without black bars) */}
+          <View style={styles.smartWidgetArtworkWrap}>
+            <Image
+              source={{ uri: getUniversalStudioArtwork(activeTrack?.thumbnail) }}
+              style={styles.smartWidgetArtwork}
+              contentFit="cover"
+              priority="high"
+              cachePolicy="memory-disk"
+              transition={120}
+            />
+            {isPlaying && (
+              <View style={styles.smartWidgetPlayBadge}>
+                <Ionicons name="musical-notes" size={11} color="#1DB954" />
+              </View>
+            )}
+          </View>
+
+          {/* Center Info with Verification Badge & Mini Progress Bar */}
+          <View style={styles.smartWidgetInfo}>
+            <View style={styles.smartWidgetBadgeRow}>
+              <Text
+                style={[
+                  styles.smartWidgetTag,
+                  { color: isPlaying ? '#1DB954' : theme.textMuted },
+                ]}
+              >
+                {isPlaying ? 'NOW PLAYING' : 'RECOMMENDED CADENCE'}
+              </Text>
+            </View>
+
+            <Text style={styles.smartWidgetTitle} numberOfLines={1}>
+              {cleanText(activeTrack?.title)}
+            </Text>
+
+            <View style={styles.smartWidgetArtistRow}>
+              <Text style={styles.smartWidgetArtist} numberOfLines={1}>
+                {cleanArtistName(activeTrack?.artist)}
+              </Text>
+              {activeTrack?.isOfficial && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={12}
+                  color="#458eff"
+                  style={{ marginLeft: 3 }}
+                />
+              )}
+            </View>
+
+            {/* Mini Progress Bar */}
+            <View style={styles.smartWidgetProgressTrack}>
+              <View
+                style={[
+                  styles.smartWidgetProgressFill,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Fast Controls (Like, Play/Pause, Next) */}
+          <View style={styles.smartWidgetControls}>
+            <TouchableOpacity
+              style={styles.smartWidgetControlBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              onPress={(e) => {
+                e.stopPropagation();
+                handlePressLike(activeTrack);
+              }}
+            >
+              <Ionicons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isLiked ? '#E91E63' : theme.textMuted}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.smartWidgetPlayBtn}
+              activeOpacity={0.8}
+              onPress={(e) => {
+                e.stopPropagation();
+                handlePressPlay(activeTrack);
+              }}
+            >
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={18}
+                color="#000"
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.smartWidgetControlBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                nextTrack();
+              }}
+            >
+              <Ionicons
+                name="play-skip-forward"
+                size={20}
+                color={theme.textPrimary}
+              />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
 
         {/* ── 3. Subordinate Workout Feed Beneath the Focal Card ── */}
         {latestActivity && (
@@ -772,7 +818,7 @@ export const DashboardScreen: React.FC = () => {
           </View>
         )}
 
-        <View style={{ height: 100 + insets.bottom }} />
+        <View style={{ height: miniPlayerBottomGap }} />
       </ScrollView>
     </View>
   );
