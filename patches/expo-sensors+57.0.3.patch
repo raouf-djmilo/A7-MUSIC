@@ -1,0 +1,146 @@
+diff --git a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.h b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.h
+index 832351e..9b274a3 100644
+--- a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.h
++++ b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.h
+@@ -1,7 +1 @@
+-// Copyright 2021-present 650 Industries. All rights reserved.
+-
+-#import <ExpoModulesCore/EXPermissionsInterface.h>
+-
+-@interface EXMotionPermissionRequester : NSObject<EXPermissionsRequester>
+-
+-@end
++// Replaced by EXMotionPermissionRequester.swift
+diff --git a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.m b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.m
+index 967ec3c..9b274a3 100644
+--- a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.m
++++ b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.m
+@@ -1,68 +1 @@
+-// Copyright 2021-present 650 Industries. All rights reserved.
+-
+-#import <ExpoSensors/EXMotionPermissionRequester.h>
+-#import <CoreMotion/CoreMotion.h>
+-#import <ExpoModulesCore/EXDefines.h>
+-#import <ExpoModulesCore/EXUtilities.h>
+-#import <React/RCTLog.h>
+-
+-@implementation EXMotionPermissionRequester
+-
+-+ (NSString *)permissionType
+-{
+-  return @"motion";
+-}
+-
+-- (NSDictionary *)getPermissions
+-{
+-  EXPermissionStatus status;
+-
+-#ifdef EXPO_DISABLE_MOTION_PERMISSION
+-  status = EXPermissionStatusDenied;
+-  RCTErrorWithMessage(@"This app has disabled `motionPermission` through the config plugin options so CMPedometer services will fail.");
+-#else
+-    NSString *motionUsageDescription = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"NSMotionUsageDescription"];
+-    // Related: NSFallDetectionUsageDescription
+-    if (!(motionUsageDescription)) {
+-      // TODO: Make aware of plugins, FYI link.
+-      RCTFatal(RCTErrorWithMessage(@"This app is missing the 'NSMotionUsageDescription' so CMPedometer services will fail. Ensure this key exist in the app's Info.plist."));
+-      status = EXPermissionStatusDenied;
+-    } else {
+-      switch ([CMPedometer authorizationStatus]) {
+-        case CMAuthorizationStatusAuthorized:
+-          status = EXPermissionStatusGranted;
+-          break;
+-        case CMAuthorizationStatusDenied:
+-        case CMAuthorizationStatusRestricted:
+-          status = EXPermissionStatusDenied;
+-          break;
+-        case CMAuthorizationStatusNotDetermined:
+-          status = EXPermissionStatusUndetermined;
+-          break;
+-      }
+-    }
+-#endif
+-
+-  return @{
+-    @"status": @(status)
+-  };
+-}
+-
+-- (void)requestPermissionsWithResolver:(EXPromiseResolveBlock)resolve rejecter:(EXPromiseRejectBlock)reject
+-{
+-#ifdef EXPO_DISABLE_MOTION_PERMISSION
+-  resolve([self getPermissions]);
+-#else
+-  CMPedometer *manager = [CMPedometer new];
+-  NSDate *today = [[NSDate alloc] init];
+-   
+-  EX_WEAKIFY(self)
+-  [manager queryPedometerDataFromDate:today toDate:today withHandler:^(CMPedometerData * _Nullable pedometerData, NSError * _Nullable error) {
+-    EX_STRONGIFY(self)
+-    [manager stopPedometerUpdates];
+-    resolve([self getPermissions]);
+-  }];
+-#endif
+-}
+-
+-@end
++// Replaced by EXMotionPermissionRequester.swift
+diff --git a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift
+new file mode 100644
+index 0000000..ac7bc69
+--- /dev/null
++++ b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift
+@@ -0,0 +1,41 @@
++// Copyright 2021-present 650 Industries. All rights reserved.
++
++import Foundation
++import CoreMotion
++import ExpoModulesCore
++
++@objc(EXMotionPermissionRequester)
++public class EXMotionPermissionRequester: NSObject, EXPermissionsRequester {
++  public static func permissionType() -> String {
++    return "motion"
++  }
++
++  public func getPermissions() -> [AnyHashable : Any] {
++    var status = EXPermissionStatus.denied
++    if Bundle.main.object(forInfoDictionaryKey: "NSMotionUsageDescription") == nil {
++      status = .denied
++    } else {
++      switch CMPedometer.authorizationStatus() {
++      case .authorized:
++        status = .granted
++      case .denied, .restricted:
++        status = .denied
++      case .notDetermined:
++        status = .undetermined
++      @unknown default:
++        status = .denied
++      }
++    }
++    return ["status": status.rawValue]
++  }
++
++  public func requestPermissions(resolver resolve: @escaping EXPromiseResolveBlock, rejecter reject: @escaping EXPromiseRejectBlock) {
++    let manager = CMPedometer()
++    let today = Date()
++    manager.queryPedometerData(from: today, to: today) { [weak self] _, _ in
++      guard let self = self else { return }
++      manager.stopUpdates()
++      resolve(self.getPermissions())
++    }
++  }
++}
+diff --git a/node_modules/expo-sensors/ios/SensorsUtils.swift b/node_modules/expo-sensors/ios/SensorsUtils.swift
+index e7acd60..f482733 100644
+--- a/node_modules/expo-sensors/ios/SensorsUtils.swift
++++ b/node_modules/expo-sensors/ios/SensorsUtils.swift
+@@ -1,6 +1,7 @@
+ // Copyright 2023-present 650 Industries. All rights reserved.
+ 
+ import CoreMotion
++import UIKit
+ 
+ internal func getAttitudeReferenceFrame() -> CMAttitudeReferenceFrame {
+   let referenceFrames = CMMotionManager.availableAttitudeReferenceFrames()
