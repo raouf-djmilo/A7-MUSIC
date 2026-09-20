@@ -1,3 +1,50 @@
+diff --git a/node_modules/react-native-track-player/android/.classpath b/node_modules/react-native-track-player/android/.classpath
+new file mode 100644
+index 0000000..bbe97e5
+--- /dev/null
++++ b/node_modules/react-native-track-player/android/.classpath
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<classpath>
++	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17/"/>
++	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
++	<classpathentry kind="output" path="bin/default"/>
++</classpath>
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+index b2409a0..6a86ad4 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+@@ -545,7 +545,7 @@ class MusicModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
+         if (verifyServiceBoundOrReject(callback)) return@launch
+ 
+         if (index >= 0 && index < musicService.tracks.size) {
+-            callback.resolve(Arguments.fromBundle(musicService.tracks[index].originalItem))
++            callback.resolve(Arguments.fromBundle(musicService.tracks[index].originalItem!!))
+         } else {
+             callback.resolve(null)
+         }
+@@ -585,7 +585,7 @@ class MusicModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
+         callback.resolve(
+             if (musicService.tracks.isEmpty()) null
+             else Arguments.fromBundle(
+-                musicService.tracks[musicService.getCurrentTrackIndex()].originalItem
++                musicService.tracks[musicService.getCurrentTrackIndex()].originalItem!!
+             )
+         )
+     }
+diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
+index 125f7eb..663cf95 100644
+--- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
++++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
+@@ -7,6 +7,8 @@
+ //
+ 
+ #import <Foundation/Foundation.h>
++#import <React/RCTBridgeModule.h>
++#import <React/RCTEventEmitter.h>
+ 
+ @interface RNTrackPlayerBridge: NSObject
+ @end
 diff --git a/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js b/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js
 index 56ebacd..1aaca12 100644
 --- a/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js
@@ -60,6 +107,24 @@ index 08c7d3c..33ec583 100644
  export class TrackPlayerModule extends PlaylistPlayer {
      emitter = DeviceEventEmitter;
      progressUpdateEventInterval;
+diff --git a/node_modules/react-native-track-player/react-native-track-player.podspec b/node_modules/react-native-track-player/react-native-track-player.podspec
+index 9209aa2..4ffc17b 100644
+--- a/node_modules/react-native-track-player/react-native-track-player.podspec
++++ b/node_modules/react-native-track-player/react-native-track-player.podspec
+@@ -15,7 +15,12 @@ Pod::Spec.new do |s|
+   s.source = { :git => package["repository"]["url"], :tag => "v#{s.version}" }
+   s.source_files = "ios/**/*.{h,m,swift}"
+ 
+-  s.swift_version = "4.2"
++  s.swift_version = "5.0"
++
++  s.pod_target_xcconfig = {
++    'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '$(PODS_TARGET_SRCROOT)/ios/RNTrackPlayer/Support/RNTrackPlayer-Bridging-Header.h'
++  }
+ 
+   s.dependency "React-Core"
+   s.dependency "SwiftAudioEx", "1.1.0"
 diff --git a/node_modules/react-native-track-player/src/TrackPlayerModule.ts b/node_modules/react-native-track-player/src/TrackPlayerModule.ts
 index 56ebacd..1aaca12 100644
 --- a/node_modules/react-native-track-player/src/TrackPlayerModule.ts
@@ -97,33 +162,3 @@ index 56ebacd..1aaca12 100644
 +const TrackPlayerModule = NativeModules.TrackPlayerModule || mockTrackPlayer;
 +
  export default TrackPlayerModule;
-diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
-index a46a782..7d0c3a2 100644
---- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
-+++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
-@@ -9,6 +9,12 @@
- import Foundation
- import MediaPlayer
- import SwiftAudioEx
-+#if canImport(React)
-+import React
-+#endif
-+
-+public typealias RCTPromiseResolveBlock = @convention(block) (Any?) -> Void
-+public typealias RCTPromiseRejectBlock = @convention(block) (String?, String?, NSError?) -> Void
- 
- @objc(RNTrackPlayer)
- public class RNTrackPlayer: RCTEventEmitter, AudioSessionControllerDelegate {
-diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
-index e5a3fc5..5a2b1cd 100644
---- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
-+++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
-@@ -7,6 +7,8 @@
- //
- 
- #import <Foundation/Foundation.h>
-+#import <React/RCTBridgeModule.h>
-+#import <React/RCTEventEmitter.h>
- 
- @interface RNTrackPlayerBridge: NSObject
- @end
