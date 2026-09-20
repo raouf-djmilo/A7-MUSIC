@@ -105,9 +105,9 @@ index a46a782..7d0c3a2 100644
  import Foundation
  import MediaPlayer
  import SwiftAudioEx
-+#if canImport(React)
-+import React
-+#endif
++
++public typealias RCTPromiseResolveBlock = @convention(block) (Any?) -> Void
++public typealias RCTPromiseRejectBlock = @convention(block) (String?, String?, (any Error)?) -> Void
  
  @objc(RNTrackPlayer)
  public class RNTrackPlayer: RCTEventEmitter, AudioSessionControllerDelegate {
