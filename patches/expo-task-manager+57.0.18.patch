@@ -1,0 +1,59 @@
+diff --git a/node_modules/expo-task-manager/ios/EXTaskManager/EXTaskService.h b/node_modules/expo-task-manager/ios/EXTaskManager/EXTaskService.h
+index 715b926..93d37da 100644
+--- a/node_modules/expo-task-manager/ios/EXTaskManager/EXTaskService.h
++++ b/node_modules/expo-task-manager/ios/EXTaskManager/EXTaskService.h
+@@ -1,8 +1,8 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
+ #import <ExpoModulesCore/EXTaskServiceInterface.h>
+-#import <ExpoTaskManager/EXTask.h>
+-#import <ExpoTaskManager/EXTaskExecutionRequest.h>
++#import "EXTask.h"
++#import "EXTaskExecutionRequest.h"
+ 
+ @interface EXTaskService : NSObject <EXTaskServiceInterface, EXTaskDelegate>
+ 
+diff --git a/node_modules/expo-task-manager/ios/ExpoTaskManager-Bridging-Header.h b/node_modules/expo-task-manager/ios/ExpoTaskManager-Bridging-Header.h
+new file mode 100644
+index 0000000..26c2d14
+--- /dev/null
++++ b/node_modules/expo-task-manager/ios/ExpoTaskManager-Bridging-Header.h
+@@ -0,0 +1,3 @@
++#import "EXTaskService.h"
++#import "EXTask.h"
++#import "EXTaskExecutionRequest.h"
+diff --git a/node_modules/expo-task-manager/ios/ExpoTaskManager.podspec b/node_modules/expo-task-manager/ios/ExpoTaskManager.podspec
+index 4d32678..7d828d2 100644
+--- a/node_modules/expo-task-manager/ios/ExpoTaskManager.podspec
++++ b/node_modules/expo-task-manager/ios/ExpoTaskManager.podspec
+@@ -23,6 +23,8 @@ Pod::Spec.new do |s|
+ 
+   s.pod_target_xcconfig = {
+     'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/ExpoTaskManager-Bridging-Header.h',
++    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/ios/EXTaskManager"',
+   }
+   s.resource_bundles = {
+     'ExpoTaskManager_privacy' => ['PrivacyInfo.xcprivacy']
+diff --git a/node_modules/expo-task-manager/ios/TaskManagerAppDelegateSubscriber.swift b/node_modules/expo-task-manager/ios/TaskManagerAppDelegateSubscriber.swift
+index a3d725e..5be1d99 100644
+--- a/node_modules/expo-task-manager/ios/TaskManagerAppDelegateSubscriber.swift
++++ b/node_modules/expo-task-manager/ios/TaskManagerAppDelegateSubscriber.swift
+@@ -1,3 +1,5 @@
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public class TaskManagerAppDelegateSubscriber: ExpoAppDelegateSubscriber {
+diff --git a/node_modules/expo-task-manager/ios/TaskManagerModule.swift b/node_modules/expo-task-manager/ios/TaskManagerModule.swift
+index 6322978..428752c 100644
+--- a/node_modules/expo-task-manager/ios/TaskManagerModule.swift
++++ b/node_modules/expo-task-manager/ios/TaskManagerModule.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2025-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public typealias AppId = String

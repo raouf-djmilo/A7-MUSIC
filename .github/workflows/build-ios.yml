@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  EXPO_IMAGE_DISABLE_LIBDAV1D: "1"
 
 jobs:
   build:
@@ -74,6 +75,8 @@ jobs:
         run: |
           cd ios
           pod install
+          # Ensure script sandboxing is disabled for Pods in Xcode 16
+          find Pods -name "*.pbxproj" -exec sed -i '' 's/ENABLE_USER_SCRIPT_SANDBOXING = YES/ENABLE_USER_SCRIPT_SANDBOXING = NO/g' {} + || true
 
       - name: Build iOS App (Unsigned)
         run: |
@@ -115,6 +118,7 @@ jobs:
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
             OTHER_SWIFT_FLAGS="-suppress-warnings" \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
             2>&1 | tee xcodebuild.log
           
           BUILD_STATUS=${PIPESTATUS[0]}
