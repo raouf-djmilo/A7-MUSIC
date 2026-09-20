@@ -61,7 +61,7 @@ index d43cdd5..91ee97e 100644
  /// Represents something that can be a JS property key.
  public final class JavaScriptPropNameID: JavaScriptType {
 -  private weak let runtime: JavaScriptRuntime?
-+  private weak var runtime: JavaScriptRuntime?
++  nonisolated(unsafe) private weak var runtime: JavaScriptRuntime?
    internal let pointee: facebook.jsi.PropNameID
  
    /// Creates a PropNameID from existing `facebook.jsi.PropNameID`.
@@ -126,7 +126,7 @@ index 936aaa2..8788a97 100644
  ///   JavaScript thread while the runtime is alive.
  public final class JavaScriptError: Error, Sendable {
 -  private weak let runtime: JavaScriptRuntime?
-+  private weak var runtime: JavaScriptRuntime?
++  nonisolated(unsafe) private weak var runtime: JavaScriptRuntime?
    nonisolated(unsafe) private let pointee: facebook.jsi.JSError
  
    internal init(_ runtime: JavaScriptRuntime, _ error: facebook.jsi.JSError) {
@@ -191,7 +191,7 @@ index 75500be..e5a7bcf 100644
  /// and stored in containers that don't support non-copyable types etc.
  public final class JavaScriptValue: JavaScriptType, Equatable, Escapable {
 -  internal weak let runtime: JavaScriptRuntime?
-+  internal weak var runtime: JavaScriptRuntime?
++  nonisolated(unsafe) internal weak var runtime: JavaScriptRuntime?
    internal let pointee: facebook.jsi.Value
  
    /// Takes ownership of the given JSI value. Only runtime-free values (undefined, null, booleans and
