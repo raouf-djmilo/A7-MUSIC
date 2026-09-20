@@ -18,14 +18,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16+
+      - name: Select Xcode (Swift 6.2+ compatible)
         run: |
-          XCODE_16=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
-          if [ -n "$XCODE_16" ]; then
-            echo "Selecting $XCODE_16"
-            sudo xcode-select -s "$XCODE_16"
-          fi
+          # Prioritize Xcode 16.4, 16.3 for Swift tools version 6.2.0 compatibility
+          for XC in /Applications/Xcode_16.4*.app /Applications/Xcode_16.3*.app /Applications/Xcode.app; do
+            if [ -d "$XC" ]; then
+              echo "Selecting $XC"
+              sudo xcode-select -s "$XC"
+              break
+            fi
+          done
           xcodebuild -version
+          swift --version
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
