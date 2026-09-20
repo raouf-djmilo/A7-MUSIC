@@ -1,0 +1,13 @@
+diff --git a/node_modules/@expo/dom-webview/ios/DomWebViewRegistry.swift b/node_modules/@expo/dom-webview/ios/DomWebViewRegistry.swift
+index 7380126..c548325 100644
+--- a/node_modules/@expo/dom-webview/ios/DomWebViewRegistry.swift
++++ b/node_modules/@expo/dom-webview/ios/DomWebViewRegistry.swift
+@@ -1,5 +1,8 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import Dispatch
++
+ private let lockQueue = DispatchQueue(label: "expo.modules.domWebView.RegistryQueue")
+ 
+ internal typealias WebViewId = Int
