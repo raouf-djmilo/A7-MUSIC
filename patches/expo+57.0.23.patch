@@ -1,12 +1,287 @@
-diff --git a/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt b/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
-index a731804..0c16926 100644
---- a/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
-+++ b/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
-@@ -1,5 +1,7 @@
- cmake_minimum_required(VERSION 3.16)
-+set(CMAKE_SUPPRESS_REGENERATION TRUE)
-+set(CMAKE_DEPENDS_IN_PROJECT_ONLY 1)
- set(CMAKE_VERBOSE_MAKEFILE ON)
- set(CMAKE_CXX_STANDARD 20)
+diff --git a/node_modules/expo/Expo.podspec b/node_modules/expo/Expo.podspec
+index a10ac3e..a5cd684 100644
+--- a/node_modules/expo/Expo.podspec
++++ b/node_modules/expo/Expo.podspec
+@@ -64,7 +64,11 @@ Pod::Spec.new do |s|
+   end
  
- project(expo-modules-core)
+   header_search_paths = [
++    '"$(PODS_TARGET_SRCROOT)/ios"',
++    '"$(PODS_TARGET_SRCROOT)/ios/AppDelegates"',
+     '"$(PODS_ROOT)/Headers/Private/React-Core"', # as React-RCTAppDelegate.podspec to access JSCExecutorFactory.h
++    '"$(PODS_ROOT)/Headers/Private/React-RCTAppDelegate"',
++    '"$(PODS_ROOT)/Headers/Public/React-RCTAppDelegate"',
+     '"$(PODS_ROOT)/DoubleConversion"',
+     '"${PODS_CONFIGURATION_BUILD_DIR}/ExpoModulesCore/Swift Compatibility Header"',
+   ]
+@@ -90,6 +94,8 @@ Pod::Spec.new do |s|
+     ])
+   end
+   s.pod_target_xcconfig = {
++    'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/Expo-Bridging-Header.h',
+     'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
+   }
+   s.user_target_xcconfig = {
+diff --git a/node_modules/expo/android/.project b/node_modules/expo/android/.project
+new file mode 100644
+index 0000000..7603ab9
+--- /dev/null
++++ b/node_modules/expo/android/.project
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>expo</name>
++	<comment>Project expo created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1789783244710</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/expo/ios/AppDelegates/AppDelegatesLoaderDelegate.swift b/node_modules/expo/ios/AppDelegates/AppDelegatesLoaderDelegate.swift
+index 446387d..9a541b5 100644
+--- a/node_modules/expo/ios/AppDelegates/AppDelegatesLoaderDelegate.swift
++++ b/node_modules/expo/ios/AppDelegates/AppDelegatesLoaderDelegate.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ @MainActor
+diff --git a/node_modules/expo/ios/AppDelegates/EXBundleConfiguration.h b/node_modules/expo/ios/AppDelegates/EXBundleConfiguration.h
+index 59031ae..b35370c 100644
+--- a/node_modules/expo/ios/AppDelegates/EXBundleConfiguration.h
++++ b/node_modules/expo/ios/AppDelegates/EXBundleConfiguration.h
+@@ -3,7 +3,11 @@
+ #pragma once
+ 
+ #import <ExpoModulesCore/Platform.h>
++#if __has_include(<Expo/RCTAppDelegateUmbrella.h>)
+ #import <Expo/RCTAppDelegateUmbrella.h>
++#else
++#import "RCTAppDelegateUmbrella.h"
++#endif
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/EXLegacyAppDelegateWrapper.h b/node_modules/expo/ios/AppDelegates/EXLegacyAppDelegateWrapper.h
+index 2459ee0..0311f40 100644
+--- a/node_modules/expo/ios/AppDelegates/EXLegacyAppDelegateWrapper.h
++++ b/node_modules/expo/ios/AppDelegates/EXLegacyAppDelegateWrapper.h
+@@ -1,6 +1,7 @@
+ // Copyright © 2018 650 Industries. All rights reserved.
+ 
+ #import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.h b/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.h
+index df3fdfe..bf9ab25 100644
+--- a/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.h
++++ b/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.h
+@@ -3,7 +3,11 @@
+ #pragma once
+ 
+ #import <ExpoModulesCore/Platform.h>
++#if __has_include(<Expo/RCTAppDelegateUmbrella.h>)
+ #import <Expo/RCTAppDelegateUmbrella.h>
++#else
++#import "RCTAppDelegateUmbrella.h"
++#endif
+ 
+ NS_ASSUME_NONNULL_BEGIN
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.mm b/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.mm
+index 1c75c85..2c89d68 100644
+--- a/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.mm
++++ b/node_modules/expo/ios/AppDelegates/EXReactRootViewFactory.mm
+@@ -1,7 +1,12 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
++#if __has_include(<Expo/EXReactRootViewFactory.h>)
+ #import <Expo/EXReactRootViewFactory.h>
+ #import <Expo/RCTAppDelegateUmbrella.h>
++#else
++#import "EXReactRootViewFactory.h"
++#import "RCTAppDelegateUmbrella.h"
++#endif
+ #import <React/RCTDevMenu.h>
+ #import <ExpoModulesCore/EXReactDelegateProtocol.h>
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoAppDelegate.swift b/node_modules/expo/ios/AppDelegates/ExpoAppDelegate.swift
+index 09766c7..3f4f32b 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoAppDelegate.swift
++++ b/node_modules/expo/ios/AppDelegates/ExpoAppDelegate.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ /**
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoAppSceneDelegate.swift b/node_modules/expo/ios/AppDelegates/ExpoAppSceneDelegate.swift
+index fd780db..cc00e2d 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoAppSceneDelegate.swift
++++ b/node_modules/expo/ios/AppDelegates/ExpoAppSceneDelegate.swift
+@@ -1,6 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
+ import Foundation
++import UIKit
+ import React
+ 
+ #if os(iOS) || os(tvOS)
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.h b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.h
+index 3bac5bc..443f442 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.h
++++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.h
+@@ -1,7 +1,11 @@
+ // Copyright 2025-present 650 Industries. All rights reserved.
+ 
+ #import <ExpoModulesCore/ExpoModulesCore.h>
++#if __has_include(<Expo/RCTAppDelegateUmbrella.h>)
+ #import <Expo/RCTAppDelegateUmbrella.h>
++#else
++#import "RCTAppDelegateUmbrella.h"
++#endif
+ 
+ @protocol RCTHostDelegate;
+ @protocol RCTHostRuntimeDelegate;
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.swift b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.swift
+index 38b3409..ea61229 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.swift
++++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import React
+ 
+ public class ExpoReactNativeFactory: ExpoReactNativeFactoryObjC, ExpoReactNativeFactoryProtocol {
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryDelegate.swift b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryDelegate.swift
+index ceb6abb..08aac7d 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryDelegate.swift
++++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryDelegate.swift
+@@ -1,3 +1,5 @@
++import Foundation
++import UIKit
+ import React
+ 
+ open class ExpoReactNativeFactoryDelegate: RCTDefaultReactNativeFactoryDelegate {
+diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryProvider.swift b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryProvider.swift
+index 8dc4099..9ca6309 100644
+--- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryProvider.swift
++++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactoryProvider.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import React
+ 
+ /**
+diff --git a/node_modules/expo/ios/AppDelegates/RCTAppDelegateUmbrella.h b/node_modules/expo/ios/AppDelegates/RCTAppDelegateUmbrella.h
+index dde97c9..ccb8372 100644
+--- a/node_modules/expo/ios/AppDelegates/RCTAppDelegateUmbrella.h
++++ b/node_modules/expo/ios/AppDelegates/RCTAppDelegateUmbrella.h
+@@ -18,6 +18,16 @@
+ #import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
+ #elif __has_include(<React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>)
+ #import <React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>
++#elif __has_include(<React-RCTAppDelegate/RCTReactNativeFactory.h>)
++#import <React-RCTAppDelegate/RCTReactNativeFactory.h>
++#import <React-RCTAppDelegate/RCTRootViewFactory.h>
++#import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#import <React-RCTAppDelegate/RCTAppDelegate.h>
++#elif __has_include("RCTReactNativeFactory.h")
++#import "RCTReactNativeFactory.h"
++#import "RCTRootViewFactory.h"
++#import "RCTDefaultReactNativeFactoryDelegate.h"
++#import "RCTAppDelegate.h"
+ #endif
+ 
+ 
+diff --git a/node_modules/expo/ios/AppDelegates/SceneEventForwarder.swift b/node_modules/expo/ios/AppDelegates/SceneEventForwarder.swift
+index 5e55d8c..6f7707c 100644
+--- a/node_modules/expo/ios/AppDelegates/SceneEventForwarder.swift
++++ b/node_modules/expo/ios/AppDelegates/SceneEventForwarder.swift
+@@ -1,6 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
+ import Foundation
++import UIKit
+ import React
+ 
+ #if os(iOS) || os(tvOS)
+diff --git a/node_modules/expo/ios/Expo-Bridging-Header.h b/node_modules/expo/ios/Expo-Bridging-Header.h
+new file mode 100644
+index 0000000..44da03c
+--- /dev/null
++++ b/node_modules/expo/ios/Expo-Bridging-Header.h
+@@ -0,0 +1,27 @@
++#import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
++#import <ExpoModulesCore/ExpoModulesCore.h>
++
++#if __has_include(<React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>)
++#import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
++#elif __has_include(<React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>)
++#import <React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>
++#elif __has_include(<React-RCTAppDelegate/RCTReactNativeFactory.h>)
++#import <React-RCTAppDelegate/RCTReactNativeFactory.h>
++#import <React-RCTAppDelegate/RCTRootViewFactory.h>
++#import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#import <React-RCTAppDelegate/RCTAppDelegate.h>
++#elif __has_include("RCTReactNativeFactory.h")
++#import "RCTReactNativeFactory.h"
++#import "RCTRootViewFactory.h"
++#import "RCTDefaultReactNativeFactoryDelegate.h"
++#import "RCTAppDelegate.h"
++#endif
++
++#import "RCTAppDelegateUmbrella.h"
++#import "ExpoReactNativeFactory.h"
++#import "EXBundleConfiguration.h"
++#import "EXReactRootViewFactory.h"
++#import "EXLegacyAppDelegateWrapper.h"
++#import "EXAppDelegatesLoader.h"
++#import "EXAppDefinesLoader.h"
+diff --git a/node_modules/expo/ios/Expo.h b/node_modules/expo/ios/Expo.h
+index e2fd37e..f1700a8 100644
+--- a/node_modules/expo/ios/Expo.h
++++ b/node_modules/expo/ios/Expo.h
+@@ -1,5 +1,12 @@
+ #import <ExpoModulesCore/ExpoModulesCore.h>
++#if __has_include(<Expo/EXAppDefinesLoader.h>)
+ #import <Expo/EXAppDefinesLoader.h>
+ #import <Expo/ExpoReactNativeFactory.h>
+ #import <Expo/EXBundleConfiguration.h>
+ #import <Expo/RCTAppDelegateUmbrella.h>
++#else
++#import "EXAppDefinesLoader.h"
++#import "ExpoReactNativeFactory.h"
++#import "EXBundleConfiguration.h"
++#import "RCTAppDelegateUmbrella.h"
++#endif
