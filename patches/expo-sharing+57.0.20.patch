@@ -1,0 +1,38 @@
+diff --git a/node_modules/expo-sharing/ios/ResolveUrlContentDetails.swift b/node_modules/expo-sharing/ios/ResolveUrlContentDetails.swift
+index f1c339d..7e331fe 100644
+--- a/node_modules/expo-sharing/ios/ResolveUrlContentDetails.swift
++++ b/node_modules/expo-sharing/ios/ResolveUrlContentDetails.swift
+@@ -1,3 +1,5 @@
++import Foundation
++
+ struct ContentDetails {
+   var uri: URL?
+   var type: ExpoContentType?
+diff --git a/node_modules/expo-sharing/ios/SharingExceptions.swift b/node_modules/expo-sharing/ios/SharingExceptions.swift
+index 1ef90c4..4e26f6e 100644
+--- a/node_modules/expo-sharing/ios/SharingExceptions.swift
++++ b/node_modules/expo-sharing/ios/SharingExceptions.swift
+@@ -1,3 +1,4 @@
++import Foundation
+ import ExpoModulesCore
+ 
+ internal final class FilePermissionException: Exception, @unchecked Sendable {
+diff --git a/node_modules/expo-sharing/ios/SharingModule.swift b/node_modules/expo-sharing/ios/SharingModule.swift
+index 3e1772c..54585cc 100644
+--- a/node_modules/expo-sharing/ios/SharingModule.swift
++++ b/node_modules/expo-sharing/ios/SharingModule.swift
+@@ -1,3 +1,5 @@
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public final class SharingModule: Module {
+diff --git a/node_modules/expo-sharing/ios/SharingRecords.swift b/node_modules/expo-sharing/ios/SharingRecords.swift
+index b38732b..7045946 100644
+--- a/node_modules/expo-sharing/ios/SharingRecords.swift
++++ b/node_modules/expo-sharing/ios/SharingRecords.swift
+@@ -1,3 +1,4 @@
++import Foundation
+ import ExpoModulesCore
+ 
+ enum ExpoShareType: String, Enumerable {
