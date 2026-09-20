@@ -74,9 +74,7 @@ jobs:
           fi
           echo "🔨 Building with Scheme: '$SCHEME'"
 
-          gem install xcpretty --quiet
-
-          set -o pipefail
+          set +e
           xcodebuild build \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -94,15 +92,22 @@ jobs:
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
-            2>&1 | tee xcodebuild.log | xcpretty \
-          || {
-            echo "❌ Build failed! Showing compilation errors from xcodebuild.log:"
-            grep -E -C 3 "(error:|fatal error:|BUILD FAILED|FAILED)" xcodebuild.log | head -n 150 || tail -n 100 xcodebuild.log
-            exit 1
-          }
+            OTHER_SWIFT_FLAGS="-suppress-warnings" \
+            2>&1 | tee xcodebuild.log
+          
+          BUILD_STATUS=${PIPESTATUS[0]}
 
-      - name: Upload xcodebuild log on failure
-        if: failure()
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "❌ xcodebuild failed with status $BUILD_STATUS"
+            echo "=================== COMPILER ERRORS ==================="
+            grep -E -C 2 "(error: |fatal error: |\*\* BUILD FAILED \*\*)" xcodebuild.log | head -n 120 || true
+            echo "======================================================="
+            exit $BUILD_STATUS
+          fi
+          echo "✅ Xcode build completed successfully!"
+
+      - name: Upload Build Log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
