@@ -1,0 +1,32 @@
+diff --git a/node_modules/expo-application/ios/ApplicationModule.swift b/node_modules/expo-application/ios/ApplicationModule.swift
+index 30eebcb..1d08395 100644
+--- a/node_modules/expo-application/ios/ApplicationModule.swift
++++ b/node_modules/expo-application/ios/ApplicationModule.swift
+@@ -1,4 +1,6 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public class ApplicationModule: Module {
+diff --git a/node_modules/expo-application/ios/EXApplication-Bridging-Header.h b/node_modules/expo-application/ios/EXApplication-Bridging-Header.h
+new file mode 100644
+index 0000000..83a1a9d
+--- /dev/null
++++ b/node_modules/expo-application/ios/EXApplication-Bridging-Header.h
+@@ -0,0 +1 @@
++#import "EXProvisioningProfile.h"
+diff --git a/node_modules/expo-application/ios/EXApplication.podspec b/node_modules/expo-application/ios/EXApplication.podspec
+index bbf456a..dc0677c 100644
+--- a/node_modules/expo-application/ios/EXApplication.podspec
++++ b/node_modules/expo-application/ios/EXApplication.podspec
+@@ -26,6 +26,8 @@ Pod::Spec.new do |s|
+   # Swift/Objective-C compatibility
+   s.pod_target_xcconfig = {
+     'DEFINES_MODULE' => 'YES',
+-    'SWIFT_COMPILATION_MODE' => 'wholemodule'
++    'SWIFT_COMPILATION_MODE' => 'wholemodule',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/EXApplication-Bridging-Header.h',
++    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/EXApplication"',
+   }
+ end
