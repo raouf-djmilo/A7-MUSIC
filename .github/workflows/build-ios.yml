@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 90
 
     steps:
@@ -36,32 +36,13 @@ jobs:
       - name: Apply patches
         run: npx patch-package || true
 
-      # Cache CocoaPods BEFORE prebuild (prebuild runs pod install internally)
-      - name: Restore CocoaPods cache
-        id: pods-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ios/Pods
-            ~/Library/Caches/ReactNative
-          key: pods-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app.json') }}
-          restore-keys: |
-            pods-${{ hashFiles('package-lock.json') }}-
-            pods-
-
       - name: Expo Prebuild iOS
-        # expo prebuild runs pod install internally — no need to run pod install again
         run: npx expo prebuild --platform ios --clean
 
-      # Save CocoaPods cache after prebuild (so next run is faster)
-      - name: Save CocoaPods cache
-        if: steps.pods-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ios/Pods
-            ~/Library/Caches/ReactNative
-          key: pods-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app.json') }}
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
 
       - name: Build iOS App (Unsigned)
         run: |
@@ -89,18 +70,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             PROVISIONING_PROFILE_SPECIFIER="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            -jobs $(sysctl -n hw.ncpu) \
-            | xcpretty \
-          || xcodebuild build \
-              -workspace "$WORKSPACE" \
-              -scheme "$SCHEME" \
-              -configuration Debug \
-              -sdk iphoneos \
-              -derivedDataPath build \
-              CODE_SIGNING_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO \
-              -jobs $(sysctl -n hw.ncpu)
+            CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO \
+            | tee xcodebuild.log | xcpretty \
+          || (echo "❌ Build failed! Last 100 lines of raw compiler log:" && tail -n 100 xcodebuild.log && exit 1)
 
       - name: Package IPA
         run: |
