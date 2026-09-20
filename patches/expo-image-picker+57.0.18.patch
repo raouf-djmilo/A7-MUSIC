@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-image-picker/ios/StatusBarVisibilityController.swift b/node_modules/expo-image-picker/ios/StatusBarVisibilityController.swift
+index 3b05d15..5724584 100644
+--- a/node_modules/expo-image-picker/ios/StatusBarVisibilityController.swift
++++ b/node_modules/expo-image-picker/ios/StatusBarVisibilityController.swift
+@@ -6,6 +6,9 @@
+  Hiding StatusBar during picking process solves the displacement issue.
+  See https://forums.developer.apple.com/thread/98274
+  */
++import Foundation
++import UIKit
++
+ internal class StatusBarVisibilityController {
+   private var shouldRestoreStatusBarVisibility = false
+ 
+diff --git a/node_modules/expo-image-picker/ios/UIImagePickerControllerExtentsion.swift b/node_modules/expo-image-picker/ios/UIImagePickerControllerExtentsion.swift
+index 40fb021..fe11cb8 100644
+--- a/node_modules/expo-image-picker/ios/UIImagePickerControllerExtentsion.swift
++++ b/node_modules/expo-image-picker/ios/UIImagePickerControllerExtentsion.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2016-present 650 Industries. All rights reserved.
+ 
++import UIKit
++
+ extension UIImagePickerController {
+   func fixCannotMoveEditingBox() {
+     if let cropView = cropView,
