@@ -12,6 +12,7 @@ env:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
@@ -35,33 +36,44 @@ jobs:
       - name: Apply patches
         run: npx patch-package || true
 
-      - name: Expo Prebuild iOS
-        run: npx expo prebuild --platform ios --clean
-
-      - name: Cache CocoaPods
+      # Cache CocoaPods BEFORE prebuild (prebuild runs pod install internally)
+      - name: Restore CocoaPods cache
+        id: pods-cache
         uses: actions/cache@v4
         with:
-          path: ios/Pods
-          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          path: |
+            ios/Pods
+            ~/Library/Caches/ReactNative
+          key: pods-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app.json') }}
           restore-keys: |
+            pods-${{ hashFiles('package-lock.json') }}-
             pods-
 
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install
+      - name: Expo Prebuild iOS
+        # expo prebuild runs pod install internally — no need to run pod install again
+        run: npx expo prebuild --platform ios --clean
+
+      # Save CocoaPods cache after prebuild (so next run is faster)
+      - name: Save CocoaPods cache
+        if: steps.pods-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/ReactNative
+          key: pods-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app.json') }}
 
       - name: Build iOS App (Unsigned)
         run: |
           cd ios
           WORKSPACE=$(ls -d *.xcworkspace 2>/dev/null | head -n 1)
           if [ -z "$WORKSPACE" ]; then
-            echo "No .xcworkspace found!"
+            echo "❌ No .xcworkspace found!"
             ls -la
             exit 1
           fi
           SCHEME=$(echo "$WORKSPACE" | sed 's/\.xcworkspace//')
-          echo "Building: $WORKSPACE (Scheme: $SCHEME)"
+          echo "🔨 Building: $WORKSPACE (Scheme: $SCHEME)"
 
           gem install xcpretty --quiet
 
@@ -77,7 +89,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             PROVISIONING_PROFILE_SPECIFIER="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            | xcpretty || xcodebuild build \
+            -jobs $(sysctl -n hw.ncpu) \
+            | xcpretty \
+          || xcodebuild build \
               -workspace "$WORKSPACE" \
               -scheme "$SCHEME" \
               -configuration Debug \
@@ -85,21 +99,22 @@ jobs:
               -derivedDataPath build \
               CODE_SIGNING_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO
+              CODE_SIGNING_ALLOWED=NO \
+              -jobs $(sysctl -n hw.ncpu)
 
       - name: Package IPA
         run: |
           APP_PATH=$(find ios/build/Build/Products -name "*.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "No .app found!"
-            find ios/build -name "*.app" -type d
+            echo "❌ No .app bundle found!"
+            find ios/build -name "*.app" -type d 2>/dev/null || echo "No .app files anywhere"
             exit 1
           fi
-          echo "Packaging: $APP_PATH"
+          echo "📦 Packaging: $APP_PATH"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r A7-MUSIC.ipa Payload
-          echo "IPA size: $(du -sh A7-MUSIC.ipa | cut -f1)"
+          echo "✅ IPA created: $(du -sh A7-MUSIC.ipa | cut -f1)"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
