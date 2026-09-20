@@ -101,13 +101,16 @@ diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPla
 index a46a782..7d0c3a2 100644
 --- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
 +++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
-@@ -9,6 +9,9 @@
+@@ -9,6 +9,12 @@
  import Foundation
  import MediaPlayer
  import SwiftAudioEx
++#if canImport(React)
++import React
++#endif
 +
 +public typealias RCTPromiseResolveBlock = @convention(block) (Any?) -> Void
-+public typealias RCTPromiseRejectBlock = @convention(block) (String?, String?, (any Error)?) -> Void
++public typealias RCTPromiseRejectBlock = @convention(block) (String?, String?, NSError?) -> Void
  
  @objc(RNTrackPlayer)
  public class RNTrackPlayer: RCTEventEmitter, AudioSessionControllerDelegate {

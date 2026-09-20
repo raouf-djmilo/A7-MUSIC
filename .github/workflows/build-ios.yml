@@ -103,6 +103,10 @@ jobs:
             echo "=================== COMPILER ERRORS ==================="
             grep -E -C 2 "(error: |fatal error: |\*\* BUILD FAILED \*\*)" xcodebuild.log | head -n 120 || true
             echo "======================================================="
+            echo "## ❌ iOS Build Failed (Status $BUILD_STATUS)" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            grep -E -C 2 "(error: |fatal error: |\*\* BUILD FAILED \*\*)" xcodebuild.log | head -n 120 >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
             exit $BUILD_STATUS
           fi
           echo "✅ Xcode build completed successfully!"
