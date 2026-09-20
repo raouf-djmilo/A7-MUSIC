@@ -87,7 +87,7 @@ index 967ec3c..9b274a3 100644
 +// Replaced by EXMotionPermissionRequester.swift
 diff --git a/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift
 new file mode 100644
-index 0000000..ac7bc69
+index 0000000..242265b
 --- /dev/null
 +++ b/node_modules/expo-sensors/ios/EXMotionPermissionRequester.swift
 @@ -0,0 +1,41 @@
@@ -104,19 +104,19 @@ index 0000000..ac7bc69
 +  }
 +
 +  public func getPermissions() -> [AnyHashable : Any] {
-+    var status = EXPermissionStatus.denied
++    var status = EXPermissionStatusDenied
 +    if Bundle.main.object(forInfoDictionaryKey: "NSMotionUsageDescription") == nil {
-+      status = .denied
++      status = EXPermissionStatusDenied
 +    } else {
 +      switch CMPedometer.authorizationStatus() {
 +      case .authorized:
-+        status = .granted
++        status = EXPermissionStatusGranted
 +      case .denied, .restricted:
-+        status = .denied
++        status = EXPermissionStatusDenied
 +      case .notDetermined:
-+        status = .undetermined
++        status = EXPermissionStatusUndetermined
 +      @unknown default:
-+        status = .denied
++        status = EXPermissionStatusDenied
 +      }
 +    }
 +    return ["status": status.rawValue]
