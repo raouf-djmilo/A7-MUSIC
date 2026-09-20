@@ -97,3 +97,30 @@ index 56ebacd..1aaca12 100644
 +const TrackPlayerModule = NativeModules.TrackPlayerModule || mockTrackPlayer;
 +
  export default TrackPlayerModule;
+diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
+index a46a782..7d0c3a2 100644
+--- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
++++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift
+@@ -9,6 +9,9 @@
+ import Foundation
+ import MediaPlayer
+ import SwiftAudioEx
++#if canImport(React)
++import React
++#endif
+ 
+ @objc(RNTrackPlayer)
+ public class RNTrackPlayer: RCTEventEmitter, AudioSessionControllerDelegate {
+diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
+index e5a3fc5..5a2b1cd 100644
+--- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
++++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
+@@ -7,6 +7,8 @@
+ //
+ 
+ #import <Foundation/Foundation.h>
++#import <React/RCTBridgeModule.h>
++#import <React/RCTEventEmitter.h>
+ 
+ @interface RNTrackPlayerBridge: NSObject
+ @end
