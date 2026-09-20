@@ -1,0 +1,22 @@
+diff --git a/node_modules/react-native-pager-view/ios/PagerViewProvider.swift b/node_modules/react-native-pager-view/ios/PagerViewProvider.swift
+index 036e520..b51d451 100644
+--- a/node_modules/react-native-pager-view/ios/PagerViewProvider.swift
++++ b/node_modules/react-native-pager-view/ios/PagerViewProvider.swift
+@@ -99,6 +99,17 @@ public class PagerViewProvider: UIView {
+       props.currentPage = index
+     }
+   }
++
++  private func reactViewController() -> UIViewController? {
++    var responder: UIResponder? = self
++    while let next = responder?.next {
++      responder = next
++      if let viewController = next as? UIViewController {
++        return viewController
++      }
++    }
++    return nil
++  }
+ 
+   private func setupView() {
+     if self.hostingController != nil {
