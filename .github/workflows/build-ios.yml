@@ -20,11 +20,32 @@ jobs:
 
       - name: Select Xcode
         run: |
-          XCODE_APP=$(ls -d /Applications/Xcode_16*.app /Applications/Xcode.app 2>/dev/null | sort -V | tail -n 1)
-          if [ -n "$XCODE_APP" ]; then
-            echo "Selecting $XCODE_APP"
-            sudo xcode-select -s "$XCODE_APP"
+          echo "Available Xcode installations:"
+          ls -ld /Applications/Xcode*.app || true
+          
+          TARGET_XCODE=""
+          for XC in $(ls -d /Applications/Xcode*.app 2>/dev/null); do
+            SWIFT_BIN="$XC/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+            if [ -x "$SWIFT_BIN" ]; then
+              SWIFT_VER=$("$SWIFT_BIN" --version 2>/dev/null | head -n 1)
+              echo "$XC -> $SWIFT_VER"
+              if echo "$SWIFT_VER" | grep -q "6\.3"; then
+                TARGET_XCODE="$XC"
+              fi
+            fi
+          done
+          
+          if [ -z "$TARGET_XCODE" ]; then
+            for XC in /Applications/Xcode_16.3*.app /Applications/Xcode.app $(ls -d /Applications/Xcode*.app 2>/dev/null); do
+              if [ -d "$XC" ]; then
+                TARGET_XCODE="$XC"
+                break
+              fi
+            done
           fi
+          
+          echo "Selecting: $TARGET_XCODE"
+          sudo xcode-select -s "$TARGET_XCODE"
           xcodebuild -version
           swift --version
 
