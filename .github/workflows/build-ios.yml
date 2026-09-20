@@ -18,16 +18,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode (Swift 6.2+ compatible)
+      - name: Select Xcode
         run: |
-          # Prioritize Xcode 16.4, 16.3 for Swift tools version 6.2.0 compatibility
-          for XC in /Applications/Xcode_16.4*.app /Applications/Xcode_16.3*.app /Applications/Xcode.app; do
-            if [ -d "$XC" ]; then
-              echo "Selecting $XC"
-              sudo xcode-select -s "$XC"
-              break
-            fi
-          done
+          XCODE_APP=$(ls -d /Applications/Xcode_16*.app /Applications/Xcode.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$XCODE_APP" ]; then
+            echo "Selecting $XCODE_APP"
+            sudo xcode-select -s "$XCODE_APP"
+          fi
           xcodebuild -version
           swift --version
 
