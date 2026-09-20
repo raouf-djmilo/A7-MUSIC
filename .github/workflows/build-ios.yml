@@ -62,8 +62,17 @@ jobs:
             ls -la
             exit 1
           fi
-          SCHEME=$(echo "$WORKSPACE" | sed 's/\.xcworkspace//')
-          echo "🔨 Building: $WORKSPACE (Scheme: $SCHEME)"
+          echo "📁 Workspace: $WORKSPACE"
+          
+          # List all schemes
+          xcodebuild -list -workspace "$WORKSPACE"
+
+          # Determine the primary scheme (exclude Pods)
+          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" | awk '/Schemes:/{flag=1;next}/^[[:space:]]*$/{flag=0}flag' | tr -d ' ' | grep -v '^Pods-' | grep -v '^Pods$' | head -n 1)
+          if [ -z "$SCHEME" ]; then
+            SCHEME=$(echo "$WORKSPACE" | sed 's/\.xcworkspace//')
+          fi
+          echo "🔨 Building with Scheme: '$SCHEME'"
 
           gem install xcpretty --quiet
 
@@ -73,17 +82,31 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
-            CODE_SIGNING_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
-            | tee xcodebuild.log | xcpretty \
-          || (echo "❌ Build failed! Last 100 lines of raw compiler log:" && tail -n 100 xcodebuild.log && exit 1)
+            2>&1 | tee xcodebuild.log | xcpretty \
+          || {
+            echo "❌ Build failed! Showing compilation errors from xcodebuild.log:"
+            grep -E -C 3 "(error:|fatal error:|BUILD FAILED|FAILED)" xcodebuild.log | head -n 150 || tail -n 100 xcodebuild.log
+            exit 1
+          }
+
+      - name: Upload xcodebuild log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ios/xcodebuild.log
 
       - name: Package IPA
         run: |
