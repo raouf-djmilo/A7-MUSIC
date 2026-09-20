@@ -4,16 +4,18 @@ import { useAuth } from '../providers/AuthProvider';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
+import { useTheme } from '../theme/ThemeContext';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
   const { session, loading } = useAuth();
+  const { theme } = useTheme();
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -24,7 +26,12 @@ export const RootNavigator = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.background },
+      }}
+    >
       <Stack.Screen name="MainTabs" component={MainNavigator} />
     </Stack.Navigator>
   );

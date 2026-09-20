@@ -44,7 +44,7 @@ const TabNavigator = () => {
       detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        animation: 'fade',
+        animation: 'none',
         sceneStyle: {
           backgroundColor: theme.background,
         },
@@ -62,11 +62,19 @@ const TabNavigator = () => {
 // ======================================================
 // Main Stack Navigator
 // ======================================================
-export const MainNavigator = () => (
-  <GestureHandlerRootView style={{ flex: 1 }}>
-    <BottomSheetModalProvider>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Tabs" component={TabNavigator} />
+export const MainNavigator = () => {
+  const { theme } = useTheme();
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
+      <BottomSheetModalProvider>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.background },
+          }}
+        >
+          <Stack.Screen name="Tabs" component={TabNavigator} />
         
         {/* Full-Screen Immersive Strava Run/Walk Tracker */}
         <Stack.Screen
@@ -125,7 +133,8 @@ export const MainNavigator = () => (
       </Stack.Navigator>
     </BottomSheetModalProvider>
   </GestureHandlerRootView>
-);
+  );
+};
 
 const styles = StyleSheet.create({});
 

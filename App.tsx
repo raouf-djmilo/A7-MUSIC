@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme as NavDefaultTheme, DarkTheme as NavDarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { View, StyleSheet, Platform, AppState } from 'react-native';
@@ -104,34 +104,58 @@ export default function App() {
   const navRef = useRef<any>(null);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D1117' }}>
       <SafeAreaProvider initialMetrics={Platform.OS === 'web' ? undefined : initialWindowMetrics}>
         <AuthProvider>
           <ThemeProvider>
-            <NavigationContainer
-              ref={navRef}
-              onReady={() => {
-                const state = navRef.current?.getRootState();
-                const activeRouteName = getActiveRouteName(state);
-                if (activeRouteName) {
-                  useAudioStore.getState().setCurrentRouteName(activeRouteName);
-                }
-              }}
-              onStateChange={(state) => {
-                const activeRouteName = getActiveRouteName(state);
-                if (activeRouteName) {
-                  useAudioStore.getState().setCurrentRouteName(activeRouteName);
-                }
-              }}
-            >
-              <AppContent />
-            </NavigationContainer>
+            <ThemedNavigationContainer navRef={navRef} getActiveRouteName={getActiveRouteName} />
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
+const ThemedNavigationContainer = ({ navRef, getActiveRouteName }: any) => {
+  const { theme, isDark } = useTheme();
+
+  const navigationTheme = React.useMemo(() => {
+    const base = isDark ? NavDarkTheme : NavDefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        background: theme.background,
+        card: theme.surface,
+        text: theme.textPrimary,
+        border: theme.border,
+        primary: theme.accentSport,
+      },
+    };
+  }, [isDark, theme]);
+
+  return (
+    <NavigationContainer
+      ref={navRef}
+      theme={navigationTheme}
+      onReady={() => {
+        const state = navRef.current?.getRootState();
+        const activeRouteName = getActiveRouteName(state);
+        if (activeRouteName) {
+          useAudioStore.getState().setCurrentRouteName(activeRouteName);
+        }
+      }}
+      onStateChange={(state) => {
+        const activeRouteName = getActiveRouteName(state);
+        if (activeRouteName) {
+          useAudioStore.getState().setCurrentRouteName(activeRouteName);
+        }
+      }}
+    >
+      <AppContent />
+    </NavigationContainer>
+  );
+};
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },

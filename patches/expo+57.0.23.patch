@@ -1,0 +1,12 @@
+diff --git a/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt b/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
+index a731804..0c16926 100644
+--- a/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
++++ b/node_modules/expo/node_modules/expo-modules-core/android/CMakeLists.txt
+@@ -1,5 +1,7 @@
+ cmake_minimum_required(VERSION 3.16)
++set(CMAKE_SUPPRESS_REGENERATION TRUE)
++set(CMAKE_DEPENDS_IN_PROJECT_ONLY 1)
+ set(CMAKE_VERBOSE_MAKEFILE ON)
+ set(CMAKE_CXX_STANDARD 20)
+ 
+ project(expo-modules-core)
