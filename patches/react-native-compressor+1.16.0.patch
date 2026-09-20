@@ -1,0 +1,340 @@
+diff --git a/node_modules/react-native-compressor/ios/Audio/AudioMain.swift b/node_modules/react-native-compressor/ios/Audio/AudioMain.swift
+index b3ac497..812d919 100644
+--- a/node_modules/react-native-compressor/ios/Audio/AudioMain.swift
++++ b/node_modules/react-native-compressor/ios/Audio/AudioMain.swift
+@@ -5,8 +5,9 @@
+ //  Created by Numan on 10/09/2023.
+ //
+ 
+-
++import Foundation
+ import AVFoundation
++import React
+ class AudioMain{
+     static func compress_audio(_ fileUrl: String, optionMap: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+         do {
+@@ -64,7 +65,7 @@ class AudioMain{
+             }
+ 
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+ }
+diff --git a/node_modules/react-native-compressor/ios/Audio/AudioOptions.swift b/node_modules/react-native-compressor/ios/Audio/AudioOptions.swift
+index 9c572b6..a811335 100644
+--- a/node_modules/react-native-compressor/ios/Audio/AudioOptions.swift
++++ b/node_modules/react-native-compressor/ios/Audio/AudioOptions.swift
+@@ -1,3 +1,5 @@
++import Foundation
++
+ class AudioOptions: NSObject {
+     static func fromDictionary(_ dictionary: [String: Any]?) -> AudioOptions {
+         let options = AudioOptions()
+diff --git a/node_modules/react-native-compressor/ios/Compressor-Bridging-Header.h b/node_modules/react-native-compressor/ios/Compressor-Bridging-Header.h
+index b85cffd..96387eb 100644
+--- a/node_modules/react-native-compressor/ios/Compressor-Bridging-Header.h
++++ b/node_modules/react-native-compressor/ios/Compressor-Bridging-Header.h
+@@ -4,3 +4,5 @@
+ #import <React/RCTBridgeModule.h>
+ #import <React/RCTEventEmitter.h>
+ #import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
++#import <ImageIO/ImageIO.h>
+diff --git a/node_modules/react-native-compressor/ios/CompressorManager.swift b/node_modules/react-native-compressor/ios/CompressorManager.swift
+index 9d4fb6d..a8c2e13 100644
+--- a/node_modules/react-native-compressor/ios/CompressorManager.swift
++++ b/node_modules/react-native-compressor/ios/CompressorManager.swift
+@@ -1,5 +1,6 @@
+ import Foundation
+ import AVFoundation
++import React
+ 
+ let videoCompressor = VideoCompressor()
+ let uploader=Uploader()
+diff --git a/node_modules/react-native-compressor/ios/Image/ImageMain.swift b/node_modules/react-native-compressor/ios/Image/ImageMain.swift
+index 2e6e9fc..ef2a767 100644
+--- a/node_modules/react-native-compressor/ios/Image/ImageMain.swift
++++ b/node_modules/react-native-compressor/ios/Image/ImageMain.swift
+@@ -6,6 +6,9 @@
+ //
+ 
+ import Foundation
++import ImageIO
++import React
++
+ class ImageMain {
+     static func image_compress(_ value: String, optionMap: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+         do {
+@@ -32,7 +35,7 @@ class ImageMain {
+                 }
+             }
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+     
+@@ -40,12 +43,12 @@ class ImageMain {
+         let options = ImageCompressorOptions.fromDictionary([:])
+         ImageCompressor.getAbsoluteImagePath(filePath, options: options) { ImagePath in
+             guard ImagePath.hasPrefix("file://") else {
+-                reject("INVALID_PATH", "Image path must start with file://", nil)
++                reject("INVALID_PATH", "Image path must start with file://", nil as NSError?)
+                 return
+             }
+             
+             guard let url = URL(string: ImagePath) else {
+-                reject("INVALID_URL", "Failed to create URL from image path", nil)
++                reject("INVALID_URL", "Failed to create URL from image path", nil as NSError?)
+                 return
+             }
+             
+@@ -57,18 +60,18 @@ class ImageMain {
+                 
+                 // Use CGImageSourceCreateWithURL to avoid loading entire file into memory (prevents OOM crashes for large images)
+                 guard let imageSource = CGImageSourceCreateWithURL(fileURL, nil) else {
+-                    reject("INVALID_IMAGE", "Failed to create image source from URL", nil)
++                    reject("INVALID_IMAGE", "Failed to create image source from URL", nil as NSError?)
+                     return
+                 }
+                 
+                 guard let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) else {
+-                    reject("NO_PROPERTIES", "Failed to get image properties", nil)
++                    reject("NO_PROPERTIES", "Failed to get image properties", nil as NSError?)
+                     return
+                 }
+                 
+                 let exif = imageProperties as NSDictionary
+                 guard let mutableExif = exif.mutableCopy() as? NSMutableDictionary else {
+-                    reject("COPY_ERROR", "Failed to create mutable copy of image properties", nil)
++                    reject("COPY_ERROR", "Failed to create mutable copy of image properties", nil as NSError?)
+                     return
+                 }
+                 
+diff --git a/node_modules/react-native-compressor/ios/Utils/CreateVideoThumbnail.swift b/node_modules/react-native-compressor/ios/Utils/CreateVideoThumbnail.swift
+index 0ed81ad..7cc8602 100644
+--- a/node_modules/react-native-compressor/ios/Utils/CreateVideoThumbnail.swift
++++ b/node_modules/react-native-compressor/ios/Utils/CreateVideoThumbnail.swift
+@@ -8,6 +8,7 @@
+ import Foundation
+ import AVFoundation
+ import UIKit
++import React
+ 
+ class CreateVideoThumbnail: NSObject {
+ 
+@@ -65,11 +66,11 @@ class CreateVideoThumbnail: NSObject {
+           ] as [String : Any])
+         }
+       }, failure: { error in
+-          reject(error._domain, error.localizedDescription, nil)
++          reject(error._domain, error.localizedDescription, nil as NSError?)
+       })
+ 
+     } catch {
+-      reject("Error", error.localizedDescription, nil)
++      reject("Error", error.localizedDescription, nil as NSError?)
+     }
+   }
+ 
+@@ -81,7 +82,7 @@ class CreateVideoThumbnail: NSObject {
+         let fm = FileManager.default
+ 
+         if !fm.fileExists(atPath: cacheDirectoryPath) {
+-            reject("Error", "Directory does not exist", nil)
++            reject("Error", "Directory does not exist", nil as NSError?)
+             return
+         }
+ 
+@@ -94,7 +95,7 @@ class CreateVideoThumbnail: NSObject {
+             resolve("done")
+         } catch {
+             // Handle error if necessary
+-            reject("Error", error.localizedDescription, nil)
++            reject("Error", error.localizedDescription, nil as NSError?)
+         }
+     }
+ 
+diff --git a/node_modules/react-native-compressor/ios/Utils/EventEmitterHandler.swift b/node_modules/react-native-compressor/ios/Utils/EventEmitterHandler.swift
+index 281c7de..85e3b05 100644
+--- a/node_modules/react-native-compressor/ios/Utils/EventEmitterHandler.swift
++++ b/node_modules/react-native-compressor/ios/Utils/EventEmitterHandler.swift
+@@ -6,16 +6,17 @@
+ //
+ 
+ import Foundation
++import UIKit
++import React
+ 
+ class EventEmitterHandler {
+-    static var sharedCompressorObject: Any!
++    static var sharedCompressorObject: RCTEventEmitter?
+     static var hasListener: Bool=false
+     
+     static func initCompressorInstance(_ object: Any) {
+-        sharedCompressorObject = object
++        sharedCompressorObject = object as? RCTEventEmitter
+     }
+     
+-    
+     static func stopObserving() -> Void {
+       hasListener = false
+     }
+@@ -31,24 +32,24 @@ class EventEmitterHandler {
+         data["progress"] = progress
+         params["data"] = data
+         
+-        (sharedCompressorObject as AnyObject).sendEvent(withName: "downloadProgress", body: params)
++        sharedCompressorObject?.sendEvent(withName: "downloadProgress", body: params)
+     }
+     
+     static func emitVideoCompressProgress(_ progress: Float, uuid: String) {
+         if(self.hasListener){
+-            (sharedCompressorObject as AnyObject).sendEvent(withName: "videoCompressProgress", body: ["uuid": uuid, "data": ["progress": progress]])
++            sharedCompressorObject?.sendEvent(withName: "videoCompressProgress", body: ["uuid": uuid, "data": ["progress": progress]])
+         }
+     }
+     
+     static func emituploadProgress(_ uuid: String, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+         if(self.hasListener){
+-            (sharedCompressorObject as AnyObject).sendEvent(withName: "uploadProgress", body: ["uuid": uuid, "data": ["written": totalBytesSent, "total": totalBytesExpectedToSend]])
++            sharedCompressorObject?.sendEvent(withName: "uploadProgress", body: ["uuid": uuid, "data": ["written": totalBytesSent, "total": totalBytesExpectedToSend]])
+         }
+     }
+     
+     static func emitBackgroundTaskExpired(_ backgroundTaskId:UIBackgroundTaskIdentifier) {
+         if(self.hasListener){
+-            (sharedCompressorObject as AnyObject).sendEvent(withName: "backgroundTaskExpired", body: ["backgroundTaskId": backgroundTaskId])
++            sharedCompressorObject?.sendEvent(withName: "backgroundTaskExpired", body: ["backgroundTaskId": backgroundTaskId])
+         }
+     }
+ }
+diff --git a/node_modules/react-native-compressor/ios/Utils/Uploader.swift b/node_modules/react-native-compressor/ios/Utils/Uploader.swift
+index f9f21ab..8f3d8b5 100644
+--- a/node_modules/react-native-compressor/ios/Utils/Uploader.swift
++++ b/node_modules/react-native-compressor/ios/Utils/Uploader.swift
+@@ -7,6 +7,7 @@
+ 
+ import Foundation
+ import MobileCoreServices
++import React
+ 
+ enum UploaderUploadType: Int {
+     case UploaderInvalidType = -1
+@@ -97,7 +98,7 @@ class Uploader : NSObject, URLSessionTaskDelegate{
+         }
+         else {
+             let errorMessage = String(format: "Invalid upload type: '%@'.", options["uploadType"] as? String ?? "")
+-            reject("ERR_FILESYSTEM_INVALID_UPLOAD_TYPE", errorMessage, nil)
++            reject("ERR_FILESYSTEM_INVALID_UPLOAD_TYPE", errorMessage, nil as NSError?)
+         }
+         taskManager.registerTask(task, uuid: uuid)
+         task.resume()
+diff --git a/node_modules/react-native-compressor/ios/Utils/Utils.swift b/node_modules/react-native-compressor/ios/Utils/Utils.swift
+index a08fa92..0aa62ca 100644
+--- a/node_modules/react-native-compressor/ios/Utils/Utils.swift
++++ b/node_modules/react-native-compressor/ios/Utils/Utils.swift
+@@ -6,6 +6,7 @@
+ //
+ 
+ import Foundation
++import React
+ 
+ class Utils {
+     static func generateCacheFilePath(_ extension: String) -> String {
+@@ -71,11 +72,11 @@ class Utils {
+                     let fileSizeString = String(fileSize)
+                     resolve(fileSizeString)
+                 } else {
+-                    reject("FILE_SIZE_ERROR", "Failed to get file size for path: \(filePath)", nil)
++                    reject("FILE_SIZE_ERROR", "Failed to get file size for path: \(filePath)", nil as NSError?)
+                 }
+             }
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+     
+@@ -93,7 +94,7 @@ class Utils {
+                 }
+             }
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+     
+@@ -102,7 +103,7 @@ class Utils {
+             let outputUri = generateCacheFilePath(_extension)
+             resolve(outputUri)
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+     
+diff --git a/node_modules/react-native-compressor/ios/Video/VideoMain.swift b/node_modules/react-native-compressor/ios/Video/VideoMain.swift
+index af8a0b5..b71dab6 100644
+--- a/node_modules/react-native-compressor/ios/Video/VideoMain.swift
++++ b/node_modules/react-native-compressor/ios/Video/VideoMain.swift
+@@ -2,6 +2,8 @@ import Foundation
+ import AVFoundation
+ import Photos
+ import MobileCoreServices
++import UIKit
++import React
+ 
+ struct CompressionError: Error {
+   private let message: String
+@@ -39,7 +41,7 @@ class VideoCompressor {
+ 
+   func activateBackgroundTask(options: [String: Any], resolve:@escaping RCTPromiseResolveBlock, reject:@escaping RCTPromiseRejectBlock) -> Void {
+     guard backgroundTaskId == .invalid else {
+-      reject("failed", "There is a background task already", nil)
++      reject("failed", "There is a background task already", nil as NSError?)
+       return
+     }
+     backgroundTaskId = UIApplication.shared.beginBackgroundTask(
+@@ -54,11 +56,11 @@ class VideoCompressor {
+ 
+   func deactivateBackgroundTask(options: [String: Any], resolve:@escaping RCTPromiseResolveBlock, reject:@escaping RCTPromiseRejectBlock) -> Void {
+     guard backgroundTaskId != .invalid else {
+-      reject("failed", "There is no active background task", nil)
++      reject("failed", "There is no active background task", nil as NSError?)
+         return
+     }
+     UIApplication.shared.endBackgroundTask(backgroundTaskId)
+-    resolve(nil)
++    resolve(nil as Any?)
+     backgroundTaskId = .invalid
+   }
+ 
+@@ -358,7 +360,7 @@ class VideoCompressor {
+                 }
+             }
+         } catch {
+-            reject(error.localizedDescription, error.localizedDescription, nil)
++            reject(error.localizedDescription, error.localizedDescription, nil as NSError?)
+         }
+     }
+ 
+diff --git a/node_modules/react-native-compressor/react-native-compressor.podspec b/node_modules/react-native-compressor/react-native-compressor.podspec
+index 921e739..891ecd1 100644
+--- a/node_modules/react-native-compressor/react-native-compressor.podspec
++++ b/node_modules/react-native-compressor/react-native-compressor.podspec
+@@ -16,6 +16,12 @@ Pod::Spec.new do |s|
+ 
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+ 
++  s.pod_target_xcconfig = {
++    'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '$(PODS_TARGET_SRCROOT)/ios/Compressor-Bridging-Header.h',
++    'SWIFT_VERSION' => '5.0'
++  }
++
+   s.dependency "React-Core"
+   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
+   # See https://github.com/facebook/react-native/blob/febf6b7f33fdb4904669f99d795eba4c0f95d7bf/scripts/cocoapods/new_architecture.rb#L79.
