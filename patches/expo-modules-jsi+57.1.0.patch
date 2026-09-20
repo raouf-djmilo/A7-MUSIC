@@ -61,7 +61,7 @@ index d43cdd5..01b3667 100644
  
    /// Creates a PropNameID from existing `facebook.jsi.PropNameID`.
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-index 3d796ee..dac1d8d 100644
+index 3d796ee..d1e49f0 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
 @@ -62,7 +62,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
@@ -100,16 +100,17 @@ index 3d796ee..dac1d8d 100644
      self.ownsRuntime = false
      installLongLivedObjectsTeardown()
    }
-@@ -239,7 +239,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+@@ -238,8 +238,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+       vector.reserve(propertyNames.count)
  
        for propertyName in propertyNames {
-         let propNameId = facebook.jsi.PropNameID.forUtf8(iRuntime, std.string(propertyName))
+-        let propNameId = facebook.jsi.PropNameID.forUtf8(iRuntime, std.string(propertyName))
 -        vector.push_back(consuming: propNameId)
-+        vector.push_back(propNameId)
++        expo.HostObjectCallbacks.addPropNameId(&vector, iRuntime, propertyName)
        }
        return vector
      }
-@@ -400,7 +400,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+@@ -400,7 +399,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
    public typealias AsyncFunctionClosure =
      @JavaScriptActor (
        _ this: JavaScriptValue,
@@ -118,7 +119,7 @@ index 3d796ee..dac1d8d 100644
      ) async throws -> JavaScriptValue
  
    /// Creates an asynchronous host function that runs given block when it's called.
-@@ -796,7 +796,7 @@ private func createFunctionClosure(
+@@ -796,7 +795,7 @@ private func createFunctionClosure(
      Unmanaged<HostFunctionContext>.fromOpaque(context).release()
    }
  
@@ -127,7 +128,7 @@ index 3d796ee..dac1d8d 100644
  }
  
  private func createFunctionClosure(
-@@ -838,7 +838,7 @@ private func createFunctionClosure(
+@@ -838,7 +837,7 @@ private func createFunctionClosure(
      Unmanaged<UnownedThisHostFunctionContext>.fromOpaque(context).release()
    }
  
@@ -281,6 +282,21 @@ index 8d5b594..56a9dd7 100644
    explicit HostFunctionClosure(Context context, Closure closure, Deallocator deallocator) : RetainedSwiftPointer(context, deallocator), _closure(closure) {};
  
    virtual ~HostFunctionClosure() {
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
+index b8b80bb..80deebd 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
+@@ -25,6 +25,10 @@ public:
+   using PropertyNamesGetter = PropNameIds(Context);
+   using Deallocator = void(Context);
+ 
++  static inline void addPropNameId(PropNameIds &vector, facebook::jsi::IRuntime &runtime, const char *name) {
++    vector.push_back(facebook::jsi::PropNameID::forUtf8(runtime, std::string(name)));
++  }
++
+   explicit HostObjectCallbacks(Context context, Getter getter, Setter *_Nullable setter, PropertyNamesGetter propertyNamesGetter, Deallocator deallocator)
+   : _context(context), _getter(getter), _setter(setter), _propertyNamesGetter(propertyNamesGetter), _deallocator(deallocator) {}
+ 
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
 index 6115e87..d9ab304 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
