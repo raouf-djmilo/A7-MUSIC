@@ -75,6 +75,14 @@ const DEFAULT_STUDIO_ARTWORK =
   'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg';
 
 /**
+ * 🌟 Resolves Ultra-HD 1080p Studio Artwork for YouTube video thumbnails
+ */
+export const getUltraStudioArtwork = (videoId?: string, fallbackUrl?: string): string => {
+  if (!videoId || videoId.length < 8) return fallbackUrl || DEFAULT_STUDIO_ARTWORK;
+  return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+};
+
+/**
  * 🌟 Resolves Ultra-HD Cover Art safely as a single string URL (for lock screen & metadata)
  * Uses `sddefault.jpg` (640x480) for YouTube video thumbnails to guarantee high sharpness without 404 risk.
  */

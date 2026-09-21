@@ -166,10 +166,11 @@ const YOUTUBE_HTML_CONTENT = `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
-    #player { width:100%; height:100%; }
+    #player { width:100%; height:100%; position:absolute; top:0; left:0; }
+    iframe { width:100% !important; height:100% !important; border:none; }
     audio { display:none; }
   </style>
 </head>
@@ -231,8 +232,8 @@ const YOUTUBE_HTML_CONTENT = `
 
     window.onYouTubeIframeAPIReady = function() {
       ytPlayer = new YT.Player('player', {
-        height: '240',
-        width: '320',
+        height: '100%',
+        width: '100%',
         host: 'https://www.youtube-nocookie.com',
         playerVars: {
           controls: 0,
@@ -652,6 +653,21 @@ const OFFLINE_HTML_CONTENT = `
 `;
 
 export const GlobalAudioBridge: React.FC = () => {
+  const isPlayerModalVisible = useAudioStore((s) => s.isPlayerModalVisible);
+  const playerMediaMode = useAudioStore((s) => s.playerMediaMode);
+  const videoLayout = useAudioStore((s) => s.videoLayout);
+  const currentTrack = useAudioStore((s) => s.currentTrack);
+  const activeEngine = useAudioStore((s) => s.activeEngine);
+
+  const isVideoVisible =
+    isPlayerModalVisible &&
+    playerMediaMode === 'video' &&
+    activeEngine === 'youtube' &&
+    !!currentTrack?.videoId &&
+    !!videoLayout &&
+    videoLayout.width > 0 &&
+    videoLayout.height > 0;
+
   const youtubeWebRef = useRef<WebView>(null);
   const offlineWebRef = useRef<WebView>(null);
   const videoPlayerRef = useRef<any>(null);
@@ -984,8 +1000,15 @@ export const GlobalAudioBridge: React.FC = () => {
   };
 
   return (
-    <View style={styles.hiddenContainer} pointerEvents="none">
-      {/* ── 1. Online YouTube Player Bridge ── */}
+    <View
+      style={
+        isVideoVisible
+          ? [StyleSheet.absoluteFill, { zIndex: 100005 }]
+          : styles.hiddenContainer
+      }
+      pointerEvents="none"
+    >
+      {/* ── 1. Online YouTube Player Bridge (Zero-Desync Synchronized Video & Audio Engine) ── */}
       <WebView
         ref={youtubeWebRef}
         source={{
@@ -1039,7 +1062,20 @@ export const GlobalAudioBridge: React.FC = () => {
         allowsProtectedMedia={true}
         androidLayerType="hardware"
         userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36"
-        style={styles.webView}
+        style={
+          isVideoVisible && videoLayout
+            ? {
+                position: 'absolute',
+                left: videoLayout.x,
+                top: videoLayout.y,
+                width: videoLayout.width,
+                height: videoLayout.height,
+                borderRadius: 20,
+                overflow: 'hidden',
+                backgroundColor: '#000',
+              }
+            : styles.hiddenWebView
+        }
       />
 
       {/* ── 2. Pure Native Offline HTML5 Player Bridge (Loaded as local file:// for full filesystem access) ── */}
@@ -1071,7 +1107,7 @@ export const GlobalAudioBridge: React.FC = () => {
         domStorageEnabled={true}
         originWhitelist={['*']}
         mixedContentMode="always"
-        style={styles.webView}
+        style={styles.hiddenWebView}
       />
     </View>
   );
@@ -1080,16 +1116,19 @@ export const GlobalAudioBridge: React.FC = () => {
 const styles = StyleSheet.create({
   hiddenContainer: {
     position: 'absolute',
-    bottom: -300,
-    right: -300,
+    bottom: -1000,
+    right: -1000,
     width: 320,
     height: 240,
-    opacity: 0.01,
+    opacity: 0.001,
     zIndex: -999,
   },
-  webView: {
+  hiddenWebView: {
     width: 320,
     height: 240,
+    backgroundColor: '#000',
+  },
+  webView: {
     backgroundColor: '#000',
   },
 });

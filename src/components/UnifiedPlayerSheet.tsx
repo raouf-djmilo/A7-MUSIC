@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -267,8 +267,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const currentRouteName = useAudioStore((s) => s.currentRouteName);
   const followedArtistIds = useAudioStore((s) => s.followedArtistIds);
   const toggleFollowArtist = useAudioStore((s) => s.toggleFollowArtist);
-
-  const [playerMode, setPlayerMode] = useState<'audio' | 'video'>('audio');
+  const playerMediaMode = useAudioStore((s) => s.playerMediaMode);
+  const setPlayerMediaMode = useAudioStore((s) => s.setPlayerMediaMode);
+  const setVideoLayout = useAudioStore((s) => s.setVideoLayout);
+  const activeEngine = useAudioStore((s) => s.activeEngine);
+  const mediaContainerRef = useRef<View>(null);
 
   const positionMillis = useAudioStore((s) => s.positionMillis);
   const durationMillis = useAudioStore((s) => s.durationMillis);
@@ -466,13 +469,14 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const collapseToMini = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setVideoLayout(null);
     fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
       if (finished) {
         runOnJS(syncModalState)(false);
         runOnJS(setRenderFullPlayer)(false);
       }
     });
-  }, [syncModalState, HIDDEN_OFFSET]);
+  }, [syncModalState, HIDDEN_OFFSET, setVideoLayout]);
 
   // ── FullPlayer Downward Pan Dismiss Gesture (Full Viewport Coverage) ──
   const fullPanGesture = Gesture.Pan()
@@ -481,6 +485,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     .onStart(() => {
       'worklet';
       fullStartY.value = fullTranslateY.value;
+      runOnJS(setVideoLayout)(null);
     })
     .onUpdate((event) => {
       'worklet';
@@ -501,6 +506,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished) => {
           if (finished) {
             runOnJS(syncModalState)(true);
+            runOnJS(updateVideoPosition)();
           }
         });
       }
@@ -596,12 +602,55 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     currentTrack.artistAvatar,
     currentTrack.artist
   );
-  // Universal Studio Artwork – zero letterbox, forced 1:1 square
-  const heroArtworkUrl = getUniversalStudioArtwork(currentTrack.thumbnail);
+  // Dynamic Artwork dimension respecting screen width & height (1:1 Ultra-HD square, width = SCREEN_WIDTH - 48)
+  const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.38, 380);
+
+  // ── Ultra-HD Artwork Resolution Cascade (maxresdefault -> hqdefault -> thumbnail -> studio) ──
+  const [artworkUriIndex, setArtworkUriIndex] = useState(0);
+
+  const artworkCandidates = useMemo(() => {
+    if (!currentTrack) return [];
+    const vid = currentTrack.videoId;
+    const list: string[] = [];
+    if (vid && vid.length >= 8) {
+      list.push(`https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`);
+      list.push(`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
+    }
+    if (currentTrack.thumbnail) {
+      list.push(getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist));
+    }
+    return list;
+  }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
+
+  useEffect(() => {
+    setArtworkUriIndex(0);
+  }, [currentTrack?.videoId]);
+
+  const heroArtworkUrl = artworkCandidates[artworkUriIndex] || artworkCandidates[0] || getUniversalStudioArtwork(currentTrack?.thumbnail);
   const miniArtworkUrl = getUniversalStudioArtwork(currentTrack.thumbnail);
 
-  // Dynamic Artwork dimension respecting screen height (320 on normal phones, 260 on smaller devices)
-  const artworkSize = Math.min(SCREEN_WIDTH - 64, SCREEN_HEIGHT * 0.35, 330);
+  const updateVideoPosition = useCallback(() => {
+    if (mediaContainerRef.current) {
+      mediaContainerRef.current.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          const videoW = cardWidth;
+          const videoH = Math.round(cardWidth * (9 / 16));
+          const videoX = x + (width - videoW) / 2;
+          const videoY = y + (height - videoH) / 2;
+          setVideoLayout({ x: videoX, y: videoY, width: videoW, height: videoH });
+        }
+      });
+    }
+  }, [cardWidth, setVideoLayout]);
+
+  useEffect(() => {
+    if (isPlayerModalVisible && playerMediaMode === 'video') {
+      const timer = setTimeout(updateVideoPosition, 80);
+      return () => clearTimeout(timer);
+    } else {
+      setVideoLayout(null);
+    }
+  }, [isPlayerModalVisible, playerMediaMode, updateVideoPosition, setVideoLayout]);
 
   return (
     <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -783,38 +832,63 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <Ionicons name="chevron-down" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
                 </TouchableOpacity>
 
-                {/* Audio | Video Toggle Pill */}
+                {/* Liquid Glass Mode Switcher Pill [ 🎵 صوت وغلاف ] ◄──► [ 🎬 فيديو كليب ] */}
                 <View style={styles.audioVideoPill}>
                   <TouchableOpacity
-                    style={[styles.audioVideoSegment, playerMode === 'audio' && styles.audioVideoSegmentActive]}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.audioVideoSegment,
+                      playerMediaMode === 'cover' && (isDark ? styles.audioVideoSegmentActiveDark : styles.audioVideoSegmentActiveLight),
+                    ]}
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPlayerMode('audio');
+                      Haptics.selectionAsync();
+                      setPlayerMediaMode('cover');
                     }}
                   >
+                    <Ionicons
+                      name="musical-notes"
+                      size={13}
+                      color={playerMediaMode === 'cover' ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)')}
+                      style={{ marginRight: 5 }}
+                    />
                     <Text
                       style={[
                         styles.audioVideoSegmentText,
-                        playerMode === 'audio' && styles.audioVideoSegmentTextActive,
+                        playerMediaMode === 'cover'
+                          ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
+                          : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
                       ]}
                     >
-                      Audio
+                      صوت وغلاف
                     </Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
-                    style={[styles.audioVideoSegment, playerMode === 'video' && styles.audioVideoSegmentActive]}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.audioVideoSegment,
+                      playerMediaMode === 'video' && (isDark ? styles.audioVideoSegmentActiveDark : styles.audioVideoSegmentActiveLight),
+                    ]}
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPlayerMode('video');
+                      Haptics.selectionAsync();
+                      setPlayerMediaMode('video');
                     }}
                   >
+                    <Ionicons
+                      name="play-circle"
+                      size={13}
+                      color={playerMediaMode === 'video' ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)')}
+                      style={{ marginRight: 5 }}
+                    />
                     <Text
                       style={[
                         styles.audioVideoSegmentText,
-                        playerMode === 'video' && styles.audioVideoSegmentTextActive,
+                        playerMediaMode === 'video'
+                          ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
+                          : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
                       ]}
                     >
-                      Video
+                      فيديو كليب
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -829,16 +903,44 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               </View>
             </View>
 
-            {/* 2. Centered Album Artwork (Square 1:1, Fixed in Flow, Zero Letterbox via artworkHelper) */}
-            <View style={styles.artworkCenterWrapper}>
-              <Image
-                source={{ uri: heroArtworkUrl }}
-                style={[styles.heroArtworkImg, { width: artworkSize, height: artworkSize }]}
-                contentFit="cover"
-                priority="high"
-                cachePolicy="memory-disk"
-                transition={200}
-              />
+            {/* 2. Centered Media Area: 1:1 Studio Artwork OR 16:9 Synchronized Video Clip */}
+            <View
+              ref={mediaContainerRef}
+              style={[styles.artworkCenterWrapper, { minHeight: cardWidth }]}
+              onLayout={updateVideoPosition}
+            >
+              {playerMediaMode === 'cover' ? (
+                <Image
+                  source={{ uri: heroArtworkUrl }}
+                  style={[styles.heroArtworkImg, { width: cardWidth, height: cardWidth }]}
+                  contentFit="cover"
+                  priority="high"
+                  cachePolicy="memory-disk"
+                  transition={200}
+                  onError={() => {
+                    if (artworkUriIndex < artworkCandidates.length - 1) {
+                      setArtworkUriIndex((prev) => prev + 1);
+                    }
+                  }}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.videoFrameContainer,
+                    { width: cardWidth, height: Math.round(cardWidth * (9 / 16)) },
+                  ]}
+                >
+                  {/* Cinematic 16:9 black box for real-time synchronized YouTube WebView video */}
+                  {activeEngine !== 'youtube' && (
+                    <View style={styles.videoNativeFallbackWrap}>
+                      <Ionicons name="musical-notes" size={32} color="rgba(255,255,255,0.4)" />
+                      <Text style={styles.videoNativeFallbackText}>
+                        وضع الصوت عالي النقاء نشط لهذا المسار
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
 
             {/* 3. Track Metadata (Title, Artist, Like Heart) */}
@@ -1389,48 +1491,115 @@ const styles = StyleSheet.create({
   },
   audioVideoPill: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 20,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: 24,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   audioVideoSegment: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 20,
   },
-  audioVideoSegmentActive: {
-    backgroundColor: '#1DB954',
+  audioVideoSegmentActiveDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  audioVideoSegmentActiveLight: {
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   audioVideoSegmentText: {
-    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
     fontWeight: '700',
   },
-  audioVideoSegmentTextActive: {
+  audioVideoSegmentTextActiveDark: {
+    color: '#FFFFFF',
+  },
+  audioVideoSegmentTextActiveLight: {
     color: '#000000',
   },
+  audioVideoSegmentTextInactiveDark: {
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  audioVideoSegmentTextInactiveLight: {
+    color: 'rgba(0, 0, 0, 0.55)',
+  },
 
-  // Centered Artwork (Square 1:1)
+  // Centered Artwork & Video Frame (Fixed in Flow, Zero Letterbox)
   artworkCenterWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 4,
   },
   heroArtworkImg: {
-    borderRadius: 12,
+    borderRadius: 24,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.35,
-        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.45,
+        shadowRadius: 20,
       },
       android: {
-        elevation: 12,
+        elevation: 16,
       },
     }),
+  },
+  videoFrameContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.45,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 16,
+      },
+    }),
+  },
+  videoNativeFallbackWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  videoNativeFallbackText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
   },
 
   // Metadata Row

@@ -140,6 +140,11 @@ export interface AudioState {
   updateProgress: (positionMillis: number, durationMillis: number) => void;
   handleTrackEnded: () => Promise<void>;
   handlePlaybackFallback: (fallbackVideoId?: string) => Promise<void>;
+  playerMediaMode: 'cover' | 'video';
+  setPlayerMediaMode: (mode: 'cover' | 'video') => void;
+  videoLayout: { x: number; y: number; width: number; height: number } | null;
+  setVideoLayout: (layout: { x: number; y: number; width: number; height: number } | null) => void;
+  loadPlayerMediaMode: () => Promise<void>;
 }
 
 let lastNavTimestamp = 0;
@@ -187,6 +192,22 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   setBackgroundAudioEnabled: (enabled: boolean) => {
     set({ backgroundAudioEnabled: enabled });
     AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => {});
+  },
+
+  playerMediaMode: 'cover',
+  setPlayerMediaMode: (mode) => {
+    set({ playerMediaMode: mode });
+    AsyncStorage.setItem('@nouble_player_media_mode', mode).catch(() => {});
+  },
+  videoLayout: null,
+  setVideoLayout: (layout) => set({ videoLayout: layout }),
+  loadPlayerMediaMode: async () => {
+    try {
+      const saved = await AsyncStorage.getItem('@nouble_player_media_mode');
+      if (saved === 'cover' || saved === 'video') {
+        set({ playerMediaMode: saved });
+      }
+    } catch (e) {}
   },
 
   followedArtistIds: [],
@@ -1166,3 +1187,4 @@ useAudioStore.subscribe((state) => {
 // Hydrate listening history and followed artists on startup
 useAudioStore.getState().loadHistory();
 useAudioStore.getState().loadFollowedArtists();
+useAudioStore.getState().loadPlayerMediaMode();
