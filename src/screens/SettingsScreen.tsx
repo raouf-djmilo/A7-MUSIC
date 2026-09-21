@@ -31,6 +31,8 @@ import { GlassCard } from '../components/GlassCard';
 import { useAudioStore, AudioQuality } from '../store/useAudioStore';
 import { configureAudioSession } from '../services/audioSessionService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { useUpdateStore } from '../services/updateService';
+import { getInstalledAppVersion, APP_BUILD_NAME, APP_RELEASE_YEAR } from '../config/version';
 
 const STORAGE_UNITS_KEY = '@nouble_units_pref';
 const STORAGE_TRAIL_KEY = '@nouble_trail_elevation_pref';
@@ -50,6 +52,12 @@ export const SettingsScreen = () => {
     setBackgroundAudioEnabled,
   } = useAudioStore();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const currentVersion = getInstalledAppVersion();
+  const { hasUpdate, updateInfo, isChecking, checkUpdates } = useUpdateStore();
+
+  useEffect(() => {
+    checkUpdates(false).catch(() => {});
+  }, [checkUpdates]);
 
   const [loading, setLoading] = useState(false);
 
@@ -699,7 +707,59 @@ export const SettingsScreen = () => {
           </View>
 
           {/* ═════════════════════════════════════════════════ */}
-          {/* 5. Sign Out Button (Soft Red Glass)               */}
+          {/* 5. Software & System Updates (Apple Settings Style)*/}
+          {/* ═════════════════════════════════════════════════ */}
+          <View style={styles.groupWrapper}>
+            <Text style={styles.groupHeaderTitle}>النظام والتحديثات</Text>
+            <GlassCard style={styles.groupCard} borderRadius={22}>
+              <TouchableOpacity
+                style={styles.insetRow}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate('SoftwareUpdate');
+                }}
+                activeOpacity={0.75}
+              >
+                <View style={styles.rowRightInfo}>
+                  <View
+                    style={[
+                      styles.rowIconWrap,
+                      { backgroundColor: 'rgba(0, 122, 255, 0.12)' },
+                    ]}
+                  >
+                    <Ionicons name="cloud-download-outline" size={19} color="#007AFF" />
+                  </View>
+                  <View style={styles.textStack}>
+                    <Text style={styles.rowTitle}>تحديث التطبيق (Software Update)</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {hasUpdate
+                        ? `إصدار جديد متوفر: v${updateInfo?.latestVersion || ''}`
+                        : `الإصدار الحالي v${currentVersion} • فحص وتثبيت`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.updateRowRightSide}>
+                  {hasUpdate ? (
+                    <View style={styles.updateBadgeAlert}>
+                      <View style={styles.updateBadgeAlertDot} />
+                      <Text style={styles.updateBadgeAlertText}>تحديث</Text>
+                    </View>
+                  ) : isChecking ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                  ) : (
+                    <View style={styles.upToDateSmallPill}>
+                      <Text style={styles.upToDateSmallPillText}>v{currentVersion}</Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                </View>
+              </TouchableOpacity>
+            </GlassCard>
+          </View>
+
+          {/* ═════════════════════════════════════════════════ */}
+          {/* 6. Sign Out Button (Soft Red Glass)               */}
           {/* ═════════════════════════════════════════════════ */}
           <View style={styles.groupWrapper}>
             <TouchableOpacity
@@ -714,8 +774,8 @@ export const SettingsScreen = () => {
 
           {/* Footer App Info */}
           <View style={styles.footerWrap}>
-            <Text style={styles.versionTxt}>A7 MUSIC v1.1.0</Text>
-            <Text style={styles.buildTag}>Glass-Matte Unified Engine • 2026</Text>
+            <Text style={styles.versionTxt}>A7 MUSIC v{currentVersion}</Text>
+            <Text style={styles.buildTag}>{APP_BUILD_NAME} • {APP_RELEASE_YEAR}</Text>
           </View>
         </ScrollView>
 
@@ -956,6 +1016,44 @@ const createStyles = (theme: ThemeTokens) =>
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 999,
+    },
+
+    // Software Update Row Styles
+    updateRowRightSide: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    updateBadgeAlert: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(252, 82, 0, 0.15)',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      gap: 5,
+    },
+    updateBadgeAlertDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#FC5200',
+    },
+    updateBadgeAlertText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FC5200',
+    },
+    upToDateSmallPill: {
+      backgroundColor: theme.surfaceSubtle,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    upToDateSmallPillText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
     },
   });
 

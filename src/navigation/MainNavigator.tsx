@@ -23,6 +23,7 @@ import { PublicProfileScreen } from '../screens/PublicProfileScreen';
 import { AlbumDetailsScreen } from '../screens/AlbumDetailsScreen';
 import { ArtistDetailsScreen } from '../screens/ArtistDetailsScreen';
 import { WorkoutSummaryScreen } from '../screens/WorkoutSummaryScreen';
+import { SoftwareUpdateScreen } from '../screens/SoftwareUpdateScreen';
 
 import { colors } from '../theme/colors';
 
@@ -129,6 +130,11 @@ export const MainNavigator = () => {
           name="Notifications" 
           component={NotificationsScreen} 
           options={{ headerShown: false, presentation: 'pageSheet' }} 
+        />
+        <Stack.Screen 
+          name="SoftwareUpdate" 
+          component={SoftwareUpdateScreen} 
+          options={{ headerShown: false, animation: 'slide_from_right' }} 
         />
       </Stack.Navigator>
     </BottomSheetModalProvider>
