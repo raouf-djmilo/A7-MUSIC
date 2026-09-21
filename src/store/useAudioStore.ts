@@ -986,23 +986,29 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const { streamUrl } = await downloadService.probeAudioStream(targetTrack);
 
       if (streamUrl) {
-        console.log('[AudioStore] ⚡ Direct stream/cache acquired, playing via Native TrackPlayer:', streamUrl);
+        console.log('[AudioStore] ⚡ Direct stream/cache acquired, routing to playback:', streamUrl);
 
-        // 2. Stream directly through Native TrackPlayer (ExoPlayer on Android / AVPlayer on iOS)
+        // 1. Play directly through Native TrackPlayer if native module exists (Production/Dev Client build)
         if (NativeModules.TrackPlayerModule) {
-          await TrackPlayer.reset();
-          await TrackPlayer.add({
-            id: targetTrack.videoId || 'direct_stream',
-            url: streamUrl,
-            title: targetTrack.title || 'Track',
-            artist: targetTrack.artist || 'Artist',
-            artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
-            duration: targetTrack.duration ? Math.floor(targetTrack.duration / 1000) : 180,
-          });
-          await TrackPlayer.setVolume(1.0);
-          await TrackPlayer.play();
+          try {
+            await TrackPlayer.reset();
+            await TrackPlayer.add({
+              id: targetTrack.videoId || 'direct_stream',
+              url: streamUrl,
+              title: targetTrack.title || 'Track',
+              artist: targetTrack.artist || 'Artist',
+              artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
+              duration: targetTrack.duration ? Math.floor(targetTrack.duration / 1000) : 180,
+            });
+            await TrackPlayer.setVolume(1.0);
+            await TrackPlayer.play();
+          } catch (tpErr) {
+            console.warn('[AudioStore] TrackPlayer play error:', tpErr);
+          }
         }
 
+        // 2. Update store and dispatch audio action to bridge
+        // If TrackPlayer is not available (Expo Go), GlobalAudioBridge will play via expo-video / expo-av / offline HTML5
         set({
           isPlaying: true,
           isLoading: false,
@@ -1010,6 +1016,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isOfflinePlayback: true,
           activeEngine: 'native',
           isSwitchingToFallback: false,
+          audioEngineAction: {
+            type: 'play',
+            url: streamUrl,
+            position: 0,
+            isOfflinePlayback: true,
+            id: Date.now(),
+          },
         });
         return;
       }

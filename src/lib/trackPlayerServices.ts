@@ -40,9 +40,16 @@ export const PlaybackService = async () => {
       }
     });
     TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-      const { activeEngine, isOfflinePlayback } = useAudioStore.getState();
-      if (activeEngine === 'native' || isOfflinePlayback) {
-        useAudioStore.getState().handleTrackEnded();
+      const state = useAudioStore.getState();
+      // 🛡️ CRITICAL GUARD: Only advance track if actually playing near the end of the song!
+      // NEVER trigger on TrackPlayer.reset() or during initial buffering.
+      if (
+        (state.activeEngine === 'native' || state.isOfflinePlayback) &&
+        state.positionMillis > 5000 &&
+        state.durationMillis > 0 &&
+        state.positionMillis >= state.durationMillis - 8000
+      ) {
+        state.handleTrackEnded();
       }
     });
   } catch (e) {

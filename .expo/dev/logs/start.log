@@ -6413,3 +6413,51 @@
 {"_e":"metro:client_log","_t":1790023749469,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4","— Activating Native Direct Stream Fallback..."]}
 {"_e":"metro:client_log","_t":1790023749469,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
 {"_e":"metro:server_log","_t":1790023816473,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1790024402927,"id":"m","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790024402927,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790024402931,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790024403035,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790024403178,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790024403324,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790024403434,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790024403788,"id":"m","total":1,"ms":861.0471}
+{"_e":"metro:client_log","_t":1790024408992,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790024409168,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790024409238,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790024409238,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790024409238,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790024409239,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790024409239,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790024409239,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790024409239,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790024409239,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790024433575,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024433638,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024433778,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024459705,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790024465615,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024466234,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024466234,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024475251,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024476831,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024476831,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024480790,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024480790,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024480790,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024482372,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790024492442,"level":"log","data":["[DownloadService] ✅ Cached successfully (1738.6 KB):","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_ukvNEp85RHQ.m4a"]}
+{"_e":"metro:client_log","_t":1790024492509,"level":"log","data":["[AudioStore] ⚡ Direct stream/cache acquired, playing via Native TrackPlayer:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_ukvNEp85RHQ.m4a"]}
+{"_e":"metro:client_log","_t":1790024502472,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790024503858,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790024509543,"level":"log","data":["[DownloadService] ✅ Cached successfully (4119.0 KB):","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_8p0sTW8QsYY.m4a"]}
+{"_e":"metro:client_log","_t":1790024509667,"level":"log","data":["[AudioStore] ⚡ Direct stream/cache acquired, playing via Native TrackPlayer:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_8p0sTW8QsYY.m4a"]}
+{"_e":"metro:bundling:started","_t":1790024750127,"id":"n","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790024750128,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790024750298,"id":"n","total":1,"ms":170.8943}
+{"_e":"metro:client_log","_t":1790024751133,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790024751133,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790024751133,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790024751822,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790024895224,"id":"o","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790024895224,"id":"o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790024895388,"id":"o","total":1,"ms":163.9124}

@@ -635,23 +635,24 @@ export const GlobalAudioBridge: React.FC = () => {
 
       const isOfflineTarget = !!(
         action.isOfflinePlayback ||
-        (action.url && (action.url.startsWith('file://') || action.url.includes('a7flow_download_music')))
+        (action.url && (action.url.startsWith('file://') || action.url.includes('a7flow_download_music') || action.url.includes('temp_stream_')))
       );
 
       if (action.type === 'play') {
         if (isOfflineTarget && action.url) {
-          // Pause YouTube WebView player & purge audio source to yield hardware DAC 100% to native engine
+          // Pause YouTube WebView player & purge audio source to yield hardware DAC
           youtubeWebRef.current?.injectJavaScript(`
             try {
-              window.pauseMedia();
-              var a = document.getElementById('html5Audio');
-              if (a) { a.pause(); a.src = ''; }
+              window.stopMedia();
             } catch(e) {}
             true;
           `);
 
-          // Play offline using high-performance native / local engine
-          playOfflineTrack(action.url, action.position || 0);
+          // If TrackPlayer native module is present (custom/production build), TrackPlayer handles audio natively.
+          // In Expo Go (where TrackPlayerModule is absent), bridge handles playback via expo-video / expo-av / offline HTML5.
+          if (!NativeModules.TrackPlayerModule) {
+            playOfflineTrack(action.url, action.position || 0);
+          }
 
         } else {
           currentEngine.current = 'youtube';
@@ -816,7 +817,11 @@ export const GlobalAudioBridge: React.FC = () => {
         mixedContentMode="always"
         allowsProtectedMedia={true}
         androidLayerType="hardware"
-        userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        userAgent={
+          Platform.OS === 'ios'
+            ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+            : 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+        }
         style={styles.webView}
       />
 
