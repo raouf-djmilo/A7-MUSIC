@@ -70,10 +70,10 @@ index e9873b0..d538c96 100644
  @objcMembers
 diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
 new file mode 100644
-index 0000000..172faa0
+index 0000000..9905935
 --- /dev/null
 +++ b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,19 @@
 +#import <Foundation/Foundation.h>
 +#import <UIKit/UIKit.h>
 +#import <React/RCTBridgeModule.h>
@@ -81,11 +81,7 @@ index 0000000..172faa0
 +#import <React/RCTJSStackFrame.h>
 +#import <React/RCTDefines.h>
 +
-+#if __has_include(<React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>)
-+#import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
-+#elif __has_include(<React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>)
-+#import <React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>
-+#elif __has_include(<React-RCTAppDelegate/RCTAppDelegate.h>)
++#if __has_include(<React-RCTAppDelegate/RCTAppDelegate.h>)
 +#import <React-RCTAppDelegate/RCTAppDelegate.h>
 +#elif __has_include(<React_RCTAppDelegate/RCTAppDelegate.h>)
 +#import <React_RCTAppDelegate/RCTAppDelegate.h>
