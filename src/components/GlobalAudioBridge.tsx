@@ -68,7 +68,9 @@ const YOUTUBE_HTML_CONTENT = `
     var ytReady = false;
     var html5Audio = document.getElementById('html5Audio');
     var isSwitchingMedia = false;
+    var hasStartedPlaying = false;
     var currentPlayingVideoId = '';
+    var pendingPlayAction = null;
 
     function sendToRN(type, data) {
       try {
@@ -81,6 +83,7 @@ const YOUTUBE_HTML_CONTENT = `
     // HTML5 Audio Events
     html5Audio.addEventListener('playing', function() {
       isSwitchingMedia = false;
+      hasStartedPlaying = true;
       if (activeEngine === 'html5') {
         sendToRN('playerStateChange', 1); // 1 = Playing
       }
@@ -121,21 +124,32 @@ const YOUTUBE_HTML_CONTENT = `
           playsinline: 1,
           rel: 0,
           iv_load_policy: 3,
-          autoplay: 0,
+          autoplay: 1,
           enablejsapi: 1,
           fs: 0,
-          origin: 'https://lonelycpp.github.io'
+          origin: 'https://www.youtube.com'
         },
         events: {
           onReady: function() {
             ytReady = true;
             sendToRN('playerReady', true);
+            if (pendingPlayAction) {
+              var act = pendingPlayAction;
+              pendingPlayAction = null;
+              window.playMedia(act);
+            }
           },
           onStateChange: function(event) {
+            // event.data: -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
             if (event.data === 1) { // Playing
               isSwitchingMedia = false;
+              hasStartedPlaying = true;
             }
             if (activeEngine === 'youtube') {
+              // 🛡️ CRITICAL GLITCH FIX: Suppress premature pause (2) during transition/buffering
+              if (event.data === 2 && (isSwitchingMedia || !hasStartedPlaying)) {
+                return;
+              }
               sendToRN('playerStateChange', event.data);
             }
           },
@@ -176,7 +190,6 @@ const YOUTUBE_HTML_CONTENT = `
 
     // Controller API
     window.playMedia = function(params) {
-      isSwitchingMedia = true;
       var isDirectAudio = !!params.url && (
         params.url.indexOf('http') === 0 ||
         params.url.indexOf('.mp3') !== -1 ||
@@ -186,6 +199,8 @@ const YOUTUBE_HTML_CONTENT = `
       );
 
       if (isDirectAudio) {
+        isSwitchingMedia = true;
+        hasStartedPlaying = false;
         activeEngine = 'html5';
         currentPlayingVideoId = '';
         if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
@@ -203,27 +218,41 @@ const YOUTUBE_HTML_CONTENT = `
             console.warn('HTML5 Play Error:', err);
           });
         }
-      } else if (params.videoId && ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+      } else if (params.videoId) {
         activeEngine = 'youtube';
         try {
           html5Audio.pause();
           html5Audio.src = '';
         } catch(e) {}
 
+        if (!ytPlayer || typeof ytPlayer.loadVideoById !== 'function') {
+          pendingPlayAction = params;
+          return;
+        }
+
+        isSwitchingMedia = true;
+        hasStartedPlaying = false;
+
         if (currentPlayingVideoId === params.videoId) {
-          try { ytPlayer.playVideo(); } catch(e){}
-          isSwitchingMedia = false;
+          try { 
+            ytPlayer.playVideo(); 
+            isSwitchingMedia = false;
+            hasStartedPlaying = true;
+          } catch(e){}
         } else {
           currentPlayingVideoId = params.videoId;
           ytPlayer.loadVideoById({
             videoId: params.videoId,
-            startSeconds: params.position || 0
+            startSeconds: params.position || 0,
+            suggestedQuality: 'hd720'
           });
+          try { ytPlayer.playVideo(); } catch(e){}
         }
       }
     };
 
     window.pauseMedia = function() {
+      isSwitchingMedia = false;
       if (activeEngine === 'html5') {
         html5Audio.pause();
       } else if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
@@ -250,6 +279,8 @@ const YOUTUBE_HTML_CONTENT = `
 
     window.stopMedia = function() {
       currentPlayingVideoId = '';
+      isSwitchingMedia = false;
+      hasStartedPlaying = false;
       if (activeEngine === 'html5') {
         html5Audio.pause();
         html5Audio.currentTime = 0;
@@ -260,7 +291,7 @@ const YOUTUBE_HTML_CONTENT = `
 
     window.setQuality = function(q) {
       if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.setPlaybackQuality === 'function') {
-        try { ytPlayer.setPlaybackQuality(q); } catch(e){}
+        try { ytPlayer.setPlaybackQuality(q || 'hd720'); } catch(e){}
       }
     };
   </script>
@@ -654,11 +685,9 @@ export const GlobalAudioBridge: React.FC = () => {
             useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
           }
         } else if (msg.data === 2) {
-          if (timeSinceUserToggle > 1200) {
-            const store = useAudioStore.getState();
-            if (store.isPlaying) {
-              useAudioStore.setState({ isPlaying: false });
-            }
+          const store = useAudioStore.getState();
+          if (timeSinceUserToggle > 2500 && store.isPlaying && !store.isLoading) {
+            useAudioStore.setState({ isPlaying: false });
           }
         } else if (msg.data === 0) {
           const store = useAudioStore.getState();
@@ -720,7 +749,7 @@ export const GlobalAudioBridge: React.FC = () => {
         ref={youtubeWebRef}
         source={{
           html: YOUTUBE_HTML_CONTENT,
-          baseUrl: 'https://lonelycpp.github.io',
+          baseUrl: 'https://www.youtube.com',
         }}
         onMessage={handleMessage}
         onLoadEnd={() => {
@@ -741,7 +770,7 @@ export const GlobalAudioBridge: React.FC = () => {
         androidLayerType="hardware"
         userAgent={
           Platform.OS === 'android'
-            ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
+            ? 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'
             : undefined
         }
         style={styles.webView}
@@ -785,16 +814,16 @@ export const GlobalAudioBridge: React.FC = () => {
 const styles = StyleSheet.create({
   hiddenContainer: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 64,
-    height: 64,
-    opacity: 0.001,
+    bottom: -300,
+    right: -300,
+    width: 320,
+    height: 240,
+    opacity: 0.01,
     zIndex: -999,
   },
   webView: {
-    width: 64,
-    height: 64,
+    width: 320,
+    height: 240,
     backgroundColor: '#000',
   },
 });

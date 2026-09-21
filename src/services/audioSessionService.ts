@@ -1,7 +1,31 @@
 import { NativeModules, Platform } from 'react-native';
 import TrackPlayer, { Event } from 'react-native-track-player';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { Track } from '../store/useAudioStore';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+
+// Valid 310-byte silent MP3 frame in Base64 (0ms latency, zero cellular data, works offline/airplane mode)
+const SILENT_MP3_BASE64 =
+  '//PAxAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//PAxAAM4AGkAW4AABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg';
+
+let _cachedSilentAudioUri: string | null = null;
+
+export const getOrGenerateSilentAudioUri = async (): Promise<string> => {
+  if (_cachedSilentAudioUri) return _cachedSilentAudioUri;
+  try {
+    const silentPath = `${FileSystem.documentDirectory}a7_silent_loop.mp3`;
+    const info = await FileSystem.getInfoAsync(silentPath);
+    if (!info.exists || ((info as any).size || 0) < 100) {
+      await FileSystem.writeAsStringAsync(silentPath, SILENT_MP3_BASE64, {
+        encoding: FileSystem.EncodingType?.Base64 || 'base64',
+      });
+    }
+    _cachedSilentAudioUri = silentPath;
+    return silentPath;
+  } catch (e) {
+    return `data:audio/mp3;base64,${SILENT_MP3_BASE64}`;
+  }
+};
 
 /**
  * 🎵 AudioSessionService
@@ -145,10 +169,10 @@ export const setupAudioInterruptionListeners = (onInterrupt?: () => void): void 
 
   try {
     TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
-      // event.paused: Audio focus lost (phone call or headphones disconnected)
-      // event.permanent: Audio focus permanently taken by another app
-      if (event.paused || event.permanent) {
-        console.log('[AudioSessionService] Audio interrupted / headphones disconnected. Pausing playback.');
+      // Only pause if permanent focus loss (e.g., incoming phone call, alarm, or other audio app taking exclusive focus)
+      // Ignore transient ducking or volume changes during track start/setup!
+      if (event.permanent) {
+        console.log('[AudioSessionService] Permanent audio focus loss. Pausing playback.');
         if (_interruptionCallback) {
           _interruptionCallback();
         } else {

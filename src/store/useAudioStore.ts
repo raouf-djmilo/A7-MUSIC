@@ -12,7 +12,7 @@ import {
   startListeningHeartbeat, 
   stopListeningHeartbeat 
 } from '../services/listeningTimeService';
-import { configureAudioSession, updateNowPlayingLockScreen } from '../services/audioSessionService';
+import { configureAudioSession, updateNowPlayingLockScreen, getOrGenerateSilentAudioUri } from '../services/audioSessionService';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
@@ -139,13 +139,16 @@ export interface AudioState {
 
 let lastNavTimestamp = 0;
 const NAV_THROTTLE_MS = 300;
-let lastUserToggleTimestamp = 0;
+let lastUserToggleTimestamp = Date.now();
 let lastReportedPlaybackSec = 0;
 let isAudioLoadingMutex = false;
 let lastTrackRequestTimestamp = 0;
 let loadingSafetyTimer: any = null;
 
 export const getLastUserToggleTimestamp = () => lastUserToggleTimestamp;
+export const setLastUserToggleTimestamp = (ts: number = Date.now()) => {
+  lastUserToggleTimestamp = ts;
+};
 
 export const useAudioStore = create<AudioState>((set, get) => ({
   currentTrack: null,
@@ -532,14 +535,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         if (NativeModules.TrackPlayerModule) {
           try {
             await TrackPlayer.reset();
+            const fallbackSilentUri = await getOrGenerateSilentAudioUri();
             await TrackPlayer.add({
               id: track.videoId || 'unknown',
-              url: streamUrl || 'https://lonelycpp.github.io/assets/silence.mp3',
+              url: streamUrl || fallbackSilentUri,
               title: finalTitle,
               artist: finalArtist,
               artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
               duration: totalDurationSec,
             });
+            await TrackPlayer.setRepeatMode(1);
             await TrackPlayer.play();
           } catch (tpErr) {
             // Native TrackPlayer fallback is non-blocking
@@ -604,6 +609,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     // ── 300ms Command Throttling Guard ──
     if (now - lastNavTimestamp < NAV_THROTTLE_MS) return;
     lastNavTimestamp = now;
+    lastUserToggleTimestamp = now;
 
     const { queue, currentIndex, isShuffle, shuffledIndices, repeatMode, currentTrack, positionMillis, durationMillis } = get();
     if (queue.length === 0) return;
@@ -670,6 +676,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     // ── 250ms Command Throttling Guard ──
     if (now - lastNavTimestamp < 250) return;
     lastNavTimestamp = now;
+    lastUserToggleTimestamp = now;
 
     const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices, repeatMode } = get();
     if (queue.length === 0) return;
@@ -851,6 +858,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   seekTo: async (position) => {
+    lastUserToggleTimestamp = Date.now();
     const validPos = Math.max(0, position);
     set({ 
       positionMillis: validPos,

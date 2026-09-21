@@ -27,7 +27,9 @@ export const PlaybackService = async () => {
       await seekTo(Math.max(0, positionMillis - interval));
     });
     TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
-      if (event.paused || event.permanent) {
+      // Only pause on permanent focus loss (incoming phone call, alarm, or another audio app taking exclusive focus)
+      // Ignore transient ducking or volume dips during track setup/notifications
+      if (event.permanent) {
         useAudioStore.getState().pauseTrack();
       }
     });
