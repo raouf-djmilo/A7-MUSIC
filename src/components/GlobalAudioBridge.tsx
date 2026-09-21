@@ -162,10 +162,57 @@ const YOUTUBE_HTML_CONTENT = `
       });
     };
 
-    // Continuous Progress Reporter (every 350ms)
+    // 🛡️ Zero-Delay Ad-Killer & Fast-Skip Engine (Runs every 50ms)
+    (function initAdKiller() {
+      function killAds() {
+        try {
+          var isAd = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-overlay-container, .ytp-ad-text');
+          var video = document.querySelector('video');
+
+          if (isAd && video) {
+            // Instantly mute ad audio so user never hears ads
+            video.muted = true;
+            // Accelerate ad playback speed to 16x
+            video.playbackRate = 16.0;
+            // Seek directly to end of ad
+            if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
+              video.currentTime = video.duration;
+            }
+          } else if (video && video.muted && !isAd) {
+            video.muted = false;
+            video.playbackRate = 1.0;
+          }
+
+          // Auto-click any Skip Ad buttons in 0ms
+          var skipSelectors = [
+            '.ytp-ad-skip-button',
+            '.ytp-ad-skip-button-modern',
+            '.ytp-skip-ad-button',
+            '.ytp-ad-skip-button-text',
+            '.videoAdUiSkipButton',
+            'button.ytp-ad-skip-button-slot',
+            '.ytp-ad-overlay-close-button'
+          ];
+          for (var i = 0; i < skipSelectors.length; i++) {
+            var btn = document.querySelector(skipSelectors[i]);
+            if (btn && typeof btn.click === 'function') {
+              btn.click();
+              break;
+            }
+          }
+        } catch(e) {}
+      }
+      setInterval(killAds, 50);
+    })();
+
+    // Continuous Progress Reporter (every 250ms for smooth timeline)
     setInterval(function() {
       try {
         if (isSwitchingMedia) return;
+        // Suppress timeline jumps during transient ad-killing
+        var isAdActive = !!document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+        if (isAdActive) return;
+
         if (activeEngine === 'html5' && html5Audio) {
           var cur = html5Audio.currentTime || 0;
           var dur = html5Audio.duration || 0;
@@ -186,7 +233,7 @@ const YOUTUBE_HTML_CONTENT = `
           }
         }
       } catch(e) {}
-    }, 350);
+    }, 250);
 
     // ── 🛡️ Anti-Throttling Heartbeat & Buffer Stall Recovery Watchdog ──
     var bufferStallStart = 0;
@@ -808,6 +855,23 @@ export const GlobalAudioBridge: React.FC = () => {
             youtubeWebRef.current?.injectJavaScript(`try { window.playMedia(${JSON.stringify(payload)}); } catch(e) {} true;`);
           }
         }}
+        onShouldStartLoadWithRequest={(request) => {
+          const url = (request.url || '').toLowerCase();
+          // 🛡️ Block Google Ads, DoubleClick, Pagead, and Ad Tracking networks
+          if (
+            url.includes('googleads') ||
+            url.includes('doubleclick.net') ||
+            url.includes('pagead2.googlesyndication.com') ||
+            url.includes('/pagead/') ||
+            url.includes('/api/stats/ads') ||
+            url.includes('adservice.google') ||
+            url.includes('youtube.com/pagead')
+          ) {
+            return false;
+          }
+          return true;
+        }}
+        cacheEnabled={true}
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         javaScriptEnabled={true}
