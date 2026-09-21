@@ -17,6 +17,7 @@ import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
+import { nativeAudioService } from '../services/nativeAudioService';
 
 const emitStatus = (userId: string | null, track: any, isPlaying: boolean) => {
   if (!userId) return;
@@ -493,14 +494,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Reset fallback lock for new track
       fallbackInProgressVideoId = null;
 
-      // If playing an offline local file, use nativeAudioService (expo-av) directly
+      // If playing an offline local file, use nativeAudioService directly
       if (isOffline && streamUrl) {
-        const { nativeAudioService } = require('../services/nativeAudioService');
-        nativeAudioService.play(streamUrl, initialPosition).catch((e: any) => {
+        nativeAudioService.play(streamUrl, initialPosition, {
+          title: finalTrack.title,
+          artist: finalTrack.artist,
+          artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+        }).catch((e: any) => {
           console.warn('[AudioStore] nativeAudioService play error:', e);
         });
       } else {
-        const { nativeAudioService } = require('../services/nativeAudioService');
         nativeAudioService.stop().catch(() => {});
       }
 
@@ -847,7 +850,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (activeEngine === 'native') {
-      const { nativeAudioService } = require('../services/nativeAudioService');
       if (nextIsPlaying) {
         nativeAudioService.resume().catch(() => {});
       } else {
@@ -883,7 +885,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     const { activeEngine } = get();
     if (activeEngine === 'native') {
-      const { nativeAudioService } = require('../services/nativeAudioService');
       nativeAudioService.pause().catch(() => {});
     }
     set({ 
@@ -903,7 +904,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     const { activeEngine } = get();
     if (activeEngine === 'native') {
-      const { nativeAudioService } = require('../services/nativeAudioService');
       nativeAudioService.resume().catch(() => {});
     }
     set({ 
@@ -922,7 +922,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const validPos = Math.max(0, position);
     const { activeEngine } = get();
     if (activeEngine === 'native') {
-      const { nativeAudioService } = require('../services/nativeAudioService');
       nativeAudioService.seekTo(validPos).catch(() => {});
     }
     set({ 
@@ -1033,9 +1032,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           },
         });
 
-        // 2. Play directly via expo-av hardware engine (Audio.Sound)
-        const { nativeAudioService } = require('../services/nativeAudioService');
-        await nativeAudioService.play(streamUrl, 0);
+        // 2. Play directly via native hardware engine (expo-video / AVPlayer / ExoPlayer)
+        await nativeAudioService.play(streamUrl, 0, {
+          title: targetTrack.title || 'Track',
+          artist: targetTrack.artist || 'Artist',
+          artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
+        });
 
         // 3. Keep TrackPlayer in sync for Lock Screen / Control Center metadata if native module exists
         if (NativeModules.TrackPlayerModule) {
@@ -1085,7 +1087,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     flushListeningSecondsToSupabase();
     fallbackInProgressVideoId = null;
     try {
-      const { nativeAudioService } = require('../services/nativeAudioService');
       nativeAudioService.stop().catch(() => {});
     } catch (e) {}
     set({ 
