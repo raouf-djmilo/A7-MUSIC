@@ -6461,3 +6461,537 @@
 {"_e":"metro:bundling:started","_t":1790024895224,"id":"o","platform":"ios","environment":null,"entry":"index.ts"}
 {"_e":"metro:bundling:progress","_t":1790024895224,"id":"o","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:done","_t":1790024895388,"id":"o","total":1,"ms":163.9124}
+{"_e":"metro:client_log","_t":1790024926150,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790024926151,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790024934829,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024935178,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024935179,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024957139,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790024957205,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790024957270,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790024961232,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790024986000,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790025041390,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790025041683,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790025041683,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790025070871,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:bundling:started","_t":1790025204332,"id":"p","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025204332,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025204450,"id":"p","total":1,"ms":117.7213}
+{"_e":"metro:client_log","_t":1790025206045,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025206045,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790025206046,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790025206306,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790025233708,"id":"q","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025233708,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025233809,"id":"q","total":1,"ms":100.8879}
+{"_e":"metro:client_log","_t":1790025245095,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025245104,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025245104,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790025245104,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790025245104,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790025245105,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025245105,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790025245105,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790025245105,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790025245105,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790025292255,"id":"r","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025292255,"id":"r","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025292389,"id":"r","total":1,"ms":134.3238}
+{"_e":"metro:client_log","_t":1790025293247,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025293247,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790025293247,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790025293980,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790025317475,"id":"s","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025317475,"id":"s","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025317603,"id":"s","total":1,"ms":127.743}
+{"_e":"metro:client_log","_t":1790025328412,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790025328427,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790025333235,"id":"t","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025333235,"id":"t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025333358,"id":"t","total":1,"ms":122.8289}
+{"_e":"metro:client_log","_t":1790025334230,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025334231,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790025334231,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790025334333,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790025364324,"id":"u","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025364324,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025364443,"id":"u","total":1,"ms":119.0112}
+{"_e":"metro:client_log","_t":1790025371849,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790025371869,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025418977,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025419053,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:bundling:started","_t":1790025452110,"id":"x","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790025452110,"id":"x","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790025452247,"id":"x","total":1,"ms":136.6224}
+{"_e":"metro:client_log","_t":1790025461273,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025461458,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790025461525,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790025461607,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790025466886,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025466962,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025474883,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025474934,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025665925,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025806028,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025806029,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"metro:client_log","_t":1790025860665,"level":"error","data":["[Error: Cannot find native module 'ExponentAV']"]}
+{"_e":"metro:client_log","_t":1790025860665,"level":"warn","data":["[AudioStore] Audio playback safely caught error:","[TypeError: Cannot read property 'nativeAudioService' of undefined]"]}
+{"_e":"root:init","_t":1790025956299,"format":"v0-jsonl","version":"57.0.25"}
+{"_e":"env:mode","_t":1790025956301,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790025956307,"mode":"development","files":["../..\\..\\.env.local"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoc3BmY3hkcmdqb3F2Ymtkd3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzYwNzYsImV4cCI6MjEwNTE1MjA3Nn0.jTw0gSAeFEROacEKEKawyfCC6ZHbpIY6FQUEdvdvblM","EXPO_PUBLIC_SUPABASE_KEY":"sb_publishable_89-kHm3KgJCzS4DAT3Bi-w_-Couo9ac","EXPO_PUBLIC_SUPABASE_URL":"https://shspfcxdrgjoqvbkdwzz.supabase.co"}}
+{"_e":"devserver:start","_t":1790025957653,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790025958931,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790025959824,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790026028471,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1790026063136,"id":"2","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790026063138,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790026063152,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790026063255,"id":"2","progress":0.0127471383975026,"total":62,"current":7}
+{"_e":"metro:bundling:progress","_t":1790026063355,"id":"2","progress":0.016649323621227886,"total":62,"current":8}
+{"_e":"metro:bundling:progress","_t":1790026063460,"id":"2","progress":0.016649323621227886,"total":195,"current":18}
+{"_e":"metro:bundling:progress","_t":1790026063562,"id":"2","progress":0.030301783264746227,"total":270,"current":47}
+{"_e":"metro:bundling:progress","_t":1790026063669,"id":"2","progress":0.03973898927762827,"total":306,"current":61}
+{"_e":"metro:bundling:progress","_t":1790026063939,"id":"2","progress":0.041052586611986845,"total":306,"current":62}
+{"_e":"metro:bundling:progress","_t":1790026064040,"id":"2","progress":0.08761599999999999,"total":375,"current":111}
+{"_e":"metro:bundling:progress","_t":1790026064143,"id":"2","progress":0.17777485392940853,"total":453,"current":191}
+{"_e":"metro:bundling:progress","_t":1790026064258,"id":"2","progress":0.17777485392940853,"total":583,"current":240}
+{"_e":"metro:bundling:progress","_t":1790026064359,"id":"2","progress":0.24044674889631,"total":622,"current":305}
+{"_e":"metro:bundling:progress","_t":1790026064831,"id":"2","progress":0.24202603364315922,"total":622,"current":306}
+{"_e":"metro:bundling:progress","_t":1790026064933,"id":"2","progress":0.2547693678897613,"total":632,"current":319}
+{"_e":"metro:bundling:progress","_t":1790026065034,"id":"2","progress":0.2863862135118946,"total":697,"current":373}
+{"_e":"metro:bundling:progress","_t":1790026065135,"id":"2","progress":0.30687853950463423,"total":769,"current":426}
+{"_e":"metro:bundling:progress","_t":1790026065236,"id":"2","progress":0.31200007297927235,"total":811,"current":453}
+{"_e":"metro:bundling:progress","_t":1790026065337,"id":"2","progress":0.31200007297927235,"total":918,"current":512}
+{"_e":"metro:bundling:progress","_t":1790026065437,"id":"2","progress":0.31231625218540665,"total":1011,"current":565}
+{"_e":"metro:bundling:progress","_t":1790026065537,"id":"2","progress":0.3300859799896508,"total":1013,"current":582}
+{"_e":"metro:bundling:progress","_t":1790026065568,"id":"2","progress":0.33122127057044204,"total":1013,"current":583}
+{"_e":"metro:bundling:progress","_t":1790026065709,"id":"2","progress":0.35654678254437866,"total":1040,"current":621}
+{"_e":"metro:bundling:progress","_t":1790026065878,"id":"2","progress":0.3576960059171597,"total":1040,"current":622}
+{"_e":"metro:bundling:progress","_t":1790026066147,"id":"2","progress":0.35884707840236685,"total":1040,"current":623}
+{"_e":"metro:bundling:progress","_t":1790026066406,"id":"2","progress":0.35884707840236685,"total":1043,"current":623}
+{"_e":"metro:bundling:progress","_t":1790026066456,"id":"2","progress":0.35884707840236685,"total":1043,"current":624}
+{"_e":"metro:bundling:progress","_t":1790026066557,"id":"2","progress":0.378524370510346,"total":1089,"current":670}
+{"_e":"metro:bundling:progress","_t":1790026066657,"id":"2","progress":0.4718133500339397,"total":1121,"current":770}
+{"_e":"metro:bundling:progress","_t":1790026066759,"id":"2","progress":0.4718133500339397,"total":1231,"current":825}
+{"_e":"metro:bundling:progress","_t":1790026066859,"id":"2","progress":0.5167731652699973,"total":1309,"current":941}
+{"_e":"metro:bundling:progress","_t":1790026066959,"id":"2","progress":0.5891783973381562,"total":1351,"current":1037}
+{"_e":"metro:bundling:progress","_t":1790026067152,"id":"2","progress":0.5925922679200812,"total":1351,"current":1040}
+{"_e":"metro:bundling:progress","_t":1790026067308,"id":"2","progress":0.5937324163201751,"total":1351,"current":1041}
+{"_e":"metro:bundling:progress","_t":1790026067414,"id":"2","progress":0.5951346460207977,"total":1352,"current":1043}
+{"_e":"metro:bundling:progress","_t":1790026067515,"id":"2","progress":0.6285726994634386,"total":1366,"current":1083}
+{"_e":"metro:bundling:progress","_t":1790026067615,"id":"2","progress":0.674866213134695,"total":1451,"current":1192}
+{"_e":"metro:bundling:progress","_t":1790026067715,"id":"2","progress":0.7068989316915527,"total":1501,"current":1262}
+{"_e":"metro:bundling:progress","_t":1790026067818,"id":"2","progress":0.7467821645476621,"total":1546,"current":1336}
+{"_e":"metro:bundling:progress","_t":1790026067924,"id":"2","progress":0.7467821645476621,"total":1582,"current":1351}
+{"_e":"metro:bundling:progress","_t":1790026068126,"id":"2","progress":0.7467821645476621,"total":1584,"current":1351}
+{"_e":"metro:bundling:progress","_t":1790026068344,"id":"2","progress":0.7467821645476621,"total":1584,"current":1352}
+{"_e":"metro:bundling:progress","_t":1790026068453,"id":"2","progress":0.7467821645476621,"total":1589,"current":1352}
+{"_e":"metro:bundling:progress","_t":1790026068458,"id":"2","progress":0.7467821645476621,"total":1589,"current":1353}
+{"_e":"metro:bundling:progress","_t":1790026068558,"id":"2","progress":0.7467821645476621,"total":1680,"current":1416}
+{"_e":"metro:bundling:progress","_t":1790026068658,"id":"2","progress":0.7534043287402997,"total":1765,"current":1532}
+{"_e":"metro:bundling:progress","_t":1790026068764,"id":"2","progress":0.7558116977399054,"total":1822,"current":1584}
+{"_e":"metro:bundling:progress","_t":1790026068978,"id":"2","progress":0.7567663066725627,"total":1822,"current":1585}
+{"_e":"metro:bundling:progress","_t":1790026069079,"id":"2","progress":0.7567663066725627,"total":1837,"current":1590}
+{"_e":"metro:bundling:progress","_t":1790026069199,"id":"2","progress":0.8447844888055129,"total":1867,"current":1716}
+{"_e":"metro:bundling:progress","_t":1790026069298,"id":"2","progress":0.8607396899338737,"total":1938,"current":1798}
+{"_e":"metro:bundling:progress","_t":1790026069425,"id":"2","progress":0.8748202758370613,"total":1948,"current":1822}
+{"_e":"metro:bundling:progress","_t":1790026069536,"id":"2","progress":0.8847362585532151,"total":1953,"current":1837}
+{"_e":"metro:bundling:progress","_t":1790026069636,"id":"2","progress":0.9342192402858518,"total":2003,"current":1936}
+{"_e":"metro:bundling:progress","_t":1790026069741,"id":"2","progress":0.9384765625,"total":2016,"current":1953}
+{"_e":"metro:bundling:progress","_t":1790026069857,"id":"2","progress":0.9586682898213248,"total":2059,"current":2016}
+{"_e":"metro:bundling:progress","_t":1790026069981,"id":"2","progress":0.999,"total":2074,"current":2074}
+{"_e":"metro:bundling:done","_t":1790026070168,"id":"2","total":2074,"ms":7031.3175}
+{"_e":"metro:client_log","_t":1790026079983,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026080187,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026080320,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790026080636,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790026086413,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790026086472,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026086473,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790026104482,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790026105458,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026105458,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790026115782,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790026132462,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790026150359,"level":"log","data":["[DownloadService] ✅ Cached successfully (3034.6 KB):","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_hhMlKyu3LYo.m4a"]}
+{"_e":"metro:client_log","_t":1790026150422,"level":"log","data":["[AudioStore] ⚡ Direct stream/cache acquired, launching expo-av hardware player:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_hhMlKyu3LYo.m4a"]}
+{"_e":"metro:client_log","_t":1790026150422,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_hhMlKyu3LYo.m4a"]}
+{"_e":"metro:client_log","_t":1790026150422,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026150483,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790026150592,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790026151025,"level":"warn","data":["[NativeAudioService] expo-video status error:","{\"message\": \"Failed to load the player item: The operation could not be completed\"}"]}
+{"_e":"metro:client_log","_t":1790026170817,"level":"log","data":["[DownloadService] ✅ Cached successfully (3754.0 KB):","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_vDc-bBO2DKo.m4a"]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"log","data":["[AudioStore] ⚡ Direct stream/cache acquired, launching expo-av hardware player:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_vDc-bBO2DKo.m4a"]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Library/Caches/ExponentExperienceData/@a77jmilo/myapp/temp_stream_vDc-bBO2DKo.m4a"]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790026171479,"level":"warn","data":["[NativeAudioService] expo-video status error:","{\"message\": \"Failed to load the player item: The operation could not be completed\"}"]}
+{"_e":"metro:bundling:started","_t":1790026512620,"id":"3","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790026512620,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790026512835,"id":"3","total":1,"ms":214.7901}
+{"_e":"metro:client_log","_t":1790026514465,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026514466,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790026514466,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790026514466,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790026540638,"id":"4","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790026540638,"id":"4","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790026540768,"id":"4","total":1,"ms":129.8288}
+{"_e":"metro:client_log","_t":1790026543023,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026544088,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790026544089,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790026544090,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790026549899,"id":"5","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790026549899,"id":"5","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790026550065,"id":"5","total":1,"ms":166.6262}
+{"_e":"metro:client_log","_t":1790026550683,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026550684,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790026550684,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790026550846,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790026636091,"id":"6","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790026636091,"id":"6","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790026636225,"id":"6","total":1,"ms":133.8025}
+{"_e":"metro:client_log","_t":1790026659232,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790026659981,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790026699179,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790026699184,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790026699184,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026699185,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790026699436,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790026702039,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1790026702091,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1790026702091,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790026702091,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790026702404,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:bundling:started","_t":1790027483265,"id":"9","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790027483265,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027483270,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027483662,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484022,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484122,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484223,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484322,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484424,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484530,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484635,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484736,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484835,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027484936,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485038,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485160,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485260,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485365,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485466,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485568,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485668,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485770,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485870,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027485971,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486090,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486190,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486291,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486391,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486493,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486593,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486695,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486831,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027486931,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027487033,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027487132,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790027487383,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790027487681,"id":"9","total":1,"ms":4415.9349}
+{"_e":"metro:client_log","_t":1790027615295,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790027616035,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790027616088,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790027616089,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790027792538,"level":"log","data":["[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility..."]}
+{"_e":"metro:client_log","_t":1790027804224,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790027807597,"level":"warn","data":["InteractionManager has been deprecated and will be removed in a future release. Please refactor long tasks into smaller ones, and  use 'requestIdleCallback' instead."]}
+{"_e":"metro:client_log","_t":1790027807716,"level":"warn","data":["Background location is limited in Expo Go:\nOn Android, it is not available at all.\nOn iOS, it works when running in the Simulator.\nYou can use this API, and all others, in a development build. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:client_log","_t":1790027865088,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1790027869706,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1790027869706,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790027869707,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790027869707,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:bundling:started","_t":1790028107646,"id":"a","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790028107646,"id":"a","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790028107820,"id":"a","total":1,"ms":173.8733}
+{"_e":"metro:client_log","_t":1790028112337,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790028112613,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790028112685,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790028112685,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790028112686,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790028112687,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790028123870,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","150","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790028123943,"level":"log","data":["[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790028124031,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:client_log","_t":1790028151243,"level":"warn","data":["[DownloadService] Real YouTube extraction failed:","استغرق استخراج الصوت من يوتيوب وقتاً طويلاً. يرجى المحاولة مرة أخرى."]}
+{"_e":"metro:client_log","_t":1790028151314,"level":"warn","data":["[AudioStore] Direct stream fallback failed:","استغرق استخراج الصوت من يوتيوب وقتاً طويلاً. يرجى المحاولة مرة أخرى."]}
+{"_e":"metro:client_log","_t":1790028445217,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790028445281,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790028445281,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790028445282,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790028445565,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:bundling:started","_t":1790028815881,"id":"b","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790028815881,"id":"b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790028816082,"id":"b","total":1,"ms":201.3626}
+{"_e":"metro:client_log","_t":1790028817361,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790028817361,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790028817361,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790028817631,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790029349155,"id":"c","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029349155,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029349339,"id":"c","total":1,"ms":183.8186}
+{"_e":"metro:client_log","_t":1790029363823,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029364103,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029364103,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029364103,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029364323,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029421395,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790029421447,"level":"log","data":["[NativeAudioService] ⚡ Initiating hardware audio playback for:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790029421448,"level":"log","data":["[NativeAudioService] 🚀 Initializing expo-video native engine (AVPlayer/ExoPlayer)..."]}
+{"_e":"metro:client_log","_t":1790029421448,"level":"log","data":["[NativeAudioService] ✅ expo-video hardware player running successfully"]}
+{"_e":"metro:client_log","_t":1790029421693,"level":"log","data":["[GlobalAudioBridge] 🔇 Ignored playerError code","4","because engine is already native"]}
+{"_e":"metro:bundling:started","_t":1790029547196,"id":"d","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029547196,"id":"d","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029547406,"id":"d","total":1,"ms":210.695}
+{"_e":"metro:client_log","_t":1790029548250,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029548253,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790029548253,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790029548325,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790029561431,"id":"e","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029561431,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029561624,"id":"e","total":1,"ms":193.6294}
+{"_e":"metro:client_log","_t":1790029569090,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029569363,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029569475,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029569475,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029569475,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029569475,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029569475,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029569476,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029569476,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029569476,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029569476,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029569476,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790029569706,"id":"f","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029569706,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029569878,"id":"f","total":1,"ms":172.1807}
+{"_e":"metro:client_log","_t":1790029570746,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029570747,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790029570747,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790029570857,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790029669073,"id":"g","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029669073,"id":"g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029669269,"id":"g","total":1,"ms":195.5102}
+{"_e":"metro:client_log","_t":1790029676157,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029676226,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029676276,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029676380,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029676381,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029682570,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029682573,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029695826,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029695886,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029695886,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029695887,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029725767,"level":"error","data":["[ReferenceError: Property 'updateVideoPosition' doesn't exist]"]}
+{"_e":"metro:client_log","_t":1790029740615,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029740677,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029740677,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029740677,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029740677,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029740677,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029740678,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029740678,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029740678,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029740678,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029757958,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029758026,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029758027,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029758027,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029761387,"level":"error","data":["React has detected a change in the order of Hooks called by null. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useContext                 useContext\n4. useContext                 useContext\n5. useContext                 useContext\n6. useCallback                useCallback\n7. useCallback                useCallback\n8. useSyncExternalStore       useSyncExternalStore\n9. useDebugValue              useDebugValue\n10. useCallback               useCallback\n11. useCallback               useCallback\n12. useSyncExternalStore      useSyncExternalStore\n13. useDebugValue             useDebugValue\n14. useCallback               useCallback\n15. useCallback               useCallback\n16. useSyncExternalStore      useSyncExternalStore\n17. useDebugValue             useDebugValue\n18. useCallback               useCallback\n19. useCallback               useCallback\n20. useSyncExternalStore      useSyncExternalStore\n21. useDebugValue             useDebugValue\n22. useCallback               useCallback\n23. useCallback               useCallback\n24. useSyncExternalStore      useSyncExternalStore\n25. useDebugValue             useDebugValue\n26. useCallback               useCallback\n27. useCallback               useCallback\n28. useSyncExternalStore      useSyncExternalStore\n29. useDebugValue             useDebugValue\n30. useCallback               useCallback\n31. useCallback               useCallback\n32. useSyncExternalStore      useSyncExternalStore\n33. useDebugValue             useDebugValue\n34. useCallback               useCallback\n35. useCallback               useCallback\n36. useSyncExternalStore      useSyncExternalStore\n37. useDebugValue             useDebugValue\n38. useCallback               useCallback\n39. useCallback               useCallback\n40. useSyncExternalStore      useSyncExternalStore\n41. useDebugValue             useDebugValue\n42. useCallback               useCallback\n43. useCallback               useCallback\n44. useSyncExternalStore      useSyncExternalStore\n45. useDebugValue             useDebugValue\n46. useCallback               useCallback\n47. useCallback               useCallback\n48. useSyncExternalStore      useSyncExternalStore\n49. useDebugValue             useDebugValue\n50. useCallback               useCallback\n51. useCallback               useCallback\n52. useSyncExternalStore      useSyncExternalStore\n53. useDebugValue             useDebugValue\n54. useCallback               useCallback\n55. useCallback               useCallback\n56. useSyncExternalStore      useSyncExternalStore\n57. useDebugValue             useDebugValue\n58. useCallback               useCallback\n59. useCallback               useCallback\n60. useSyncExternalStore      useSyncExternalStore\n61. useDebugValue             useDebugValue\n62. useCallback               useCallback\n63. useCallback               useCallback\n64. useSyncExternalStore      useSyncExternalStore\n65. useDebugValue             useDebugValue\n66. useCallback               useCallback\n67. useCallback               useCallback\n68. useSyncExternalStore      useSyncExternalStore\n69. useDebugValue             useDebugValue\n70. useCallback               useCallback\n71. useCallback               useCallback\n72. useSyncExternalStore      useSyncExternalStore\n73. useDebugValue             useDebugValue\n74. useCallback               useCallback\n75. useCallback               useCallback\n76. useSyncExternalStore      useSyncExternalStore\n77. useDebugValue             useDebugValue\n78. useCallback               useCallback\n79. useCallback               useCallback\n80. useSyncExternalStore      useSyncExternalStore\n81. useDebugValue             useDebugValue\n82. useCallback               useCallback\n83. useCallback               useCallback\n84. useSyncExternalStore      useSyncExternalStore\n85. useDebugValue             useDebugValue\n86. useCallback               useCallback\n87. useCallback               useCallback\n88. useSyncExternalStore      useSyncExternalStore\n89. useDebugValue             useDebugValue\n90. useRef                    useRef\n91. useCallback               useCallback\n92. useCallback               useCallback\n93. useSyncExternalStore      useSyncExternalStore\n94. useDebugValue             useDebugValue\n95. useCallback               useCallback\n96. useCallback               useCallback\n97. useSyncExternalStore      useSyncExternalStore\n98. useDebugValue             useDebugValue\n99. useCallback               useCallback\n100. useCallback              useCallback\n101. useSyncExternalStore     useSyncExternalStore\n102. useDebugValue            useDebugValue\n103. useCallback              useCallback\n104. useCallback              useCallback\n105. useState                 useState\n106. useEffect                useEffect\n107. useRef                   useRef\n108. useEffect                useEffect\n109. useState                 useState\n110. useEffect                useEffect\n111. useState                 useState\n112. useEffect                useEffect\n113. useState                 useState\n114. useEffect                useEffect\n115. useEffect                useEffect\n116. useState                 useState\n117. useCallback              useCallback\n118. useCallback              useCallback\n119. useSyncExternalStore     useSyncExternalStore\n120. useDebugValue            useDebugValue\n121. useCallback              useCallback\n122. useCallback              useCallback\n123. useSyncExternalStore     useSyncExternalStore\n124. useDebugValue            useDebugValue\n125. useMemo                  useMemo\n126. useMemo                  useMemo\n127. useMemo                  useMemo\n128. useMemo                  useMemo\n129. useMemo                  useMemo\n130. useCallback              useCallback\n131. useEffect                useEffect\n132. useCallback              useCallback\n133. useCallback              useCallback\n134. useRef                   useRef\n135. useState                 useState\n136. useEffect                useEffect\n137. useRef                   useRef\n138. useEffect                useEffect\n139. useEffect                useEffect\n140. useRef                   useRef\n141. useRef                   useRef\n142. useState                 useState\n143. useEffect                useEffect\n144. useRef                   useRef\n145. useEffect                useEffect\n146. useEffect                useEffect\n147. useRef                   useRef\n148. useMemo                  useMemo\n149. undefined                useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1790029761406,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:client_log","_t":1790029775754,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029775816,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029775816,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029775816,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029775817,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790029786054,"id":"r","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029786054,"id":"r","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029786269,"id":"r","total":1,"ms":215.0645}
+{"_e":"metro:client_log","_t":1790029791857,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029792257,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029792257,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029792442,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029792443,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029795064,"level":"error","data":["React has detected a change in the order of Hooks called by null. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useContext                 useContext\n4. useContext                 useContext\n5. useContext                 useContext\n6. useCallback                useCallback\n7. useCallback                useCallback\n8. useSyncExternalStore       useSyncExternalStore\n9. useDebugValue              useDebugValue\n10. useCallback               useCallback\n11. useCallback               useCallback\n12. useSyncExternalStore      useSyncExternalStore\n13. useDebugValue             useDebugValue\n14. useCallback               useCallback\n15. useCallback               useCallback\n16. useSyncExternalStore      useSyncExternalStore\n17. useDebugValue             useDebugValue\n18. useCallback               useCallback\n19. useCallback               useCallback\n20. useSyncExternalStore      useSyncExternalStore\n21. useDebugValue             useDebugValue\n22. useCallback               useCallback\n23. useCallback               useCallback\n24. useSyncExternalStore      useSyncExternalStore\n25. useDebugValue             useDebugValue\n26. useCallback               useCallback\n27. useCallback               useCallback\n28. useSyncExternalStore      useSyncExternalStore\n29. useDebugValue             useDebugValue\n30. useCallback               useCallback\n31. useCallback               useCallback\n32. useSyncExternalStore      useSyncExternalStore\n33. useDebugValue             useDebugValue\n34. useCallback               useCallback\n35. useCallback               useCallback\n36. useSyncExternalStore      useSyncExternalStore\n37. useDebugValue             useDebugValue\n38. useCallback               useCallback\n39. useCallback               useCallback\n40. useSyncExternalStore      useSyncExternalStore\n41. useDebugValue             useDebugValue\n42. useCallback               useCallback\n43. useCallback               useCallback\n44. useSyncExternalStore      useSyncExternalStore\n45. useDebugValue             useDebugValue\n46. useCallback               useCallback\n47. useCallback               useCallback\n48. useSyncExternalStore      useSyncExternalStore\n49. useDebugValue             useDebugValue\n50. useCallback               useCallback\n51. useCallback               useCallback\n52. useSyncExternalStore      useSyncExternalStore\n53. useDebugValue             useDebugValue\n54. useCallback               useCallback\n55. useCallback               useCallback\n56. useSyncExternalStore      useSyncExternalStore\n57. useDebugValue             useDebugValue\n58. useCallback               useCallback\n59. useCallback               useCallback\n60. useSyncExternalStore      useSyncExternalStore\n61. useDebugValue             useDebugValue\n62. useCallback               useCallback\n63. useCallback               useCallback\n64. useSyncExternalStore      useSyncExternalStore\n65. useDebugValue             useDebugValue\n66. useCallback               useCallback\n67. useCallback               useCallback\n68. useSyncExternalStore      useSyncExternalStore\n69. useDebugValue             useDebugValue\n70. useCallback               useCallback\n71. useCallback               useCallback\n72. useSyncExternalStore      useSyncExternalStore\n73. useDebugValue             useDebugValue\n74. useCallback               useCallback\n75. useCallback               useCallback\n76. useSyncExternalStore      useSyncExternalStore\n77. useDebugValue             useDebugValue\n78. useCallback               useCallback\n79. useCallback               useCallback\n80. useSyncExternalStore      useSyncExternalStore\n81. useDebugValue             useDebugValue\n82. useCallback               useCallback\n83. useCallback               useCallback\n84. useSyncExternalStore      useSyncExternalStore\n85. useDebugValue             useDebugValue\n86. useCallback               useCallback\n87. useCallback               useCallback\n88. useSyncExternalStore      useSyncExternalStore\n89. useDebugValue             useDebugValue\n90. useRef                    useRef\n91. useCallback               useCallback\n92. useCallback               useCallback\n93. useSyncExternalStore      useSyncExternalStore\n94. useDebugValue             useDebugValue\n95. useCallback               useCallback\n96. useCallback               useCallback\n97. useSyncExternalStore      useSyncExternalStore\n98. useDebugValue             useDebugValue\n99. useCallback               useCallback\n100. useCallback              useCallback\n101. useSyncExternalStore     useSyncExternalStore\n102. useDebugValue            useDebugValue\n103. useCallback              useCallback\n104. useCallback              useCallback\n105. useState                 useState\n106. useEffect                useEffect\n107. useRef                   useRef\n108. useEffect                useEffect\n109. useState                 useState\n110. useEffect                useEffect\n111. useState                 useState\n112. useEffect                useEffect\n113. useState                 useState\n114. useEffect                useEffect\n115. useEffect                useEffect\n116. useState                 useState\n117. useCallback              useCallback\n118. useCallback              useCallback\n119. useSyncExternalStore     useSyncExternalStore\n120. useDebugValue            useDebugValue\n121. useCallback              useCallback\n122. useCallback              useCallback\n123. useSyncExternalStore     useSyncExternalStore\n124. useDebugValue            useDebugValue\n125. useMemo                  useMemo\n126. useMemo                  useMemo\n127. useMemo                  useMemo\n128. useMemo                  useMemo\n129. useMemo                  useMemo\n130. useCallback              useCallback\n131. useEffect                useEffect\n132. useCallback              useCallback\n133. useCallback              useCallback\n134. useRef                   useRef\n135. useState                 useState\n136. useEffect                useEffect\n137. useRef                   useRef\n138. useEffect                useEffect\n139. useEffect                useEffect\n140. useRef                   useRef\n141. useRef                   useRef\n142. useState                 useState\n143. useEffect                useEffect\n144. useRef                   useRef\n145. useEffect                useEffect\n146. useEffect                useEffect\n147. useRef                   useRef\n148. useMemo                  useMemo\n149. undefined                useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1790029795117,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:client_log","_t":1790029805292,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029805347,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029805348,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:bundling:started","_t":1790029837204,"id":"10","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029837204,"id":"10","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029837373,"id":"10","total":1,"ms":168.6116}
+{"_e":"metro:client_log","_t":1790029842131,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029842280,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029842387,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029842447,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029842448,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029842448,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029842448,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029949383,"level":"error","data":["React has detected a change in the order of Hooks called by null. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useContext                 useContext\n4. useContext                 useContext\n5. useContext                 useContext\n6. useCallback                useCallback\n7. useCallback                useCallback\n8. useSyncExternalStore       useSyncExternalStore\n9. useDebugValue              useDebugValue\n10. useCallback               useCallback\n11. useCallback               useCallback\n12. useSyncExternalStore      useSyncExternalStore\n13. useDebugValue             useDebugValue\n14. useCallback               useCallback\n15. useCallback               useCallback\n16. useSyncExternalStore      useSyncExternalStore\n17. useDebugValue             useDebugValue\n18. useCallback               useCallback\n19. useCallback               useCallback\n20. useSyncExternalStore      useSyncExternalStore\n21. useDebugValue             useDebugValue\n22. useCallback               useCallback\n23. useCallback               useCallback\n24. useSyncExternalStore      useSyncExternalStore\n25. useDebugValue             useDebugValue\n26. useCallback               useCallback\n27. useCallback               useCallback\n28. useSyncExternalStore      useSyncExternalStore\n29. useDebugValue             useDebugValue\n30. useCallback               useCallback\n31. useCallback               useCallback\n32. useSyncExternalStore      useSyncExternalStore\n33. useDebugValue             useDebugValue\n34. useCallback               useCallback\n35. useCallback               useCallback\n36. useSyncExternalStore      useSyncExternalStore\n37. useDebugValue             useDebugValue\n38. useCallback               useCallback\n39. useCallback               useCallback\n40. useSyncExternalStore      useSyncExternalStore\n41. useDebugValue             useDebugValue\n42. useCallback               useCallback\n43. useCallback               useCallback\n44. useSyncExternalStore      useSyncExternalStore\n45. useDebugValue             useDebugValue\n46. useCallback               useCallback\n47. useCallback               useCallback\n48. useSyncExternalStore      useSyncExternalStore\n49. useDebugValue             useDebugValue\n50. useCallback               useCallback\n51. useCallback               useCallback\n52. useSyncExternalStore      useSyncExternalStore\n53. useDebugValue             useDebugValue\n54. useCallback               useCallback\n55. useCallback               useCallback\n56. useSyncExternalStore      useSyncExternalStore\n57. useDebugValue             useDebugValue\n58. useCallback               useCallback\n59. useCallback               useCallback\n60. useSyncExternalStore      useSyncExternalStore\n61. useDebugValue             useDebugValue\n62. useCallback               useCallback\n63. useCallback               useCallback\n64. useSyncExternalStore      useSyncExternalStore\n65. useDebugValue             useDebugValue\n66. useCallback               useCallback\n67. useCallback               useCallback\n68. useSyncExternalStore      useSyncExternalStore\n69. useDebugValue             useDebugValue\n70. useCallback               useCallback\n71. useCallback               useCallback\n72. useSyncExternalStore      useSyncExternalStore\n73. useDebugValue             useDebugValue\n74. useCallback               useCallback\n75. useCallback               useCallback\n76. useSyncExternalStore      useSyncExternalStore\n77. useDebugValue             useDebugValue\n78. useCallback               useCallback\n79. useCallback               useCallback\n80. useSyncExternalStore      useSyncExternalStore\n81. useDebugValue             useDebugValue\n82. useCallback               useCallback\n83. useCallback               useCallback\n84. useSyncExternalStore      useSyncExternalStore\n85. useDebugValue             useDebugValue\n86. useCallback               useCallback\n87. useCallback               useCallback\n88. useSyncExternalStore      useSyncExternalStore\n89. useDebugValue             useDebugValue\n90. useCallback               useCallback\n91. useCallback               useCallback\n92. useSyncExternalStore      useSyncExternalStore\n93. useDebugValue             useDebugValue\n94. useRef                    useRef\n95. useCallback               useCallback\n96. useCallback               useCallback\n97. useSyncExternalStore      useSyncExternalStore\n98. useDebugValue             useDebugValue\n99. useCallback               useCallback\n100. useCallback              useCallback\n101. useSyncExternalStore     useSyncExternalStore\n102. useDebugValue            useDebugValue\n103. useCallback              useCallback\n104. useCallback              useCallback\n105. useSyncExternalStore     useSyncExternalStore\n106. useDebugValue            useDebugValue\n107. useCallback              useCallback\n108. useCallback              useCallback\n109. useState                 useState\n110. useEffect                useEffect\n111. useRef                   useRef\n112. useEffect                useEffect\n113. useState                 useState\n114. useEffect                useEffect\n115. useState                 useState\n116. useEffect                useEffect\n117. useState                 useState\n118. useEffect                useEffect\n119. useEffect                useEffect\n120. useState                 useState\n121. useCallback              useCallback\n122. useCallback              useCallback\n123. useSyncExternalStore     useSyncExternalStore\n124. useDebugValue            useDebugValue\n125. useCallback              useCallback\n126. useCallback              useCallback\n127. useSyncExternalStore     useSyncExternalStore\n128. useDebugValue            useDebugValue\n129. useMemo                  useMemo\n130. useMemo                  useMemo\n131. useMemo                  useMemo\n132. useMemo                  useMemo\n133. useMemo                  useMemo\n134. useCallback              useCallback\n135. useEffect                useEffect\n136. useCallback              useCallback\n137. useCallback              useCallback\n138. useRef                   useRef\n139. useState                 useState\n140. useEffect                useEffect\n141. useRef                   useRef\n142. useEffect                useEffect\n143. useEffect                useEffect\n144. useRef                   useRef\n145. useRef                   useRef\n146. useState                 useState\n147. useEffect                useEffect\n148. useRef                   useRef\n149. useEffect                useEffect\n150. useEffect                useEffect\n151. useRef                   useRef\n152. useMemo                  useMemo\n153. undefined                useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1790029949394,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:bundling:started","_t":1790029956695,"id":"17","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790029956695,"id":"17","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790029956885,"id":"17","total":1,"ms":189.2151}
+{"_e":"metro:client_log","_t":1790029963589,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029963736,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790029963804,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790029963872,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790029963872,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790029963872,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790029963873,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790030000719,"level":"error","data":["React has detected a change in the order of Hooks called by null. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks\n\n   Previous render            Next render\n   ------------------------------------------------------\n1. useContext                 useContext\n2. useContext                 useContext\n3. useContext                 useContext\n4. useContext                 useContext\n5. useContext                 useContext\n6. useCallback                useCallback\n7. useCallback                useCallback\n8. useSyncExternalStore       useSyncExternalStore\n9. useDebugValue              useDebugValue\n10. useCallback               useCallback\n11. useCallback               useCallback\n12. useSyncExternalStore      useSyncExternalStore\n13. useDebugValue             useDebugValue\n14. useCallback               useCallback\n15. useCallback               useCallback\n16. useSyncExternalStore      useSyncExternalStore\n17. useDebugValue             useDebugValue\n18. useCallback               useCallback\n19. useCallback               useCallback\n20. useSyncExternalStore      useSyncExternalStore\n21. useDebugValue             useDebugValue\n22. useCallback               useCallback\n23. useCallback               useCallback\n24. useSyncExternalStore      useSyncExternalStore\n25. useDebugValue             useDebugValue\n26. useCallback               useCallback\n27. useCallback               useCallback\n28. useSyncExternalStore      useSyncExternalStore\n29. useDebugValue             useDebugValue\n30. useCallback               useCallback\n31. useCallback               useCallback\n32. useSyncExternalStore      useSyncExternalStore\n33. useDebugValue             useDebugValue\n34. useCallback               useCallback\n35. useCallback               useCallback\n36. useSyncExternalStore      useSyncExternalStore\n37. useDebugValue             useDebugValue\n38. useCallback               useCallback\n39. useCallback               useCallback\n40. useSyncExternalStore      useSyncExternalStore\n41. useDebugValue             useDebugValue\n42. useCallback               useCallback\n43. useCallback               useCallback\n44. useSyncExternalStore      useSyncExternalStore\n45. useDebugValue             useDebugValue\n46. useCallback               useCallback\n47. useCallback               useCallback\n48. useSyncExternalStore      useSyncExternalStore\n49. useDebugValue             useDebugValue\n50. useCallback               useCallback\n51. useCallback               useCallback\n52. useSyncExternalStore      useSyncExternalStore\n53. useDebugValue             useDebugValue\n54. useCallback               useCallback\n55. useCallback               useCallback\n56. useSyncExternalStore      useSyncExternalStore\n57. useDebugValue             useDebugValue\n58. useCallback               useCallback\n59. useCallback               useCallback\n60. useSyncExternalStore      useSyncExternalStore\n61. useDebugValue             useDebugValue\n62. useCallback               useCallback\n63. useCallback               useCallback\n64. useSyncExternalStore      useSyncExternalStore\n65. useDebugValue             useDebugValue\n66. useCallback               useCallback\n67. useCallback               useCallback\n68. useSyncExternalStore      useSyncExternalStore\n69. useDebugValue             useDebugValue\n70. useCallback               useCallback\n71. useCallback               useCallback\n72. useSyncExternalStore      useSyncExternalStore\n73. useDebugValue             useDebugValue\n74. useCallback               useCallback\n75. useCallback               useCallback\n76. useSyncExternalStore      useSyncExternalStore\n77. useDebugValue             useDebugValue\n78. useCallback               useCallback\n79. useCallback               useCallback\n80. useSyncExternalStore      useSyncExternalStore\n81. useDebugValue             useDebugValue\n82. useCallback               useCallback\n83. useCallback               useCallback\n84. useSyncExternalStore      useSyncExternalStore\n85. useDebugValue             useDebugValue\n86. useCallback               useCallback\n87. useCallback               useCallback\n88. useSyncExternalStore      useSyncExternalStore\n89. useDebugValue             useDebugValue\n90. useCallback               useCallback\n91. useCallback               useCallback\n92. useSyncExternalStore      useSyncExternalStore\n93. useDebugValue             useDebugValue\n94. useRef                    useRef\n95. useCallback               useCallback\n96. useCallback               useCallback\n97. useSyncExternalStore      useSyncExternalStore\n98. useDebugValue             useDebugValue\n99. useCallback               useCallback\n100. useCallback              useCallback\n101. useSyncExternalStore     useSyncExternalStore\n102. useDebugValue            useDebugValue\n103. useCallback              useCallback\n104. useCallback              useCallback\n105. useSyncExternalStore     useSyncExternalStore\n106. useDebugValue            useDebugValue\n107. useCallback              useCallback\n108. useCallback              useCallback\n109. useState                 useState\n110. useEffect                useEffect\n111. useRef                   useRef\n112. useEffect                useEffect\n113. useState                 useState\n114. useEffect                useEffect\n115. useState                 useState\n116. useEffect                useEffect\n117. useState                 useState\n118. useEffect                useEffect\n119. useEffect                useEffect\n120. useState                 useState\n121. useCallback              useCallback\n122. useCallback              useCallback\n123. useSyncExternalStore     useSyncExternalStore\n124. useDebugValue            useDebugValue\n125. useCallback              useCallback\n126. useCallback              useCallback\n127. useSyncExternalStore     useSyncExternalStore\n128. useDebugValue            useDebugValue\n129. useMemo                  useMemo\n130. useMemo                  useMemo\n131. useMemo                  useMemo\n132. useMemo                  useMemo\n133. useMemo                  useMemo\n134. useCallback              useCallback\n135. useEffect                useEffect\n136. useCallback              useCallback\n137. useCallback              useCallback\n138. useRef                   useRef\n139. useState                 useState\n140. useEffect                useEffect\n141. useRef                   useRef\n142. useEffect                useEffect\n143. useEffect                useEffect\n144. useRef                   useRef\n145. useRef                   useRef\n146. useState                 useState\n147. useEffect                useEffect\n148. useRef                   useRef\n149. useEffect                useEffect\n150. useEffect                useEffect\n151. useRef                   useRef\n152. useMemo                  useMemo\n153. undefined                useState\n   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"]}
+{"_e":"metro:client_log","_t":1790030000787,"level":"error","data":["[Error: Rendered more hooks than during the previous render.]"]}
+{"_e":"metro:client_log","_t":1790030096643,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790030096699,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790030096700,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}

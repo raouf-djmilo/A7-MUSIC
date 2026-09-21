@@ -583,25 +583,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const tint = useMemo(() => getTrackAtmosphericTint(currentTrack, isDark), [currentTrack, isDark]);
 
-  const handleShare = async () => {
-    if (!currentTrack) return;
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await Share.share({
-        title: currentTrack.title,
-        message: `Listen to "${currentTrack.title}" by ${currentTrack.artist} on Nouble Running! https://youtube.com/watch?v=${currentTrack.videoId}`,
-      });
-    } catch (e) {}
-  };
-
-  const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
-  if (!session || !currentTrack || isMiniPlayerSuppressed || isWorkoutSummary || isAuthScreen) return null;
-
-  const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
-  const resolvedArtistAvatar = getUniversalArtistAvatar(
-    currentTrack.artistAvatar,
-    currentTrack.artist
-  );
   // Dynamic Artwork dimension respecting screen width & height (1:1 Ultra-HD square, width = SCREEN_WIDTH - 48)
   const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.38, 380);
 
@@ -626,9 +607,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     setArtworkUriIndex(0);
   }, [currentTrack?.videoId]);
 
-  const heroArtworkUrl = artworkCandidates[artworkUriIndex] || artworkCandidates[0] || getUniversalStudioArtwork(currentTrack?.thumbnail);
-  const miniArtworkUrl = getUniversalStudioArtwork(currentTrack.thumbnail);
-
   const updateVideoPosition = useCallback(() => {
     if (mediaContainerRef.current) {
       mediaContainerRef.current.measureInWindow((x, y, width, height) => {
@@ -651,6 +629,28 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       setVideoLayout(null);
     }
   }, [isPlayerModalVisible, playerMediaMode, updateVideoPosition, setVideoLayout]);
+
+  const handleShare = async () => {
+    if (!currentTrack) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await Share.share({
+        title: currentTrack.title,
+        message: `Listen to "${currentTrack.title}" by ${currentTrack.artist} on Nouble Running! https://youtube.com/watch?v=${currentTrack.videoId}`,
+      });
+    } catch (e) {}
+  };
+
+  const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
+  if (!session || !currentTrack || isMiniPlayerSuppressed || isWorkoutSummary || isAuthScreen) return null;
+
+  const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
+  const resolvedArtistAvatar = getUniversalArtistAvatar(
+    currentTrack.artistAvatar,
+    currentTrack.artist
+  );
+  const heroArtworkUrl = artworkCandidates[artworkUriIndex] || artworkCandidates[0] || getUniversalStudioArtwork(currentTrack.thumbnail);
+  const miniArtworkUrl = getUniversalStudioArtwork(currentTrack.thumbnail);
 
   return (
     <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
