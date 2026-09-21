@@ -68,7 +68,7 @@ index f7ff4ee..081997c 100644
  @interface EXVideoView : UIView <EXVideoPlayerViewControllerDelegate, AVPlayerViewControllerDelegate, EXAVObject, EXLegacyExpoViewProtocol>
  
 diff --git a/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift b/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
-index 4ddc324..ef990bf 100644
+index 4ddc324..9252868 100644
 --- a/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
 +++ b/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
 @@ -1,5 +1,7 @@
@@ -78,4 +78,13 @@ index 4ddc324..ef990bf 100644
 +import UIKit
  import ExpoModulesCore
  import AVFoundation
+ 
+@@ -14,7 +16,7 @@ public final class VideoViewModule: Module {
+ 
+     AsyncFunction("setFullscreen") { (viewTag: Int, value: Bool, promise: Promise) in
+       self.runBlockForView(viewTag) { view in
+-        view.contentView.setFullscreen(value, resolver: promise.resolver, rejecter: promise.legacyRejecter)
++        view.contentView.setFullscreen(value, resolver: promise.legacyResolver, rejecter: promise.legacyRejecter)
+       }
+     }
  
