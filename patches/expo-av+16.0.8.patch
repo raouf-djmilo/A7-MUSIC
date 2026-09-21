@@ -13,6 +13,28 @@ index d057e2d..0e1f800 100644
    }
  
    if !$ExpoUseSources&.include?(package['name']) && ENV['EXPO_USE_SOURCE'].to_i == 0 && File.exist?("#{s.name}.xcframework") && Gem::Version.new(Pod::VERSION) >= Gem::Version.new('1.10.0')
+diff --git a/node_modules/expo-av/ios/EXAV/AudioSampleCallback/EXAV+AudioSampleCallback.mm b/node_modules/expo-av/ios/EXAV/AudioSampleCallback/EXAV+AudioSampleCallback.mm
+index 3b8a6f2..192b1d5 100644
+--- a/node_modules/expo-av/ios/EXAV/AudioSampleCallback/EXAV+AudioSampleCallback.mm
++++ b/node_modules/expo-av/ios/EXAV/AudioSampleCallback/EXAV+AudioSampleCallback.mm
+@@ -5,10 +5,17 @@
+ #import <jsi/jsi.h>
+ #import <ReactCommon/RCTTurboModuleManager.h>
+ 
++#if __has_include(<EXAV/EXAV.h>)
+ #import <EXAV/EXAV.h>
+ #import <EXAV/EXAVPlayerData.h>
+ #import <EXAV/EXAudioSampleCallback.h>
+ #import <EXAV/AudioSampleCallbackWrapper.h>
++#else
++#import "EXAV.h"
++#import "EXAVPlayerData.h"
++#import "EXAudioSampleCallback.h"
++#import "AudioSampleCallbackWrapper.h"
++#endif
+ 
+ namespace jsi = facebook::jsi;
+ using CallInvoker = facebook::react::CallInvoker;
 diff --git a/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h b/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h
 new file mode 100644
 index 0000000..adc1d93
@@ -30,6 +52,103 @@ index 0000000..adc1d93
 +#elif __has_include("EXVideoView.h")
 +#import "EXVideoView.h"
 +#endif
+diff --git a/node_modules/expo-av/ios/EXAV/EXAV.h b/node_modules/expo-av/ios/EXAV/EXAV.h
+index 42a79e1..3574d0e 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAV.h
++++ b/node_modules/expo-av/ios/EXAV/EXAV.h
+@@ -7,8 +7,20 @@
+ #import <ExpoModulesCore/EXModuleRegistryConsumer.h>
+ #import <ExpoModulesCore/EXAppLifecycleListener.h>
+ #import <ExpoModulesCore/EXExportedModule.h>
++#if __has_include(<ExpoModulesCore/EXEventEmitter.h>)
+ #import <ExpoModulesCore/EXEventEmitter.h>
++#else
++@protocol EXEventEmitter <NSObject>
++- (NSArray<NSString *> *)supportedEvents;
++- (void)startObserving;
++- (void)stopObserving;
++@end
++#endif
++#if __has_include(<EXAV/EXAVObject.h>)
+ #import <EXAV/EXAVObject.h>
++#else
++#import "EXAVObject.h"
++#endif
+ 
+ typedef NS_OPTIONS(NSUInteger, EXAudioInterruptionMode)
+ {
+diff --git a/node_modules/expo-av/ios/EXAV/EXAV.m b/node_modules/expo-av/ios/EXAV/EXAV.m
+index 7153d28..304d3bb 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAV.m
++++ b/node_modules/expo-av/ios/EXAV/EXAV.m
+@@ -3,18 +3,32 @@
+ #import <AVFoundation/AVFoundation.h>
+ 
+ #import <ExpoModulesCore/EXUIManager.h>
++#if __has_include(<ExpoModulesCore/EXEventEmitterService.h>)
+ #import <ExpoModulesCore/EXEventEmitterService.h>
++#else
++@protocol EXEventEmitterService <NSObject>
++- (void)sendEventWithName:(NSString *)name body:(id)body;
++@end
++#endif
+ #import <ExpoModulesCore/EXAppLifecycleService.h>
+ #import <ExpoModulesCore/EXFileSystemInterface.h>
+ #import <ExpoModulesCore/EXPermissionsInterface.h>
+ #import <ExpoModulesCore/EXPermissionsMethodsDelegate.h>
+ #import <ExpoModulesCore/EXJavaScriptContextProvider.h>
+ 
++#if __has_include(<EXAV/EXAV.h>)
+ #import <EXAV/EXAV.h>
+ #import <EXAV/EXAVPlayerData.h>
+ #import <EXAV/EXVideoView.h>
+ #import <EXAV/EXAudioRecordingPermissionRequester.h>
+ #import <EXAV/EXAV+AudioSampleCallback.h>
++#else
++#import "EXAV.h"
++#import "EXAVPlayerData.h"
++#import "EXVideoView.h"
++#import "EXAudioRecordingPermissionRequester.h"
++#import "EXAV+AudioSampleCallback.h"
++#endif
+ #if __has_include(<EXAV/EXAV-Swift.h>)
+ #import <EXAV/EXAV-Swift.h>
+ #else
+diff --git a/node_modules/expo-av/ios/EXAV/EXAVTV.m b/node_modules/expo-av/ios/EXAV/EXAVTV.m
+index b6fccda..36e52a1 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAVTV.m
++++ b/node_modules/expo-av/ios/EXAV/EXAVTV.m
+@@ -3,17 +3,30 @@
+ #import <AVFoundation/AVFoundation.h>
+ 
+ #import <ExpoModulesCore/EXUIManager.h>
++#if __has_include(<ExpoModulesCore/EXEventEmitterService.h>)
+ #import <ExpoModulesCore/EXEventEmitterService.h>
++#else
++@protocol EXEventEmitterService <NSObject>
++- (void)sendEventWithName:(NSString *)name body:(id)body;
++@end
++#endif
+ #import <ExpoModulesCore/EXAppLifecycleService.h>
+ #import <ExpoModulesCore/EXFileSystemInterface.h>
+ #import <ExpoModulesCore/EXPermissionsInterface.h>
+ #import <ExpoModulesCore/EXPermissionsMethodsDelegate.h>
+ #import <ExpoModulesCore/EXJavaScriptContextProvider.h>
+ 
++#if __has_include(<EXAV/EXAV.h>)
+ #import <EXAV/EXAV.h>
+ #import <EXAV/EXAVPlayerData.h>
+ #import <EXAV/EXVideoView.h>
+ #import <EXAV/EXAV+AudioSampleCallback.h>
++#else
++#import "EXAV.h"
++#import "EXAVPlayerData.h"
++#import "EXVideoView.h"
++#import "EXAV+AudioSampleCallback.h"
++#endif
+ #if __has_include(<EXAV/EXAV-Swift.h>)
+ #import <EXAV/EXAV-Swift.h>
+ #else
 diff --git a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift b/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
 index bc34aba..de30d3d 100644
 --- a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
