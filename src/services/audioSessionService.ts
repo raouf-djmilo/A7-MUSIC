@@ -97,9 +97,9 @@ export const configureAudioSession = async (
       await audioModule.setAudioModeAsync({
         staysActiveInBackground: backgroundEnabled,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        interruptionModeIOS: 2, // InterruptionModeIOS.DuckOthers
-        interruptionModeAndroid: 2, // InterruptionModeAndroid.DuckOthers
+        shouldDuckAndroid: false, // 🛡️ Prevent dynamic compression & volume swings on Android
+        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix (1)
+        interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix (1)
         playThroughEarpieceAndroid: false,
       });
       isSessionConfigured = true;

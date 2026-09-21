@@ -98,11 +98,9 @@ export async function extractRealYouTubeAudioStream(
   const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
   const youtubeUrl = `https://www.youtube.com/watch?v=${cleanId}`;
 
-  // Map requested quality to real format:
-  // 'high' -> 'm4a' (Apple AAC HD ~256 kbps, crystal clear trebles & bass)
-  // 'auto' -> 'mp3' (Studio 320 kbps MP3, universal compatibility)
-  // 'medium' -> 'mp3' (Standard 128 kbps MP3, data saver)
-  const format = quality === 'high' ? 'm4a' : 'mp3';
+  // 🛡️ High-Fidelity Audio Directive: Always extract raw uncompressed Apple AAC (.m4a / itag 140)
+  // NEVER request lossy MP3 transcoding which causes digital clipping (>0dBFS) and muffled trebles.
+  const format = 'm4a';
 
   const endpoints = [
     `https://loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(youtubeUrl)}`,
@@ -338,10 +336,10 @@ class AudioDownloadService {
     const candidates: string[] = [];
     const bitrateLabel =
       quality === 'medium'
-        ? '128 kbps Saver'
+        ? '128 kbps AAC'
         : quality === 'high'
-        ? '256 kbps M4A HD'
-        : '320 kbps Studio';
+        ? '256 kbps AAC HD'
+        : 'Studio Master AAC (1:1)';
 
     // 1. Direct audio link if already present on track (excluding SoundHelix or mock links)
     if (
@@ -450,7 +448,7 @@ class AudioDownloadService {
 
       for (let i = 0; i < candidateUrls.length; i++) {
         const streamUrl = candidateUrls[i];
-        const audioExtension = streamUrl.includes('.m4a') ? 'm4a' : 'mp3';
+        const audioExtension = 'm4a';
         const audioLocalUri = `${TRACKS_DIR}${cleanId}.${audioExtension}`;
 
         updateStoreProgress({

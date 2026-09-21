@@ -585,8 +585,15 @@ export const GlobalAudioBridge: React.FC = () => {
 
       if (action.type === 'play') {
         if (isOfflineTarget && action.url) {
-          // Stop YouTube WebView player
-          youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e) {} true;');
+          // Stop YouTube WebView player & purge audio source to yield hardware DAC 100% to native engine
+          youtubeWebRef.current?.injectJavaScript(`
+            try {
+              window.stopMedia();
+              var a = document.getElementById('html5Audio');
+              if (a) { a.pause(); a.src = ''; }
+            } catch(e) {}
+            true;
+          `);
 
           // Play offline using high-performance native / local engine
           playOfflineTrack(action.url, action.position || 0);
