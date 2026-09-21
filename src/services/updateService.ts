@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { create } from 'zustand';
+import { ToastManager } from '../components/InAppToast';
 
 import {
   getInstalledAppVersion,
@@ -165,10 +166,14 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
     const cdnController = new AbortController();
     const cdnTimeout = setTimeout(() => cdnController.abort(), 8000);
 
-    const cdnResponse = await fetch(GITHUB_RAW_VERSION_URL, {
+    // 🚀 Cache-Busting: Append timestamp when forceRefresh is true to bypass Fastly CDN edge cache
+    const cdnUrl = forceRefresh ? `${GITHUB_RAW_VERSION_URL}?_t=${Date.now()}` : GITHUB_RAW_VERSION_URL;
+
+    const cdnResponse = await fetch(cdnUrl, {
       signal: cdnController.signal,
       headers: {
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
       },
     });
     clearTimeout(cdnTimeout);
@@ -485,7 +490,8 @@ export const purgeOldApkCache = async (): Promise<void> => {
 export const downloadApkWithProgress = async (
   downloadUrl: string,
   expectedBytes: number,
-  onProgress: (progress: number, writtenMB: string, totalMB: string) => void
+  onProgress: (progress: number, writtenMB: string, totalMB: string) => void,
+  onResumableCreated?: (resumable: FileSystem.DownloadResumable) => void
 ): Promise<string> => {
   // 1. Proactively purge old APK cache to prevent storage leaks
   await purgeOldApkCache();
@@ -506,6 +512,8 @@ export const downloadApkWithProgress = async (
       onProgress(progress, writtenMB, totalMB);
     }
   );
+
+  onResumableCreated?.(downloadResumable);
 
   const result = await downloadResumable.downloadAsync();
   if (!result || !result.uri) {
@@ -563,9 +571,11 @@ interface UpdateStoreState {
   totalMB: string;
   downloadedApkUri: string | null;
   downloadError: string | null;
+  activeDownloadResumable: FileSystem.DownloadResumable | null;
 
   checkUpdates: (force?: boolean) => Promise<AppUpdateInfo>;
   startApkDownload: (apkUrl: string, expectedBytes?: number) => Promise<string>;
+  cancelApkDownload: () => Promise<void>;
   installDownloadedApk: () => Promise<void>;
   resetDownloadState: () => void;
 }
@@ -581,6 +591,7 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   totalMB: '0.0',
   downloadedApkUri: null,
   downloadError: null,
+  activeDownloadResumable: null,
 
   checkUpdates: async (force = false) => {
     set({ isChecking: true });
@@ -624,6 +635,9 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
             downloadedMB: writtenMB,
             totalMB: totalMB,
           });
+        },
+        (resumable) => {
+          set({ activeDownloadResumable: resumable });
         }
       );
 
@@ -631,18 +645,64 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
         isDownloadingApk: false,
         downloadProgress: 1,
         downloadedApkUri: localUri,
+        activeDownloadResumable: null,
+      });
+
+      // 🔔 Global Background In-App Toast (Tap to Install Immediately)
+      ToastManager.show({
+        title: 'اكتمل تنزيل التحديث 🎉',
+        subtitle: `الإصدار v${get().updateInfo?.latestVersion || ''} جاهز للتثبيت • اضغط لبدء التثبيت الآن`,
+        icon: 'arrow-down-circle',
+        duration: 8000,
+        onPress: () => {
+          get().installDownloadedApk();
+        },
       });
 
       // Automatically launch package installer
       await launchApkInstall(localUri);
       return localUri;
     } catch (err: any) {
+      // If user cancelled, ignore error cleanly
+      if (!get().isDownloadingApk || err?.message?.includes('cancelled')) {
+        return '';
+      }
       set({
         isDownloadingApk: false,
+        activeDownloadResumable: null,
         downloadError: err?.message || 'فشل تنزيل ملف التحديث.',
       });
       throw err;
     }
+  },
+
+  cancelApkDownload: async () => {
+    const { activeDownloadResumable } = get();
+    if (activeDownloadResumable) {
+      try {
+        await activeDownloadResumable.pauseAsync();
+      } catch {}
+    }
+    const fileUri = `${FileSystem.cacheDirectory}A7-MUSIC-latest.apk`;
+    try {
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    } catch {}
+
+    set({
+      isDownloadingApk: false,
+      downloadProgress: 0,
+      downloadedMB: '0.0',
+      totalMB: '0.0',
+      downloadedApkUri: null,
+      activeDownloadResumable: null,
+      downloadError: null,
+    });
+
+    ToastManager.show({
+      title: 'تم إلغاء التنزيل',
+      subtitle: 'تم إيقاف تنزيل ملف التحديث ومسح الحزمة المؤقتة',
+      icon: 'close-circle-outline',
+    });
   },
 
   installDownloadedApk: async () => {
@@ -659,6 +719,7 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
       downloadedMB: '0.0',
       totalMB: '0.0',
       downloadedApkUri: null,
+      activeDownloadResumable: null,
       downloadError: null,
     });
   },

@@ -59,6 +59,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
     totalMB,
     downloadedApkUri,
     startApkDownload,
+    cancelApkDownload,
     installDownloadedApk,
     checkUpdates,
   } = useUpdateStore();
@@ -673,11 +674,14 @@ export const SoftwareUpdateScreen: React.FC = () => {
 
                 {apkAsset ? (
                   <View style={styles.buttonStack}>
-                    {/* In-app download with Progress bar */}
+                    {/* In-app download with Progress bar & Cancel button */}
                     {isDownloadingApk ? (
                       <View style={styles.progressContainer}>
                         <View style={styles.progressLabelRow}>
-                          <Text style={styles.progressStatusText}>جاري تنزيل التحديث...</Text>
+                          <View style={styles.progressTextWithSpinner}>
+                            <ActivityIndicator size="small" color="#10B981" />
+                            <Text style={styles.progressStatusText}>جاري تنزيل التحديث...</Text>
+                          </View>
                           <Text style={styles.progressPercentText}>
                             {Math.round(downloadProgress * 100)}%
                           </Text>
@@ -691,9 +695,22 @@ export const SoftwareUpdateScreen: React.FC = () => {
                             ]}
                           />
                         </View>
-                        <Text style={styles.progressBytesText}>
-                          {downloadedMB} MB من أصل {totalMB} MB
-                        </Text>
+                        <View style={styles.progressBottomRow}>
+                          <Text style={styles.progressBytesText}>
+                            {downloadedMB} MB من أصل {totalMB} MB
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.cancelDownloadBtn}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                              cancelApkDownload();
+                            }}
+                            activeOpacity={0.75}
+                          >
+                            <Ionicons name="close-circle-outline" size={14} color="#EF4444" />
+                            <Text style={styles.cancelDownloadText}>إلغاء التحميل</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ) : (
                       <TouchableOpacity
@@ -1097,6 +1114,11 @@ const createStyles = (theme: ThemeTokens) =>
       justifyContent: 'space-between',
       marginBottom: 8,
     },
+    progressTextWithSpinner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
     progressStatusText: {
       fontSize: 13,
       fontWeight: '600',
@@ -1118,11 +1140,29 @@ const createStyles = (theme: ThemeTokens) =>
       backgroundColor: '#10B981',
       borderRadius: 4,
     },
+    progressBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 8,
+    },
     progressBytesText: {
       fontSize: 11,
       color: theme.textMuted,
-      marginTop: 6,
-      textAlign: 'center',
+    },
+    cancelDownloadBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    },
+    cancelDownloadText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#EF4444',
     },
     tipCard: {
       flexDirection: 'row',
