@@ -1,5 +1,7 @@
 {
+  "latest": "1.4.8",
   "version": "1.4.8",
+  "min_supported_version": "1.4.0",
   "title": "A7 MUSIC v1.4.8",
   "publishedAt": "2026-09-21T06:10:53Z",
   "notes": "## 🎵 A7 MUSIC v1.4.8\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Apple-style Software Update Engine in Settings\n- Direct iOS IPA and Android APK downloads\n- Athletic performance and telemetry optimizations",
@@ -13,5 +15,84 @@
     "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.8/A7-MUSIC.apk",
     "size": 42000000
   },
-  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.4.8"
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.4.8",
+  "releases": [
+    {
+      "version": "1.4.8",
+      "date": "2026-09-21",
+      "type": "minor",
+      "title": "إصلاح محرك الصوت وشاشة التحديثات الذكية على طريقة Apple iOS 18",
+      "highlights": [
+        "حل جلتش التشغيل والتوقف التلقائي الفوري لموسيقى يوتيوب نهائياً",
+        "محرك صوت صامت محلي (310B) لحماية تحكم قفل الشاشة والتشغيل في الخلفية 100%",
+        "بث الصوت فائق الدقة (720p HD) بدون تخفيض الجودة من الخوادم",
+        "شاشة تحديثات البرامج التراكمية مع الخط الزمني (Cumulative Changelog Timeline)",
+        "تخفيض حجم ملف الـ APK إلى 42MB وسرعة فائقة في التنزيل عبر شبكات 4G"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.8/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.8/A7-MUSIC.ipa",
+      "apk_size": 42000000,
+      "ipa_size": 19623829
+    },
+    {
+      "version": "1.4.7",
+      "date": "2026-09-18",
+      "type": "patch",
+      "title": "استقرار الصوت في الخلفية والأوفلاين في وضع الطيران",
+      "highlights": [
+        "تشغيل الموسيقى بدون إنترنت من ذاكرة الهاتف الدائمة في وضع الطيران",
+        "حل مشكلة انقطاع الصوت أثناء تصفح شاشات الإعدادات والملف الشخصي",
+        "تحسين استهلاك البطارية أثناء جلسات الركض والتمارين الطويلة"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.7/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.7/A7-MUSIC.ipa",
+      "apk_size": 43000000,
+      "ipa_size": 19500000
+    },
+    {
+      "version": "1.4.6",
+      "date": "2026-09-14",
+      "type": "minor",
+      "title": "رادار الموسيقى الحية وتتبع المسارات الرياضية",
+      "highlights": [
+        "دمج خريطة الركض الحية مع مؤشرات GPS ومعدل وتيرة الخطوات (Cadence)",
+        "اكتشاف مسارات الراي والراب الأكثر استماعاً في الجزائر في الوقت الفعلي",
+        "تصميم Glassmorphism متكامل مستوحى من نظام iOS 18"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.6/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.6/A7-MUSIC.ipa",
+      "apk_size": 44000000,
+      "ipa_size": 19800000
+    },
+    {
+      "version": "1.4.5",
+      "date": "2026-09-08",
+      "type": "patch",
+      "title": "تحسينات الأداء وتخفيض استهلاك الذاكرة",
+      "highlights": [
+        "إصلاح التداخل الصوتي بين مشغلي الصوت وتحسين سرعة التخزين المؤقت",
+        "تسريع فتح التطبيق إلى أقل من ثانية واحدة (0ms Latency UI)",
+        "دعم كامل للوضع الليلي الداكن الفاخر (Deep AMOLED Dark Mode)"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.5/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.5/A7-MUSIC.ipa",
+      "apk_size": 45000000,
+      "ipa_size": 19900000
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-08-25",
+      "type": "major",
+      "title": "الإطلاق الكبير لمنصة A7 MUSIC الشاملة (Music + Sport)",
+      "highlights": [
+        "تكامل Spotify + Strava في تطبيق رياضي وموسيقي واحد بدون إعلانات 100%",
+        "دعم كامل لتحميل الأغاني بجودة أصلية للاستماع دون اتصال",
+        "بناء حزم مستقلة لأجهزة Android APK و iOS IPA بدون قيود المتاجر"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.0/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.0/A7-MUSIC.ipa",
+      "apk_size": 48000000,
+      "ipa_size": 20500000
+    }
+  ]
 }

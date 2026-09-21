@@ -15,12 +15,24 @@ export const GITHUB_RAW_VERSION_URL = `https://raw.githubusercontent.com/${GITHU
 
 /**
  * Returns the active native application version or falls back to APP_VERSION
+ * Application.nativeApplicationVersion is the absolute source of truth for the installed binary.
  */
 export const getInstalledAppVersion = (): string => {
   try {
     return Application?.nativeApplicationVersion || APP_VERSION;
   } catch {
     return APP_VERSION;
+  }
+};
+
+/**
+ * Returns the native build number (e.g., '14' or '1')
+ */
+export const getInstalledBuildNumber = (): string => {
+  try {
+    return Application?.nativeBuildVersion || '1';
+  } catch {
+    return '1';
   }
 };
 

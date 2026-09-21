@@ -27,8 +27,15 @@ import {
   launchApkInstall,
   getTrollStoreUrl,
   AppUpdateInfo,
+  ReleaseInfo,
+  UpdateUrgency,
 } from '../services/updateService';
-import { getInstalledAppVersion, APP_BUILD_NAME, GITHUB_RELEASES_PAGE_URL } from '../config/version';
+import {
+  getInstalledAppVersion,
+  getInstalledBuildNumber,
+  APP_BUILD_NAME,
+  GITHUB_RELEASES_PAGE_URL,
+} from '../config/version';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 
 export const SoftwareUpdateScreen: React.FC = () => {
@@ -38,6 +45,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   const currentVersion = getInstalledAppVersion();
+  const currentBuildNumber = getInstalledBuildNumber();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,6 +73,24 @@ export const SoftwareUpdateScreen: React.FC = () => {
     };
     checkTrollStoreSupport();
   }, []);
+
+  const missedReleases = updateInfo?.missedReleases || [];
+  const displayReleases: ReleaseInfo[] =
+    missedReleases.length > 0
+      ? missedReleases
+      : updateInfo?.allReleases && updateInfo.allReleases.length > 0
+      ? updateInfo.allReleases.slice(0, 5)
+      : [
+          {
+            version: updateInfo?.latestVersion || currentVersion,
+            date: updateInfo?.publishedAtFormatted || '',
+            type: 'minor',
+            title: updateInfo?.releaseTitle || 'تحديث رسمي جديد',
+            highlights: [
+              updateInfo?.releaseNotes || 'تحسينات عامة في الأداء واستقرار الصوت والسرعة.',
+            ],
+          },
+        ];
 
   const fetchUpdate = useCallback(async (forceRefresh = false) => {
     try {
@@ -273,49 +299,217 @@ export const SoftwareUpdateScreen: React.FC = () => {
             /* State A: New Update Available! (Vibrant Banner)    */
             /* ═════════════════════════════════════════════════ */
             <View style={styles.contentWrap}>
-              {/* Vibrant Hero Banner */}
-              <LinearGradient
-                colors={['rgba(252, 82, 0, 0.18)', 'rgba(0, 122, 255, 0.12)', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.heroGradientCard}
-              >
-                <View style={styles.heroTopRow}>
-                  <View style={styles.updateBadgeWrap}>
-                    <Ionicons name="sparkles" size={14} color="#FC5200" />
-                    <Text style={styles.updateBadgeText}>تحديث رئيسي متاح</Text>
+              {/* 1. Apple-Style Dual Capsule Version Diff Bar */}
+              <View style={styles.dualCapsuleContainer}>
+                <View style={styles.capsuleCurrent}>
+                  <Text style={styles.capsuleLabel}>نسختك المثبتة</Text>
+                  <View style={styles.capsuleVersionRow}>
+                    <Ionicons name="phone-portrait-outline" size={14} color={theme.textMuted} />
+                    <Text style={styles.capsuleVersionText}>v{currentVersion}</Text>
                   </View>
-                  <Text style={styles.releaseDateText}>
-                    {updateInfo?.publishedAtFormatted || ''}
+                </View>
+
+                <View style={styles.capsuleArrowCircle}>
+                  <Ionicons name="arrow-forward" size={16} color="#007AFF" />
+                </View>
+
+                <View style={styles.capsuleLatest}>
+                  <Text style={[styles.capsuleLabel, { color: '#10B981' }]}>أحدث إصدار</Text>
+                  <View style={styles.capsuleVersionRow}>
+                    <Ionicons name="sparkles" size={14} color="#10B981" />
+                    <Text style={[styles.capsuleVersionText, { color: '#10B981', fontWeight: '800' }]}>
+                      v{updateInfo?.latestVersion}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* 2. Urgency & Cumulative Diff Summary Banner */}
+              <View style={styles.diffSummaryBanner}>
+                <View
+                  style={[
+                    styles.urgencyBadge,
+                    updateInfo?.urgency === 'critical'
+                      ? styles.urgencyCritical
+                      : updateInfo?.urgency === 'recommended'
+                      ? styles.urgencyRecommended
+                      : styles.urgencyOptional,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      updateInfo?.urgency === 'critical'
+                        ? 'alert-circle'
+                        : updateInfo?.urgency === 'recommended'
+                        ? 'star'
+                        : 'information-circle'
+                    }
+                    size={13}
+                    color="#FFF"
+                  />
+                  <Text style={styles.urgencyBadgeText}>
+                    {updateInfo?.urgency === 'critical'
+                      ? 'تحديث حرج / إجباري'
+                      : updateInfo?.urgency === 'recommended'
+                      ? 'تحديث موصى به'
+                      : 'تحسينات وإصلاحات'}
                   </Text>
                 </View>
 
-                <View style={styles.versionHeroRow}>
-                  <View style={styles.versionIconCircle}>
-                    <Ionicons name="arrow-up-circle" size={32} color="#007AFF" />
-                  </View>
-                  <View style={styles.versionTitleStack}>
-                    <Text style={styles.newVersionTitle}>
-                      A7 MUSIC v{updateInfo?.latestVersion}
-                    </Text>
-                    <Text style={styles.currentVsNewText}>
-                      إصدارك الحالي: v{currentVersion} • جديد: v{updateInfo?.latestVersion}
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-
-              {/* What's New / Changelog Card */}
-              <View style={styles.sectionHeaderWrap}>
-                <Ionicons name="document-text-outline" size={18} color="#007AFF" />
-                <Text style={styles.sectionHeaderTitle}>ما الجديد في هذا التحديث؟</Text>
+                <Text style={styles.diffSummaryText}>
+                  {updateInfo && updateInfo.missedUpdatesCount > 1
+                    ? `يفصلك ${updateInfo.missedUpdatesCount} تحديثات جديدة تتضمن ميزات وتحسينات جوهرية`
+                    : 'يتوفر تحديث جديد يتضمن تحسينات هامة في الصوت والسرعة'}
+                </Text>
               </View>
 
-              <GlassCard style={styles.changelogCard} borderRadius={20}>
-                <Text style={styles.changelogBody}>
-                  {updateInfo?.releaseNotes}
+              {/* 3. ⚡ Unified 1-Click Upgrade Hero Button */}
+              {Platform.OS === 'android' ? (
+                apkAsset && (
+                  <TouchableOpacity
+                    style={styles.unifiedUpgradeBtn}
+                    onPress={() =>
+                      downloadedApkUri
+                        ? launchApkInstall(downloadedApkUri)
+                        : handleStartApkDownload(apkAsset.downloadUrl)
+                    }
+                    disabled={isDownloadingApk}
+                    activeOpacity={0.88}
+                  >
+                    <LinearGradient
+                      colors={['#FC5200', '#FF3B30']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.unifiedUpgradeGradient}
+                    >
+                      <Ionicons
+                        name={
+                          downloadedApkUri
+                            ? 'checkmark-circle'
+                            : isDownloadingApk
+                            ? 'hourglass-outline'
+                            : 'arrow-down-circle'
+                        }
+                        size={22}
+                        color="#FFF"
+                      />
+                      <Text style={styles.unifiedUpgradeText}>
+                        {isDownloadingApk
+                          ? `جاري التحميل... (${Math.round(downloadProgress * 100)}%)`
+                          : downloadedApkUri
+                          ? `مكتمل التنزيل - تثبيت v${updateInfo?.latestVersion} الآن`
+                          : `تثبيت آخر إصدار v${updateInfo?.latestVersion} بنقرة واحدة`}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )
+              ) : (
+                ipaAsset && (
+                  <TouchableOpacity
+                    style={styles.unifiedUpgradeBtn}
+                    onPress={() =>
+                      canUseTrollStore
+                        ? handleTrollStoreInstall(ipaAsset.downloadUrl)
+                        : handleDownloadIpa(ipaAsset.downloadUrl)
+                    }
+                    activeOpacity={0.88}
+                  >
+                    <LinearGradient
+                      colors={['#007AFF', '#0051B3']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.unifiedUpgradeGradient}
+                    >
+                      <Ionicons name={canUseTrollStore ? 'flash' : 'arrow-down-circle'} size={22} color="#FFF" />
+                      <Text style={styles.unifiedUpgradeText}>
+                        {canUseTrollStore
+                          ? `تثبيت فوري عبر TrollStore (v${updateInfo?.latestVersion})`
+                          : `تنزيل وتثبيت آخر إصدار v${updateInfo?.latestVersion} (IPA)`}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )
+              )}
+
+              {/* 4. Cumulative Changelog Timeline */}
+              <View style={styles.sectionHeaderWrap}>
+                <Ionicons name="git-commit-outline" size={18} color="#007AFF" />
+                <Text style={styles.sectionHeaderTitle}>
+                  سجل الميزات التراكمي ({displayReleases.length}{' '}
+                  {displayReleases.length === 1 ? 'إصدار' : 'إصدارات متوفرة'})
                 </Text>
-              </GlassCard>
+              </View>
+
+              <View style={styles.timelineContainer}>
+                {displayReleases.map((rel, index) => {
+                  const isLatest = index === 0;
+                  const isLast = index === displayReleases.length - 1;
+                  return (
+                    <View key={rel.version} style={styles.timelineItem}>
+                      {!isLast && <View style={styles.timelineLine} />}
+
+                      <View
+                        style={[
+                          styles.timelineDot,
+                          isLatest ? styles.timelineDotLatest : styles.timelineDotPrevious,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.timelineDotInner,
+                            isLatest ? styles.timelineDotInnerLatest : styles.timelineDotInnerPrevious,
+                          ]}
+                        />
+                      </View>
+
+                      <GlassCard style={styles.timelineCard} borderRadius={18}>
+                        <View style={styles.timelineCardHeader}>
+                          <View style={styles.versionTagRow}>
+                            <Text style={styles.timelineVersionText}>v{rel.version}</Text>
+                            <View
+                              style={[
+                                styles.releaseTypeBadge,
+                                rel.type === 'major'
+                                  ? styles.badgeMajor
+                                  : rel.type === 'minor'
+                                  ? styles.badgeMinor
+                                  : styles.badgePatch,
+                              ]}
+                            >
+                              <Text style={styles.releaseTypeBadgeText}>
+                                {rel.type === 'major'
+                                  ? 'رئيسي'
+                                  : rel.type === 'minor'
+                                  ? 'ميزات جديدة'
+                                  : 'تحسينات'}
+                              </Text>
+                            </View>
+                          </View>
+                          {rel.date ? <Text style={styles.timelineDateText}>{rel.date}</Text> : null}
+                        </View>
+
+                        <Text style={styles.timelineTitleText}>{rel.title}</Text>
+
+                        {rel.highlights && rel.highlights.length > 0 && (
+                          <View style={styles.highlightsList}>
+                            {rel.highlights.map((h, hIdx) => (
+                              <View key={hIdx} style={styles.highlightRow}>
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={15}
+                                  color="#10B981"
+                                  style={styles.checkIcon}
+                                />
+                                <Text style={styles.highlightText}>{h}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </GlassCard>
+                    </View>
+                  );
+                })}
+              </View>
 
               {/* ═════════════════════════════════════════════════ */}
               {/* Section 1: Apple iOS IPA Package Hub               */}
@@ -561,8 +755,25 @@ export const SoftwareUpdateScreen: React.FC = () => {
 
               <Text style={styles.upToDateTitle}>A7 MUSIC محدث لآخر إصدار</Text>
               <Text style={styles.upToDateVersionBadge}>
-                الإصدار الحالي: v{currentVersion}
+                الإصدار المثبت: v{currentVersion} (Build {currentBuildNumber})
               </Text>
+
+              <View style={styles.upToDateCapsuleRow}>
+                <View style={styles.capsuleCurrent}>
+                  <Text style={styles.capsuleLabel}>الإصدار الحالي</Text>
+                  <Text style={styles.capsuleVersionText}>v{currentVersion}</Text>
+                </View>
+                <View style={[styles.capsuleArrowCircle, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Ionicons name="checkmark" size={18} color="#10B981" />
+                </View>
+                <View style={styles.capsuleLatest}>
+                  <Text style={[styles.capsuleLabel, { color: '#10B981' }]}>حالة النظام</Text>
+                  <Text style={[styles.capsuleVersionText, { color: '#10B981', fontWeight: '800' }]}>
+                    محدث بالكامل
+                  </Text>
+                </View>
+              </View>
+
               <Text style={styles.upToDateDescription}>
                 لديك أحدث الميزات وتحسينات الأداء واستقرار الصوت وقياس المسارات الرياضية.
               </Text>
@@ -1038,5 +1249,248 @@ const createStyles = (theme: ThemeTokens) =>
       fontSize: 12,
       color: theme.textMuted,
       textDecorationLine: 'underline',
+    },
+    /* Dual Capsule Styles */
+    dualCapsuleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.surfaceSubtle,
+      borderRadius: 18,
+      padding: 10,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      gap: 8,
+    },
+    capsuleCurrent: {
+      flex: 1,
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+    },
+    capsuleArrowCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(0, 122, 255, 0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    capsuleLatest: {
+      flex: 1,
+      backgroundColor: 'rgba(16, 185, 129, 0.08)',
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(16, 185, 129, 0.25)',
+    },
+    capsuleLabel: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginBottom: 3,
+    },
+    capsuleVersionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    capsuleVersionText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    /* Urgency & Diff Summary Banner */
+    diffSummaryBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surfaceSubtle,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      gap: 10,
+    },
+    urgencyBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 10,
+      gap: 5,
+    },
+    urgencyCritical: {
+      backgroundColor: '#EF4444',
+    },
+    urgencyRecommended: {
+      backgroundColor: '#FC5200',
+    },
+    urgencyOptional: {
+      backgroundColor: '#007AFF',
+    },
+    urgencyBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFF',
+    },
+    diffSummaryText: {
+      flex: 1,
+      fontSize: 12,
+      color: theme.textSecondary,
+      lineHeight: 18,
+    },
+    /* Unified Upgrade Button */
+    unifiedUpgradeBtn: {
+      borderRadius: 16,
+      overflow: 'hidden',
+      shadowColor: '#FC5200',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    unifiedUpgradeGradient: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      gap: 10,
+    },
+    unifiedUpgradeText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#FFF',
+    },
+    /* Cumulative Changelog Timeline */
+    timelineContainer: {
+      paddingLeft: 8,
+      paddingRight: 2,
+      marginTop: 6,
+    },
+    timelineItem: {
+      position: 'relative',
+      paddingBottom: 20,
+      paddingLeft: 24,
+    },
+    timelineLine: {
+      position: 'absolute',
+      left: 7,
+      top: 18,
+      bottom: 0,
+      width: 2,
+      backgroundColor: theme.borderSubtle,
+    },
+    timelineDot: {
+      position: 'absolute',
+      left: 0,
+      top: 4,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2,
+    },
+    timelineDotLatest: {
+      backgroundColor: 'rgba(0, 122, 255, 0.25)',
+      borderWidth: 2,
+      borderColor: '#007AFF',
+    },
+    timelineDotPrevious: {
+      backgroundColor: theme.surfaceSubtle,
+      borderWidth: 2,
+      borderColor: theme.textMuted,
+    },
+    timelineDotInner: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    timelineDotInnerLatest: {
+      backgroundColor: '#007AFF',
+    },
+    timelineDotInnerPrevious: {
+      backgroundColor: theme.textMuted,
+    },
+    timelineCard: {
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+    },
+    timelineCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    versionTagRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    timelineVersionText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: theme.textPrimary,
+    },
+    releaseTypeBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+    },
+    badgeMajor: {
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    },
+    badgeMinor: {
+      backgroundColor: 'rgba(252, 82, 0, 0.15)',
+    },
+    badgePatch: {
+      backgroundColor: 'rgba(0, 122, 255, 0.15)',
+    },
+    releaseTypeBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    timelineDateText: {
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    timelineTitleText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      marginBottom: 10,
+      lineHeight: 20,
+    },
+    highlightsList: {
+      gap: 8,
+    },
+    highlightRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    checkIcon: {
+      marginTop: 2,
+    },
+    highlightText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.textSecondary,
+    },
+    upToDateCapsuleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      marginTop: 16,
+      marginBottom: 6,
+      width: '100%',
     },
   });

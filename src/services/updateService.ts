@@ -6,6 +6,7 @@ import { create } from 'zustand';
 
 import {
   getInstalledAppVersion,
+  getInstalledBuildNumber,
   compareVersions,
   sanitizeVersion,
   GITHUB_RELEASES_API_URL,
@@ -23,10 +24,30 @@ export interface ReleaseAsset {
   sizeFormatted: string;
 }
 
+export type UpdateUrgency = 'critical' | 'recommended' | 'optional';
+
+export interface ReleaseInfo {
+  version: string;
+  date: string;
+  type: 'major' | 'minor' | 'patch';
+  title: string;
+  highlights: string[];
+  apk_url?: string;
+  ipa_url?: string;
+  apk_size?: number;
+  ipa_size?: number;
+}
+
 export interface AppUpdateInfo {
   latestVersion: string;
   currentVersion: string;
+  currentBuildNumber: string;
+  minSupportedVersion: string;
   isUpdateAvailable: boolean;
+  missedUpdatesCount: number;
+  urgency: UpdateUrgency;
+  missedReleases: ReleaseInfo[];
+  allReleases: ReleaseInfo[];
   releaseTitle: string;
   releaseNotes: string;
   publishedAt: string;
@@ -70,12 +91,46 @@ export const sanitizeReleaseNotes = (notes?: string): string => {
 };
 
 /**
+ * Version Diffing Engine: Filters releases that are strictly newer than the installed app version,
+ * sorts them descending (latest first), and classifies update urgency.
+ */
+export const getMissedUpdates = (
+  installedVersion: string,
+  allReleases: ReleaseInfo[],
+  minSupportedVersion = '1.4.0'
+): { missedReleases: ReleaseInfo[]; urgency: UpdateUrgency } => {
+  const missed = allReleases.filter(
+    (rel) => compareVersions(rel.version, installedVersion) > 0
+  );
+
+  // Sort descending (latest version first)
+  missed.sort((a, b) => compareVersions(b.version, a.version));
+
+  // Determine urgency
+  let urgency: UpdateUrgency = 'optional';
+  const isBelowMin = compareVersions(installedVersion, minSupportedVersion) < 0;
+  const hasMajor = missed.some((r) => r.type === 'major');
+  const hasMinor = missed.some((r) => r.type === 'minor');
+
+  if (isBelowMin || hasMajor) {
+    urgency = 'critical';
+  } else if (hasMinor) {
+    urgency = 'recommended';
+  } else {
+    urgency = 'optional';
+  }
+
+  return { missedReleases: missed, urgency };
+};
+
+/**
  * Fetch latest release with 2-Tier Architecture:
  * Tier 1: Fastly CDN (raw.githubusercontent.com/version.json) -> Zero REST API rate limit!
  * Tier 2: GitHub Releases REST API (with HTTP 403 Rate Limit catch and 6-hour cache)
  */
 export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdateInfo> => {
   const currentVersion = getInstalledAppVersion();
+  const currentBuildNumber = getInstalledBuildNumber();
 
   // 1. Check local cache if not forcing refresh
   if (!forceRefresh) {
@@ -87,6 +142,15 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
         if (age < CACHE_TTL_MS) {
           // Re-evaluate against active currentVersion in case app was updated
           parsed.currentVersion = currentVersion;
+          parsed.currentBuildNumber = currentBuildNumber;
+          const { missedReleases, urgency } = getMissedUpdates(
+            currentVersion,
+            parsed.allReleases || [],
+            parsed.minSupportedVersion || '1.4.0'
+          );
+          parsed.missedReleases = missedReleases;
+          parsed.missedUpdatesCount = missedReleases.length;
+          parsed.urgency = urgency;
           parsed.isUpdateAvailable = compareVersions(parsed.latestVersion, currentVersion) > 0;
           return parsed;
         }
@@ -111,27 +175,85 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
 
     if (cdnResponse.ok) {
       const rawData = await cdnResponse.json();
-      const latestVersion = sanitizeVersion(rawData.version || '1.4.8');
+      const latestVersion = sanitizeVersion(rawData.latest || rawData.version || '1.4.8');
+      const minSupportedVersion = sanitizeVersion(rawData.min_supported_version || '1.4.0');
       const isUpdateAvailable = compareVersions(latestVersion, currentVersion) > 0;
+
+      // Parse releases array or synthesize one
+      let allReleases: ReleaseInfo[] = [];
+      if (Array.isArray(rawData.releases) && rawData.releases.length > 0) {
+        allReleases = rawData.releases.map((r: any) => ({
+          version: sanitizeVersion(r.version),
+          date: r.date || '',
+          type: (r.type === 'major' || r.type === 'minor' || r.type === 'patch') ? r.type : 'patch',
+          title: r.title || `إصدار v${r.version}`,
+          highlights: Array.isArray(r.highlights) ? r.highlights : [],
+          apk_url: r.apk_url,
+          ipa_url: r.ipa_url,
+          apk_size: r.apk_size,
+          ipa_size: r.ipa_size,
+        }));
+      } else {
+        allReleases = [
+          {
+            version: latestVersion,
+            date: rawData.publishedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+            type: 'minor',
+            title: rawData.title || `A7 MUSIC v${latestVersion}`,
+            highlights: [
+              'تحسينات عامة في الأداء واستقرار النظام',
+              'دعم كامل للتثبيت المباشر على Android و iOS',
+            ],
+            apk_url: rawData.apk?.url,
+            ipa_url: rawData.ipa?.url,
+            apk_size: rawData.apk?.size,
+            ipa_size: rawData.ipa?.size,
+          }
+        ];
+      }
+
+      const { missedReleases, urgency } = getMissedUpdates(
+        currentVersion,
+        allReleases,
+        minSupportedVersion
+      );
+
+      const latestReleaseObj = allReleases.find((r) => r.version === latestVersion) || allReleases[0];
 
       const ipaAsset: ReleaseAsset | null = rawData.ipa ? {
         name: rawData.ipa.name || 'A7-MUSIC.ipa',
-        size: rawData.ipa.size || 0,
-        downloadUrl: rawData.ipa.url || '',
-        sizeFormatted: formatBytes(rawData.ipa.size || 0),
-      } : null;
+        size: rawData.ipa.size || latestReleaseObj?.ipa_size || 0,
+        downloadUrl: rawData.ipa.url || latestReleaseObj?.ipa_url || '',
+        sizeFormatted: formatBytes(rawData.ipa.size || latestReleaseObj?.ipa_size || 0),
+      } : (latestReleaseObj?.ipa_url ? {
+        name: 'A7-MUSIC.ipa',
+        size: latestReleaseObj.ipa_size || 0,
+        downloadUrl: latestReleaseObj.ipa_url,
+        sizeFormatted: formatBytes(latestReleaseObj.ipa_size || 0),
+      } : null);
 
       const apkAsset: ReleaseAsset | null = rawData.apk ? {
         name: rawData.apk.name || 'A7-MUSIC.apk',
-        size: rawData.apk.size || 0,
-        downloadUrl: rawData.apk.url || '',
-        sizeFormatted: formatBytes(rawData.apk.size || 0),
-      } : null;
+        size: rawData.apk.size || latestReleaseObj?.apk_size || 0,
+        downloadUrl: rawData.apk.url || latestReleaseObj?.apk_url || '',
+        sizeFormatted: formatBytes(rawData.apk.size || latestReleaseObj?.apk_size || 0),
+      } : (latestReleaseObj?.apk_url ? {
+        name: 'A7-MUSIC.apk',
+        size: latestReleaseObj.apk_size || 0,
+        downloadUrl: latestReleaseObj.apk_url,
+        sizeFormatted: formatBytes(latestReleaseObj.apk_size || 0),
+      } : null);
 
       const info: AppUpdateInfo = {
         latestVersion,
         currentVersion,
+        currentBuildNumber,
+        minSupportedVersion,
         isUpdateAvailable,
+        missedUpdatesCount: missedReleases.length,
+        urgency,
+        missedReleases,
+        allReleases,
         releaseTitle: rawData.title || `A7 MUSIC v${latestVersion}`,
         releaseNotes: sanitizeReleaseNotes(rawData.notes),
         publishedAt: rawData.publishedAt || new Date().toISOString(),
@@ -170,6 +292,15 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
       if (cached) {
         const parsed: AppUpdateInfo = JSON.parse(cached);
         parsed.currentVersion = currentVersion;
+        parsed.currentBuildNumber = currentBuildNumber;
+        const { missedReleases, urgency } = getMissedUpdates(
+          currentVersion,
+          parsed.allReleases || [],
+          parsed.minSupportedVersion || '1.4.0'
+        );
+        parsed.missedReleases = missedReleases;
+        parsed.missedUpdatesCount = missedReleases.length;
+        parsed.urgency = urgency;
         parsed.isUpdateAvailable = compareVersions(parsed.latestVersion, currentVersion) > 0;
         return parsed;
       }
@@ -219,10 +350,48 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
       candidateApks[0] ||
       null;
 
+    // Extract bullet highlights from markdown body
+    const bodyText: string = data.body || '';
+    const extractedHighlights: string[] = bodyText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('- ') || l.startsWith('* '))
+      .map((l) => l.replace(/^[-*]\s*/, ''));
+
+    const allReleases: ReleaseInfo[] = [
+      {
+        version: latestVersion,
+        date: data.published_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        type: 'minor',
+        title: data.name || `A7 MUSIC v${latestVersion}`,
+        highlights: extractedHighlights.length > 0 ? extractedHighlights : [
+          'تحديث رسمي مستقر يتضمن تحسينات هندسية',
+          'تحسينات في استقرار الصوت وأداء النظام',
+        ],
+        apk_url: apkAsset?.downloadUrl,
+        ipa_url: ipaAsset?.downloadUrl,
+        apk_size: apkAsset?.size,
+        ipa_size: ipaAsset?.size,
+      },
+    ];
+
+    const minSupportedVersion = '1.4.0';
+    const { missedReleases, urgency } = getMissedUpdates(
+      currentVersion,
+      allReleases,
+      minSupportedVersion
+    );
+
     const info: AppUpdateInfo = {
       latestVersion,
       currentVersion,
+      currentBuildNumber,
+      minSupportedVersion,
       isUpdateAvailable,
+      missedUpdatesCount: missedReleases.length,
+      urgency,
+      missedReleases,
+      allReleases,
       releaseTitle: data.name || `A7 MUSIC v${latestVersion}`,
       releaseNotes: sanitizeReleaseNotes(data.body),
       publishedAt: data.published_at || new Date().toISOString(),
@@ -243,6 +412,15 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
       if (cached) {
         const parsed: AppUpdateInfo = JSON.parse(cached);
         parsed.currentVersion = currentVersion;
+        parsed.currentBuildNumber = currentBuildNumber;
+        const { missedReleases, urgency } = getMissedUpdates(
+          currentVersion,
+          parsed.allReleases || [],
+          parsed.minSupportedVersion || '1.4.0'
+        );
+        parsed.missedReleases = missedReleases;
+        parsed.missedUpdatesCount = missedReleases.length;
+        parsed.urgency = urgency;
         parsed.isUpdateAvailable = compareVersions(parsed.latestVersion, currentVersion) > 0;
         return parsed;
       }
@@ -252,7 +430,13 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
     return {
       latestVersion: currentVersion,
       currentVersion,
+      currentBuildNumber,
+      minSupportedVersion: '1.4.0',
       isUpdateAvailable: false,
+      missedUpdatesCount: 0,
+      urgency: 'optional',
+      missedReleases: [],
+      allReleases: [],
       releaseTitle: `A7 MUSIC v${currentVersion}`,
       releaseNotes: 'لا يمكن الاتصال بخادم التحديثات حالياً. يرجى التحقق من اتصال الإنترنت.',
       publishedAt: new Date().toISOString(),
