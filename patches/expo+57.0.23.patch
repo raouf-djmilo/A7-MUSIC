@@ -237,10 +237,10 @@ index 5e55d8c..6f7707c 100644
  #if os(iOS) || os(tvOS)
 diff --git a/node_modules/expo/ios/Expo-Bridging-Header.h b/node_modules/expo/ios/Expo-Bridging-Header.h
 new file mode 100644
-index 0000000..44da03c
+index 0000000..a03ebce
 --- /dev/null
 +++ b/node_modules/expo/ios/Expo-Bridging-Header.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,45 @@
 +#import <Foundation/Foundation.h>
 +#import <UIKit/UIKit.h>
 +#import <ExpoModulesCore/ExpoModulesCore.h>
@@ -261,6 +261,23 @@ index 0000000..44da03c
 +#import "RCTAppDelegate.h"
 +#endif
 +
++#if __has_include(<Expo/RCTAppDelegateUmbrella.h>)
++#import <Expo/RCTAppDelegateUmbrella.h>
++#import <Expo/ExpoReactNativeFactory.h>
++#import <Expo/EXBundleConfiguration.h>
++#import <Expo/EXReactRootViewFactory.h>
++#import <Expo/EXLegacyAppDelegateWrapper.h>
++#import <Expo/EXAppDelegatesLoader.h>
++#import <Expo/EXAppDefinesLoader.h>
++#elif __has_include("AppDelegates/RCTAppDelegateUmbrella.h")
++#import "AppDelegates/RCTAppDelegateUmbrella.h"
++#import "AppDelegates/ExpoReactNativeFactory.h"
++#import "AppDelegates/EXBundleConfiguration.h"
++#import "AppDelegates/EXReactRootViewFactory.h"
++#import "AppDelegates/EXLegacyAppDelegateWrapper.h"
++#import "AppDelegates/EXAppDelegatesLoader.h"
++#import "AppDelegates/EXAppDefinesLoader.h"
++#else
 +#import "RCTAppDelegateUmbrella.h"
 +#import "ExpoReactNativeFactory.h"
 +#import "EXBundleConfiguration.h"
@@ -268,6 +285,7 @@ index 0000000..44da03c
 +#import "EXLegacyAppDelegateWrapper.h"
 +#import "EXAppDelegatesLoader.h"
 +#import "EXAppDefinesLoader.h"
++#endif
 diff --git a/node_modules/expo/ios/Expo.h b/node_modules/expo/ios/Expo.h
 index e2fd37e..f1700a8 100644
 --- a/node_modules/expo/ios/Expo.h
