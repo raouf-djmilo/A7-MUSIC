@@ -233,6 +233,11 @@ const YOUTUBE_HTML_CONTENT = `
           }
         } catch(e){}
       }
+      // 🛡️ WebKit Security Guard: Never attempt to load local file:// inside https:// WebView
+      if (params.url && (params.url.indexOf('file://') === 0 || params.url.indexOf('temp_stream_') !== -1 || params.url.indexOf('a7flow_download') !== -1)) {
+        window.stopMedia();
+        return;
+      }
       var isDirectAudio = !!params.url && (
         params.url.indexOf('http') === 0 ||
         params.url.indexOf('.mp3') !== -1 ||
@@ -639,21 +644,17 @@ export const GlobalAudioBridge: React.FC = () => {
       );
 
       if (action.type === 'play') {
-        if (isOfflineTarget && action.url) {
-          // Pause YouTube WebView player & purge audio source to yield hardware DAC
+        if (state.activeEngine === 'native' || isOfflineTarget || (action.url && action.url.startsWith('file://'))) {
+          // 🛡️ WebKit Security & DAC Yield:
+          // Never attempt to load local file:// inside WebView.
+          // Hardware audio is played directly and exclusively by nativeAudioService (expo-av).
           youtubeWebRef.current?.injectJavaScript(`
             try {
               window.stopMedia();
             } catch(e) {}
             true;
           `);
-
-          // If TrackPlayer native module is present (custom/production build), TrackPlayer handles audio natively.
-          // In Expo Go (where TrackPlayerModule is absent), bridge handles playback via expo-video / expo-av / offline HTML5.
-          if (!NativeModules.TrackPlayerModule) {
-            playOfflineTrack(action.url, action.position || 0);
-          }
-
+          return;
         } else {
           currentEngine.current = 'youtube';
           // Stop native offline players

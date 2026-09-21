@@ -493,6 +493,17 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Reset fallback lock for new track
       fallbackInProgressVideoId = null;
 
+      // If playing an offline local file, use nativeAudioService (expo-av) directly
+      if (isOffline && streamUrl) {
+        const { nativeAudioService } = require('../services/nativeAudioService');
+        nativeAudioService.play(streamUrl, initialPosition).catch((e: any) => {
+          console.warn('[AudioStore] nativeAudioService play error:', e);
+        });
+      } else {
+        const { nativeAudioService } = require('../services/nativeAudioService');
+        nativeAudioService.stop().catch(() => {});
+      }
+
       // Instant 0ms Optimistic UI Update in Store
       set({ 
         playRequestId: newRequestId,
@@ -505,15 +516,17 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         isSwitchingToFallback: false,
         durationMillis: totalDurationSec * 1000,
         positionMillis: initialPosition * 1000,
-        // Dispatch to GlobalAudioBridge for YouTube / HTML5 audio
-        audioEngineAction: {
-          type: 'play',
-          videoId: isOffline ? '' : track.videoId,
-          url: streamUrl,
-          position: initialPosition,
-          isOfflinePlayback: isOffline,
-          id: Date.now(),
-        },
+        // Dispatch to GlobalAudioBridge only for online YouTube audio (never send local file:// to WebView)
+        audioEngineAction: isOffline
+          ? { type: 'stop', id: Date.now() }
+          : {
+              type: 'play',
+              videoId: track.videoId,
+              url: streamUrl,
+              position: initialPosition,
+              isOfflinePlayback: false,
+              id: Date.now(),
+            },
       });
 
       // Background Persistence & Native Audio Mode
@@ -826,19 +839,28 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: async () => {
-    const { isPlaying } = get();
+    const { isPlaying, activeEngine } = get();
     const nextIsPlaying = !isPlaying;
     lastUserToggleTimestamp = Date.now();
 
     // ── Instant 0ms Haptic & Visual Toggle ──
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    if (activeEngine === 'native') {
+      const { nativeAudioService } = require('../services/nativeAudioService');
+      if (nextIsPlaying) {
+        nativeAudioService.resume().catch(() => {});
+      } else {
+        nativeAudioService.pause().catch(() => {});
+      }
+    }
+
     set({ 
       isPlaying: nextIsPlaying,
-      audioEngineAction: { 
+      audioEngineAction: activeEngine === 'youtube' ? { 
         type: nextIsPlaying ? 'resume' : 'pause', 
         id: Date.now() 
-      },
+      } : null,
     });
 
     if (!nextIsPlaying) {
@@ -859,9 +881,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   pauseTrack: () => {
     if (!get().isPlaying) return;
     lastUserToggleTimestamp = Date.now();
+    const { activeEngine } = get();
+    if (activeEngine === 'native') {
+      const { nativeAudioService } = require('../services/nativeAudioService');
+      nativeAudioService.pause().catch(() => {});
+    }
     set({ 
       isPlaying: false,
-      audioEngineAction: { type: 'pause', id: Date.now() },
+      audioEngineAction: activeEngine === 'youtube' ? { type: 'pause', id: Date.now() } : null,
     });
     flushListeningSecondsToSupabase();
     const state = get();
@@ -874,9 +901,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   resumeTrack: () => {
     if (get().isPlaying) return;
     lastUserToggleTimestamp = Date.now();
+    const { activeEngine } = get();
+    if (activeEngine === 'native') {
+      const { nativeAudioService } = require('../services/nativeAudioService');
+      nativeAudioService.resume().catch(() => {});
+    }
     set({ 
       isPlaying: true,
-      audioEngineAction: { type: 'resume', id: Date.now() },
+      audioEngineAction: activeEngine === 'youtube' ? { type: 'resume', id: Date.now() } : null,
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
@@ -888,9 +920,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   seekTo: async (position) => {
     lastUserToggleTimestamp = Date.now();
     const validPos = Math.max(0, position);
+    const { activeEngine } = get();
+    if (activeEngine === 'native') {
+      const { nativeAudioService } = require('../services/nativeAudioService');
+      nativeAudioService.seekTo(validPos).catch(() => {});
+    }
     set({ 
       positionMillis: validPos,
-      audioEngineAction: { type: 'seek', position: validPos / 1000, id: Date.now() },
+      audioEngineAction: activeEngine === 'youtube' ? { type: 'seek', position: validPos / 1000, id: Date.now() } : null,
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, validPos, state.durationMillis, true);
@@ -986,29 +1023,40 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const { streamUrl } = await downloadService.probeAudioStream(targetTrack);
 
       if (streamUrl) {
-        console.log('[AudioStore] ⚡ Direct stream/cache acquired, routing to playback:', streamUrl);
+        console.log('[AudioStore] ⚡ Direct stream/cache acquired, launching expo-av hardware player:', streamUrl);
 
-        // 1. Play directly through Native TrackPlayer if native module exists (Production/Dev Client build)
+        // 1. Immediately silence WebView to free Audio DAC and prevent any WebKit CORS blockage
+        set({
+          audioEngineAction: {
+            type: 'stop',
+            id: Date.now(),
+          },
+        });
+
+        // 2. Play directly via expo-av hardware engine (Audio.Sound)
+        const { nativeAudioService } = require('../services/nativeAudioService');
+        await nativeAudioService.play(streamUrl, 0);
+
+        // 3. Keep TrackPlayer in sync for Lock Screen / Control Center metadata if native module exists
         if (NativeModules.TrackPlayerModule) {
           try {
             await TrackPlayer.reset();
+            const fallbackSilentUri = await getOrGenerateSilentAudioUri();
             await TrackPlayer.add({
               id: targetTrack.videoId || 'direct_stream',
-              url: streamUrl,
+              url: fallbackSilentUri,
               title: targetTrack.title || 'Track',
               artist: targetTrack.artist || 'Artist',
               artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
               duration: targetTrack.duration ? Math.floor(targetTrack.duration / 1000) : 180,
             });
-            await TrackPlayer.setVolume(1.0);
+            await TrackPlayer.setVolume(0);
             await TrackPlayer.play();
           } catch (tpErr) {
-            console.warn('[AudioStore] TrackPlayer play error:', tpErr);
+            console.warn('[AudioStore] TrackPlayer metadata sync error:', tpErr);
           }
         }
 
-        // 2. Update store and dispatch audio action to bridge
-        // If TrackPlayer is not available (Expo Go), GlobalAudioBridge will play via expo-video / expo-av / offline HTML5
         set({
           isPlaying: true,
           isLoading: false,
@@ -1016,13 +1064,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isOfflinePlayback: true,
           activeEngine: 'native',
           isSwitchingToFallback: false,
-          audioEngineAction: {
-            type: 'play',
-            url: streamUrl,
-            position: 0,
-            isOfflinePlayback: true,
-            id: Date.now(),
-          },
         });
         return;
       }
@@ -1043,6 +1084,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   stopTrack: async () => {
     flushListeningSecondsToSupabase();
     fallbackInProgressVideoId = null;
+    try {
+      const { nativeAudioService } = require('../services/nativeAudioService');
+      nativeAudioService.stop().catch(() => {});
+    } catch (e) {}
     set({ 
       currentTrack: null, 
       isPlaying: false, 

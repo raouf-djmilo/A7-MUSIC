@@ -206,6 +206,7 @@ export const inspectOfflineStorage = async (): Promise<void> => {
 
 class AudioDownloadService {
   private isInitialized = false;
+  private inFlightProbes = new Map<string, Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }>>();
 
   /**
    * 📁 Ensure permanent directory exists on device hardware
@@ -329,6 +330,29 @@ class AudioDownloadService {
    * Selects bitrate and extracts genuine YouTube audio stream URL. ZERO dummy fallbacks.
    */
   async probeAudioStream(
+    track: Track,
+    quality: AudioQualityOption = 'auto',
+    onProgress?: (progressRatio: number, statusText: string) => void
+  ): Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }> {
+    const probeKey = track.videoId || track.audioUrl || 'unknown';
+
+    // 🛡️ Single-Flight Mutex: Deduplicate concurrent calls for the exact same track
+    if (this.inFlightProbes.has(probeKey)) {
+      console.log('[DownloadService] ⏳ Awaiting active in-flight download/probe promise for:', probeKey);
+      return this.inFlightProbes.get(probeKey)!;
+    }
+
+    const probePromise = this.executeProbeAudioStream(track, quality, onProgress);
+    this.inFlightProbes.set(probeKey, probePromise);
+
+    try {
+      return await probePromise;
+    } finally {
+      this.inFlightProbes.delete(probeKey);
+    }
+  }
+
+  private async executeProbeAudioStream(
     track: Track,
     quality: AudioQualityOption = 'auto',
     onProgress?: (progressRatio: number, statusText: string) => void
