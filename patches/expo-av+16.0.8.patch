@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-av/ios/EXAV.podspec b/node_modules/expo-av/ios/EXAV.podspec
-index d057e2d..92543a2 100644
+index d057e2d..0e1f800 100644
 --- a/node_modules/expo-av/ios/EXAV.podspec
 +++ b/node_modules/expo-av/ios/EXAV.podspec
 @@ -24,7 +24,9 @@ Pod::Spec.new do |s|
@@ -9,32 +9,26 @@ index d057e2d..92543a2 100644
 -    "CLANG_CXX_LANGUAGE_STANDARD" => "c++20"
 +    "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
 +    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/EXAV/EXAV-Bridging-Header.h',
-+    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/EXAV" "${PODS_TARGET_SRCROOT}/EXAV/Video"',
++    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/EXAV" "${PODS_TARGET_SRCROOT}/EXAV/Video" "$(PODS_ROOT)/Headers/Public/ExpoModulesCore" "$(PODS_ROOT)/Headers/Private/ExpoModulesCore" "${PODS_CONFIGURATION_BUILD_DIR}/ExpoModulesCore/Swift Compatibility Header"',
    }
  
    if !$ExpoUseSources&.include?(package['name']) && ENV['EXPO_USE_SOURCE'].to_i == 0 && File.exist?("#{s.name}.xcframework") && Gem::Version.new(Pod::VERSION) >= Gem::Version.new('1.10.0')
 diff --git a/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h b/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h
 new file mode 100644
-index 0000000..6093adb
+index 0000000..adc1d93
 --- /dev/null
 +++ b/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,11 @@
 +#import <Foundation/Foundation.h>
 +#import <UIKit/UIKit.h>
 +#import <AVFoundation/AVFoundation.h>
 +#import <AVKit/AVKit.h>
 +#import <ExpoModulesCore/ExpoModulesCore.h>
 +
-+#if __has_include(<EXAV/EXAV.h>)
-+#import <EXAV/EXAV.h>
-+#import <EXAV/EXAVObject.h>
++#if __has_include(<EXAV/EXVideoView.h>)
 +#import <EXAV/EXVideoView.h>
-+#import <EXAV/EXVideoPlayerViewControllerDelegate.h>
-+#else
-+#import "EXAV.h"
-+#import "EXAVObject.h"
++#elif __has_include("EXVideoView.h")
 +#import "EXVideoView.h"
-+#import "EXVideoPlayerViewControllerDelegate.h"
 +#endif
 diff --git a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift b/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
 index bc34aba..de30d3d 100644
