@@ -169,18 +169,28 @@ export const setupAudioInterruptionListeners = (onInterrupt?: () => void): void 
 
   try {
     TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
-      // Only pause if permanent focus loss (e.g., incoming phone call, alarm, or other audio app taking exclusive focus)
-      // Ignore transient ducking or volume changes during track start/setup!
+      const store = require('../store/useAudioStore').useAudioStore;
       if (event.permanent) {
         console.log('[AudioSessionService] Permanent audio focus loss. Pausing playback.');
         if (_interruptionCallback) {
           _interruptionCallback();
         } else {
           try {
-            const store = require('../store/useAudioStore').useAudioStore;
             store.getState().pauseTrack();
           } catch (e) {}
         }
+      } else if (event.paused) {
+        // Transient interruption (incoming phone call, navigation instruction, voice note)
+        console.log('[AudioSessionService] Transient audio interruption (paused).');
+        try {
+          store.getState().pauseTrack();
+        } catch (e) {}
+      } else {
+        // Focus regained! (call ended, navigation finished)
+        console.log('[AudioSessionService] Audio focus regained. Auto-resuming playback.');
+        try {
+          store.getState().resumeTrack();
+        } catch (e) {}
       }
     });
   } catch (e) {

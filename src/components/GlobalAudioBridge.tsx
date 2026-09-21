@@ -190,8 +190,49 @@ const YOUTUBE_HTML_CONTENT = `
       } catch(e) {}
     }, 350);
 
+    // ── 🛡️ Anti-Throttling Heartbeat & Buffer Stall Recovery Watchdog ──
+    var bufferStallStart = 0;
+    var consecutivePlayedCount = 0;
+
+    setInterval(function() {
+      try {
+        if (ytPlayer && typeof ytPlayer.getPlayerState === 'function') {
+          var state = ytPlayer.getPlayerState();
+          // State: 1 = Playing, 3 = Buffering, 2 = Paused
+          if (state === 1) {
+            bufferStallStart = 0;
+            // Keep AudioContext awake if suspended by Android Doze Mode
+            if (typeof window.AudioContext !== 'undefined' && window._audioCtx && window._audioCtx.state === 'suspended') {
+              try { window._audioCtx.resume(); } catch(e){}
+            }
+          } else if (state === 3) {
+            // Buffer freeze detector (> 6 seconds)
+            if (!bufferStallStart) {
+              bufferStallStart = Date.now();
+            } else if (Date.now() - bufferStallStart > 6000) {
+              console.log('[Heartbeat Watchdog] Buffer stall detected > 6s. Re-triggering playback...');
+              bufferStallStart = 0;
+              try { ytPlayer.playVideo(); } catch(e){}
+            }
+          } else {
+            bufferStallStart = 0;
+          }
+        }
+      } catch(e) {}
+    }, 5000);
+
     // Controller API
     window.playMedia = function(params) {
+      consecutivePlayedCount++;
+      if (consecutivePlayedCount >= 20) {
+        consecutivePlayedCount = 0;
+        try {
+          if (html5Audio && activeEngine !== 'html5') {
+            html5Audio.src = '';
+            html5Audio.load();
+          }
+        } catch(e){}
+      }
       var isDirectAudio = !!params.url && (
         params.url.indexOf('http') === 0 ||
         params.url.indexOf('.mp3') !== -1 ||
@@ -722,6 +763,45 @@ export const GlobalAudioBridge: React.FC = () => {
         if (timeSinceUserToggle < 2000) {
           console.log('[GlobalAudioBridge] Ignored transition abort error:', errCode);
           return;
+        }
+
+        // 🛡️ YouTube Embed Restriction Auto-Recovery (Error 150 / 152)
+        // If a track is blocked from iframe embedding by YouTube/record label,
+        // seamlessly probe and stream the direct raw AAC .m4a stream!
+        if (errCode === 150 || errCode === 152) {
+          const currentTrack = useAudioStore.getState().currentTrack;
+          if (currentTrack && currentTrack.videoId) {
+            console.log('[GlobalAudioBridge] 🛡️ YouTube Embed restriction (150/152) detected. Activating direct raw AAC stream fallback...');
+            try {
+              const { downloadService } = require('../services/downloadService');
+              downloadService.probeAudioStream(currentTrack)
+                .then((probeRes: any) => {
+                  if (probeRes?.streamUrl) {
+                    console.log('[GlobalAudioBridge] ⚡ Direct stream fallback acquired, playing directly:', probeRes.streamUrl);
+                    useAudioStore.setState({
+                      audioEngineAction: {
+                        type: 'play',
+                        videoId: '',
+                        url: probeRes.streamUrl,
+                        position: 0,
+                        isOfflinePlayback: false,
+                        id: Date.now(),
+                      },
+                      isPlaying: true,
+                    });
+                    return;
+                  }
+                  throw new Error('No candidate stream URL');
+                })
+                .catch((fbErr: any) => {
+                  console.warn('[GlobalAudioBridge] Direct stream fallback failed:', fbErr?.message);
+                  useAudioStore.getState().nextTrack();
+                });
+              return;
+            } catch (fbInitErr) {
+              console.warn('[GlobalAudioBridge] Fallback init error:', fbInitErr);
+            }
+          }
         }
 
         if (now - lastErrorTime.current > 2000) {
