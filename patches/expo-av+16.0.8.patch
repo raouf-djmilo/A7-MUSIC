@@ -53,10 +53,10 @@ index 0000000..adc1d93
 +#import "EXVideoView.h"
 +#endif
 diff --git a/node_modules/expo-av/ios/EXAV/EXAV.h b/node_modules/expo-av/ios/EXAV/EXAV.h
-index 42a79e1..3574d0e 100644
+index 42a79e1..393e484 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAV.h
 +++ b/node_modules/expo-av/ios/EXAV/EXAV.h
-@@ -7,8 +7,20 @@
+@@ -7,8 +7,41 @@
  #import <ExpoModulesCore/EXModuleRegistryConsumer.h>
  #import <ExpoModulesCore/EXAppLifecycleListener.h>
  #import <ExpoModulesCore/EXExportedModule.h>
@@ -69,6 +69,27 @@ index 42a79e1..3574d0e 100644
 +- (void)stopObserving;
 +@end
 +#endif
++
++#ifndef EXErrorWithMessage
++#define EXErrorWithMessage(message) [NSError errorWithDomain:@"EXPO" code:1 userInfo:@{NSLocalizedDescriptionKey: (message)}]
++#endif
++
++#ifndef EXFatal
++#define EXFatal(error) NSLog(@"[EXPO]: %@", (error))
++#endif
++
++#ifndef EXLogWarn
++#define EXLogWarn(format, ...) NSLog((@"EXLogWarn: " format), ##__VA_ARGS__)
++#endif
++
++#ifndef EXLogError
++#define EXLogError(format, ...) NSLog((@"EXLogError: " format), ##__VA_ARGS__)
++#endif
++
++#ifndef EXLogInfo
++#define EXLogInfo(format, ...) NSLog((@"EXLogInfo: " format), ##__VA_ARGS__)
++#endif
++
 +#if __has_include(<EXAV/EXAVObject.h>)
  #import <EXAV/EXAVObject.h>
 +#else
@@ -114,6 +135,37 @@ index 7153d28..304d3bb 100644
  #if __has_include(<EXAV/EXAV-Swift.h>)
  #import <EXAV/EXAV-Swift.h>
  #else
+diff --git a/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m b/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m
+index 6f6998d..f065a7a 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m
++++ b/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m
+@@ -3,6 +3,26 @@
+ #import <EXAV/EXAVPlayerData.h>
+ #import <MobileCoreServices/MobileCoreServices.h>
+ 
++#ifndef EXErrorWithMessage
++#define EXErrorWithMessage(message) [NSError errorWithDomain:@"EXPO" code:1 userInfo:@{NSLocalizedDescriptionKey: (message)}]
++#endif
++
++#ifndef EXFatal
++#define EXFatal(error) NSLog(@"[EXPO]: %@", (error))
++#endif
++
++#ifndef EXLogWarn
++#define EXLogWarn(format, ...) NSLog((@"EXLogWarn: " format), ##__VA_ARGS__)
++#endif
++
++#ifndef EXLogError
++#define EXLogError(format, ...) NSLog((@"EXLogError: " format), ##__VA_ARGS__)
++#endif
++
++#ifndef EXLogInfo
++#define EXLogInfo(format, ...) NSLog((@"EXLogInfo: " format), ##__VA_ARGS__)
++#endif
++
+ // This struct is passed between the MTAudioProcessingTap callbacks.
+ typedef struct AVAudioTapProcessorContext {
+   Boolean supportedTapProcessingFormat;
 diff --git a/node_modules/expo-av/ios/EXAV/EXAVTV.m b/node_modules/expo-av/ios/EXAV/EXAVTV.m
 index b6fccda..36e52a1 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAVTV.m
