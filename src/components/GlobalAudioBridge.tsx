@@ -53,9 +53,19 @@ const AD_KILLER_INJECTION_SCRIPT = `
     var isAdUrl = function(url) {
       if (!url || typeof url !== 'string') return false;
       var u = url.toLowerCase();
+      // 🛡️ CRITICAL ALLOWLIST: Never block media stream chunks or player initialization
+      if (
+        u.indexOf('videoplayback') !== -1 ||
+        u.indexOf('initplayback') !== -1 ||
+        u.indexOf('googlevideo') !== -1 ||
+        u.indexOf('/player') !== -1
+      ) {
+        return false;
+      }
       return (
         u.indexOf('doubleclick.net') !== -1 ||
         u.indexOf('googleads') !== -1 ||
+        u.indexOf('pagead2.googlesyndication.com') !== -1 ||
         u.indexOf('/pagead/') !== -1 ||
         u.indexOf('/api/stats/ads') !== -1 ||
         u.indexOf('get_midroll_info') !== -1 ||
@@ -88,31 +98,32 @@ const AD_KILLER_INJECTION_SCRIPT = `
     }
   } catch(e) {}
 
-  // 2. ⚡ 25ms High-Frequency In-Frame Ad-Destroyer
+  // 2. ⚡ Strict Discriminator Ad-Destroyer (Zero false-positives on actual songs)
   function destroyAds() {
     try {
-      var adOverlay = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-overlay-container, .ytp-ad-text');
+      // 🛡️ STRICT DISCRIMINATOR: Only touch playback if explicit ad container is active
+      var adWrapper = document.querySelector('.ad-showing, .ad-interrupting');
       var video = document.querySelector('video');
 
-      if (adOverlay && video) {
+      if (adWrapper && video) {
         video.muted = true;
         video.playbackRate = 16.0;
         if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
           video.currentTime = video.duration;
         }
-      } else if (video && video.muted && !adOverlay) {
+      } else if (video && video.muted && !adWrapper) {
         video.muted = false;
         video.playbackRate = 1.0;
       }
 
+      // Auto-click Skip button if present
       var skipSelectors = [
         '.ytp-ad-skip-button',
         '.ytp-ad-skip-button-modern',
         '.ytp-skip-ad-button',
         '.ytp-ad-skip-button-text',
         '.videoAdUiSkipButton',
-        'button.ytp-ad-skip-button-slot',
-        '.ytp-ad-overlay-close-button'
+        'button.ytp-ad-skip-button-slot'
       ];
       for (var i = 0; i < skipSelectors.length; i++) {
         var btn = document.querySelector(skipSelectors[i]);
@@ -122,6 +133,7 @@ const AD_KILLER_INJECTION_SCRIPT = `
         }
       }
 
+      // Hide static ad banners
       var overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-message-container');
       for (var j = 0; j < overlays.length; j++) {
         overlays[j].style.display = 'none';
@@ -129,7 +141,22 @@ const AD_KILLER_INJECTION_SCRIPT = `
     } catch(err) {}
   }
 
-  setInterval(destroyAds, 25);
+  // 3. Event-Driven Ad-Killer via MutationObserver + 250ms Gentle Fallback
+  try {
+    if (window.MutationObserver) {
+      var observer = new MutationObserver(function() {
+        destroyAds();
+      });
+      observer.observe(document.documentElement || document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+  } catch(obsErr) {}
+
+  setInterval(destroyAds, 250);
 })();
 true;
 `;
@@ -239,6 +266,14 @@ const YOUTUBE_HTML_CONTENT = `
               if (event.data === 2 && (isSwitchingMedia || !hasStartedPlaying)) {
                 return;
               }
+              // 🛡️ PREVENT AD-ENDED GHOST SKIP:
+              // If an ad was showing, state 0 (ended) is the AD ending, not the song!
+              if (event.data === 0) {
+                var isAdActive = !!document.querySelector('.ad-showing, .ad-interrupting');
+                if (isAdActive) {
+                  return;
+                }
+              }
               sendToRN('playerStateChange', event.data);
             }
           },
@@ -251,14 +286,14 @@ const YOUTUBE_HTML_CONTENT = `
       });
     };
 
-    // 🛡️ Zero-Delay Ad-Killer & Fast-Skip Engine (Runs every 50ms)
+    // 🛡️ Strict Ad-Killer Engine (Event-driven via MutationObserver + 250ms fallback)
     (function initAdKiller() {
       function killAds() {
         try {
-          var isAd = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-overlay-container, .ytp-ad-text');
+          var adWrapper = document.querySelector('.ad-showing, .ad-interrupting');
           var video = document.querySelector('video');
 
-          if (isAd && video) {
+          if (adWrapper && video) {
             // Instantly mute ad audio so user never hears ads
             video.muted = true;
             // Accelerate ad playback speed to 16x
@@ -267,20 +302,19 @@ const YOUTUBE_HTML_CONTENT = `
             if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
               video.currentTime = video.duration;
             }
-          } else if (video && video.muted && !isAd) {
+          } else if (video && video.muted && !adWrapper) {
             video.muted = false;
             video.playbackRate = 1.0;
           }
 
-          // Auto-click any Skip Ad buttons in 0ms
+          // Auto-click any Skip Ad buttons
           var skipSelectors = [
             '.ytp-ad-skip-button',
             '.ytp-ad-skip-button-modern',
             '.ytp-skip-ad-button',
             '.ytp-ad-skip-button-text',
             '.videoAdUiSkipButton',
-            'button.ytp-ad-skip-button-slot',
-            '.ytp-ad-overlay-close-button'
+            'button.ytp-ad-skip-button-slot'
           ];
           for (var i = 0; i < skipSelectors.length; i++) {
             var btn = document.querySelector(skipSelectors[i]);
@@ -289,9 +323,27 @@ const YOUTUBE_HTML_CONTENT = `
               break;
             }
           }
+
+          var overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-message-container');
+          for (var j = 0; j < overlays.length; j++) {
+            overlays[j].style.display = 'none';
+          }
         } catch(e) {}
       }
-      setInterval(killAds, 50);
+
+      try {
+        if (window.MutationObserver) {
+          var obs = new MutationObserver(killAds);
+          obs.observe(document.documentElement || document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+          });
+        }
+      } catch(e) {}
+
+      setInterval(killAds, 250);
     })();
 
     // Continuous Progress Reporter (every 250ms for smooth timeline)
@@ -299,7 +351,7 @@ const YOUTUBE_HTML_CONTENT = `
       try {
         if (isSwitchingMedia) return;
         // Suppress timeline jumps during transient ad-killing
-        var isAdActive = !!document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+        var isAdActive = !!document.querySelector('.ad-showing, .ad-interrupting');
         if (isAdActive) return;
 
         if (activeEngine === 'html5' && html5Audio) {
@@ -893,12 +945,17 @@ export const GlobalAudioBridge: React.FC = () => {
         } else if (msg.data === 0) {
           const pos = store.positionMillis;
           const dur = store.durationMillis;
-          const isNearEnd = dur > 0 && pos >= Math.max(15000, dur - 8000);
+          // 🛡️ False-Positive Track-End Guard:
+          // Song must have played past at least 15 seconds AND be near completion (> 75% or within 8s of end).
+          // If ended fires in the first seconds, an ad clip ended, NOT the song!
+          const isRealEnd = dur > 30000 
+            ? (pos >= Math.max(15000, dur - 8000) && pos >= dur * 0.75) 
+            : (pos > 5000);
 
-          if (timeSinceUserToggle > 3000 && isNearEnd) {
+          if (timeSinceUserToggle > 3000 && isRealEnd) {
             store.handleTrackEnded();
           } else {
-            console.log('[GlobalAudioBridge] Filtered out premature/aborted ended event');
+            console.log('[GlobalAudioBridge] Filtered out premature/ad-ended event (pos:', pos, 'dur:', dur, ')');
           }
         }
       } else if (msg.eventType === 'playerError') {
@@ -946,6 +1003,15 @@ export const GlobalAudioBridge: React.FC = () => {
         }}
         onShouldStartLoadWithRequest={(request) => {
           const url = (request.url || '').toLowerCase();
+          // 🛡️ Explicit Media Allowlist: Never block audio or media stream chunks
+          if (
+            url.includes('videoplayback') ||
+            url.includes('initplayback') ||
+            url.includes('googlevideo') ||
+            url.includes('/player')
+          ) {
+            return true;
+          }
           // 🛡️ Block Google Ads, DoubleClick, Pagead, and Ad Tracking networks
           if (
             url.includes('googleads') ||

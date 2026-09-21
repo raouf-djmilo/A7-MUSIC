@@ -958,6 +958,22 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   handleTrackEnded: async () => {
+    const currentPos = get().positionMillis;
+    const totalDuration = get().durationMillis;
+
+    // 🛡️ False-Positive Track-End Guard (Anti-Ghost-Skip):
+    // If the track is in its early phase (< 15 seconds) while total duration > 30 seconds,
+    // or if the playback position hasn't reached at least 75% of total duration (when duration > 30s),
+    // this means an ad has finished in YouTube, NOT the actual song!
+    if (currentPos < 15000 && totalDuration > 30000) {
+      console.log('[AudioStore] 🛡️ Ignored premature track-end (Ad ended, song starting)...');
+      return;
+    }
+    if (totalDuration > 30000 && currentPos < totalDuration * 0.75) {
+      console.log(`[AudioStore] 🛡️ Ignored premature track-end (Incomplete playback at ${Math.round(currentPos / 1000)}s of ${Math.round(totalDuration / 1000)}s)...`);
+      return;
+    }
+
     flushListeningSecondsToSupabase();
     const { repeatMode, currentTrack } = get();
     if (currentTrack) {
