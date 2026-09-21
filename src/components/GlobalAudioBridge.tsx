@@ -558,7 +558,7 @@ const OFFLINE_HTML_CONTENT = `
   </style>
 </head>
 <body>
-  <audio id="nativePlayer" playsinline preload="auto"></audio>
+  <audio id="nativePlayer" playsinline preload="none"></audio>
 
   <script>
     var audio = document.getElementById('nativePlayer');
@@ -566,7 +566,7 @@ const OFFLINE_HTML_CONTENT = `
     function sendToRN(type, data) {
       try {
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ eventType: type, data: data }));
+          window.ReactNativeWebView.postMessage(JSON.stringify({ source: 'offline_webview', eventType: type, data: data }));
         }
       } catch(e) {}
     }
@@ -586,9 +586,12 @@ const OFFLINE_HTML_CONTENT = `
     });
 
     audio.addEventListener('error', function(e) {
+      if (!audio.src || audio.src === '' || audio.src === window.location.href || !audio.currentSrc) {
+        return;
+      }
       var err = audio.error;
       console.warn('[OfflineBridge] audio error:', err);
-      sendToRN('playerError', err ? err.code : 404);
+      sendToRN('offlinePlayerError', err ? err.code : 404);
     });
 
     setInterval(function() {
@@ -616,12 +619,12 @@ const OFFLINE_HTML_CONTENT = `
         if (p && typeof p.catch === 'function') {
           p.catch(function(err) {
             console.warn('[OfflineBridge] Play error catch:', err);
-            sendToRN('playerError', 404);
+            sendToRN('offlinePlayerError', 404);
           });
         }
       } catch(e) {
         console.warn('[OfflineBridge] Play exception:', e);
-        sendToRN('playerError', 404);
+        sendToRN('offlinePlayerError', 404);
       }
     };
 
@@ -643,8 +646,8 @@ const OFFLINE_HTML_CONTENT = `
     window.stopOffline = function() {
       try {
         audio.pause();
-        audio.currentTime = 0;
-        audio.src = '';
+        audio.removeAttribute('src');
+        audio.load();
       } catch(e){}
     };
   </script>
@@ -977,6 +980,13 @@ export const GlobalAudioBridge: React.FC = () => {
       } else if (msg.eventType === 'playerError') {
         const errCode = Number(msg.data);
 
+        // 🛡️ SPURIOUS CODE GUARD:
+        // Filter out code 4 (HTML5 media error) or invalid codes that do not belong to YouTube API
+        if (errCode === 4 || isNaN(errCode)) {
+          console.log('[GlobalAudioBridge] 🔇 Filtered out non-YouTube playerError code:', errCode);
+          return;
+        }
+
         // 🛡️ SILENCE GUARD: If activeEngine is already 'native' or fallback transition in progress,
         // strictly ignore all WebView errors (e.g. Error 4 / Error 152 cascades)
         if (store.activeEngine === 'native' || store.isSwitchingToFallback) {
@@ -997,6 +1007,29 @@ export const GlobalAudioBridge: React.FC = () => {
     } catch (e) {
       // Ignore non-JSON messages
     }
+  };
+
+  const handleOfflineMessage = (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      const store = useAudioStore.getState();
+      if (currentEngine.current !== 'webview_offline') return;
+
+      if (msg.eventType === 'playerStateChange') {
+        if (msg.data === 1) {
+          useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
+        } else if (msg.data === 2) {
+          useAudioStore.setState({ isPlaying: false });
+        } else if (msg.data === 0) {
+          store.handleTrackEnded();
+        }
+      } else if (msg.eventType === 'progressUpdate' && msg.data) {
+        store.updateProgress(msg.data.positionMillis, msg.data.durationMillis);
+      } else if (msg.eventType === 'offlinePlayerError') {
+        console.warn('[OfflineBridge] Offline playback error code:', msg.data);
+        useAudioStore.setState({ isLoading: false, loadingTrackId: null, isPlaying: false });
+      }
+    } catch (e) {}
   };
 
   return (
@@ -1086,7 +1119,7 @@ export const GlobalAudioBridge: React.FC = () => {
             ? { uri: `${FileSystem.documentDirectory}a7flow_offline_player.html` }
             : { html: OFFLINE_HTML_CONTENT, baseUrl: '' }
         }
-        onMessage={handleMessage}
+        onMessage={handleOfflineMessage}
         onLoadEnd={() => {
           isOfflinePlayerReady.current = true;
           if (pendingOfflineAction.current) {
