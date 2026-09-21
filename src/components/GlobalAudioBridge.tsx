@@ -51,6 +51,7 @@ const YOUTUBE_HTML_CONTENT = `
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
@@ -127,7 +128,8 @@ const YOUTUBE_HTML_CONTENT = `
           autoplay: 1,
           enablejsapi: 1,
           fs: 0,
-          origin: 'https://www.youtube.com'
+          origin: 'https://www.youtube.com',
+          widget_referrer: 'https://www.youtube.com'
         },
         events: {
           onReady: function() {
@@ -244,7 +246,7 @@ const YOUTUBE_HTML_CONTENT = `
           ytPlayer.loadVideoById({
             videoId: params.videoId,
             startSeconds: params.position || 0,
-            suggestedQuality: 'hd720'
+            suggestedQuality: 'default'
           });
           try { ytPlayer.playVideo(); } catch(e){}
         }
@@ -283,9 +285,10 @@ const YOUTUBE_HTML_CONTENT = `
       hasStartedPlaying = false;
       if (activeEngine === 'html5') {
         html5Audio.pause();
+        html5Audio.src = '';
         html5Audio.currentTime = 0;
-      } else if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.stopVideo === 'function') {
-        try { ytPlayer.stopVideo(); } catch(e){}
+      } else if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+        try { ytPlayer.pauseVideo(); } catch(e){}
       }
     };
 
@@ -585,10 +588,10 @@ export const GlobalAudioBridge: React.FC = () => {
 
       if (action.type === 'play') {
         if (isOfflineTarget && action.url) {
-          // Stop YouTube WebView player & purge audio source to yield hardware DAC 100% to native engine
+          // Pause YouTube WebView player & purge audio source to yield hardware DAC 100% to native engine
           youtubeWebRef.current?.injectJavaScript(`
             try {
-              window.stopMedia();
+              window.pauseMedia();
               var a = document.getElementById('html5Audio');
               if (a) { a.pause(); a.src = ''; }
             } catch(e) {}
@@ -771,7 +774,7 @@ export const GlobalAudioBridge: React.FC = () => {
         mediaPlaybackRequiresUserAction={false}
         javaScriptEnabled={true}
         domStorageEnabled={true}
-        originWhitelist={['*']}
+        originWhitelist={['https://*', 'http://*']}
         mixedContentMode="always"
         allowsProtectedMedia={true}
         androidLayerType="hardware"
