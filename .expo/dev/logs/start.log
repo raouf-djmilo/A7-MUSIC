@@ -7032,3 +7032,15 @@
 {"_e":"metro:bundling:progress","_t":1790030342805,"id":"1g","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:progress","_t":1790030342916,"id":"1g","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:done","_t":1790030343270,"id":"1g","total":1,"ms":4685.8114}
+{"_e":"metro:client_log","_t":1790030348317,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["[Storage Check] Nombre de fichiers: 9"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: xiwlfOMboDY.m4a | Size: 5.40 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: xiwlfOMboDY_art.jpg | Size: 0.04 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790030348327,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
