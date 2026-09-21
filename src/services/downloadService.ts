@@ -640,6 +640,25 @@ class AudioDownloadService {
       trackCount: tracks.length,
     };
   }
+
+  /**
+   * 🧹 Clear all downloaded offline tracks and reset manifest
+   */
+  async clearAllDownloads(): Promise<boolean> {
+    try {
+      const dirInfo = await FileSystem.getInfoAsync(DOWNLOAD_BASE_DIR);
+      if (dirInfo.exists) {
+        await FileSystem.deleteAsync(DOWNLOAD_BASE_DIR, { idempotent: true });
+      }
+      await AsyncStorage.removeItem(DEVICE_OFFLINE_MANIFEST_KEY);
+      await this.ensureDirectories();
+      await useDownloadStore.getState().loadManifest();
+      return true;
+    } catch (e) {
+      console.warn('[DownloadService] Clear all downloads error:', e);
+      return false;
+    }
+  }
 }
 
 export const downloadService = new AudioDownloadService();
