@@ -1,0 +1,153 @@
+diff --git a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
+index 376752c..e4bd124 100644
+--- a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
++++ b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
+@@ -66,7 +66,15 @@ Pod::Spec.new do |s|
+   }
+ 
+   header_search_paths = [
++    '"${PODS_TARGET_SRCROOT}/ios"',
++    '"${PODS_TARGET_SRCROOT}/ios/Errors"',
++    '"${PODS_TARGET_SRCROOT}/ios/Headers"',
++    '"${PODS_TARGET_SRCROOT}/ios/Manifest"',
++    '"${PODS_TARGET_SRCROOT}/ios/ReactNative"',
+     '"$(PODS_ROOT)/Headers/Private/React-Core"',
++    '"$(PODS_ROOT)/Headers/Public/React-Core"',
++    '"$(PODS_ROOT)/Headers/Private/React-RCTAppDelegate"',
++    '"$(PODS_ROOT)/Headers/Public/React-RCTAppDelegate"',
+     '"${PODS_ROOT}/Headers/Public/RNReanimated"',
+     '"$(PODS_CONFIGURATION_BUILD_DIR)/EXManifests/Swift Compatibility Header"',
+     '"$(PODS_CONFIGURATION_BUILD_DIR)/EXUpdatesInterface/Swift Compatibility Header"',
+@@ -91,6 +99,7 @@ Pod::Spec.new do |s|
+   # Swift/Objective-C compatibility
+   s.pod_target_xcconfig = {
+     'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/EXDevLauncher-Bridging-Header.h',
+     'OTHER_CFLAGS[config=*Debug*]' => other_c_flags,
+     'OTHER_SWIFT_FLAGS[config=*Debug*]' => other_swift_flags,
+     'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
+@@ -126,6 +135,11 @@ Pod::Spec.new do |s|
+ 
+   s.subspec 'Main' do |main|
+     main.dependency "expo-dev-launcher/Unsafe"
++    main.pod_target_xcconfig = {
++      'DEFINES_MODULE' => 'YES',
++      'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/EXDevLauncher-Bridging-Header.h',
++      'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
++    }
+   end
+ 
+   s.test_spec 'Tests' do |test_spec|
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
+new file mode 100644
+index 0000000..f50a9b7
+--- /dev/null
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
+@@ -0,0 +1,32 @@
++#import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
++#import <React/RCTBridgeModule.h>
++#import <React/RCTBridgeDelegate.h>
++#import <React/RCTJSStackFrame.h>
++#import <React/RCTDefines.h>
++
++#if __has_include(<React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>)
++#import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
++#elif __has_include(<React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>)
++#import <React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>
++#elif __has_include(<React-RCTAppDelegate/RCTReactNativeFactory.h>)
++#import <React-RCTAppDelegate/RCTReactNativeFactory.h>
++#import <React-RCTAppDelegate/RCTRootViewFactory.h>
++#import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#import <React-RCTAppDelegate/RCTAppDelegate.h>
++#elif __has_include(<React_RCTAppDelegate/RCTReactNativeFactory.h>)
++#import <React_RCTAppDelegate/RCTReactNativeFactory.h>
++#import <React_RCTAppDelegate/RCTRootViewFactory.h>
++#import <React_RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#import <React_RCTAppDelegate/RCTAppDelegate.h>
++#elif __has_include("RCTReactNativeFactory.h")
++#import "RCTReactNativeFactory.h"
++#import "RCTRootViewFactory.h"
++#import "RCTDefaultReactNativeFactoryDelegate.h"
++#import "RCTAppDelegate.h"
++#endif
++
++#import "EXDevLauncherController.h"
++#import "EXDevLauncher.h"
++#import "Errors/EXDevLauncherRedBox.h"
++#import "Headers/RCTCxxBridge+Private.h"
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift b/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift
+index f8f032f..9ec4a5a 100644
+--- a/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++
+ public protocol EXDevLauncherPendingDeepLinkListener: AnyObject {
+   func onNewPendingDeepLink(_ deepLink: URL)
+ }
+diff --git a/node_modules/expo-dev-launcher/ios/Errors/EXDevLauncherAppError.swift b/node_modules/expo-dev-launcher/ios/Errors/EXDevLauncherAppError.swift
+index c530d12..3240597 100644
+--- a/node_modules/expo-dev-launcher/ios/Errors/EXDevLauncherAppError.swift
++++ b/node_modules/expo-dev-launcher/ios/Errors/EXDevLauncherAppError.swift
+@@ -1,5 +1,9 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
++import React
++
+ @objc
+ public class EXDevLauncherAppError: NSObject {
+   let message: String
+diff --git a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
+index 5fd114f..fac7f3d 100644
+--- a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
++++ b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public class ExpoDevLauncherAppDelegateSubscriber: ExpoAppDelegateSubscriber {
+diff --git a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
+index c34857a..5cdea13 100644
+--- a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
++++ b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2018-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ import EXUpdatesInterface
+ import React
+diff --git a/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift b/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift
+index 3a8019b..8b5c4d9 100644
+--- a/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift
++++ b/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift
+@@ -1,6 +1,8 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
+ import Foundation
++import UIKit
++import React
+ 
+ @objc
+ public class EXDevLauncherRedBoxInterceptor: NSObject {
+diff --git a/node_modules/expo-dev-launcher/ios/SwiftUI/DevLauncherViewModel.swift b/node_modules/expo-dev-launcher/ios/SwiftUI/DevLauncherViewModel.swift
+index 84bfce1..5cb8792 100644
+--- a/node_modules/expo-dev-launcher/ios/SwiftUI/DevLauncherViewModel.swift
++++ b/node_modules/expo-dev-launcher/ios/SwiftUI/DevLauncherViewModel.swift
+@@ -2,6 +2,7 @@
+ 
+ import ExpoModulesCore
+ import Foundation
++import UIKit
+ import AuthenticationServices
+ import Network
+ import EXDevMenu
