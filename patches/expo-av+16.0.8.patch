@@ -53,10 +53,10 @@ index 0000000..adc1d93
 +#import "EXVideoView.h"
 +#endif
 diff --git a/node_modules/expo-av/ios/EXAV/EXAV.h b/node_modules/expo-av/ios/EXAV/EXAV.h
-index 42a79e1..393e484 100644
+index 42a79e1..1d1e1e6 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAV.h
 +++ b/node_modules/expo-av/ios/EXAV/EXAV.h
-@@ -7,8 +7,41 @@
+@@ -7,8 +7,44 @@
  #import <ExpoModulesCore/EXModuleRegistryConsumer.h>
  #import <ExpoModulesCore/EXAppLifecycleListener.h>
  #import <ExpoModulesCore/EXExportedModule.h>
@@ -90,6 +90,9 @@ index 42a79e1..393e484 100644
 +#define EXLogInfo(format, ...) NSLog((@"EXLogInfo: " format), ##__VA_ARGS__)
 +#endif
 +
++typedef EXPromiseResolveBlock UMPromiseResolveBlock;
++typedef EXPromiseRejectBlock UMPromiseRejectBlock;
++
 +#if __has_include(<EXAV/EXAVObject.h>)
  #import <EXAV/EXAVObject.h>
 +#else
@@ -99,7 +102,7 @@ index 42a79e1..393e484 100644
  typedef NS_OPTIONS(NSUInteger, EXAudioInterruptionMode)
  {
 diff --git a/node_modules/expo-av/ios/EXAV/EXAV.m b/node_modules/expo-av/ios/EXAV/EXAV.m
-index 7153d28..304d3bb 100644
+index 7153d28..aae52cf 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAV.m
 +++ b/node_modules/expo-av/ios/EXAV/EXAV.m
 @@ -3,18 +3,32 @@
@@ -135,6 +138,39 @@ index 7153d28..304d3bb 100644
  #if __has_include(<EXAV/EXAV-Swift.h>)
  #import <EXAV/EXAV-Swift.h>
  #else
+@@ -1013,8 +1027,8 @@ EX_EXPORT_METHOD_AS(unloadAudioRecorder,
+ }
+ 
+ EX_EXPORT_METHOD_AS(getAvailableInputs,
+-                    resolver:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    resolver:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   NSMutableArray *inputs = [NSMutableArray new];
+   for (AVAudioSessionPortDescription *desc in [_kernelAudioSessionManagerDelegate availableInputs]){
+@@ -1028,8 +1042,8 @@ EX_EXPORT_METHOD_AS(getAvailableInputs,
+ }
+ 
+ EX_EXPORT_METHOD_AS(getCurrentInput,
+-                    getCurrentInput:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    getCurrentInput:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   AVAudioSessionPortDescription *desc = [_kernelAudioSessionManagerDelegate activeInput];
+   if (desc) {
+@@ -1045,8 +1059,8 @@ EX_EXPORT_METHOD_AS(getCurrentInput,
+ 
+ EX_EXPORT_METHOD_AS(setInput,
+                     setInput:(NSString*)input
+-                    resolver:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    resolver:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   AVAudioSessionPortDescription* preferredInput = nil;
+   for (AVAudioSessionPortDescription *desc in [_kernelAudioSessionManagerDelegate availableInputs]){
 diff --git a/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m b/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m
 index 6f6998d..f065a7a 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAVPlayerData.m
@@ -167,7 +203,7 @@ index 6f6998d..f065a7a 100644
  typedef struct AVAudioTapProcessorContext {
    Boolean supportedTapProcessingFormat;
 diff --git a/node_modules/expo-av/ios/EXAV/EXAVTV.m b/node_modules/expo-av/ios/EXAV/EXAVTV.m
-index b6fccda..36e52a1 100644
+index b6fccda..d3eba5d 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAVTV.m
 +++ b/node_modules/expo-av/ios/EXAV/EXAVTV.m
 @@ -3,17 +3,30 @@
@@ -201,6 +237,36 @@ index b6fccda..36e52a1 100644
  #if __has_include(<EXAV/EXAV-Swift.h>)
  #import <EXAV/EXAV-Swift.h>
  #else
+@@ -716,23 +729,23 @@ EX_EXPORT_METHOD_AS(unloadAudioRecorder,
+ }
+ 
+ EX_EXPORT_METHOD_AS(getAvailableInputs,
+-                    resolver:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    resolver:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   reject(@"E_UNSUPPORTED_PLATFORM", @"Not available on TV.", nil);
+ }
+ 
+ EX_EXPORT_METHOD_AS(getCurrentInput,
+-                    getCurrentInput:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    getCurrentInput:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   reject(@"E_UNSUPPORTED_PLATFORM", @"Not available on TV.", nil);
+ }
+ 
+ EX_EXPORT_METHOD_AS(setInput,
+                     setInput:(NSString*)input
+-                    resolver:(UMPromiseResolveBlock)resolve
+-                    rejecter:(UMPromiseRejectBlock)reject)
++                    resolver:(EXPromiseResolveBlock)resolve
++                    rejecter:(EXPromiseRejectBlock)reject)
+ {
+   reject(@"E_UNSUPPORTED_PLATFORM", @"Not available on TV.", nil);
+ }
 diff --git a/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m b/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m
 index 7d8375a..efc9b56 100644
 --- a/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m
