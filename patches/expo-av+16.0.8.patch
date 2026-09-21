@@ -1,0 +1,80 @@
+diff --git a/node_modules/expo-av/ios/EXAV.podspec b/node_modules/expo-av/ios/EXAV.podspec
+index d057e2d..92543a2 100644
+--- a/node_modules/expo-av/ios/EXAV.podspec
++++ b/node_modules/expo-av/ios/EXAV.podspec
+@@ -24,7 +24,9 @@ Pod::Spec.new do |s|
+   s.pod_target_xcconfig = {
+     'DEFINES_MODULE' => 'YES',
+     'SWIFT_COMPILATION_MODE' => 'wholemodule',
+-    "CLANG_CXX_LANGUAGE_STANDARD" => "c++20"
++    "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/EXAV/EXAV-Bridging-Header.h',
++    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/EXAV" "${PODS_TARGET_SRCROOT}/EXAV/Video"',
+   }
+ 
+   if !$ExpoUseSources&.include?(package['name']) && ENV['EXPO_USE_SOURCE'].to_i == 0 && File.exist?("#{s.name}.xcframework") && Gem::Version.new(Pod::VERSION) >= Gem::Version.new('1.10.0')
+diff --git a/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h b/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h
+new file mode 100644
+index 0000000..6093adb
+--- /dev/null
++++ b/node_modules/expo-av/ios/EXAV/EXAV-Bridging-Header.h
+@@ -0,0 +1,17 @@
++#import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
++#import <AVFoundation/AVFoundation.h>
++#import <AVKit/AVKit.h>
++#import <ExpoModulesCore/ExpoModulesCore.h>
++
++#if __has_include(<EXAV/EXAV.h>)
++#import <EXAV/EXAV.h>
++#import <EXAV/EXAVObject.h>
++#import <EXAV/EXVideoView.h>
++#import <EXAV/EXVideoPlayerViewControllerDelegate.h>
++#else
++#import "EXAV.h"
++#import "EXAVObject.h"
++#import "EXVideoView.h"
++#import "EXVideoPlayerViewControllerDelegate.h"
++#endif
+diff --git a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift b/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
+index bc34aba..de30d3d 100644
+--- a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
++++ b/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ 
+ public final class ExpoVideoView: ExpoView {
+diff --git a/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h b/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
+index f7ff4ee..87471e9 100644
+--- a/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
++++ b/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
+@@ -3,8 +3,13 @@
+ #import <ExpoModulesCore/EXModuleRegistry.h>
+ #import <ExpoModulesCore/EXLegacyExpoViewProtocol.h>
+ 
++#if __has_include(<EXAV/EXAVObject.h>)
+ #import <EXAV/EXAVObject.h>
+ #import <EXAV/EXVideoPlayerViewControllerDelegate.h>
++#else
++#import "EXAVObject.h"
++#import "EXVideoPlayerViewControllerDelegate.h"
++#endif
+ 
+ @interface EXVideoView : UIView <EXVideoPlayerViewControllerDelegate, AVPlayerViewControllerDelegate, EXAVObject, EXLegacyExpoViewProtocol>
+ 
+diff --git a/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift b/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
+index 4ddc324..ef990bf 100644
+--- a/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
++++ b/node_modules/expo-av/ios/EXAV/Video/VideoViewModule.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2022-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import ExpoModulesCore
+ import AVFoundation
+ 
