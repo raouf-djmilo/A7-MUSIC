@@ -43,12 +43,19 @@ index bc34aba..de30d3d 100644
  
  public final class ExpoVideoView: ExpoView {
 diff --git a/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h b/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
-index f7ff4ee..87471e9 100644
+index f7ff4ee..081997c 100644
 --- a/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
 +++ b/node_modules/expo-av/ios/EXAV/Video/EXVideoView.h
-@@ -3,8 +3,13 @@
+@@ -1,10 +1,20 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
  #import <ExpoModulesCore/EXModuleRegistry.h>
++#if __has_include(<ExpoModulesCore/EXLegacyExpoViewProtocol.h>)
  #import <ExpoModulesCore/EXLegacyExpoViewProtocol.h>
++#else
++@protocol EXLegacyExpoViewProtocol <NSObject>
++@end
++#endif
  
 +#if __has_include(<EXAV/EXAVObject.h>)
  #import <EXAV/EXAVObject.h>
