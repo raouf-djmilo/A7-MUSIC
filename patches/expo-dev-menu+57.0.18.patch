@@ -33,7 +33,7 @@ index 983f76f..348484e 100644
      main.dependency 'React-Core'
      if ENV['USE_FRAMEWORKS'] && reactNativeTargetVersion >= 75
 diff --git a/node_modules/expo-dev-menu/ios/DevMenuManager.swift b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
-index 12161b9..3c834fa 100644
+index 12161b9..3962565 100644
 --- a/node_modules/expo-dev-menu/ios/DevMenuManager.swift
 +++ b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
 @@ -1,5 +1,7 @@
@@ -44,6 +44,61 @@ index 12161b9..3c834fa 100644
  import React
  import ExpoModulesCore
  import EXDevMenuInterface
+@@ -509,7 +511,53 @@ open class DevMenuManager: NSObject {
+ 
+   @objc
+   public func getAppInfo() -> [AnyHashable: Any] {
+-    return EXDevMenuAppInfo.getAppInfo()
++    var appInfo: [AnyHashable: Any] = [:]
++
++    let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
++    let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
++    var appVersion = "\(shortVersion) (\(buildVersion))"
++    var appName = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
++      ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleExecutable") as? String)
++      ?? ""
++
++    var appIcon = ""
++    #if !os(tvOS) && !os(macOS)
++    if let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
++       let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
++       let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
++       let iconName = iconFiles.last,
++       let resourcePath = Bundle.main.resourcePath {
++      let path = (resourcePath as NSString).appendingPathComponent((iconName as NSString).appendingPathExtension("png") ?? iconName)
++      appIcon = "file://" + path
++    }
++    #endif
++
++    var runtimeVersion = ""
++    if let manifest = self.currentManifest {
++      if let name = manifest.name() {
++        appName = name
++      }
++      if let version = manifest.version() {
++        appVersion = version
++      }
++      if let manifestIcon = manifest.iosAppIconUrl() {
++        appIcon = manifestIcon
++      }
++      if let updatesManifest = manifest as? ExpoUpdatesManifest {
++        runtimeVersion = updatesManifest.runtimeVersion()
++      }
++    }
++
++    let hostUrl = self.currentManifestURL?.absoluteString ?? ""
++
++    appInfo["appName"] = appName
++    appInfo["appIcon"] = appIcon
++    appInfo["appVersion"] = appVersion
++    appInfo["runtimeVersion"] = runtimeVersion
++    appInfo["hostUrl"] = hostUrl
++    appInfo["engine"] = "Hermes"
++
++    return appInfo
+   }
+ 
+   @objc
 diff --git a/node_modules/expo-dev-menu/ios/EXDevMenu-Bridging-Header.h b/node_modules/expo-dev-menu/ios/EXDevMenu-Bridging-Header.h
 new file mode 100644
 index 0000000..4fdfed1
