@@ -106,6 +106,20 @@ index a2b644f..3f0c289 100644
  
  NS_ASSUME_NONNULL_BEGIN
  
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+index 20e5b15..b1653e8 100644
+--- a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+@@ -12,7 +12,9 @@
+ #import <EXDevLauncher/EXDevLauncherManifestParser.h>
+ #import <EXDevLauncher/EXDevLauncherRCTDevSettings.h>
+ #import <EXDevLauncher/EXDevLauncherUpdatesHelper.h>
++#if __has_include(<EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>)
+ #import <EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>
++#endif
+ 
+ 
+ #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift b/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift
 index f8f032f..9ec4a5a 100644
 --- a/node_modules/expo-dev-launcher/ios/EXDevLauncherPendingDeepLinkListener.swift
