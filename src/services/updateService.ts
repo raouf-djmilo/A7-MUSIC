@@ -10,10 +10,11 @@ import {
   sanitizeVersion,
   GITHUB_RELEASES_API_URL,
   GITHUB_RELEASES_PAGE_URL,
+  GITHUB_RAW_VERSION_URL,
 } from '../config/version';
 
 const UPDATE_CACHE_KEY = '@a7music_cached_update_info';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours cache for silent background checks
 
 export interface ReleaseAsset {
   name: string;
@@ -69,7 +70,9 @@ export const sanitizeReleaseNotes = (notes?: string): string => {
 };
 
 /**
- * Fetch latest release from GitHub API with caching & semver comparison
+ * Fetch latest release with 2-Tier Architecture:
+ * Tier 1: Fastly CDN (raw.githubusercontent.com/version.json) -> Zero REST API rate limit!
+ * Tier 2: GitHub Releases REST API (with HTTP 403 Rate Limit catch and 6-hour cache)
  */
 export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdateInfo> => {
   const currentVersion = getInstalledAppVersion();
@@ -93,10 +96,63 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
     }
   }
 
-  // 2. Fetch from GitHub API
+  // 2. Tier 1: Fast CDN fetch from raw.githubusercontent.com (No Rate Limits)
+  try {
+    const cdnController = new AbortController();
+    const cdnTimeout = setTimeout(() => cdnController.abort(), 8000);
+
+    const cdnResponse = await fetch(GITHUB_RAW_VERSION_URL, {
+      signal: cdnController.signal,
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    clearTimeout(cdnTimeout);
+
+    if (cdnResponse.ok) {
+      const rawData = await cdnResponse.json();
+      const latestVersion = sanitizeVersion(rawData.version || '1.4.8');
+      const isUpdateAvailable = compareVersions(latestVersion, currentVersion) > 0;
+
+      const ipaAsset: ReleaseAsset | null = rawData.ipa ? {
+        name: rawData.ipa.name || 'A7-MUSIC.ipa',
+        size: rawData.ipa.size || 0,
+        downloadUrl: rawData.ipa.url || '',
+        sizeFormatted: formatBytes(rawData.ipa.size || 0),
+      } : null;
+
+      const apkAsset: ReleaseAsset | null = rawData.apk ? {
+        name: rawData.apk.name || 'A7-MUSIC.apk',
+        size: rawData.apk.size || 0,
+        downloadUrl: rawData.apk.url || '',
+        sizeFormatted: formatBytes(rawData.apk.size || 0),
+      } : null;
+
+      const info: AppUpdateInfo = {
+        latestVersion,
+        currentVersion,
+        isUpdateAvailable,
+        releaseTitle: rawData.title || `A7 MUSIC v${latestVersion}`,
+        releaseNotes: sanitizeReleaseNotes(rawData.notes),
+        publishedAt: rawData.publishedAt || new Date().toISOString(),
+        publishedAtFormatted: formatReleaseDate(rawData.publishedAt),
+        ipaAsset,
+        apkAsset,
+        htmlUrl: rawData.htmlUrl || GITHUB_RELEASES_PAGE_URL,
+        checkedAt: Date.now(),
+      };
+
+      await AsyncStorage.setItem(UPDATE_CACHE_KEY, JSON.stringify(info));
+      return info;
+    }
+  } catch (cdnErr) {
+    // CDN fetch failed or offline; continue to Tier 2 GitHub REST API
+  }
+
+  // 3. Tier 2: Fallback to GitHub Releases REST API
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(GITHUB_RELEASES_API_URL, {
       signal: controller.signal,
@@ -106,6 +162,18 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
       },
     });
     clearTimeout(timeoutId);
+
+    // Handle Rate Limit 403 gracefully
+    if (response.status === 403 || response.status === 429) {
+      console.warn('GitHub API rate limit reached, falling back to cache');
+      const cached = await AsyncStorage.getItem(UPDATE_CACHE_KEY);
+      if (cached) {
+        const parsed: AppUpdateInfo = JSON.parse(cached);
+        parsed.currentVersion = currentVersion;
+        parsed.isUpdateAvailable = compareVersions(parsed.latestVersion, currentVersion) > 0;
+        return parsed;
+      }
+    }
 
     if (!response.ok) {
       throw new Error(`GitHub API HTTP ${response.status}`);
@@ -117,7 +185,7 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
     const isUpdateAvailable = compareVersions(latestVersion, currentVersion) > 0;
 
     let ipaAsset: ReleaseAsset | null = null;
-    let apkAsset: ReleaseAsset | null = null;
+    let candidateApks: ReleaseAsset[] = [];
 
     if (Array.isArray(data.assets)) {
       for (const a of data.assets) {
@@ -132,16 +200,24 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
             downloadUrl,
             sizeFormatted: formatBytes(size),
           };
-        } else if (name.toLowerCase().endsWith('.apk') || name.includes('apk')) {
-          apkAsset = {
+        } else if (name.toLowerCase().endsWith('.apk')) {
+          candidateApks.push({
             name,
             size,
             downloadUrl,
             sizeFormatted: formatBytes(size),
-          };
+          });
         }
       }
     }
+
+    // Prioritize optimized release APKs: A7-MUSIC.apk > *release*.apk > non-debug > any
+    const apkAsset: ReleaseAsset | null =
+      candidateApks.find((a) => a.name === 'A7-MUSIC.apk') ||
+      candidateApks.find((a) => a.name.toLowerCase().includes('release')) ||
+      candidateApks.find((a) => !a.name.toLowerCase().includes('debug')) ||
+      candidateApks[0] ||
+      null;
 
     const info: AppUpdateInfo = {
       latestVersion,
@@ -161,7 +237,7 @@ export const checkForAppUpdate = async (forceRefresh = false): Promise<AppUpdate
     await AsyncStorage.setItem(UPDATE_CACHE_KEY, JSON.stringify(info));
     return info;
   } catch (error) {
-    // 3. Graceful Fallback if offline or rate-limited
+    // 4. Graceful Fallback if offline
     try {
       const cached = await AsyncStorage.getItem(UPDATE_CACHE_KEY);
       if (cached) {
@@ -197,10 +273,11 @@ export const getTrollStoreUrl = (ipaDownloadUrl: string): string => {
 };
 
 /**
- * Downloads Android APK with live progress reporting
+ * Downloads Android APK with live progress reporting and File Integrity Verification
  */
 export const downloadApkWithProgress = async (
   downloadUrl: string,
+  expectedBytes: number,
   onProgress: (progress: number, writtenMB: string, totalMB: string) => void
 ): Promise<string> => {
   const fileUri = `${FileSystem.cacheDirectory}A7-MUSIC-latest.apk`;
@@ -217,13 +294,10 @@ export const downloadApkWithProgress = async (
     {},
     (downloadProgress) => {
       const { totalBytesWritten, totalBytesExpectedToWrite } = downloadProgress;
-      const progress = totalBytesExpectedToWrite > 0
-        ? totalBytesWritten / totalBytesExpectedToWrite
-        : 0;
+      const expected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : expectedBytes;
+      const progress = expected > 0 ? totalBytesWritten / expected : 0;
       const writtenMB = (totalBytesWritten / (1024 * 1024)).toFixed(1);
-      const totalMB = totalBytesExpectedToWrite > 0
-        ? (totalBytesExpectedToWrite / (1024 * 1024)).toFixed(1)
-        : '?';
+      const totalMB = expected > 0 ? (expected / (1024 * 1024)).toFixed(1) : '?';
 
       onProgress(progress, writtenMB, totalMB);
     }
@@ -234,11 +308,28 @@ export const downloadApkWithProgress = async (
     throw new Error('فشل تنزيل ملف التحديث.');
   }
 
+  // 🛡️ Integrity Check: Verify downloaded file size on disk matches expected size
+  const finalFileInfo = await FileSystem.getInfoAsync(result.uri);
+  if (!finalFileInfo.exists) {
+    throw new Error('ملف التحديث غير موجود في الذاكرة بعد انتهاء التنزيل.');
+  }
+
+  if (expectedBytes > 0 && finalFileInfo.size > 0 && finalFileInfo.size !== expectedBytes) {
+    // If the difference is significant (> 1KB), file is corrupted or truncated
+    const sizeDiff = Math.abs(finalFileInfo.size - expectedBytes);
+    if (sizeDiff > 1024) {
+      await FileSystem.deleteAsync(result.uri, { idempotent: true });
+      throw new Error(
+        `ملف التحديث غير مكتمل (تم تنزيل ${formatBytes(finalFileInfo.size)} من أصل ${formatBytes(expectedBytes)}). يرجى التأكد من استقرار الاتصال بالإنترنت والمحاولة مجدداً.`
+      );
+    }
+  }
+
   return result.uri;
 };
 
 /**
- * Launch Android package installation via Share sheet / System handler
+ * Launch Android package installation via strict APK mimeType
  */
 export const launchApkInstall = async (localFileUri: string): Promise<void> => {
   if (Platform.OS !== 'android') return;

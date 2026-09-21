@@ -1,0 +1,17 @@
+{
+  "version": "1.4.8",
+  "title": "A7 MUSIC v1.4.8",
+  "publishedAt": "2026-09-21T06:10:53Z",
+  "notes": "## 🎵 A7 MUSIC v1.4.8\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Apple-style Software Update Engine in Settings\n- Direct iOS IPA and Android APK downloads\n- Athletic performance and telemetry optimizations",
+  "ipa": {
+    "name": "A7-MUSIC.ipa",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.8/A7-MUSIC.ipa",
+    "size": 19623829
+  },
+  "apk": {
+    "name": "A7-MUSIC.apk",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.8/A7-MUSIC.apk",
+    "size": 42000000
+  },
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.4.8"
+}

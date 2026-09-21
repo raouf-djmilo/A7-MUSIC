@@ -49,6 +49,22 @@ export const SoftwareUpdateScreen: React.FC = () => {
   const [downloadedMB, setDownloadedMB] = useState('0.0');
   const [totalMB, setTotalMB] = useState('0.0');
   const [downloadedApkUri, setDownloadedApkUri] = useState<string | null>(null);
+  const [canUseTrollStore, setCanUseTrollStore] = useState(false);
+
+  // Check if TrollStore URL scheme is supported on this device
+  useEffect(() => {
+    const checkTrollStoreSupport = async () => {
+      if (Platform.OS === 'ios') {
+        try {
+          const supported = await Linking.canOpenURL('apple-magnifier://');
+          setCanUseTrollStore(supported);
+        } catch {
+          setCanUseTrollStore(false);
+        }
+      }
+    };
+    checkTrollStoreSupport();
+  }, []);
 
   const fetchUpdate = useCallback(async (forceRefresh = false) => {
     try {
@@ -155,11 +171,16 @@ export const SoftwareUpdateScreen: React.FC = () => {
     setDownloadProgress(0);
 
     try {
-      const localUri = await downloadApkWithProgress(apkUrl, (prog, written, total) => {
-        setDownloadProgress(prog);
-        setDownloadedMB(written);
-        setTotalMB(total);
-      });
+      const expectedSize = apkAsset?.size || 0;
+      const localUri = await downloadApkWithProgress(
+        apkUrl,
+        expectedSize,
+        (prog, written, total) => {
+          setDownloadProgress(prog);
+          setDownloadedMB(written);
+          setTotalMB(total);
+        }
+      );
 
       setDownloadedApkUri(localUri);
       setIsDownloadingApk(false);
@@ -167,7 +188,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
 
       ToastManager.show({
         title: 'اكتمل تنزيل التحديث 🎉',
-        subtitle: 'اضغط لفتح نافذة تثبيت التحديث على جهازك',
+        subtitle: 'اضغط لفتح مثبت الحزم وتحديث التطبيق',
         icon: 'checkmark-circle-outline',
       });
 
@@ -175,11 +196,16 @@ export const SoftwareUpdateScreen: React.FC = () => {
       await launchApkInstall(localUri);
     } catch (err: any) {
       setIsDownloadingApk(false);
+      const isIntegrityError = err?.message?.includes('غير مكتمل');
       Alert.alert(
-        'خطأ في التنزيل',
-        'تعذر إكمال تنزيل التحديث. يمكنك تنزيل ملف الـ APK مباشرة عبر المتصفح.',
+        isIntegrityError ? 'تنبيه: حجم التحديث غير مكتمل' : 'خطأ في التنزيل',
+        err?.message || 'تعذر إكمال تنزيل التحديث. يمكنك تنزيل ملف الـ APK مباشرة عبر المتصفح.',
         [
           { text: 'إلغاء', style: 'cancel' },
+          {
+            text: 'إعادة المحاولة',
+            onPress: () => handleStartApkDownload(apkUrl),
+          },
           {
             text: 'تنزيل عبر المتصفح',
             onPress: () => Linking.openURL(apkUrl),
@@ -319,34 +345,66 @@ export const SoftwareUpdateScreen: React.FC = () => {
 
                 {ipaAsset ? (
                   <View style={styles.buttonStack}>
-                    {/* TrollStore Direct Install Button */}
-                    <TouchableOpacity
-                      style={styles.primaryActionButton}
-                      onPress={() => handleTrollStoreInstall(ipaAsset.downloadUrl)}
-                      activeOpacity={0.85}
-                    >
-                      <LinearGradient
-                        colors={['#007AFF', '#0051B3']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.buttonGradient}
-                      >
-                        <MaterialCommunityIcons name="lightning-bolt" size={20} color="#FFF" />
-                        <Text style={styles.primaryButtonText}>تثبيت فوري عبر TrollStore</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    {/* If TrollStore is supported/installed on iOS <= 17.0 */}
+                    {canUseTrollStore ? (
+                      <>
+                        {/* TrollStore Direct Install Button */}
+                        <TouchableOpacity
+                          style={styles.primaryActionButton}
+                          onPress={() => handleTrollStoreInstall(ipaAsset.downloadUrl)}
+                          activeOpacity={0.85}
+                        >
+                          <LinearGradient
+                            colors={['#007AFF', '#0051B3']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.buttonGradient}
+                          >
+                            <MaterialCommunityIcons name="lightning-bolt" size={20} color="#FFF" />
+                            <Text style={styles.primaryButtonText}>تثبيت فوري عبر TrollStore</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
 
-                    {/* Direct Safari Download */}
-                    <TouchableOpacity
-                      style={[styles.secondaryActionButton, { borderColor: theme.borderSubtle }]}
-                      onPress={() => handleDownloadIpa(ipaAsset.downloadUrl)}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="download-outline" size={18} color={theme.textPrimary} />
-                      <Text style={[styles.secondaryButtonText, { color: theme.textPrimary }]}>
-                        تنزيل ملف الـ IPA في المتصفح
-                      </Text>
-                    </TouchableOpacity>
+                        {/* Direct Safari Download */}
+                        <TouchableOpacity
+                          style={[styles.secondaryActionButton, { borderColor: theme.borderSubtle }]}
+                          onPress={() => handleDownloadIpa(ipaAsset.downloadUrl)}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="download-outline" size={18} color={theme.textPrimary} />
+                          <Text style={[styles.secondaryButtonText, { color: theme.textPrimary }]}>
+                            تنزيل ملف الـ IPA في المتصفح
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        {/* Primary Safari Download for iOS 17.4+ and iOS 18 */}
+                        <TouchableOpacity
+                          style={styles.primaryActionButton}
+                          onPress={() => handleDownloadIpa(ipaAsset.downloadUrl)}
+                          activeOpacity={0.85}
+                        >
+                          <LinearGradient
+                            colors={['#007AFF', '#0051B3']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.buttonGradient}
+                          >
+                            <Ionicons name="download-outline" size={20} color="#FFF" />
+                            <Text style={styles.primaryButtonText}>تنزيل ملف الـ IPA في المتصفح</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+
+                        {/* Informative notice for iOS 17.4+ & iOS 18 */}
+                        <View style={styles.iosNoticeBox}>
+                          <Ionicons name="information-circle" size={16} color="#007AFF" />
+                          <Text style={styles.iosNoticeText}>
+                            لأجهزة iOS 17.4+ و iOS 18: ثبّت ملف الـ IPA عبر AltStore أو Scarlet أو Sideloadly.
+                          </Text>
+                        </View>
+                      </>
+                    )}
 
                     {/* Copy IPA Link */}
                     <TouchableOpacity
@@ -844,6 +902,20 @@ const createStyles = (theme: ThemeTokens) =>
       borderRadius: 16,
       gap: 10,
       marginTop: 4,
+    },
+    iosNoticeBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 122, 255, 0.08)',
+      padding: 10,
+      borderRadius: 12,
+      gap: 8,
+    },
+    iosNoticeText: {
+      flex: 1,
+      fontSize: 12,
+      color: theme.textSecondary,
+      lineHeight: 16,
     },
     tipText: {
       flex: 1,
