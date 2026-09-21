@@ -46,6 +46,94 @@ const getSafeVideoPlayer = (): any | null => {
   }
 };
 
+// ── 🛡️ Cross-Frame Deep Ad-Killer Script (Executed in main window + inside YouTube embed iframe) ──
+const AD_KILLER_INJECTION_SCRIPT = `
+(function() {
+  try {
+    var isAdUrl = function(url) {
+      if (!url || typeof url !== 'string') return false;
+      var u = url.toLowerCase();
+      return (
+        u.indexOf('doubleclick.net') !== -1 ||
+        u.indexOf('googleads') !== -1 ||
+        u.indexOf('/pagead/') !== -1 ||
+        u.indexOf('/api/stats/ads') !== -1 ||
+        u.indexOf('get_midroll_info') !== -1 ||
+        u.indexOf('adservice.google') !== -1 ||
+        u.indexOf('youtube.com/pagead') !== -1
+      );
+    };
+
+    // 1. Block ad requests inside iframe
+    if (window.XMLHttpRequest) {
+      var origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url) {
+        if (isAdUrl(url)) {
+          this.abort();
+          return;
+        }
+        return origOpen.apply(this, arguments);
+      };
+    }
+
+    if (window.fetch) {
+      var origFetch = window.fetch;
+      window.fetch = function(input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        if (isAdUrl(url)) {
+          return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return origFetch.apply(this, arguments);
+      };
+    }
+  } catch(e) {}
+
+  // 2. ⚡ 25ms High-Frequency In-Frame Ad-Destroyer
+  function destroyAds() {
+    try {
+      var adOverlay = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-overlay-container, .ytp-ad-text');
+      var video = document.querySelector('video');
+
+      if (adOverlay && video) {
+        video.muted = true;
+        video.playbackRate = 16.0;
+        if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
+          video.currentTime = video.duration;
+        }
+      } else if (video && video.muted && !adOverlay) {
+        video.muted = false;
+        video.playbackRate = 1.0;
+      }
+
+      var skipSelectors = [
+        '.ytp-ad-skip-button',
+        '.ytp-ad-skip-button-modern',
+        '.ytp-skip-ad-button',
+        '.ytp-ad-skip-button-text',
+        '.videoAdUiSkipButton',
+        'button.ytp-ad-skip-button-slot',
+        '.ytp-ad-overlay-close-button'
+      ];
+      for (var i = 0; i < skipSelectors.length; i++) {
+        var btn = document.querySelector(skipSelectors[i]);
+        if (btn && typeof btn.click === 'function') {
+          btn.click();
+          break;
+        }
+      }
+
+      var overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-message-container');
+      for (var j = 0; j < overlays.length; j++) {
+        overlays[j].style.display = 'none';
+      }
+    } catch(err) {}
+  }
+
+  setInterval(destroyAds, 25);
+})();
+true;
+`;
+
 // ── 🌐 Online YouTube IFrame Bridge (requires remote origin for YouTube API) ──
 const YOUTUBE_HTML_CONTENT = `
 <!DOCTYPE html>
@@ -118,6 +206,7 @@ const YOUTUBE_HTML_CONTENT = `
       ytPlayer = new YT.Player('player', {
         height: '240',
         width: '320',
+        host: 'https://www.youtube-nocookie.com',
         playerVars: {
           controls: 0,
           modestbranding: 1,
@@ -872,6 +961,9 @@ export const GlobalAudioBridge: React.FC = () => {
           return true;
         }}
         cacheEnabled={true}
+        injectedJavaScriptBeforeContentLoaded={AD_KILLER_INJECTION_SCRIPT}
+        injectedJavaScript={AD_KILLER_INJECTION_SCRIPT}
+        injectedJavaScriptForMainFrameOnly={false}
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         javaScriptEnabled={true}
