@@ -1,0 +1,57 @@
+diff --git a/node_modules/expo-dev-menu/expo-dev-menu.podspec b/node_modules/expo-dev-menu/expo-dev-menu.podspec
+index 983f76f..348484e 100644
+--- a/node_modules/expo-dev-menu/expo-dev-menu.podspec
++++ b/node_modules/expo-dev-menu/expo-dev-menu.podspec
+@@ -55,6 +55,7 @@ Pod::Spec.new do |s|
+   }
+ 
+   header_search_paths = [
++    '"${PODS_TARGET_SRCROOT}/ios"',
+     '"${PODS_ROOT}/Headers/Private/React-Core"',
+     '"$(PODS_CONFIGURATION_BUILD_DIR)/ExpoModulesCore/Swift Compatibility Header"',
+     '"$(PODS_CONFIGURATION_BUILD_DIR)/expo-dev-menu-interface/Swift Compatibility Header"',
+@@ -77,6 +78,7 @@ Pod::Spec.new do |s|
+   end
+   s.pod_target_xcconfig = {
+     'DEFINES_MODULE' => 'YES',
++    'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/EXDevMenu-Bridging-Header.h',
+     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
+     'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
+   }
+@@ -94,7 +96,12 @@ Pod::Spec.new do |s|
+     s.compiler_flags = compiler_flags
+ 
+     # add_dependency() requires to be defined
+-    main.pod_target_xcconfig = {}
++    main.pod_target_xcconfig = {
++      'DEFINES_MODULE' => 'YES',
++      'SWIFT_OBJC_BRIDGING_HEADER' => '${PODS_TARGET_SRCROOT}/ios/EXDevMenu-Bridging-Header.h',
++      'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
++      'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
++    }
+ 
+     main.dependency 'React-Core'
+     if ENV['USE_FRAMEWORKS'] && reactNativeTargetVersion >= 75
+diff --git a/node_modules/expo-dev-menu/ios/DevMenuManager.swift b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
+index 12161b9..3c834fa 100644
+--- a/node_modules/expo-dev-menu/ios/DevMenuManager.swift
++++ b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
+@@ -1,5 +1,7 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import UIKit
+ import React
+ import ExpoModulesCore
+ import EXDevMenuInterface
+diff --git a/node_modules/expo-dev-menu/ios/EXDevMenu-Bridging-Header.h b/node_modules/expo-dev-menu/ios/EXDevMenu-Bridging-Header.h
+new file mode 100644
+index 0000000..4fdfed1
+--- /dev/null
++++ b/node_modules/expo-dev-menu/ios/EXDevMenu-Bridging-Header.h
+@@ -0,0 +1,5 @@
++// Copyright 2015-present 650 Industries. All rights reserved.
++
++#import <Foundation/Foundation.h>
++#import <UIKit/UIKit.h>
++#import "EXDevMenuAppInfo.h"
