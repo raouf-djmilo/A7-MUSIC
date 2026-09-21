@@ -181,7 +181,7 @@ index 5fd114f..fac7f3d 100644
  
  public class ExpoDevLauncherAppDelegateSubscriber: ExpoAppDelegateSubscriber {
 diff --git a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
-index c34857a..5cdea13 100644
+index c34857a..1b6f117 100644
 --- a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
 +++ b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherReactDelegateHandler.swift
 @@ -1,5 +1,7 @@
@@ -192,6 +192,20 @@ index c34857a..5cdea13 100644
  import ExpoModulesCore
  import EXUpdatesInterface
  import React
+@@ -51,10 +53,9 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
+     self.reactDelegate = reactDelegate
+     self.launchOptions = launchOptions
+ 
+-    if let sharedController = UpdatesControllerRegistry.sharedInstance.controller as? UpdatesDevLauncherInterface {
+-      // for some reason the swift compiler and bridge are having issues here
+-      EXDevLauncherController.sharedInstance().updatesInterface = sharedController
+-      sharedController.updatesExternalInterfaceDelegate = EXDevLauncherController.sharedInstance()
++    if let sharedController = UpdatesControllerRegistry.sharedInstance.controller {
++      (EXDevLauncherController.sharedInstance() as AnyObject).setValue(sharedController, forKey: "updatesInterface")
++      (sharedController as AnyObject).setValue(EXDevLauncherController.sharedInstance(), forKey: "updatesExternalInterfaceDelegate")
+     }
+ 
+     EXDevLauncherController.sharedInstance().start(self, launchOptions: launchOptions)
 diff --git a/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift b/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift
 index 3a8019b..8b5c4d9 100644
 --- a/node_modules/expo-dev-launcher/ios/ReactNative/EXDevLauncherRedBoxInterceptor.swift
