@@ -149,6 +149,25 @@ index b6fccda..36e52a1 100644
  #if __has_include(<EXAV/EXAV-Swift.h>)
  #import <EXAV/EXAV-Swift.h>
  #else
+diff --git a/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m b/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m
+index 7d8375a..efc9b56 100644
+--- a/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m
++++ b/node_modules/expo-av/ios/EXAV/EXAudioRecordingPermissionRequester.m
+@@ -3,6 +3,14 @@
+ #import <EXAV/EXAudioRecordingPermissionRequester.h>
+ #import <ExpoModulesCore/EXDefines.h>
+ 
++#ifndef EXErrorWithMessage
++#define EXErrorWithMessage(message) [NSError errorWithDomain:@"EXPO" code:1 userInfo:@{NSLocalizedDescriptionKey: (message)}]
++#endif
++
++#ifndef EXFatal
++#define EXFatal(error) NSLog(@"[EXPO]: %@", (error))
++#endif
++
+ #import <AVFoundation/AVFoundation.h>
+ #import <objc/message.h>
+ 
 diff --git a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift b/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
 index bc34aba..de30d3d 100644
 --- a/node_modules/expo-av/ios/EXAV/ExpoVideoView.swift
