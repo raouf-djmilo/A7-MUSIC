@@ -23,9 +23,9 @@ import { GlassCard } from '../components/GlassCard';
 import { ToastManager } from '../components/InAppToast';
 import {
   checkForAppUpdate,
-  downloadApkWithProgress,
   launchApkInstall,
   getTrollStoreUrl,
+  useUpdateStore,
   AppUpdateInfo,
   ReleaseInfo,
   UpdateUrgency,
@@ -51,12 +51,18 @@ export const SoftwareUpdateScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
 
-  // APK Download Progress state
-  const [isDownloadingApk, setIsDownloadingApk] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0); // 0.0 -> 1.0
-  const [downloadedMB, setDownloadedMB] = useState('0.0');
-  const [totalMB, setTotalMB] = useState('0.0');
-  const [downloadedApkUri, setDownloadedApkUri] = useState<string | null>(null);
+  // Background Download Engine from global Zustand store (Survives screen unmount)
+  const {
+    isDownloadingApk,
+    downloadProgress,
+    downloadedMB,
+    totalMB,
+    downloadedApkUri,
+    startApkDownload,
+    installDownloadedApk,
+    checkUpdates,
+  } = useUpdateStore();
+
   const [canUseTrollStore, setCanUseTrollStore] = useState(false);
 
   // Check if TrollStore URL scheme is supported on this device
@@ -97,7 +103,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
       if (forceRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const info = await checkForAppUpdate(forceRefresh);
+      const info = await checkUpdates(forceRefresh);
       setUpdateInfo(info);
     } catch (e) {
       ToastManager.show({
@@ -109,7 +115,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [checkUpdates]);
 
   useEffect(() => {
     fetchUpdate(false);
@@ -181,35 +187,23 @@ export const SoftwareUpdateScreen: React.FC = () => {
     });
   };
 
-  // In-app APK Downloader with Progress Bar
+  // In-app APK Downloader with Global Zustand Store & Background Resilience
   const handleStartApkDownload = async (apkUrl: string) => {
     if (isDownloadingApk) return;
 
     if (downloadedApkUri) {
       // Already downloaded, launch installer
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await launchApkInstall(downloadedApkUri);
+      await installDownloadedApk();
       return;
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setIsDownloadingApk(true);
-    setDownloadProgress(0);
 
     try {
       const expectedSize = apkAsset?.size || 0;
-      const localUri = await downloadApkWithProgress(
-        apkUrl,
-        expectedSize,
-        (prog, written, total) => {
-          setDownloadProgress(prog);
-          setDownloadedMB(written);
-          setTotalMB(total);
-        }
-      );
+      await startApkDownload(apkUrl, expectedSize);
 
-      setDownloadedApkUri(localUri);
-      setIsDownloadingApk(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       ToastManager.show({
@@ -217,11 +211,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
         subtitle: 'اضغط لفتح مثبت الحزم وتحديث التطبيق',
         icon: 'checkmark-circle-outline',
       });
-
-      // Automatically prompt install
-      await launchApkInstall(localUri);
     } catch (err: any) {
-      setIsDownloadingApk(false);
       const isIntegrityError = err?.message?.includes('غير مكتمل');
       Alert.alert(
         isIntegrityError ? 'تنبيه: حجم التحديث غير مكتمل' : 'خطأ في التنزيل',
@@ -363,6 +353,35 @@ export const SoftwareUpdateScreen: React.FC = () => {
                 </Text>
               </View>
 
+              {/* 🛡️ iOS Critical Soft-Lock Prevention: Emergency Bypass Option */}
+              {Platform.OS === 'ios' && updateInfo?.urgency === 'critical' && (
+                <View style={styles.iosCriticalBypassCard}>
+                  <View style={styles.iosCriticalBypassHeader}>
+                    <Ionicons name="shield-checkmark" size={20} color="#FF9500" />
+                    <Text style={styles.iosCriticalBypassTitle}>تحديث إجباري (نظام iOS)</Text>
+                  </View>
+                  <Text style={styles.iosCriticalBypassDesc}>
+                    هذا التحديث يتضمن ترقيات وإصلاحات جوهرية. إذا لم يكن لديك TrollStore أو جهاز كمبيوتر لتثبيت ملف IPA عبر AltStore في الوقت الحالي، يمكنك مواصلة استخدام التطبيق وسنذكرك لاحقاً دون إغلاق التطبيق.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.iosBypassBtn}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      ToastManager.show({
+                        title: 'متابعة الاستخدام مؤقتاً',
+                        subtitle: 'يمكنك تثبيت التحديث في أي وقت عبر الإعدادات',
+                        icon: 'time-outline',
+                      });
+                      navigation.goBack();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-back-outline" size={16} color={theme.textPrimary} />
+                    <Text style={styles.iosBypassText}>متابعة الاستخدام مؤقتاً</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* 3. ⚡ Unified 1-Click Upgrade Hero Button */}
               {Platform.OS === 'android' ? (
                 apkAsset && (
@@ -370,7 +389,7 @@ export const SoftwareUpdateScreen: React.FC = () => {
                     style={styles.unifiedUpgradeBtn}
                     onPress={() =>
                       downloadedApkUri
-                        ? launchApkInstall(downloadedApkUri)
+                        ? installDownloadedApk()
                         : handleStartApkDownload(apkAsset.downloadUrl)
                     }
                     disabled={isDownloadingApk}
@@ -1341,6 +1360,48 @@ const createStyles = (theme: ThemeTokens) =>
       fontSize: 12,
       color: theme.textSecondary,
       lineHeight: 18,
+    },
+    /* iOS Critical Soft-Lock Bypass Card */
+    iosCriticalBypassCard: {
+      backgroundColor: 'rgba(255, 149, 0, 0.10)',
+      borderRadius: 18,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 149, 0, 0.35)',
+      gap: 10,
+    },
+    iosCriticalBypassHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    iosCriticalBypassTitle: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#FF9500',
+    },
+    iosCriticalBypassDesc: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.textSecondary,
+    },
+    iosBypassBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: theme.surfaceSubtle,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      marginTop: 4,
+    },
+    iosBypassText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textPrimary,
     },
     /* Unified Upgrade Button */
     unifiedUpgradeBtn: {

@@ -457,20 +457,40 @@ export const getTrollStoreUrl = (ipaDownloadUrl: string): string => {
 };
 
 /**
- * Downloads Android APK with live progress reporting and File Integrity Verification
+ * 🧹 Pre-download Purge: Removes all stale APK files from cache to prevent storage leaks
+ */
+export const purgeOldApkCache = async (): Promise<void> => {
+  try {
+    if (!FileSystem.cacheDirectory) return;
+    const files = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
+    for (const file of files) {
+      if (
+        file.toLowerCase().endsWith('.apk') ||
+        file.toLowerCase().startsWith('a7-music') ||
+        file.toLowerCase().includes('update')
+      ) {
+        const fullPath = `${FileSystem.cacheDirectory}${file}`;
+        await FileSystem.deleteAsync(fullPath, { idempotent: true }).catch(() => {});
+        console.log('[UpdateService] Purged stale cached APK:', file);
+      }
+    }
+  } catch (e) {
+    // Non-fatal cache purge failure
+  }
+};
+
+/**
+ * Downloads Android APK with live progress reporting, pre-download cache purge, and File Integrity Verification
  */
 export const downloadApkWithProgress = async (
   downloadUrl: string,
   expectedBytes: number,
   onProgress: (progress: number, writtenMB: string, totalMB: string) => void
 ): Promise<string> => {
-  const fileUri = `${FileSystem.cacheDirectory}A7-MUSIC-latest.apk`;
+  // 1. Proactively purge old APK cache to prevent storage leaks
+  await purgeOldApkCache();
 
-  // Remove previous temp apk if exists
-  const fileInfo = await FileSystem.getInfoAsync(fileUri);
-  if (fileInfo.exists) {
-    await FileSystem.deleteAsync(fileUri, { idempotent: true });
-  }
+  const fileUri = `${FileSystem.cacheDirectory}A7-MUSIC-latest.apk`;
 
   const downloadResumable = FileSystem.createDownloadResumable(
     downloadUrl,
@@ -529,19 +549,38 @@ export const launchApkInstall = async (localFileUri: string): Promise<void> => {
 };
 
 // ─────────────────────────────────────────────────────────
-// Zustand Global State for Live Update Badge across App
+// Zustand Global State for Live Update Badge & Background Downloader
 // ─────────────────────────────────────────────────────────
 interface UpdateStoreState {
   updateInfo: AppUpdateInfo | null;
   isChecking: boolean;
   hasUpdate: boolean;
+
+  // Background Download Engine (Survives screen unmount)
+  isDownloadingApk: boolean;
+  downloadProgress: number; // 0.0 -> 1.0
+  downloadedMB: string;
+  totalMB: string;
+  downloadedApkUri: string | null;
+  downloadError: string | null;
+
   checkUpdates: (force?: boolean) => Promise<AppUpdateInfo>;
+  startApkDownload: (apkUrl: string, expectedBytes?: number) => Promise<string>;
+  installDownloadedApk: () => Promise<void>;
+  resetDownloadState: () => void;
 }
 
 export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   updateInfo: null,
   isChecking: false,
   hasUpdate: false,
+
+  isDownloadingApk: false,
+  downloadProgress: 0,
+  downloadedMB: '0.0',
+  totalMB: '0.0',
+  downloadedApkUri: null,
+  downloadError: null,
 
   checkUpdates: async (force = false) => {
     set({ isChecking: true });
@@ -557,5 +596,70 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
       set({ isChecking: false });
       throw e;
     }
+  },
+
+  startApkDownload: async (apkUrl: string, expectedBytes = 0) => {
+    const { isDownloadingApk, downloadedApkUri } = get();
+    if (isDownloadingApk) return downloadedApkUri || '';
+    if (downloadedApkUri) {
+      await launchApkInstall(downloadedApkUri);
+      return downloadedApkUri;
+    }
+
+    set({
+      isDownloadingApk: true,
+      downloadProgress: 0,
+      downloadedMB: '0.0',
+      totalMB: expectedBytes > 0 ? (expectedBytes / (1024 * 1024)).toFixed(1) : '?',
+      downloadError: null,
+    });
+
+    try {
+      const localUri = await downloadApkWithProgress(
+        apkUrl,
+        expectedBytes,
+        (progress, writtenMB, totalMB) => {
+          set({
+            downloadProgress: progress,
+            downloadedMB: writtenMB,
+            totalMB: totalMB,
+          });
+        }
+      );
+
+      set({
+        isDownloadingApk: false,
+        downloadProgress: 1,
+        downloadedApkUri: localUri,
+      });
+
+      // Automatically launch package installer
+      await launchApkInstall(localUri);
+      return localUri;
+    } catch (err: any) {
+      set({
+        isDownloadingApk: false,
+        downloadError: err?.message || 'فشل تنزيل ملف التحديث.',
+      });
+      throw err;
+    }
+  },
+
+  installDownloadedApk: async () => {
+    const { downloadedApkUri } = get();
+    if (downloadedApkUri) {
+      await launchApkInstall(downloadedApkUri);
+    }
+  },
+
+  resetDownloadState: () => {
+    set({
+      isDownloadingApk: false,
+      downloadProgress: 0,
+      downloadedMB: '0.0',
+      totalMB: '0.0',
+      downloadedApkUri: null,
+      downloadError: null,
+    });
   },
 }));
