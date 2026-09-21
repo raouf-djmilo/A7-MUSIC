@@ -137,8 +137,8 @@ export async function extractRealYouTubeAudioStream(
     conversionData.progress_url ||
     `https://lto2.affadaffa.com/api/progress?id=${streamId}`;
 
-  // Poll progress until conversion completes (max 35 polls * 1.5s = ~50s)
-  const maxPolls = 35;
+  // Poll progress until conversion completes (max 12 polls * 1.5s = ~18s)
+  const maxPolls = 12;
   let finalDownloadUrl: string | null = null;
 
   for (let poll = 0; poll < maxPolls; poll++) {
@@ -398,9 +398,24 @@ class AudioDownloadService {
                 const dlResult = await FileSystem.downloadAsync(realStreamUrl, tempCacheUri);
                 if (dlResult && dlResult.uri) {
                   const check = await FileSystem.getInfoAsync(dlResult.uri);
-                  if (check.exists && (check as any).size >= 500 * 1024) {
-                    console.log(`[DownloadService] ✅ Cached successfully (${(((check as any).size || 0) / 1024).toFixed(1)} KB):`, dlResult.uri);
-                    candidates.unshift(dlResult.uri);
+                  if (check.exists && (check as any).size >= 100 * 1024) {
+                    // 🛡️ Integrity check: Ensure downloaded file is not an HTML error / Cloudflare challenge page
+                    let isCorruptOrHtml = false;
+                    try {
+                      const snippet = await FileSystem.readAsStringAsync(dlResult.uri, { length: 64, position: 0 });
+                      if (snippet.includes('<!DOCTYPE') || snippet.includes('<html') || snippet.includes('{"error"')) {
+                        isCorruptOrHtml = true;
+                      }
+                    } catch {}
+
+                    if (isCorruptOrHtml) {
+                      console.warn('[DownloadService] ⚠️ Downloaded file is an HTML error response. Purging cache...');
+                      await FileSystem.deleteAsync(dlResult.uri, { idempotent: true }).catch(() => {});
+                      candidates.push(realStreamUrl);
+                    } else {
+                      console.log(`[DownloadService] ✅ Cached successfully (${(((check as any).size || 0) / 1024).toFixed(1)} KB):`, dlResult.uri);
+                      candidates.unshift(dlResult.uri);
+                    }
                   } else {
                     candidates.push(realStreamUrl);
                   }

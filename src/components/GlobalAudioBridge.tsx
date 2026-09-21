@@ -51,7 +51,6 @@ const YOUTUBE_HTML_CONTENT = `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
@@ -128,8 +127,7 @@ const YOUTUBE_HTML_CONTENT = `
           autoplay: 1,
           enablejsapi: 1,
           fs: 0,
-          origin: 'https://www.youtube.com',
-          widget_referrer: 'https://www.youtube.com'
+          origin: 'https://lonelycpp.github.io'
         },
         events: {
           onReady: function() {
@@ -799,7 +797,7 @@ export const GlobalAudioBridge: React.FC = () => {
         ref={youtubeWebRef}
         source={{
           html: YOUTUBE_HTML_CONTENT,
-          baseUrl: 'https://www.youtube.com',
+          baseUrl: 'https://lonelycpp.github.io/react-native-youtube-iframe/iframe_v2.html',
         }}
         onMessage={handleMessage}
         onLoadEnd={() => {
@@ -814,15 +812,11 @@ export const GlobalAudioBridge: React.FC = () => {
         mediaPlaybackRequiresUserAction={false}
         javaScriptEnabled={true}
         domStorageEnabled={true}
-        originWhitelist={['https://*', 'http://*']}
+        originWhitelist={['*']}
         mixedContentMode="always"
         allowsProtectedMedia={true}
         androidLayerType="hardware"
-        userAgent={
-          Platform.OS === 'ios'
-            ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
-            : 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
-        }
+        userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36"
         style={styles.webView}
       />
 

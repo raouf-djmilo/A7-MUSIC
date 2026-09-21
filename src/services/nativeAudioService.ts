@@ -135,6 +135,12 @@ class NativeAudioService {
         const statusSub = player.addListener('statusChange', (event: any) => {
           if (event?.status === 'error') {
             console.warn('[NativeAudioService] expo-video status error:', event?.error);
+            if (uri && uri.includes('temp_stream_')) {
+              try {
+                const FileSystem = require('expo-file-system/legacy');
+                FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+              } catch {}
+            }
             const store = getAudioStore();
             if (store) store.setState({ isLoading: false, loadingTrackId: null });
           } else if (event?.status === 'readyToPlay') {
