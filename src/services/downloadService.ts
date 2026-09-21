@@ -355,7 +355,42 @@ class AudioDownloadService {
       try {
         const realStreamUrl = await extractRealYouTubeAudioStream(track.videoId, quality, onProgress);
         if (realStreamUrl) {
-          candidates.push(realStreamUrl);
+          const isDownloadAttachment =
+            realStreamUrl.includes('savenow.to') ||
+            realStreamUrl.includes('loader.to') ||
+            realStreamUrl.includes('affadaffa.com');
+
+          if (isDownloadAttachment) {
+            const cleanId = track.videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const tempCacheUri = `${FileSystem.cacheDirectory}temp_stream_${cleanId}.m4a`;
+
+            try {
+              const cacheInfo = await FileSystem.getInfoAsync(tempCacheUri);
+              if (cacheInfo.exists && (cacheInfo as any).size >= 500 * 1024) {
+                console.log('[DownloadService] ⚡ Instant Cache Hit: using existing local file for 0ms native streaming:', tempCacheUri);
+                candidates.unshift(tempCacheUri);
+              } else {
+                console.log('[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility...');
+                const dlResult = await FileSystem.downloadAsync(realStreamUrl, tempCacheUri);
+                if (dlResult && dlResult.uri) {
+                  const check = await FileSystem.getInfoAsync(dlResult.uri);
+                  if (check.exists && (check as any).size >= 500 * 1024) {
+                    console.log(`[DownloadService] ✅ Cached successfully (${(((check as any).size || 0) / 1024).toFixed(1)} KB):`, dlResult.uri);
+                    candidates.unshift(dlResult.uri);
+                  } else {
+                    candidates.push(realStreamUrl);
+                  }
+                } else {
+                  candidates.push(realStreamUrl);
+                }
+              }
+            } catch (cacheErr) {
+              console.warn('[DownloadService] Local cache stream warning (falling back to direct URL):', cacheErr);
+              candidates.push(realStreamUrl);
+            }
+          } else {
+            candidates.push(realStreamUrl);
+          }
         }
       } catch (extractErr: any) {
         console.warn('[DownloadService] Real YouTube extraction failed:', extractErr?.message);
@@ -460,6 +495,22 @@ class AudioDownloadService {
         });
 
         try {
+          // If candidate is already cached locally (file://), copy directly (0ms)
+          if (streamUrl.startsWith('file://')) {
+            console.log('[DownloadService] ⚡ Candidate is cached locally! Copying directly to permanent storage...');
+            try {
+              await FileSystem.deleteAsync(audioLocalUri, { idempotent: true });
+            } catch (delErr) {}
+            await FileSystem.copyAsync({ from: streamUrl, to: audioLocalUri });
+            const fileInfo = await FileSystem.getInfoAsync(audioLocalUri);
+            const actualSize = (fileInfo as any).size || 0;
+            if (fileInfo.exists && actualSize >= 500 * 1024) {
+              finalDownloadedUri = audioLocalUri;
+              finalSizeBytes = actualSize;
+              break;
+            }
+          }
+
           // Clean any previous incomplete file
           try {
             await FileSystem.deleteAsync(audioLocalUri, { idempotent: true });

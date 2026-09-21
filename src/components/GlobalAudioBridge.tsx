@@ -324,13 +324,24 @@ const YOUTUBE_HTML_CONTENT = `
       currentPlayingVideoId = '';
       isSwitchingMedia = false;
       hasStartedPlaying = false;
-      if (activeEngine === 'html5') {
-        html5Audio.pause();
-        html5Audio.src = '';
-        html5Audio.currentTime = 0;
-      } else if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
-        try { ytPlayer.pauseVideo(); } catch(e){}
-      }
+      activeEngine = 'none';
+      try {
+        if (html5Audio) {
+          html5Audio.pause();
+          html5Audio.src = '';
+          html5Audio.currentTime = 0;
+        }
+      } catch(e) {}
+      try {
+        if (ytPlayer) {
+          if (typeof ytPlayer.stopVideo === 'function') {
+            try { ytPlayer.stopVideo(); } catch(e){}
+          }
+          if (typeof ytPlayer.pauseVideo === 'function') {
+            try { ytPlayer.pauseVideo(); } catch(e){}
+          }
+        }
+      } catch(e) {}
     };
 
     window.setQuality = function(q) {
@@ -710,6 +721,7 @@ export const GlobalAudioBridge: React.FC = () => {
   const handleMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
+      const store = useAudioStore.getState();
 
       if (msg.eventType === 'playerReady') {
         isYtPlayerReady.current = true;
@@ -719,29 +731,30 @@ export const GlobalAudioBridge: React.FC = () => {
           youtubeWebRef.current?.injectJavaScript(`try { window.playMedia(${JSON.stringify(payload)}); } catch(e) {} true;`);
         }
       } else if (msg.eventType === 'progressUpdate' && msg.data) {
+        // If native engine is active, do not let WebView overwrite native progress
+        if (store.activeEngine === 'native') return;
         const now = Date.now();
         // Scrubber Lock: Guard against stale playback positions from previous track during transitions
         if (now - getLastUserToggleTimestamp() > 1500) {
-          useAudioStore.getState().updateProgress(msg.data.positionMillis, msg.data.durationMillis);
+          store.updateProgress(msg.data.positionMillis, msg.data.durationMillis);
         }
       } else if (msg.eventType === 'playerStateChange') {
+        // If native engine is active, ignore WebView state changes
+        if (store.activeEngine === 'native') return;
         // State: 1 = Playing, 2 = Paused, 0 = Ended
         const now = Date.now();
         const timeSinceUserToggle = now - getLastUserToggleTimestamp();
 
         if (msg.data === 1) {
           consecutiveErrors.current = 0;
-          const store = useAudioStore.getState();
           if (!store.isPlaying || store.isLoading) {
             useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
           }
         } else if (msg.data === 2) {
-          const store = useAudioStore.getState();
           if (timeSinceUserToggle > 2500 && store.isPlaying && !store.isLoading) {
             useAudioStore.setState({ isPlaying: false });
           }
         } else if (msg.data === 0) {
-          const store = useAudioStore.getState();
           const pos = store.positionMillis;
           const dur = store.durationMillis;
           const isNearEnd = dur > 0 && pos >= Math.max(15000, dur - 8000);
@@ -754,12 +767,23 @@ export const GlobalAudioBridge: React.FC = () => {
         }
       } else if (msg.eventType === 'playerError') {
         const errCode = Number(msg.data);
+
+        // 🛡️ SILENCE GUARD: If activeEngine is already 'native' or fallback transition in progress,
+        // strictly ignore all WebView errors (e.g. Error 4 / Error 152 cascades)
+        if (store.activeEngine === 'native' || store.isSwitchingToFallback) {
+          console.log('[GlobalAudioBridge] 🔇 Ignored playerError code', errCode, 'because engine is already native');
+          return;
+        }
+
         console.warn('[GlobalAudioBridge] Audio error code:', errCode, '— Activating Native Direct Stream Fallback...');
         useAudioStore.setState({ isLoading: false, loadingTrackId: null });
 
+        // Immediately silence WebView and destroy its media
+        youtubeWebRef.current?.injectJavaScript(`try { window.stopMedia(); } catch(e){} true;`);
+
         // 🛡️ Immediate Native Audio Stream Fallback:
         // Never swallow error 152/150 or loop in silence. Immediately switch to Native TrackPlayer direct stream!
-        useAudioStore.getState().handlePlaybackFallback();
+        store.handlePlaybackFallback();
       }
     } catch (e) {
       // Ignore non-JSON messages

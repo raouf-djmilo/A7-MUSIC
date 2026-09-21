@@ -132,6 +132,9 @@ export interface AudioState {
   seekTo: (position: number) => Promise<void>;
   setAudioQuality: (quality: AudioQuality) => void;
   isOfflinePlayback: boolean;
+  activeEngine: 'youtube' | 'native';
+  setActiveEngine: (engine: 'youtube' | 'native') => void;
+  isSwitchingToFallback: boolean;
   playDownloadedQueue: (startIndex?: number) => Promise<void>;
   updateProgress: (positionMillis: number, durationMillis: number) => void;
   handleTrackEnded: () => Promise<void>;
@@ -145,6 +148,7 @@ let lastReportedPlaybackSec = 0;
 let isAudioLoadingMutex = false;
 let lastTrackRequestTimestamp = 0;
 let loadingSafetyTimer: any = null;
+let fallbackInProgressVideoId: string | null = null;
 
 export const getLastUserToggleTimestamp = () => lastUserToggleTimestamp;
 export const setLastUserToggleTimestamp = (ts: number = Date.now()) => {
@@ -161,6 +165,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   durationMillis: 180000,
   activeUserId: null,
   loadingTrackId: null,
+  activeEngine: 'youtube',
+  setActiveEngine: (engine) => set({ activeEngine: engine }),
+  isSwitchingToFallback: false,
   queue: [],
   currentQueue: [],
   currentIndex: -1,
@@ -483,6 +490,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         audioUrl: streamUrl,
       };
 
+      // Reset fallback lock for new track
+      fallbackInProgressVideoId = null;
+
       // Instant 0ms Optimistic UI Update in Store
       set({ 
         playRequestId: newRequestId,
@@ -491,6 +501,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         isLoading: false,
         loadingTrackId: null,
         isOfflinePlayback: isOffline,
+        activeEngine: isOffline ? 'native' : 'youtube',
+        isSwitchingToFallback: false,
         durationMillis: totalDurationSec * 1000,
         positionMillis: initialPosition * 1000,
         // Dispatch to GlobalAudioBridge for YouTube / HTML5 audio
@@ -939,26 +951,42 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   handlePlaybackFallback: async (fallbackVideoId?: string) => {
-    const { currentTrack } = get();
+    const { currentTrack, isSwitchingToFallback, activeEngine } = get();
     const targetTrack = currentTrack;
     if (!targetTrack || !targetTrack.videoId) return;
 
-    console.log('[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)...');
+    const currentVid = targetTrack.videoId;
+
+    // 🛡️ Single Fallback Guard / Debounce:
+    // Prevent duplicate calls for the same track and prevent infinite TrackPlayer.reset() loops
+    if (isSwitchingToFallback || activeEngine === 'native' || fallbackInProgressVideoId === currentVid) {
+      console.log('[AudioStore] 🛑 handlePlaybackFallback already triggered or activeEngine is native. Ignoring redundant trigger.');
+      return;
+    }
+
+    fallbackInProgressVideoId = currentVid;
+    set({
+      isSwitchingToFallback: true,
+      activeEngine: 'native',
+      isLoading: true,
+      loadingTrackId: currentVid,
+    });
+
+    console.log('[AudioStore] 🛡️ YouTube restriction detected. Handing over exclusively to Native Audio Engine (ExoPlayer/AVPlayer)...');
     try {
-      set({ isLoading: true, loadingTrackId: targetTrack.videoId });
+      // 1. Completely stop/silence the WebView player to free the Audio DAC and eliminate cascaded Error 4
+      set({
+        audioEngineAction: {
+          type: 'stop',
+          id: Date.now(),
+        },
+      });
+
       const { downloadService } = require('../services/downloadService');
       const { streamUrl } = await downloadService.probeAudioStream(targetTrack);
 
       if (streamUrl) {
-        console.log('[AudioStore] ⚡ Direct stream acquired, playing via Native TrackPlayer:', streamUrl);
-
-        // 1. Completely stop/silence the WebView player to free the Audio DAC
-        set({
-          audioEngineAction: {
-            type: 'stop',
-            id: Date.now(),
-          },
-        });
+        console.log('[AudioStore] ⚡ Direct stream/cache acquired, playing via Native TrackPlayer:', streamUrl);
 
         // 2. Stream directly through Native TrackPlayer (ExoPlayer on Android / AVPlayer on iOS)
         if (NativeModules.TrackPlayerModule) {
@@ -980,13 +1008,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isLoading: false,
           loadingTrackId: null,
           isOfflinePlayback: true,
+          activeEngine: 'native',
+          isSwitchingToFallback: false,
         });
         return;
       }
       throw new Error('No stream URL extracted');
     } catch (fallbackErr: any) {
       console.warn('[AudioStore] Direct stream fallback failed:', fallbackErr?.message);
-      set({ isLoading: false, loadingTrackId: null });
+      set({ isLoading: false, loadingTrackId: null, isSwitchingToFallback: false });
       ToastManager.show({
         title: 'تخطي مسار غير متاح',
         subtitle: 'جاري الانتقال للمسار التالي...',
@@ -999,11 +1029,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   stopTrack: async () => {
     flushListeningSecondsToSupabase();
+    fallbackInProgressVideoId = null;
     set({ 
       currentTrack: null, 
       isPlaying: false, 
       positionMillis: 0, 
       durationMillis: 180000,
+      activeEngine: 'youtube',
+      isSwitchingToFallback: false,
       audioEngineAction: { type: 'stop', id: Date.now() },
     });
     if (NativeModules.TrackPlayerModule) {

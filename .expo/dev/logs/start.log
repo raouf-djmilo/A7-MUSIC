@@ -6178,3 +6178,238 @@
 {"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
 {"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
 {"_e":"metro:client_log","_t":1789879464318,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"root:init","_t":1790019698221,"format":"v0-jsonl","version":"57.0.25"}
+{"_e":"env:mode","_t":1790019698225,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790019698237,"mode":"development","files":["../..\\..\\.env.local"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoc3BmY3hkcmdqb3F2Ymtkd3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzYwNzYsImV4cCI6MjEwNTE1MjA3Nn0.jTw0gSAeFEROacEKEKawyfCC6ZHbpIY6FQUEdvdvblM","EXPO_PUBLIC_SUPABASE_KEY":"sb_publishable_89-kHm3KgJCzS4DAT3Bi-w_-Couo9ac","EXPO_PUBLIC_SUPABASE_URL":"https://shspfcxdrgjoqvbkdwzz.supabase.co"}}
+{"_e":"devserver:start","_t":1790019703161,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790019705766,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790019708235,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790019956664,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:server_log","_t":1790020134828,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"root:init","_t":1790020756868,"format":"v0-jsonl","version":"57.0.25"}
+{"_e":"env:mode","_t":1790020756870,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790020756875,"mode":"development","files":["../..\\..\\.env.local"],"env":{"EXPO_PUBLIC_SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoc3BmY3hkcmdqb3F2Ymtkd3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NzYwNzYsImV4cCI6MjEwNTE1MjA3Nn0.jTw0gSAeFEROacEKEKawyfCC6ZHbpIY6FQUEdvdvblM","EXPO_PUBLIC_SUPABASE_KEY":"sb_publishable_89-kHm3KgJCzS4DAT3Bi-w_-Couo9ac","EXPO_PUBLIC_SUPABASE_URL":"https://shspfcxdrgjoqvbkdwzz.supabase.co"}}
+{"_e":"devserver:start","_t":1790020757865,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790020758654,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790020759256,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790020819378,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1790020824467,"id":"3","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790020824468,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790020824472,"id":"3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790020824573,"id":"3","progress":0.0970909472799832,"total":138,"current":43}
+{"_e":"metro:bundling:progress","_t":1790020824673,"id":"3","progress":0.0970909472799832,"total":305,"current":87}
+{"_e":"metro:bundling:progress","_t":1790020824773,"id":"3","progress":0.18785962490670818,"total":353,"current":153}
+{"_e":"metro:bundling:progress","_t":1790020824873,"id":"3","progress":0.21116213151927435,"total":420,"current":193}
+{"_e":"metro:bundling:progress","_t":1790020824978,"id":"3","progress":0.23312733702960084,"total":466,"current":225}
+{"_e":"metro:bundling:progress","_t":1790020825078,"id":"3","progress":0.2959700675165919,"total":511,"current":278}
+{"_e":"metro:bundling:progress","_t":1790020825185,"id":"3","progress":0.3652940466127279,"total":546,"current":330}
+{"_e":"metro:bundling:progress","_t":1790020825282,"id":"3","progress":0.3652940466127279,"total":616,"current":351}
+{"_e":"metro:bundling:progress","_t":1790020825382,"id":"3","progress":0.36661975007517794,"total":692,"current":419}
+{"_e":"metro:bundling:progress","_t":1790020825482,"id":"3","progress":0.3916549929610593,"total":759,"current":475}
+{"_e":"metro:bundling:progress","_t":1790020825587,"id":"3","progress":0.40395194425880543,"total":804,"current":511}
+{"_e":"metro:bundling:progress","_t":1790020825687,"id":"3","progress":0.4337482191957507,"total":826,"current":544}
+{"_e":"metro:bundling:progress","_t":1790020825798,"id":"3","progress":0.4337482191957507,"total":881,"current":566}
+{"_e":"metro:bundling:progress","_t":1790020825926,"id":"3","progress":0.4337482191957507,"total":881,"current":567}
+{"_e":"metro:bundling:progress","_t":1790020826026,"id":"3","progress":0.4337482191957507,"total":930,"current":594}
+{"_e":"metro:bundling:progress","_t":1790020826128,"id":"3","progress":0.4435141580548778,"total":955,"current":636}
+{"_e":"metro:bundling:progress","_t":1790020826235,"id":"3","progress":0.4824927450501309,"total":966,"current":671}
+{"_e":"metro:bundling:progress","_t":1790020826335,"id":"3","progress":0.5050738569849116,"total":992,"current":705}
+{"_e":"metro:bundling:progress","_t":1790020826436,"id":"3","progress":0.5289256198347108,"total":1001,"current":728}
+{"_e":"metro:bundling:progress","_t":1790020826539,"id":"3","progress":0.5676894288637574,"total":1014,"current":764}
+{"_e":"metro:bundling:progress","_t":1790020826712,"id":"3","progress":0.6117419664259346,"total":1019,"current":797}
+{"_e":"metro:bundling:progress","_t":1790020826724,"id":"3","progress":0.6132780410666425,"total":1019,"current":798}
+{"_e":"metro:bundling:progress","_t":1790020826832,"id":"3","progress":0.6132780410666425,"total":1047,"current":810}
+{"_e":"metro:bundling:progress","_t":1790020826992,"id":"3","progress":0.6132780410666425,"total":1049,"current":810}
+{"_e":"metro:bundling:progress","_t":1790020827002,"id":"3","progress":0.6132780410666425,"total":1049,"current":811}
+{"_e":"metro:bundling:progress","_t":1790020827103,"id":"3","progress":0.6132780410666425,"total":1103,"current":861}
+{"_e":"metro:bundling:progress","_t":1790020827206,"id":"3","progress":0.6132780410666425,"total":1126,"current":875}
+{"_e":"metro:bundling:progress","_t":1790020827306,"id":"3","progress":0.6132780410666425,"total":1180,"current":923}
+{"_e":"metro:bundling:progress","_t":1790020827406,"id":"3","progress":0.6570821854912763,"total":1188,"current":963}
+{"_e":"metro:bundling:progress","_t":1790020827507,"id":"3","progress":0.6570821854912763,"total":1201,"current":973}
+{"_e":"metro:bundling:progress","_t":1790020827640,"id":"3","progress":0.6774867339977905,"total":1221,"current":1005}
+{"_e":"metro:bundling:progress","_t":1790020827682,"id":"3","progress":0.6788356370665953,"total":1221,"current":1006}
+{"_e":"metro:bundling:progress","_t":1790020827782,"id":"3","progress":0.6788356370665953,"total":1248,"current":1021}
+{"_e":"metro:bundling:progress","_t":1790020827882,"id":"3","progress":0.6788356370665953,"total":1324,"current":1085}
+{"_e":"metro:bundling:progress","_t":1790020827982,"id":"3","progress":0.710067002876636,"total":1341,"current":1130}
+{"_e":"metro:bundling:progress","_t":1790020828082,"id":"3","progress":0.7252844958677686,"total":1375,"current":1171}
+{"_e":"metro:bundling:progress","_t":1790020828182,"id":"3","progress":0.7508688758111909,"total":1431,"current":1240}
+{"_e":"metro:bundling:progress","_t":1790020828282,"id":"3","progress":0.8064791887883481,"total":1481,"current":1330}
+{"_e":"metro:bundling:progress","_t":1790020828382,"id":"3","progress":0.8562058982975917,"total":1513,"current":1400}
+{"_e":"metro:bundling:progress","_t":1790020828482,"id":"3","progress":0.8565726551744466,"total":1611,"current":1491}
+{"_e":"metro:bundling:progress","_t":1790020828583,"id":"3","progress":0.9002395124716552,"total":1680,"current":1594}
+{"_e":"metro:bundling:progress","_t":1790020828683,"id":"3","progress":0.9002395124716552,"total":1724,"current":1626}
+{"_e":"metro:bundling:progress","_t":1790020828783,"id":"3","progress":0.9002395124716552,"total":1809,"current":1694}
+{"_e":"metro:bundling:progress","_t":1790020828883,"id":"3","progress":0.9002395124716552,"total":1850,"current":1748}
+{"_e":"metro:bundling:progress","_t":1790020828985,"id":"3","progress":0.9355012093523246,"total":1891,"current":1829}
+{"_e":"metro:bundling:progress","_t":1790020829090,"id":"3","progress":0.9355012093523246,"total":2006,"current":1866}
+{"_e":"metro:bundling:progress","_t":1790020829189,"id":"3","progress":0.9355012093523246,"total":2027,"current":1908}
+{"_e":"metro:bundling:progress","_t":1790020829289,"id":"3","progress":0.9932252796014256,"total":2063,"current":2056}
+{"_e":"metro:bundling:progress","_t":1790020829389,"id":"3","progress":0.9962441347730229,"total":2128,"current":2124}
+{"_e":"metro:bundling:progress","_t":1790020829492,"id":"3","progress":0.999,"total":2130,"current":2129}
+{"_e":"metro:bundling:progress","_t":1790020829604,"id":"3","progress":0.999,"total":2133,"current":2133}
+{"_e":"metro:bundling:done","_t":1790020829747,"id":"3","total":2133,"ms":5279.0829}
+{"_e":"metro:client_log","_t":1790020834397,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790020834632,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790020834632,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1790020834632,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790020834632,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790020834633,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790020834633,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790020834633,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790020834633,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790020886747,"level":"warn","data":["expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Learn more at https://docs.expo.dev/develop/development-builds/introduction/."]}
+{"_e":"metro:client_log","_t":1790020886797,"level":"warn","data":["`expo-notifications` functionality is not fully supported in Expo Go:\nWe recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client."]}
+{"_e":"metro:client_log","_t":1790020962525,"level":"error","data":["API PUT Error [/users/settings/notifications]:","[Error: fetch failed: UnexpectedException: The request timed out. (at ExpoModulesCore/Promise.swift:56)]"]}
+{"_e":"metro:client_log","_t":1790020962588,"level":"error","data":["Update Settings Error:","[Error: fetch failed: UnexpectedException: The request timed out. (at ExpoModulesCore/Promise.swift:56)]"]}
+{"_e":"metro:bundling:started","_t":1790021298611,"id":"8","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790021298611,"id":"8","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790021298754,"id":"8","total":1,"ms":143.0711}
+{"_e":"metro:client_log","_t":1790021299904,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790021299904,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790021299904,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790021300174,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:bundling:started","_t":1790021336803,"id":"9","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790021336803,"id":"9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790021336903,"id":"9","total":1,"ms":99.5112}
+{"_e":"metro:client_log","_t":1790021341324,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790021341503,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790021341564,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1790021341615,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790021341615,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790021341615,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790021341615,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790021341615,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790021341616,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790021700542,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790021700597,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790021709881,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1790021709945,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/gzlHucbD76U.mp3"]}
+{"_e":"metro:client_log","_t":1790021722568,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790021722624,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790021738875,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790021738933,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790021741760,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790021741823,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790021750259,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790021750312,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790021772575,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790021772632,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790021808064,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1790021808123,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:bundling:started","_t":1790022314684,"id":"c","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790022314684,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790022314686,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790022314792,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790022314842,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790022314944,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790022315079,"id":"c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790022315207,"id":"c","total":1,"ms":522.9803}
+{"_e":"metro:client_log","_t":1790022319920,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790022320100,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790022320321,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1790022320383,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790022320383,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790022320383,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790022320383,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790022320383,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790022320384,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790022329080,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022329138,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022341645,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022341709,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022345399,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022345467,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022347444,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022347507,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:server_log","_t":1790022498313,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1790022751030,"id":"g","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790022751031,"id":"g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790022751154,"id":"g","total":1,"ms":123.0032}
+{"_e":"metro:client_log","_t":1790022769643,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790022769808,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790022769868,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1790022770092,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790022770157,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790022770157,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790022770157,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790022770157,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790022770157,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790022824695,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022824756,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022834439,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790022834506,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/ee4TyvFalvo.mp3"]}
+{"_e":"metro:client_log","_t":1790022845190,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022845255,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022848341,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022848406,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022853181,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022853236,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022856097,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022856157,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022906630,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022906706,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022914317,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1790022916208,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022916257,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022918520,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1790022919654,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790022919707,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790022920702,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4"]}
+{"_e":"metro:client_log","_t":1790022920757,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","4"]}
+{"_e":"metro:client_log","_t":1790022927439,"level":"log","data":["[AudioStore] ⚡ Playing from local device storage:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:client_log","_t":1790022927496,"level":"log","data":["[ExpoVideoOffline] ⚡ Playing local audio with expo-video:","file:///var/mobile/Containers/Data/Application/E5CBA354-7BD1-4A29-90B3-BBCB4D356A9F/Documents/ExponentExperienceData/@a77jmilo/myapp/a7flow_download_music/tracks/EXUEn28ajSA.mp3"]}
+{"_e":"metro:bundling:started","_t":1790023137551,"id":"h","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790023137551,"id":"h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790023137553,"id":"h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1790023137667,"id":"h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790023137767,"id":"h","total":1,"ms":215.7074}
+{"_e":"metro:client_log","_t":1790023142179,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790023142334,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790023142385,"level":"log","data":["[Storage Check] Nombre de fichiers: 6"]}
+{"_e":"metro:client_log","_t":1790023142440,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790023142505,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790023142506,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790023142506,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790023142506,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790023142506,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790023149310,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790023149364,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:client_log","_t":1790023162302,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152"]}
+{"_e":"metro:client_log","_t":1790023162355,"level":"log","data":["[GlobalAudioBridge] Ignored transition abort error:","152"]}
+{"_e":"metro:bundling:started","_t":1790023334169,"id":"i","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790023334169,"id":"i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790023334361,"id":"i","total":1,"ms":192.348}
+{"_e":"metro:client_log","_t":1790023335241,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790023335242,"level":"warn","data":["No native ExponentConstants module found, are you sure the expo-constants's module is linked properly?"]}
+{"_e":"metro:client_log","_t":1790023335242,"level":"error","data":["[runtime not ready]: Error: Cannot find native module 'ExpoAsset'"]}
+{"_e":"metro:client_log","_t":1790023335410,"level":"error","data":["[runtime not ready]: Invariant Violation: \"main\" has not been registered. This can happen if:\n* Metro (the local dev server) is run from the wrong folder. Check if Metro is running, stop it and restart it in the current project.\n* A module failed to load due to an error and `AppRegistry.registerComponent` wasn't called."]}
+{"_e":"metro:server_log","_t":1790023453595,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}
+{"_e":"metro:bundling:started","_t":1790023642591,"id":"j","platform":"ios","environment":null,"entry":"index.ts"}
+{"_e":"metro:bundling:progress","_t":1790023642591,"id":"j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1790023642730,"id":"j","total":1,"ms":138.9746}
+{"_e":"metro:client_log","_t":1790023654520,"level":"warn","data":["TrackPlayerModule not found. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790023654728,"level":"log","data":["[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode."]}
+{"_e":"metro:client_log","_t":1790023654982,"level":"log","data":["[Storage Check] Nombre de fichiers: 7"]}
+{"_e":"metro:client_log","_t":1790023654982,"level":"log","data":["- File: ee4TyvFalvo.mp3 | Size: 10.09 MB"]}
+{"_e":"metro:client_log","_t":1790023654982,"level":"log","data":["- File: gzlHucbD76U.mp3 | Size: 9.93 MB"]}
+{"_e":"metro:client_log","_t":1790023654982,"level":"log","data":["- File: ee4TyvFalvo_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790023654983,"level":"log","data":["- File: Xtr9TOy1pdM_art.jpg | Size: 0.07 MB"]}
+{"_e":"metro:client_log","_t":1790023654983,"level":"log","data":["- File: EXUEn28ajSA.mp3 | Size: 8.88 MB"]}
+{"_e":"metro:client_log","_t":1790023654983,"level":"log","data":["- File: gzlHucbD76U_art.jpg | Size: 0.02 MB"]}
+{"_e":"metro:client_log","_t":1790023654983,"level":"log","data":["- File: EXUEn28ajSA_art.jpg | Size: 0.05 MB"]}
+{"_e":"metro:client_log","_t":1790023717135,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023717193,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790023720239,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023720302,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790023723126,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","152","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023723192,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790023741999,"level":"log","data":["[AudioStore] ⚡ Direct stream acquired, playing via Native TrackPlayer:","https://isabella91.savenow.to/api/v2/download/ChkoMFdHaP7KsfJdNL351K4F13ATvCvyeKCQIscq6koUxxng"]}
+{"_e":"metro:client_log","_t":1790023742207,"level":"log","data":["[AudioStore] ⚡ Direct stream acquired, playing via Native TrackPlayer:","https://sophia28.savenow.to/api/v2/download/NaQVc1DYKZac7rBq42lq1bFGoiICils4F8xk2H6n488tXxEf"]}
+{"_e":"metro:client_log","_t":1790023742569,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023742569,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790023742569,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023742569,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:client_log","_t":1790023749034,"level":"log","data":["[AudioStore] ⚡ Direct stream acquired, playing via Native TrackPlayer:","https://sophia28.savenow.to/api/v2/download/n5zXXgCgM2EuBit0hIqVHBHDjJEdyltvNPMJyO21YbyQkVlX"]}
+{"_e":"metro:client_log","_t":1790023749469,"level":"warn","data":["[GlobalAudioBridge] Audio error code:","4","— Activating Native Direct Stream Fallback..."]}
+{"_e":"metro:client_log","_t":1790023749469,"level":"log","data":["[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)..."]}
+{"_e":"metro:server_log","_t":1790023816473,"level":"error","data":["[timeout] connection terminated with Device for app='%s' on device='%s' after not responding for %s seconds.","host.exp.Exponent","iPhone","60"]}

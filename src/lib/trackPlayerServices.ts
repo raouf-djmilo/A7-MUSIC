@@ -33,6 +33,18 @@ export const PlaybackService = async () => {
         useAudioStore.getState().pauseTrack();
       }
     });
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
+      const { activeEngine, isOfflinePlayback } = useAudioStore.getState();
+      if (activeEngine === 'native' || isOfflinePlayback) {
+        useAudioStore.getState().updateProgress(event.position * 1000, event.duration * 1000);
+      }
+    });
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+      const { activeEngine, isOfflinePlayback } = useAudioStore.getState();
+      if (activeEngine === 'native' || isOfflinePlayback) {
+        useAudioStore.getState().handleTrackEnded();
+      }
+    });
   } catch (e) {
     // Ignored in Expo Go
   }
