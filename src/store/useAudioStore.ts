@@ -135,6 +135,7 @@ export interface AudioState {
   playDownloadedQueue: (startIndex?: number) => Promise<void>;
   updateProgress: (positionMillis: number, durationMillis: number) => void;
   handleTrackEnded: () => Promise<void>;
+  handlePlaybackFallback: (fallbackVideoId?: string) => Promise<void>;
 }
 
 let lastNavTimestamp = 0;
@@ -934,6 +935,65 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     } else {
       await get().nextTrack();
+    }
+  },
+
+  handlePlaybackFallback: async (fallbackVideoId?: string) => {
+    const { currentTrack } = get();
+    const targetTrack = currentTrack;
+    if (!targetTrack || !targetTrack.videoId) return;
+
+    console.log('[AudioStore] 🛡️ YouTube Embed restriction detected. Switching to Native Audio Streaming (ExoPlayer/AVPlayer)...');
+    try {
+      set({ isLoading: true, loadingTrackId: targetTrack.videoId });
+      const { downloadService } = require('../services/downloadService');
+      const { streamUrl } = await downloadService.probeAudioStream(targetTrack);
+
+      if (streamUrl) {
+        console.log('[AudioStore] ⚡ Direct stream acquired, playing via Native TrackPlayer:', streamUrl);
+
+        // 1. Completely stop/silence the WebView player to free the Audio DAC
+        set({
+          audioEngineAction: {
+            type: 'stop',
+            id: Date.now(),
+          },
+        });
+
+        // 2. Stream directly through Native TrackPlayer (ExoPlayer on Android / AVPlayer on iOS)
+        if (NativeModules.TrackPlayerModule) {
+          await TrackPlayer.reset();
+          await TrackPlayer.add({
+            id: targetTrack.videoId || 'direct_stream',
+            url: streamUrl,
+            title: targetTrack.title || 'Track',
+            artist: targetTrack.artist || 'Artist',
+            artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
+            duration: targetTrack.duration ? Math.floor(targetTrack.duration / 1000) : 180,
+          });
+          await TrackPlayer.setVolume(1.0);
+          await TrackPlayer.play();
+        }
+
+        set({
+          isPlaying: true,
+          isLoading: false,
+          loadingTrackId: null,
+          isOfflinePlayback: true,
+        });
+        return;
+      }
+      throw new Error('No stream URL extracted');
+    } catch (fallbackErr: any) {
+      console.warn('[AudioStore] Direct stream fallback failed:', fallbackErr?.message);
+      set({ isLoading: false, loadingTrackId: null });
+      ToastManager.show({
+        title: 'تخطي مسار غير متاح',
+        subtitle: 'جاري الانتقال للمسار التالي...',
+        icon: 'alert-circle',
+        duration: 1800,
+      });
+      get().nextTrack();
     }
   },
 

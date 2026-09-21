@@ -754,78 +754,12 @@ export const GlobalAudioBridge: React.FC = () => {
         }
       } else if (msg.eventType === 'playerError') {
         const errCode = Number(msg.data);
-        console.warn('[GlobalAudioBridge] Audio error code:', errCode);
+        console.warn('[GlobalAudioBridge] Audio error code:', errCode, '— Activating Native Direct Stream Fallback...');
         useAudioStore.setState({ isLoading: false, loadingTrackId: null });
 
-        const now = Date.now();
-        const timeSinceUserToggle = now - getLastUserToggleTimestamp();
-
-        if (timeSinceUserToggle < 2000) {
-          console.log('[GlobalAudioBridge] Ignored transition abort error:', errCode);
-          return;
-        }
-
-        // 🛡️ YouTube Embed Restriction Auto-Recovery (Error 150 / 152)
-        // If a track is blocked from iframe embedding by YouTube/record label,
-        // seamlessly probe and stream the direct raw AAC .m4a stream!
-        if (errCode === 150 || errCode === 152) {
-          const currentTrack = useAudioStore.getState().currentTrack;
-          if (currentTrack && currentTrack.videoId) {
-            console.log('[GlobalAudioBridge] 🛡️ YouTube Embed restriction (150/152) detected. Activating direct raw AAC stream fallback...');
-            try {
-              const { downloadService } = require('../services/downloadService');
-              downloadService.probeAudioStream(currentTrack)
-                .then((probeRes: any) => {
-                  if (probeRes?.streamUrl) {
-                    console.log('[GlobalAudioBridge] ⚡ Direct stream fallback acquired, playing directly:', probeRes.streamUrl);
-                    useAudioStore.setState({
-                      audioEngineAction: {
-                        type: 'play',
-                        videoId: '',
-                        url: probeRes.streamUrl,
-                        position: 0,
-                        isOfflinePlayback: false,
-                        id: Date.now(),
-                      },
-                      isPlaying: true,
-                    });
-                    return;
-                  }
-                  throw new Error('No candidate stream URL');
-                })
-                .catch((fbErr: any) => {
-                  console.warn('[GlobalAudioBridge] Direct stream fallback failed:', fbErr?.message);
-                  useAudioStore.getState().nextTrack();
-                });
-              return;
-            } catch (fbInitErr) {
-              console.warn('[GlobalAudioBridge] Fallback init error:', fbInitErr);
-            }
-          }
-        }
-
-        if (now - lastErrorTime.current > 2000) {
-          lastErrorTime.current = now;
-          consecutiveErrors.current += 1;
-
-          if (errCode === 150 || errCode === 152 || errCode === 101 || errCode === 2 || errCode === 404) {
-            ToastManager.show({
-              title: 'تخطي مسار غير متاح',
-              subtitle: 'جاري الانتقال للمسار التالي...',
-              icon: 'alert-circle',
-              duration: 1800,
-            });
-          }
-
-          if (consecutiveErrors.current <= 3) {
-            setTimeout(() => {
-              useAudioStore.getState().nextTrack();
-            }, 600);
-          } else {
-            useAudioStore.setState({ isPlaying: false, isLoading: false, loadingTrackId: null });
-            consecutiveErrors.current = 0;
-          }
-        }
+        // 🛡️ Immediate Native Audio Stream Fallback:
+        // Never swallow error 152/150 or loop in silence. Immediately switch to Native TrackPlayer direct stream!
+        useAudioStore.getState().handlePlaybackFallback();
       }
     } catch (e) {
       // Ignore non-JSON messages
@@ -858,11 +792,7 @@ export const GlobalAudioBridge: React.FC = () => {
         mixedContentMode="always"
         allowsProtectedMedia={true}
         androidLayerType="hardware"
-        userAgent={
-          Platform.OS === 'android'
-            ? 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36'
-            : undefined
-        }
+        userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         style={styles.webView}
       />
 
