@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
-index 376752c..ffbc891 100644
+index 376752c..82bbe6e 100644
 --- a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
 +++ b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
-@@ -66,7 +66,15 @@ Pod::Spec.new do |s|
+@@ -66,7 +66,14 @@ Pod::Spec.new do |s|
    }
  
    header_search_paths = [
@@ -13,12 +13,11 @@ index 376752c..ffbc891 100644
 +    '"${PODS_TARGET_SRCROOT}/ios/ReactNative"',
      '"$(PODS_ROOT)/Headers/Private/React-Core"',
 +    '"$(PODS_ROOT)/Headers/Public/React-Core"',
-+    '"$(PODS_ROOT)/Headers/Private/React-RCTAppDelegate"',
 +    '"$(PODS_ROOT)/Headers/Public/React-RCTAppDelegate"',
      '"${PODS_ROOT}/Headers/Public/RNReanimated"',
      '"$(PODS_CONFIGURATION_BUILD_DIR)/EXManifests/Swift Compatibility Header"',
      '"$(PODS_CONFIGURATION_BUILD_DIR)/EXUpdatesInterface/Swift Compatibility Header"',
-@@ -91,6 +99,7 @@ Pod::Spec.new do |s|
+@@ -91,6 +98,7 @@ Pod::Spec.new do |s|
    # Swift/Objective-C compatibility
    s.pod_target_xcconfig = {
      'DEFINES_MODULE' => 'YES',
@@ -26,7 +25,7 @@ index 376752c..ffbc891 100644
      'OTHER_CFLAGS[config=*Debug*]' => other_c_flags,
      'OTHER_SWIFT_FLAGS[config=*Debug*]' => other_swift_flags,
      'HEADER_SEARCH_PATHS' => header_search_paths.join(' '),
-@@ -119,30 +128,4 @@ Pod::Spec.new do |s|
+@@ -119,30 +127,4 @@ Pod::Spec.new do |s|
    end
    install_modules_dependencies(s)
  
@@ -71,10 +70,10 @@ index e9873b0..d538c96 100644
  @objcMembers
 diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
 new file mode 100644
-index 0000000..f50a9b7
+index 0000000..172faa0
 --- /dev/null
 +++ b/node_modules/expo-dev-launcher/ios/EXDevLauncher-Bridging-Header.h
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,23 @@
 +#import <Foundation/Foundation.h>
 +#import <UIKit/UIKit.h>
 +#import <React/RCTBridgeModule.h>
@@ -86,20 +85,11 @@ index 0000000..f50a9b7
 +#import <React_RCTAppDelegate/React-RCTAppDelegate-umbrella.h>
 +#elif __has_include(<React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>)
 +#import <React_RCTAppDelegate/React_RCTAppDelegate-umbrella.h>
-+#elif __has_include(<React-RCTAppDelegate/RCTReactNativeFactory.h>)
-+#import <React-RCTAppDelegate/RCTReactNativeFactory.h>
-+#import <React-RCTAppDelegate/RCTRootViewFactory.h>
-+#import <React-RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#elif __has_include(<React-RCTAppDelegate/RCTAppDelegate.h>)
 +#import <React-RCTAppDelegate/RCTAppDelegate.h>
-+#elif __has_include(<React_RCTAppDelegate/RCTReactNativeFactory.h>)
-+#import <React_RCTAppDelegate/RCTReactNativeFactory.h>
-+#import <React_RCTAppDelegate/RCTRootViewFactory.h>
-+#import <React_RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
++#elif __has_include(<React_RCTAppDelegate/RCTAppDelegate.h>)
 +#import <React_RCTAppDelegate/RCTAppDelegate.h>
-+#elif __has_include("RCTReactNativeFactory.h")
-+#import "RCTReactNativeFactory.h"
-+#import "RCTRootViewFactory.h"
-+#import "RCTDefaultReactNativeFactoryDelegate.h"
++#elif __has_include("RCTAppDelegate.h")
 +#import "RCTAppDelegate.h"
 +#endif
 +
