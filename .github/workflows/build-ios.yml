@@ -69,7 +69,9 @@ jobs:
         run: npx patch-package || true
 
       - name: Expo Prebuild iOS
-        run: npx expo prebuild --platform ios --clean
+        run: |
+          npx expo prebuild --platform ios --clean
+          find ios -name "AppDelegate.swift" -exec sed -i '' 's/import ReactAppDependencyProvider//g' {} + || true
 
       - name: Install CocoaPods
         run: |

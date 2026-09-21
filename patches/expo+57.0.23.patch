@@ -237,10 +237,10 @@ index 5e55d8c..6f7707c 100644
  #if os(iOS) || os(tvOS)
 diff --git a/node_modules/expo/ios/Expo-Bridging-Header.h b/node_modules/expo/ios/Expo-Bridging-Header.h
 new file mode 100644
-index 0000000..a03ebce
+index 0000000..c7c268e
 --- /dev/null
 +++ b/node_modules/expo/ios/Expo-Bridging-Header.h
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,51 @@
 +#import <Foundation/Foundation.h>
 +#import <UIKit/UIKit.h>
 +#import <ExpoModulesCore/ExpoModulesCore.h>
@@ -259,6 +259,12 @@ index 0000000..a03ebce
 +#import "RCTRootViewFactory.h"
 +#import "RCTDefaultReactNativeFactoryDelegate.h"
 +#import "RCTAppDelegate.h"
++#endif
++
++#if __has_include(<ReactAppDependencyProvider/RCTAppDependencyProvider.h>)
++#import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
++#elif __has_include("RCTAppDependencyProvider.h")
++#import "RCTAppDependencyProvider.h"
 +#endif
 +
 +#if __has_include(<Expo/RCTAppDelegateUmbrella.h>)
