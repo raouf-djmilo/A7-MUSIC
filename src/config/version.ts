@@ -3,8 +3,8 @@ import * as Application from 'expo-application';
 /**
  * 🏷️ Single Source of Truth for Application Versioning
  */
-export const APP_VERSION = '1.4.9';
-export const APP_BUILD_NAME = 'Studio Canvas & Zero-Desync Video Engine';
+export const APP_VERSION = '1.5.0';
+export const APP_BUILD_NAME = 'Production iOS IPA Fix: Clean Audio DAC & Video Sync';
 export const APP_RELEASE_YEAR = '2026';
 
 export const GITHUB_REPO_OWNER = 'raouf-djmilo';

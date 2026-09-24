@@ -588,28 +588,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             const fallbackSilentUri = await getOrGenerateSilentAudioUri();
 
             // 🛡️ Exclusive Audio Bus Architecture:
-            // When streaming online with WebView, TrackPlayer must ONLY run the silent loop anchor
-            // with absolute volume ZERO (0) to eliminate any audio bus interference, phasing, or clipping.
-            // When playing offline files natively, TrackPlayer volume is 1.0.
-            const trackPlayerUri = isOffline
-              ? (streamUrl || fallbackSilentUri)
-              : fallbackSilentUri;
-
+            // TrackPlayer acts as the background audio session keeper & lock screen metadata anchor.
+            // It plays fallbackSilentUri with absolute volume ZERO (0) to eliminate any audio bus interference,
+            // phasing, or double playback echo.
+            // Actual audio is played exclusively by nativeAudioService (offline) or GlobalAudioBridge (online).
             await TrackPlayer.add({
               id: track.videoId || 'unknown',
-              url: trackPlayerUri,
+              url: fallbackSilentUri,
               title: finalTitle,
               artist: finalArtist,
               artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
               duration: totalDurationSec,
             });
             await TrackPlayer.setRepeatMode(1);
-            if (isOffline) {
-              await TrackPlayer.setVolume(1.0);
-            } else {
-              // Lock screen metadata anchor: mute native player completely to yield DAC exclusively to clean stream
-              await TrackPlayer.setVolume(0);
-            }
+            await TrackPlayer.setVolume(0);
             await TrackPlayer.play();
           } catch (tpErr) {
             // Native TrackPlayer fallback is non-blocking

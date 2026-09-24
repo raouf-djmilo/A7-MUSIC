@@ -1,23 +1,33 @@
 {
-  "latest": "1.4.9",
-  "version": "1.4.9",
+  "latest": "1.5.0",
+  "version": "1.5.0",
   "min_supported_version": "1.4.0",
-  "title": "A7 MUSIC v1.4.9",
-  "publishedAt": "2026-09-21T23:45:00Z",
-  "notes": "## 🎵 A7 MUSIC v1.4.9\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Ultra-HD 1:1 Studio Artwork Cascade (Zero black borders)\n- Zero-Desync Synchronized Video Clip Mode\n- Elimination of audio drops, ghost skipping, and loops\n- Native iOS IPA package build for TrollStore, AltStore, Sideloadly & Scarlet",
+  "title": "A7 MUSIC v1.5.0",
+  "publishedAt": "2026-09-24T18:00:00Z",
+  "notes": "## 🎵 A7 MUSIC v1.5.0 (Production IPA & APK Fix)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Fix online music playback on standalone iOS IPA (Resolved YouTube error 150 & direct stream routing)\n- Synchronized Video Clip Mode fix (Elevated WebView above player sheet with touch interaction)\n- Complete elimination of audio echo/duplication on downloaded songs (Zero-conflict DAC architecture)\n- Native iOS IPA package build for SideStore, TrollStore, AltStore, Sideloadly & Scarlet",
   "ipa": {
     "name": "A7-MUSIC.ipa",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.9/A7-MUSIC.ipa",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.ipa",
     "size": 19800000
   },
   "apk": {
     "name": "A7-MUSIC.apk",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.4.9/A7-MUSIC.apk",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.apk",
     "size": 42500000
   },
-  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.4.9",
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.0",
   "releases": [
     {
+      "version": "1.5.0",
+      "date": "2026-09-24",
+      "type": "minor",
+      "title": "إصلاح شامل لنسخة IPA وتطبيق الهاتف: تشغيل فوري بدون أخطاء، تفعيل الفيديو كليب، والقضاء التام على الصدى والتكرار في الأغاني المحملة",
+      "highlights": [
+        "إصلاح تشغيل الموسيقى أونلاين على حزم iOS IPA المستقلة",
+        "تفعيل عرض الفيديو كليب المتزامن داخل المشغل بدون حجب",
+        "القضاء التام على تكرار وتشوه الصوت في الأغاني المحملة وفصل مسارات الصوت بدقة DAC 1:1"
+      ]
+    },
       "version": "1.4.9",
       "date": "2026-09-22",
       "type": "minor",

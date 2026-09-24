@@ -33,25 +33,9 @@ export const PlaybackService = async () => {
         useAudioStore.getState().pauseTrack();
       }
     });
-    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
-      const { activeEngine, isOfflinePlayback } = useAudioStore.getState();
-      if (activeEngine === 'native' || isOfflinePlayback) {
-        useAudioStore.getState().updateProgress(event.position * 1000, event.duration * 1000);
-      }
-    });
-    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-      const state = useAudioStore.getState();
-      // 🛡️ CRITICAL GUARD: Only advance track if actually playing near the end of the song!
-      // NEVER trigger on TrackPlayer.reset() or during initial buffering.
-      if (
-        (state.activeEngine === 'native' || state.isOfflinePlayback) &&
-        state.positionMillis > 5000 &&
-        state.durationMillis > 0 &&
-        state.positionMillis >= state.durationMillis - 8000
-      ) {
-        state.handleTrackEnded();
-      }
-    });
+    // Note: TrackPlayer serves as the silent anchor and remote control bridge.
+    // Actual playback progress and track completion are handled with precision by
+    // nativeAudioService (expo-video) and GlobalAudioBridge (YouTube engine).
   } catch (e) {
     // Ignored in Expo Go
   }

@@ -86,7 +86,7 @@ class NativeAudioService {
 
         const player = expoVideo.createVideoPlayer(playerSource);
         player.staysActiveInBackground = true;
-        player.showNowPlayingNotification = true;
+        player.showNowPlayingNotification = !NativeModules.TrackPlayerModule;
         player.timeUpdateEventInterval = 0.35;
         player.volume = 1.0;
 
@@ -282,8 +282,12 @@ class NativeAudioService {
         const player = this.videoPlayer;
         this.videoPlayer = null;
         try {
+          player.muted = true;
           player.pause();
-          player.release();
+          player.currentTime = 0;
+          if (typeof player.release === 'function') {
+            player.release();
+          }
         } catch {}
       }
 

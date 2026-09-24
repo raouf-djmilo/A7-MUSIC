@@ -49,60 +49,11 @@ const getSafeVideoPlayer = (): any | null => {
 // ── 🛡️ Cross-Frame Deep Ad-Killer Script (Executed in main window + inside YouTube embed iframe) ──
 const AD_KILLER_INJECTION_SCRIPT = `
 (function() {
-  try {
-    var isAdUrl = function(url) {
-      if (!url || typeof url !== 'string') return false;
-      var u = url.toLowerCase();
-      // 🛡️ CRITICAL ALLOWLIST: Never block media stream chunks or player initialization
-      if (
-        u.indexOf('videoplayback') !== -1 ||
-        u.indexOf('initplayback') !== -1 ||
-        u.indexOf('googlevideo') !== -1 ||
-        u.indexOf('/player') !== -1
-      ) {
-        return false;
-      }
-      return (
-        u.indexOf('doubleclick.net') !== -1 ||
-        u.indexOf('googleads') !== -1 ||
-        u.indexOf('pagead2.googlesyndication.com') !== -1 ||
-        u.indexOf('/pagead/') !== -1 ||
-        u.indexOf('/api/stats/ads') !== -1 ||
-        u.indexOf('get_midroll_info') !== -1 ||
-        u.indexOf('adservice.google') !== -1 ||
-        u.indexOf('youtube.com/pagead') !== -1
-      );
-    };
-
-    // 1. Block ad requests inside iframe
-    if (window.XMLHttpRequest) {
-      var origOpen = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function(method, url) {
-        if (isAdUrl(url)) {
-          this.abort();
-          return;
-        }
-        return origOpen.apply(this, arguments);
-      };
-    }
-
-    if (window.fetch) {
-      var origFetch = window.fetch;
-      window.fetch = function(input, init) {
-        var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-        if (isAdUrl(url)) {
-          return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-        }
-        return origFetch.apply(this, arguments);
-      };
-    }
-  } catch(e) {}
-
-  // 2. ⚡ Strict Discriminator Ad-Destroyer (Zero false-positives on actual songs)
+  // ⚡ Strict Discriminator Ad-Destroyer (Zero false-positives on actual songs)
   function destroyAds() {
     try {
       // 🛡️ STRICT DISCRIMINATOR: Only touch playback if explicit ad container is active
-      var adWrapper = document.querySelector('.ad-showing, .ad-interrupting');
+      var adWrapper = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay, .ytp-ad-overlay-container, .ytp-ad-text');
       var video = document.querySelector('video');
 
       if (adWrapper && video) {
@@ -123,7 +74,8 @@ const AD_KILLER_INJECTION_SCRIPT = `
         '.ytp-skip-ad-button',
         '.ytp-ad-skip-button-text',
         '.videoAdUiSkipButton',
-        'button.ytp-ad-skip-button-slot'
+        'button.ytp-ad-skip-button-slot',
+        '.ytp-ad-overlay-close-button'
       ];
       for (var i = 0; i < skipSelectors.length; i++) {
         var btn = document.querySelector(skipSelectors[i]);
@@ -141,7 +93,7 @@ const AD_KILLER_INJECTION_SCRIPT = `
     } catch(err) {}
   }
 
-  // 3. Event-Driven Ad-Killer via MutationObserver + 250ms Gentle Fallback
+  // Event-Driven Ad-Killer via MutationObserver + 250ms Gentle Fallback
   try {
     if (window.MutationObserver) {
       var observer = new MutationObserver(function() {
@@ -234,7 +186,7 @@ const YOUTUBE_HTML_CONTENT = `
       ytPlayer = new YT.Player('player', {
         height: '100%',
         width: '100%',
-        host: 'https://www.youtube-nocookie.com',
+        host: 'https://www.youtube.com',
         playerVars: {
           controls: 0,
           modestbranding: 1,
@@ -425,35 +377,9 @@ const YOUTUBE_HTML_CONTENT = `
         window.stopMedia();
         return;
       }
-      var isDirectAudio = !!params.url && (
-        params.url.indexOf('http') === 0 ||
-        params.url.indexOf('.mp3') !== -1 ||
-        params.url.indexOf('.m4a') !== -1 ||
-        !params.videoId ||
-        params.videoId.length !== 11
-      );
+      var hasValidVideoId = !!(params.videoId && typeof params.videoId === 'string' && params.videoId.trim().length === 11);
 
-      if (isDirectAudio) {
-        isSwitchingMedia = true;
-        hasStartedPlaying = false;
-        activeEngine = 'html5';
-        currentPlayingVideoId = '';
-        if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
-          try { ytPlayer.pauseVideo(); } catch(e){}
-        }
-        if (html5Audio.src !== params.url) {
-          html5Audio.src = params.url;
-        }
-        if (typeof params.position === 'number' && params.position > 0) {
-          html5Audio.currentTime = params.position;
-        }
-        var p = html5Audio.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(function(err) {
-            console.warn('HTML5 Play Error:', err);
-          });
-        }
-      } else if (params.videoId) {
+      if (hasValidVideoId) {
         activeEngine = 'youtube';
         try {
           html5Audio.pause();
@@ -482,6 +408,26 @@ const YOUTUBE_HTML_CONTENT = `
             suggestedQuality: 'default'
           });
           try { ytPlayer.playVideo(); } catch(e){}
+        }
+      } else if (params.url && (params.url.indexOf('.mp3') !== -1 || params.url.indexOf('.m4a') !== -1 || params.url.indexOf('http') === 0)) {
+        isSwitchingMedia = true;
+        hasStartedPlaying = false;
+        activeEngine = 'html5';
+        currentPlayingVideoId = '';
+        if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+          try { ytPlayer.pauseVideo(); } catch(e){}
+        }
+        if (html5Audio.src !== params.url) {
+          html5Audio.src = params.url;
+        }
+        if (typeof params.position === 'number' && params.position > 0) {
+          html5Audio.currentTime = params.position;
+        }
+        var p = html5Audio.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(function(err) {
+            console.warn('HTML5 Play Error:', err);
+          });
         }
       }
     };
@@ -532,6 +478,14 @@ const YOUTUBE_HTML_CONTENT = `
           if (typeof ytPlayer.pauseVideo === 'function') {
             try { ytPlayer.pauseVideo(); } catch(e){}
           }
+        }
+      } catch(e) {}
+      try {
+        var allVideos = document.querySelectorAll('video');
+        for (var i = 0; i < allVideos.length; i++) {
+          allVideos[i].pause();
+          allVideos[i].muted = true;
+          allVideos[i].currentTime = 0;
         }
       } catch(e) {}
     };
@@ -1039,7 +993,7 @@ export const GlobalAudioBridge: React.FC = () => {
           ? [StyleSheet.absoluteFill, { zIndex: 100005 }]
           : styles.hiddenContainer
       }
-      pointerEvents="none"
+      pointerEvents={isVideoVisible ? 'auto' : 'none'}
     >
       {/* ── 1. Online YouTube Player Bridge (Zero-Desync Synchronized Video & Audio Engine) ── */}
       <WebView
@@ -1149,12 +1103,12 @@ export const GlobalAudioBridge: React.FC = () => {
 const styles = StyleSheet.create({
   hiddenContainer: {
     position: 'absolute',
-    bottom: -1000,
-    right: -1000,
-    width: 320,
-    height: 240,
-    opacity: 0.001,
-    zIndex: -999,
+    top: 0,
+    left: 0,
+    width: 2,
+    height: 2,
+    opacity: 0.01,
+    zIndex: -1000,
   },
   hiddenWebView: {
     width: 320,

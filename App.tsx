@@ -36,8 +36,8 @@ const AppContent = () => {
       {/* 🎵 Global Audio Bridge & Unified Player only when authenticated */}
       {!!session && (
         <>
-          <GlobalAudioBridge />
           <UnifiedPlayerSheet />
+          <GlobalAudioBridge />
         </>
       )}
 
