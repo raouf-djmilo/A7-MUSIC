@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Platform, NativeModules } from 'react-native';
+import { View, StyleSheet, Platform, NativeModules, AppState } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useAudioStore, getLastUserToggleTimestamp } from '../store/useAudioStore';
+import { useAudioStore, getLastUserToggleTimestamp, setLastUserToggleTimestamp } from '../store/useAudioStore';
 import { ToastManager } from './InAppToast';
 
 // ── Lazy safe getter for expo-av Audio module (checks NativeModules before requiring) ──
@@ -120,10 +120,32 @@ const YOUTUBE_HTML_CONTENT = `
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
-    body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; }
+    body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#000; -webkit-user-select:none; user-select:none; }
     #player { width:100%; height:100%; position:absolute; top:0; left:0; }
-    iframe { width:100% !important; height:100% !important; border:none; }
+    iframe { width:100% !important; height:100% !important; border:none; pointer-events:none; }
     audio { display:none; }
+
+    /* 🛡️ Pristine Media Display - Hide YouTube Chrome, Watermarks, Cards, Related Videos */
+    .ytp-chrome-top,
+    .ytp-show-cards-title,
+    .ytp-watermark,
+    .ytp-pause-overlay,
+    .ytp-scroll-min,
+    .ytp-gradient-top,
+    .ytp-gradient-bottom,
+    .branding-img,
+    .ytp-youtube-button,
+    .ytp-title-link,
+    .ytp-cards-teaser,
+    .ytp-endscreen-content {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    video {
+      object-fit: contain !important;
+    }
   </style>
 </head>
 <body>
@@ -396,6 +418,9 @@ const YOUTUBE_HTML_CONTENT = `
 
         if (currentPlayingVideoId === params.videoId) {
           try { 
+            if (typeof params.position === 'number' && params.position > 0) {
+              ytPlayer.seekTo(params.position, true);
+            }
             ytPlayer.playVideo(); 
             isSwitchingMedia = false;
             hasStartedPlaying = true;
@@ -448,6 +473,70 @@ const YOUTUBE_HTML_CONTENT = `
       } else if (activeEngine === 'youtube' && ytPlayer && typeof ytPlayer.playVideo === 'function') {
         try { ytPlayer.playVideo(); } catch(e){}
       }
+    };
+
+    window.cueOrPrepareMedia = function(videoId, positionSec) {
+      activeEngine = 'youtube';
+      currentPlayingVideoId = videoId;
+      var pos = (typeof positionSec === 'number' && positionSec >= 0) ? positionSec : 0;
+      if (ytPlayer && typeof ytPlayer.cueVideoById === 'function') {
+        try {
+          ytPlayer.cueVideoById({
+            videoId: videoId,
+            startSeconds: pos,
+            suggestedQuality: 'default'
+          });
+        } catch(e){}
+      }
+    };
+
+    window.handoverFromVideo = function(videoId, positionSec, shouldPlay) {
+      activeEngine = 'youtube';
+      isSwitchingMedia = true;
+      hasStartedPlaying = false;
+      var pos = (typeof positionSec === 'number' && positionSec >= 0) ? positionSec : 0;
+
+      if (!ytPlayer || typeof ytPlayer.loadVideoById !== 'function') {
+        pendingPlayAction = { videoId: videoId, position: pos };
+        return;
+      }
+
+      if (currentPlayingVideoId !== videoId) {
+        currentPlayingVideoId = videoId;
+        ytPlayer.loadVideoById({
+          videoId: videoId,
+          startSeconds: pos,
+          suggestedQuality: 'default'
+        });
+        if (shouldPlay) {
+          try { ytPlayer.playVideo(); } catch(e){}
+        } else {
+          try { ytPlayer.pauseVideo(); } catch(e){}
+        }
+      } else {
+        try {
+          ytPlayer.seekTo(pos, true);
+          if (shouldPlay) {
+            ytPlayer.playVideo();
+          } else {
+            ytPlayer.pauseVideo();
+          }
+        } catch(e) {
+          try {
+            ytPlayer.loadVideoById({
+              videoId: videoId,
+              startSeconds: pos,
+              suggestedQuality: 'default'
+            });
+            if (shouldPlay) ytPlayer.playVideo();
+          } catch(e2){}
+        }
+      }
+
+      setTimeout(function() {
+        isSwitchingMedia = false;
+        hasStartedPlaying = true;
+      }, 600);
     };
 
     window.seekMedia = function(sec) {
@@ -612,18 +701,9 @@ const OFFLINE_HTML_CONTENT = `
 export const GlobalAudioBridge: React.FC = () => {
   const isPlayerModalVisible = useAudioStore((s) => s.isPlayerModalVisible);
   const playerMediaMode = useAudioStore((s) => s.playerMediaMode);
-  const videoLayout = useAudioStore((s) => s.videoLayout);
   const currentTrack = useAudioStore((s) => s.currentTrack);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
   const activeEngine = useAudioStore((s) => s.activeEngine);
-
-  const isVideoVisible =
-    isPlayerModalVisible &&
-    playerMediaMode === 'video' &&
-    activeEngine === 'youtube' &&
-    !!currentTrack?.videoId &&
-    !!videoLayout &&
-    videoLayout.width > 0 &&
-    videoLayout.height > 0;
 
   const youtubeWebRef = useRef<WebView>(null);
   const offlineWebRef = useRef<WebView>(null);
@@ -638,6 +718,7 @@ export const GlobalAudioBridge: React.FC = () => {
   const currentEngine = useRef<'youtube' | 'expo_video' | 'av_offline' | 'webview_offline' | 'none'>('none');
   const lastErrorTime = useRef<number>(0);
   const consecutiveErrors = useRef<number>(0);
+  const lastHandoverTimeRef = useRef<number>(0);
 
   // ── Setup offline player HTML file on disk once (allows direct file:// playback in WKWebView) ──
   useEffect(() => {
@@ -803,6 +884,15 @@ export const GlobalAudioBridge: React.FC = () => {
       );
 
       if (action.type === 'play') {
+        if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
+          youtubeWebRef.current?.injectJavaScript(`
+            try { 
+              window.cueOrPrepareMedia(${JSON.stringify(action.videoId)}, ${action.position || 0}); 
+            } catch(e) {} 
+            true;
+          `);
+          return;
+        }
         if (state.activeEngine === 'native' || isOfflineTarget || (action.url && action.url.startsWith('file://'))) {
           // 🛡️ WebKit Security & DAC Yield:
           // Never attempt to load local file:// inside WebView.
@@ -843,6 +933,10 @@ export const GlobalAudioBridge: React.FC = () => {
           youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e) {} true;');
         }
       } else if (action.type === 'resume') {
+        if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
+          youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e) {} true;');
+          return;
+        }
         if (currentEngine.current === 'expo_video') {
           videoPlayerRef.current?.play();
         } else if (currentEngine.current === 'av_offline') {
@@ -861,7 +955,11 @@ export const GlobalAudioBridge: React.FC = () => {
           } else if (currentEngine.current === 'webview_offline') {
             offlineWebRef.current?.injectJavaScript(`try { window.seekOffline(${action.position}); } catch(e) {} true;`);
           } else {
-            youtubeWebRef.current?.injectJavaScript(`try { window.seekMedia(${action.position}); } catch(e) {} true;`);
+            if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
+              youtubeWebRef.current?.injectJavaScript(`try { window.seekMedia(${action.position}); window.pauseMedia(); } catch(e) {} true;`);
+            } else {
+              youtubeWebRef.current?.injectJavaScript(`try { window.seekMedia(${action.position}); } catch(e) {} true;`);
+            }
           }
         }
       } else if (action.type === 'stop') {
@@ -870,6 +968,25 @@ export const GlobalAudioBridge: React.FC = () => {
         youtubeWebRef.current?.injectJavaScript('try { window.stopMedia(); } catch(e) {} true;');
       } else if (action.type === 'quality') {
         youtubeWebRef.current?.injectJavaScript(`try { window.setQuality("${action.quality || 'hd1080'}"); } catch(e) {} true;`);
+      } else if (action.type === 'handover_from_video') {
+        currentEngine.current = 'youtube';
+        lastHandoverTimeRef.current = Date.now();
+        setLastUserToggleTimestamp(Date.now());
+        const vid = action.videoId || state.currentTrack?.videoId;
+        const posSec = typeof action.position === 'number' ? action.position : Math.max(0, Math.floor(state.positionMillis / 1000));
+        const shouldPlay = state.isPlaying;
+        if (vid) {
+          youtubeWebRef.current?.injectJavaScript(`
+            try {
+              window.handoverFromVideo(${JSON.stringify(vid)}, ${posSec}, ${shouldPlay});
+            } catch(e) {}
+            true;
+          `);
+        }
+      } else if (action.type === 'pause_bridge') {
+        youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e){} true;');
+      } else if (action.type === 'resume_bridge') {
+        youtubeWebRef.current?.injectJavaScript('try { window.resumeMedia(); } catch(e){} true;');
       }
     });
 
@@ -892,19 +1009,18 @@ export const GlobalAudioBridge: React.FC = () => {
           youtubeWebRef.current?.injectJavaScript(`try { window.playMedia(${JSON.stringify(payload)}); } catch(e) {} true;`);
         }
       } else if (msg.eventType === 'progressUpdate' && msg.data) {
-        // If native engine is active, do not let WebView overwrite native progress
-        if (store.activeEngine === 'native') return;
-        const now = Date.now();
-        // Scrubber Lock: Guard against stale playback positions from previous track during transitions
-        if (now - getLastUserToggleTimestamp() > 1500) {
-          store.updateProgress(msg.data.positionMillis, msg.data.durationMillis);
+        // If native engine is active or user is watching video in modal, do not let background WebView overwrite progress
+        if (store.activeEngine === 'native' || (store.playerMediaMode === 'video' && store.isPlayerModalVisible)) return;
+        if (typeof msg.data.positionMillis === 'number' && msg.data.positionMillis >= 0) {
+          store.updateProgress(msg.data.positionMillis, msg.data.durationMillis || store.durationMillis);
         }
       } else if (msg.eventType === 'playerStateChange') {
-        // If native engine is active, ignore WebView state changes
-        if (store.activeEngine === 'native') return;
+        // If native engine is active or user is watching video in modal, ignore background WebView state changes
+        if (store.activeEngine === 'native' || (store.playerMediaMode === 'video' && store.isPlayerModalVisible)) return;
         // State: 1 = Playing, 2 = Paused, 0 = Ended
         const now = Date.now();
         const timeSinceUserToggle = now - getLastUserToggleTimestamp();
+        const isDuringHandover = (now - lastHandoverTimeRef.current) < 2500;
 
         if (msg.data === 1) {
           consecutiveErrors.current = 0;
@@ -912,7 +1028,7 @@ export const GlobalAudioBridge: React.FC = () => {
             useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
           }
         } else if (msg.data === 2) {
-          if (timeSinceUserToggle > 2500 && store.isPlaying && !store.isLoading) {
+          if (!isDuringHandover && timeSinceUserToggle > 2500 && store.isPlaying && !store.isLoading) {
             useAudioStore.setState({ isPlaying: false });
           }
         } else if (msg.data === 0) {
@@ -986,16 +1102,71 @@ export const GlobalAudioBridge: React.FC = () => {
     } catch (e) {}
   };
 
-  return (
-    <View
-      style={
-        isVideoVisible
-          ? [StyleSheet.absoluteFill, { zIndex: 100005 }]
-          : styles.hiddenContainer
+  // ── Smart Audio Bridge Handoff ──
+  // When modal is open and in video mode, we keep background audio bridge playing during expand animation
+  // until the on-screen video actually begins playing frames and dispatches 'pause_bridge'.
+  // When collapsing to mini or switching to music mode, hand over audio immediately with zero freeze.
+  const isVideoActiveOnScreen = playerMediaMode === 'video' && isPlayerModalVisible;
+  const prevVideoActiveRef = useRef<boolean>(isVideoActiveOnScreen);
+
+  useEffect(() => {
+    if (activeEngine !== 'youtube') return;
+
+    const wasVideoActive = prevVideoActiveRef.current;
+    const isNowVideoActive = isVideoActiveOnScreen;
+    prevVideoActiveRef.current = isNowVideoActive;
+
+    if (wasVideoActive && !isNowVideoActive) {
+      // ➔ Transferred FROM on-screen video (Switched to Music or collapsed to Mini):
+      // Hand over audio immediately to background bridge at exact timestamp with zero freeze
+      lastHandoverTimeRef.current = Date.now();
+      setLastUserToggleTimestamp(Date.now());
+
+      const store = useAudioStore.getState();
+      const posSec = Math.max(0, Math.floor(store.positionMillis / 1000));
+      const videoId = store.currentTrack?.videoId;
+      const shouldPlay = store.isPlaying;
+
+      if (videoId) {
+        youtubeWebRef.current?.injectJavaScript(`
+          try {
+            window.handoverFromVideo(${JSON.stringify(videoId)}, ${posSec}, ${shouldPlay});
+          } catch(e) {}
+          true;
+        `);
       }
-      pointerEvents={isVideoVisible ? 'auto' : 'none'}
-    >
-      {/* ── 1. Online YouTube Player Bridge (Zero-Desync Synchronized Video & Audio Engine) ── */}
+    }
+  }, [isVideoActiveOnScreen, activeEngine]);
+
+  // ── Background & Screen-Off Audio Continuity Watchdog ──
+  // When user minimizes the app or turns off screen while in video mode,
+  // the visible WebView gets suspended by Android OS.
+  // We instantly hand over audio to background bridge so playback continues uninterrupted!
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const isBackground = nextAppState === 'background' || nextAppState === 'inactive';
+      if (isBackground) {
+        const store = useAudioStore.getState();
+        if (store.playerMediaMode === 'video' && store.isPlaying && store.currentTrack?.videoId) {
+          const curSec = Math.max(0, Math.floor(store.positionMillis / 1000));
+          youtubeWebRef.current?.injectJavaScript(`
+            try {
+              window.handoverFromVideo(${JSON.stringify(store.currentTrack.videoId)}, ${curSec}, true);
+            } catch(e) {}
+            true;
+          `);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  return (
+    <View style={styles.hiddenContainer} pointerEvents="none">
+      {/* ── 1. Online YouTube Audio Bridge (Always strictly hidden, zero-touch interference) ── */}
       <WebView
         ref={youtubeWebRef}
         source={{
@@ -1049,23 +1220,10 @@ export const GlobalAudioBridge: React.FC = () => {
         allowsProtectedMedia={true}
         androidLayerType="hardware"
         userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36"
-        style={
-          isVideoVisible && videoLayout
-            ? {
-                position: 'absolute',
-                left: videoLayout.x,
-                top: videoLayout.y,
-                width: videoLayout.width,
-                height: videoLayout.height,
-                borderRadius: 20,
-                overflow: 'hidden',
-                backgroundColor: '#000',
-              }
-            : styles.hiddenWebView
-        }
+        style={styles.hiddenWebView}
       />
 
-      {/* ── 2. Pure Native Offline HTML5 Player Bridge (Loaded as local file:// for full filesystem access) ── */}
+      {/* ── 2. Pure Native Offline HTML5 Player Bridge ── */}
       <WebView
         ref={offlineWebRef}
         source={
@@ -1108,14 +1266,12 @@ const styles = StyleSheet.create({
     width: 2,
     height: 2,
     opacity: 0.01,
+    overflow: 'hidden',
     zIndex: -1000,
   },
   hiddenWebView: {
     width: 320,
     height: 240,
-    backgroundColor: '#000',
-  },
-  webView: {
     backgroundColor: '#000',
   },
 });

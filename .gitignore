@@ -11,3 +11,4 @@ Thumbs.db
 *.ipa
 *.aab
 node_modules
+.expo/

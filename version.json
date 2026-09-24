@@ -1,22 +1,39 @@
 {
-  "latest": "1.5.0",
-  "version": "1.5.0",
+  "latest": "1.5.1",
+  "version": "1.5.1",
   "min_supported_version": "1.4.0",
-  "title": "A7 MUSIC v1.5.0",
-  "publishedAt": "2026-09-24T18:00:00Z",
-  "notes": "## 🎵 A7 MUSIC v1.5.0 (Production IPA & APK Fix)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Fix online music playback on standalone iOS IPA (Resolved YouTube error 150 & direct stream routing)\n- Synchronized Video Clip Mode fix (Elevated WebView above player sheet with touch interaction)\n- Complete elimination of audio echo/duplication on downloaded songs (Zero-conflict DAC architecture)\n- Native iOS IPA package build for SideStore, TrollStore, AltStore, Sideloadly & Scarlet",
+  "title": "A7 MUSIC v1.5.1",
+  "publishedAt": "2026-09-24T22:30:00Z",
+  "notes": "## 🎵 A7 MUSIC v1.5.1 (Interactive High-FPS Video Player & Audio Continuity)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Interactive High-FPS Video Player & Segmented Switcher (Music vs Video Clip toggle)\n- Fullscreen Theater Mode with edge-to-edge landscape & aspect ratio controls (Fit/Fill)\n- Ultra-smooth 120 FPS UI synchronization via shared GPU motion values\n- Precision waveform & live scrubbing with seamless zero-freeze audio handover\n- Background & screen-off playback continuity with dedicated audio bridge\n- Standalone iOS IPA & Android APK builds ready for side-loading (SideStore, TrollStore, etc.)",
   "ipa": {
     "name": "A7-MUSIC.ipa",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.ipa",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.ipa",
     "size": 19800000
   },
   "apk": {
     "name": "A7-MUSIC.apk",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.apk",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.apk",
     "size": 42500000
   },
-  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.0",
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.1",
   "releases": [
+    {
+      "version": "1.5.1",
+      "date": "2026-09-24",
+      "type": "minor",
+      "title": "المشغل التفاعلي فائق السلاسة: وضع الفيديو كليب عالي الدقة، وضع السينما بملء الشاشة، واستمرارية الصوت بدون انقطاع",
+      "highlights": [
+        "إضافة مشغل فيديو كليب تفاعلي عالي النقاء مع زر تبديل سريع بين الموسيقى والفيديو (Pill Switcher)",
+        "وضع السينما بملء الشاشة (Fullscreen Cinema Mode) وخيارات قياس الشاشة (Fit / Fill)",
+        "مزامنة رسومية فائقة السلاسة بمعدل 120 إطاراً في الثانية عبر قيم GPU المشتركة",
+        "شريط تمرير وتحكم دقيق في الصوت مع انتقال فوري بدون تجميد أو تقطيع",
+        "استمرارية الصوت عند إغلاق الشاشة أو الانتقال للخلفية مع عزل كامل لأي تداخل صوتي"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.ipa",
+      "apk_size": 42500000,
+      "ipa_size": 19800000
+    },
     {
       "version": "1.5.0",
       "date": "2026-09-24",
@@ -26,8 +43,13 @@
         "إصلاح تشغيل الموسيقى أونلاين على حزم iOS IPA المستقلة",
         "تفعيل عرض الفيديو كليب المتزامن داخل المشغل بدون حجب",
         "القضاء التام على تكرار وتشوه الصوت في الأغاني المحملة وفصل مسارات الصوت بدقة DAC 1:1"
-      ]
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.0/A7-MUSIC.ipa",
+      "apk_size": 42500000,
+      "ipa_size": 19800000
     },
+    {
       "version": "1.4.9",
       "date": "2026-09-22",
       "type": "minor",

@@ -55,7 +55,7 @@ export type RepeatMode = 'off' | 'all' | 'one';
 export type AudioQuality = 'hd320' | 'standard' | 'saver';
 
 export interface AudioEngineAction {
-  type: 'play' | 'pause' | 'resume' | 'seek' | 'stop' | 'quality';
+  type: 'play' | 'pause' | 'resume' | 'seek' | 'stop' | 'quality' | 'handover_from_video' | 'pause_bridge' | 'resume_bridge';
   videoId?: string;
   url?: string;
   position?: number; // in seconds
@@ -142,6 +142,10 @@ export interface AudioState {
   handlePlaybackFallback: (fallbackVideoId?: string) => Promise<void>;
   playerMediaMode: 'cover' | 'video';
   setPlayerMediaMode: (mode: 'cover' | 'video') => void;
+  videoAspectMode: 'fit' | 'fill';
+  setVideoAspectMode: (mode: 'fit' | 'fill') => void;
+  isVideoFullscreen: boolean;
+  setVideoFullscreen: (fullscreen: boolean) => void;
   videoLayout: { x: number; y: number; width: number; height: number } | null;
   setVideoLayout: (layout: { x: number; y: number; width: number; height: number } | null) => void;
   loadPlayerMediaMode: () => Promise<void>;
@@ -199,6 +203,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ playerMediaMode: mode });
     AsyncStorage.setItem('@nouble_player_media_mode', mode).catch(() => {});
   },
+  videoAspectMode: 'fit',
+  setVideoAspectMode: (mode) => set({ videoAspectMode: mode }),
+  isVideoFullscreen: false,
+  setVideoFullscreen: (fullscreen) => set({ isVideoFullscreen: fullscreen }),
   videoLayout: null,
   setVideoLayout: (layout) => set({ videoLayout: layout }),
   loadPlayerMediaMode: async () => {
