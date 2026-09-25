@@ -1,22 +1,38 @@
 {
-  "latest": "1.5.1",
-  "version": "1.5.1",
+  "latest": "1.5.2",
+  "version": "1.5.2",
   "min_supported_version": "1.4.0",
-  "title": "A7 MUSIC v1.5.1",
-  "publishedAt": "2026-09-24T22:30:00Z",
-  "notes": "## 🎵 A7 MUSIC v1.5.1 (Interactive High-FPS Video Player & Audio Continuity)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Interactive High-FPS Video Player & Segmented Switcher (Music vs Video Clip toggle)\n- Fullscreen Theater Mode with edge-to-edge landscape & aspect ratio controls (Fit/Fill)\n- Ultra-smooth 120 FPS UI synchronization via shared GPU motion values\n- Precision waveform & live scrubbing with seamless zero-freeze audio handover\n- Background & screen-off playback continuity with dedicated audio bridge\n- Standalone iOS IPA & Android APK builds ready for side-loading (SideStore, TrollStore, etc.)",
+  "title": "A7 MUSIC v1.5.2",
+  "publishedAt": "2026-09-25T03:30:00Z",
+  "notes": "## 🎵 A7 MUSIC v1.5.2 (Artist Discography, Album View & Enhanced Music Service)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Full Artist Discography Profiles with categorized tabs (All, Popular, Albums, Singles & EPs, Playlists)\n- Album & Playlist Details Screen with track count, total playback duration and instant playback\n- Enhanced YouTube Music Service with rich album extraction and artist profile enrichment\n- Studio-Grade 800x800 Artwork & Avatar resolution\n- Streamlined YouTube Player engine & zero-latency audio synchronization",
   "ipa": {
     "name": "A7-MUSIC.ipa",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.ipa",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.ipa",
     "size": 19800000
   },
   "apk": {
     "name": "A7-MUSIC.apk",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.1/A7-MUSIC.apk",
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.apk",
     "size": 42500000
   },
-  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.1",
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.2",
   "releases": [
+    {
+      "version": "1.5.2",
+      "date": "2026-09-25",
+      "type": "minor",
+      "title": "صفحة الفنان الشاملة، عرض تفاصيل الألبومات وقوائم التشغيل، ومحرك ديسكوغرافيا يوتيوب فائق الدقة",
+      "highlights": [
+        "صفحة الفنان الشاملة مع تبويبات الفرز الذكية (الكل، الأكثر شعبية، الألبومات، الأغاني الفردية، وقوائم التشغيل)",
+        "شاشة تفاصيل الألبومات وقوائم التشغيل (Album & Playlist View) مع حساب المدة الإجمالية والتشغيل الفوري",
+        "محرك استخراج الألبومات والديسكوغرافيا المتقدم عبر YouTube Music مع صور بدقة 800x800",
+        "مزامنة أصلية محسنة لمشغل الفيديو والموسيقى الموحد مع خلو تام من التعليق"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.ipa",
+      "apk_size": 42500000,
+      "ipa_size": 19800000
+    },
     {
       "version": "1.5.1",
       "date": "2026-09-24",

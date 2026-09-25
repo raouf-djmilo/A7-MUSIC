@@ -294,24 +294,24 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const handleScrubberSeek = useCallback(async (millis: number) => {
     const sec = Math.floor(millis / 1000);
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
       fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(millis);
-  }, [playerMediaMode, seekTo]);
+  }, [activeEngine, seekTo]);
 
   const seekBackward10 = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const pos = useAudioStore.getState().positionMillis;
     const target = Math.max(0, pos - 10000);
     const sec = Math.floor(target / 1000);
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
       fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(target);
-  }, [playerMediaMode, seekTo]);
+  }, [activeEngine, seekTo]);
 
   const seekForward10 = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -319,19 +319,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     const validDuration = dur > 0 ? dur : (track?.duration || 180000);
     const target = Math.min(validDuration, pos + 10000);
     const sec = Math.floor(target / 1000);
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
       fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(target);
-  }, [playerMediaMode, seekTo]);
+  }, [activeEngine, seekTo]);
 
   // ── Unified Play / Pause Action (Clean direct toggle with atomic sync across Music & Video) ──
   const handlePlayPausePress = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLastUserToggleTimestamp(Date.now());
 
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       const nextPlaying = !isPlaying;
       useAudioStore.setState({ 
         isPlaying: nextPlaying,
@@ -348,19 +348,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     } else {
       await togglePlay();
     }
-  }, [isPlaying, playerMediaMode, isVideoFullscreen, togglePlay]);
+  }, [activeEngine, isPlaying, isVideoFullscreen, togglePlay]);
 
   // ── Unified Next / Prev Handlers (Ensures Video Player restarts at 0) ──
   const handleNextPress = useCallback(async () => {
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(0, true);
       fullscreenPlayerRef.current?.seekTo(0, true);
     }
     await nextTrack();
-  }, [playerMediaMode, nextTrack]);
+  }, [activeEngine, nextTrack]);
 
   const handlePrevPress = useCallback(async () => {
-    if (playerMediaMode === 'video') {
+    if (activeEngine === 'youtube') {
       const pos = useAudioStore.getState().positionMillis;
       if (pos > 3000) {
         youtubePlayerRef.current?.seekTo(0, true);
@@ -368,11 +368,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       }
     }
     await prevTrack();
-  }, [playerMediaMode, prevTrack]);
+  }, [activeEngine, prevTrack]);
 
-  // ── Sync Scrubber & Time during Video Playback (350ms high-precision polling) ──
+  // ── Sync Scrubber & Time during YouTube Playback (350ms high-precision polling) ──
   useEffect(() => {
-    if (playerMediaMode !== 'video' || !isPlaying) return;
+    if (!isPlaying || activeEngine !== 'youtube') return;
     const interval = setInterval(async () => {
       try {
         const activeRef = isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current;
@@ -390,7 +390,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       } catch (e) {}
     }, 350);
     return () => clearInterval(interval);
-  }, [playerMediaMode, isPlaying, isVideoFullscreen, currentTrack?.duration]);
+  }, [isPlaying, activeEngine, isVideoFullscreen, currentTrack?.duration]);
 
   // ── Navigation-Aware Docking Guard ──
   const TAB_BAR_SCREENS = [
@@ -408,21 +408,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const isTabBarVisible = !currentRouteName || TAB_BAR_SCREENS.includes(currentRouteName);
   const isWorkoutSummary = currentRouteName === 'WorkoutSummary';
 
-  // ── Navigation Change Guard & Conditional Mount ──
-  const [renderFullPlayer, setRenderFullPlayer] = useState(isPlayerModalVisible);
-
-  useEffect(() => {
-    if (isPlayerModalVisible) {
-      setRenderFullPlayer(true);
-    }
-  }, [isPlayerModalVisible]);
-
+  // ── Navigation Change Guard ──
   const prevRouteRef = React.useRef(currentRouteName);
   useEffect(() => {
     if (prevRouteRef.current && prevRouteRef.current !== currentRouteName) {
       if (isPlayerModalVisible) {
         setPlayerModalVisible(false);
-        setRenderFullPlayer(false);
       }
     }
     prevRouteRef.current = currentRouteName;
@@ -432,7 +423,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
   const baseMiniBottom = bottomInset + TAB_BAR_HEIGHT + DOCK_MARGIN;
   const HIDDEN_OFFSET = DEFAULT_HIDDEN_OFFSET;
-  const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.38, 380);
+  const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.42, 380);
 
   // ── UI-Thread Shared Values (GPU Transform Only) ──
   // playerModalTranslateY coordinates both the player sheet and the GlobalAudioBridge video in 120 FPS hardware lockstep
@@ -458,91 +449,37 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   });
 
   // ── Intelligent Seamless Timeline Switchers (Music ◄──► Video) ──
-  const handleSwitchToCover = useCallback(async () => {
+  const handleSwitchToCover = useCallback(() => {
     Haptics.selectionAsync();
-    isSwitchingModeRef.current = true;
     setLastUserToggleTimestamp(Date.now());
+    isSwitchingModeRef.current = true;
+    setTimeout(() => {
+      isSwitchingModeRef.current = false;
+    }, 600);
 
     modeTranslate.value = withTiming(0, {
       duration: 180,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
 
-    const store = useAudioStore.getState();
-    const wasPlaying = store.isPlaying;
-    let targetSec = Math.max(0, Math.floor(store.positionMillis / 1000));
-
-    try {
-      const activeRef = isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current;
-      if (activeRef) {
-        const vSec = await Promise.race([
-          activeRef.getCurrentTime(),
-          new Promise<null>((res) => setTimeout(() => res(null), 100)),
-        ]);
-        if (typeof vSec === 'number' && !isNaN(vSec) && vSec >= 0) {
-          targetSec = Math.floor(vSec);
-        }
-      }
-    } catch (e) {}
-
-    const targetMs = targetSec * 1000;
-    useAudioStore.getState().updateProgress(targetMs, durationMillis || 0);
-
-    // Keep isPlaying true and immediately handover to background bridge so music continues playing seamlessly!
-    useAudioStore.setState({
-      isPlaying: wasPlaying,
-      isLoading: false,
-      positionMillis: targetMs,
-      audioEngineAction: {
-        type: 'handover_from_video',
-        videoId: store.currentTrack?.videoId,
-        position: targetSec,
-        id: Date.now(),
-      },
-    });
-
     setPlayerMediaMode('cover');
+  }, [setPlayerMediaMode]);
 
+  const handleSwitchToVideo = useCallback(() => {
+    Haptics.selectionAsync();
+    setLastUserToggleTimestamp(Date.now());
+    isSwitchingModeRef.current = true;
     setTimeout(() => {
       isSwitchingModeRef.current = false;
-    }, 1500);
-  }, [durationMillis, isVideoFullscreen, setPlayerMediaMode]);
-
-  const handleSwitchToVideo = useCallback(async () => {
-    Haptics.selectionAsync();
-    isSwitchingModeRef.current = true;
-    setLastUserToggleTimestamp(Date.now());
+    }, 600);
 
     modeTranslate.value = withTiming(1, {
       duration: 180,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
 
-    // Capture exact current second from audio store
-    const store = useAudioStore.getState();
-    const curMs = store.positionMillis;
-    const curSec = Math.max(0, Math.floor(curMs / 1000));
-    const wasPlaying = store.isPlaying;
-
-    // Smoothly switch mode without resetting position
     setPlayerMediaMode('video');
-
-    // Cue YouTube players at exact second and keep playing if was playing
-    setTimeout(() => {
-      const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-      if (activeRef) {
-        activeRef.seekTo?.(curSec, true);
-        if (wasPlaying) {
-          activeRef.playVideo?.();
-        } else {
-          activeRef.pauseVideo?.();
-        }
-      }
-      setTimeout(() => {
-        isSwitchingModeRef.current = false;
-      }, 500);
-    }, 150);
-  }, [isVideoFullscreen, setPlayerMediaMode]);
+  }, [setPlayerMediaMode]);
 
   // Smooth 250ms glide when navigating between Tab screens and Stack screens
   useEffect(() => {
@@ -669,40 +606,22 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const expandToFull = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRenderFullPlayer(true);
     setPlayerModalVisible(true);
     fullTranslateY.value = withSpring(0, SPRING_CONFIG);
   }, [setPlayerModalVisible]);
 
   // ── Intelligent Zero-Cut Collapse Handover ──
-  // Immediately activates GlobalAudioBridge while sheet is collapsing so audio never cuts or stutters
+  // Keeps UnifiedPlayerSheet persistent audio uninterrupted when collapsing to mini player
   const triggerCollapseHandover = useCallback(() => {
     isSwitchingModeRef.current = true;
     setPlayerModalVisible(false);
-
-    if (playerMediaMode === 'video') {
-      const store = useAudioStore.getState();
-      const curSec = Math.max(0, Math.floor(store.positionMillis / 1000));
-      const videoId = store.currentTrack?.videoId;
-      if (videoId) {
-        useAudioStore.setState({
-          audioEngineAction: {
-            type: 'handover_from_video',
-            videoId,
-            position: curSec,
-            id: Date.now(),
-          },
-        });
-      }
-    }
-  }, [playerMediaMode, setPlayerModalVisible]);
+  }, [setPlayerModalVisible]);
 
   const collapseToMini = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     triggerCollapseHandover();
     fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
       if (finished) {
-        runOnJS(setRenderFullPlayer)(false);
         setTimeout(() => {
           isSwitchingModeRef.current = false;
         }, 400);
@@ -735,7 +654,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         runOnJS(triggerCollapseHandover)();
         fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
           if (finished) {
-            runOnJS(setRenderFullPlayer)(false);
             setTimeout(() => {
               isSwitchingModeRef.current = false;
             }, 400);
@@ -757,7 +675,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     .onStart(() => {
       'worklet';
       fullStartY.value = fullTranslateY.value;
-      runOnJS(setRenderFullPlayer)(true);
     })
     .onUpdate((event) => {
       'worklet';
@@ -779,7 +696,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         runOnJS(triggerCollapseHandover)();
         fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
           if (finished) {
-            runOnJS(setRenderFullPlayer)(false);
             setTimeout(() => {
               isSwitchingModeRef.current = false;
             }, 400);
@@ -794,7 +710,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     return {
       transform: [{ translateY: fullTranslateY.value }],
       opacity: isVisible ? 1 : 0,
-      display: isVisible ? 'flex' : 'none',
       zIndex: isVisible ? 100000 : -1,
     };
   });
@@ -833,13 +748,22 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     if (!currentTrack) return [];
     const vid = currentTrack.videoId;
     const list: string[] = [];
+
+    // 1. High-priority: Authentic square album cover (UniversalStudioArtwork)
+    if (currentTrack.thumbnail) {
+      const studioCover = getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist);
+      if (studioCover) {
+        list.push(studioCover);
+      }
+    }
+
+    // 2. High-res YouTube video thumbnails (sddefault 640x480, maxresdefault 1280x720)
     if (vid && vid.length >= 8) {
       list.push(`https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`);
+      list.push(`https://i.ytimg.com/vi/${vid}/sddefault.jpg`);
       list.push(`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
     }
-    if (currentTrack.thumbnail) {
-      list.push(getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist));
-    }
+
     return list;
   }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
 
@@ -987,17 +911,16 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       {/* ════════════════════════════════════════════════════════════════════════
           2. VIEWPORT-LOCKED FULL PLAYER (Pure GPU Transform, Full Viewport Pan)
          ════════════════════════════════════════════════════════════════════════ */}
-      {renderFullPlayer && (
-        <Animated.View
-          style={[
-            styles.fullPlayerOverlay,
-            animatedFullStyle,
-            {
-              backgroundColor: isDark ? tint.bottom : '#F5F4EF',
-            },
-          ]}
-          pointerEvents={isPlayerModalVisible ? 'auto' : 'none'}
-        >
+      <Animated.View
+        style={[
+          styles.fullPlayerOverlay,
+          animatedFullStyle,
+          {
+            backgroundColor: isDark ? tint.bottom : '#F5F4EF',
+          },
+        ]}
+        pointerEvents={isPlayerModalVisible ? 'auto' : 'none'}
+      >
         {/* Dynamic Atmospheric Tint Background */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <BlurView
@@ -1146,117 +1069,135 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 playerMediaMode === 'video' ? styles.videoStageWrapper : styles.coverStageWrapper,
               ]}
             >
-              {playerMediaMode === 'cover' ? (
-                <View style={styles.artworkOuterContainer}>
-                  {/* Atmospheric Glow Backdrop (Apple Music Ambient Light) */}
-                  <View
-                    style={[
-                      styles.artworkAmbientGlow,
-                      {
-                        width: cardWidth * 0.9,
-                        height: cardWidth * 0.9,
-                        backgroundColor: tint.accent,
-                      },
-                    ]}
-                  />
-                  <Image
-                    source={{ uri: heroArtworkUrl }}
-                    style={[
-                      styles.heroArtworkImg,
-                      {
-                        width: cardWidth,
-                        height: cardWidth,
-                        transform: [{ scale: isPlaying ? 1 : 0.94 }],
-                      },
-                    ]}
-                    contentFit="cover"
-                    priority="high"
-                    cachePolicy="memory-disk"
-                    transition={200}
-                    onError={() => {
-                      if (artworkUriIndex < artworkCandidates.length - 1) {
-                        setArtworkUriIndex((prev) => prev + 1);
-                      }
-                    }}
-                  />
-                </View>
-              ) : (
-                <View style={styles.videoStageContainer}>
-                  {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) */}
-                  <View
-                    style={[
-                      styles.videoFrameContainer,
-                      {
-                        width: cardWidth,
-                        height: Math.round(cardWidth * (9 / 16)),
-                      },
-                    ]}
-                  >
-                    {activeEngine === 'youtube' && currentTrack?.videoId ? (
-                      <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={handlePlayPausePress}
-                        style={styles.videoPlayerInnerWrapper}
-                      >
-                        {!isVideoFullscreen && (
-                          <YoutubePlayer
-                            ref={youtubePlayerRef}
-                            height={Math.round(cardWidth * (9 / 16))}
-                            width={cardWidth}
-                            play={isPlaying}
-                            videoId={currentTrack.videoId}
-                            initialPlayerParams={{
-                              controls: false,
-                              modestbranding: true,
-                              rel: false,
-                              preventFullScreen: true,
-                              iv_load_policy: 3,
-                              start: Math.max(0, Math.floor(useAudioStore.getState().positionMillis / 1000)),
-                            }}
-                            onChangeState={(state: string) => {
+              {/* 2A. Cover Artwork Stage (Visible in Music/Cover mode - YouTube Music Card Style) */}
+              <View
+                style={[
+                  styles.artworkOuterContainer,
+                  {
+                    width: cardWidth,
+                    height: cardWidth,
+                  },
+                  playerMediaMode === 'video' ? { display: 'none' } : undefined,
+                ]}
+              >
+                {/* Atmospheric Glow Backdrop (Apple Music Ambient Light) */}
+                <View
+                  style={[
+                    styles.artworkAmbientGlow,
+                    {
+                      width: cardWidth * 0.9,
+                      height: cardWidth * 0.9,
+                      backgroundColor: tint.accent,
+                    },
+                  ]}
+                />
+                <Image
+                  source={{ uri: heroArtworkUrl }}
+                  style={[
+                    styles.heroArtworkImg,
+                    {
+                      width: cardWidth,
+                      height: cardWidth,
+                      transform: [{ scale: isPlaying ? 1 : 0.95 }],
+                    },
+                  ]}
+                  contentFit="cover"
+                  priority="high"
+                  cachePolicy="memory-disk"
+                  transition={200}
+                  onError={() => {
+                    if (artworkUriIndex < artworkCandidates.length - 1) {
+                      setArtworkUriIndex((prev) => prev + 1);
+                    }
+                  }}
+                />
+              </View>
+
+              {/* 2B. Unified Video/Audio Stage (Persistent native YoutubePlayer engine) */}
+              <View
+                style={[
+                  styles.videoStageContainer,
+                  playerMediaMode === 'cover' ? styles.hiddenVideoInCoverMode : undefined,
+                ]}
+                pointerEvents={playerMediaMode === 'video' ? 'auto' : 'none'}
+              >
+                {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) */}
+                <View
+                  style={[
+                    styles.videoFrameContainer,
+                    {
+                      width: cardWidth,
+                      height: Math.round(cardWidth * (9 / 16)),
+                    },
+                  ]}
+                >
+                  {activeEngine === 'youtube' && currentTrack?.videoId ? (
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      onPress={handlePlayPausePress}
+                      style={styles.videoPlayerInnerWrapper}
+                      disabled={playerMediaMode === 'cover'}
+                    >
+                      {!isVideoFullscreen && (
+                        <YoutubePlayer
+                          ref={youtubePlayerRef}
+                          height={Math.round(cardWidth * (9 / 16))}
+                          width={cardWidth}
+                          play={isPlaying}
+                          videoId={currentTrack.videoId}
+                          initialPlayerParams={{
+                            controls: false,
+                            modestbranding: true,
+                            rel: false,
+                            preventFullScreen: true,
+                            iv_load_policy: 3,
+                            start: Math.max(0, Math.floor(useAudioStore.getState().positionMillis / 1000)),
+                          }}
+                          onChangeState={(state: string) => {
+                            if (state === 'ended') {
+                              useAudioStore.getState().handleTrackEnded();
+                            } else if (state === 'playing') {
+                              useAudioStore.setState({ 
+                                isPlaying: true, 
+                                isLoading: false,
+                                loadingTrackId: null,
+                              });
+                            } else if (state === 'paused') {
+                              // If user is currently switching between Video and Music, suppress spurious WebKit paused event
                               if (isSwitchingModeRef.current) {
                                 return;
                               }
-                              if (state === 'ended') {
-                                useAudioStore.getState().handleTrackEnded();
-                              } else if (state === 'playing') {
-                                useAudioStore.setState({ 
-                                  isPlaying: true, 
-                                  isLoading: false,
-                                  audioEngineAction: { type: 'pause_bridge', id: Date.now() },
-                                });
-                              } else if (state === 'paused') {
-                                if (!useAudioStore.getState().isPlayerModalVisible) return;
-                                useAudioStore.setState({ isPlaying: false });
-                              }
-                            }}
-                            webViewProps={{
-                              androidLayerType: 'hardware',
-                              allowsInlineMediaPlayback: true,
-                              mediaPlaybackRequiresUserAction: false,
-                              scrollEnabled: false,
-                              injectedJavaScript: `
-                                (function() {
-                                  function handleMsg(e) {
-                                    try {
-                                      var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-                                      if (d && d.eventName === 'playVideo') {
-                                        if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
-                                      } else if (d && d.eventName === 'pauseVideo') {
-                                        if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
-                                      }
-                                    } catch(err) {}
-                                  }
-                                  document.addEventListener('message', handleMsg);
-                                  window.addEventListener('message', handleMsg);
-                                })();
-                                true;
-                              `,
-                            }}
-                          />
-                        )}
+                              useAudioStore.setState({ isPlaying: false });
+                            }
+                          }}
+                          webViewProps={{
+                            androidLayerType: 'hardware',
+                            allowsInlineMediaPlayback: true,
+                            mediaPlaybackRequiresUserAction: false,
+                            scrollEnabled: false,
+                            injectedJavaScript: `
+                              (function() {
+                                function handleMsg(e) {
+                                  try {
+                                    var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                                    if (d && d.eventName === 'playVideo') {
+                                      if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
+                                    } else if (d && d.eventName === 'pauseVideo') {
+                                      if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
+                                    }
+                                  } catch(err) {}
+                                }
+                                document.addEventListener('message', handleMsg);
+                                window.addEventListener('message', handleMsg);
+                              })();
+                              true;
+                            `,
+                          }}
+                        />
+                      )}
 
-                        {/* YouTube Style Fullscreen Expand Icon (Bottom-Right Corner Only) */}
+                      {/* YouTube Style Fullscreen Expand Icon (Bottom-Right Corner Only, Video Mode Only) */}
+                      {playerMediaMode === 'video' && (
                         <TouchableOpacity
                           activeOpacity={0.8}
                           onPress={(e) => {
@@ -1273,22 +1214,22 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         >
                           <Ionicons name="scan-outline" size={17} color="#FFFFFF" />
                         </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    /* Clean Minimal Fallback if offline */
+                    <View style={styles.videoNativeFallbackWrap}>
+                      <Ionicons name="musical-notes" size={32} color={tint.accent || '#1DB954'} />
+                      <TouchableOpacity
+                        style={styles.videoReturnCoverBtn}
+                        onPress={handleSwitchToCover}
+                      >
+                        <Text style={styles.videoReturnCoverBtnText}>Music</Text>
                       </TouchableOpacity>
-                    ) : (
-                      /* Clean Minimal Fallback if offline */
-                      <View style={styles.videoNativeFallbackWrap}>
-                        <Ionicons name="musical-notes" size={32} color={tint.accent || '#1DB954'} />
-                        <TouchableOpacity
-                          style={styles.videoReturnCoverBtn}
-                          onPress={handleSwitchToCover}
-                        >
-                          <Text style={styles.videoReturnCoverBtnText}>Music</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
             </View>
 
             {/* 3. Track Metadata (Title, Artist, Like Heart) */}
@@ -1851,7 +1792,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           </View>
         </Modal>
       </Animated.View>
-      )}
     </GestureHandlerRootView>
   );
 });
@@ -2068,16 +2008,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    borderRadius: 18,
+    backgroundColor: '#000000',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.42,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 16,
+      },
+    }),
   },
   artworkAmbientGlow: {
     position: 'absolute',
-    borderRadius: 36,
-    opacity: 0.32,
+    borderRadius: 30,
+    opacity: 0.35,
     ...Platform.select({
       ios: {
-        shadowColor: '#1DB954',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 16 },
-        shadowOpacity: 0.6,
+        shadowOpacity: 0.5,
         shadowRadius: 36,
       },
       android: {
@@ -2086,20 +2039,17 @@ const styles = StyleSheet.create({
     }),
   },
   heroArtworkImg: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.45,
-        shadowRadius: 22,
-      },
-      android: {
-        elevation: 16,
-      },
-    }),
+    borderRadius: 18,
+    borderWidth: 0.75,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    overflow: 'hidden',
+  },
+  hiddenVideoInCoverMode: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+    zIndex: -1,
   },
   videoStageContainer: {
     alignItems: 'center',

@@ -3,8 +3,8 @@ import * as Application from 'expo-application';
 /**
  * 🏷️ Single Source of Truth for Application Versioning
  */
-export const APP_VERSION = '1.5.1';
-export const APP_BUILD_NAME = 'Interactive High-FPS Video Player, Cinema Mode & Audio Continuity';
+export const APP_VERSION = '1.5.2';
+export const APP_BUILD_NAME = 'Artist Discography, Album View & Enhanced Music Service';
 export const APP_RELEASE_YEAR = '2026';
 
 export const GITHUB_REPO_OWNER = 'raouf-djmilo';

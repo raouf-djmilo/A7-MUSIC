@@ -20,7 +20,7 @@ import Animated, {
 import { Track } from '../store/useAudioStore';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -334,7 +334,7 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
           {/* Artist Pill */}
           <View style={styles.artistPill} pointerEvents="none">
             <Image
-              source={{ uri: getUniversalStudioArtwork(track.thumbnail) }}
+              source={{ uri: getUniversalArtistAvatar(track.artistAvatar, track.artist) || getUniversalStudioArtwork(track.thumbnail) }}
               style={styles.artistAvatar}
               contentFit="cover"
               cachePolicy="memory-disk"

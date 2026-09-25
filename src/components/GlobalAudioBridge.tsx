@@ -884,44 +884,17 @@ export const GlobalAudioBridge: React.FC = () => {
       );
 
       if (action.type === 'play') {
-        if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
-          youtubeWebRef.current?.injectJavaScript(`
-            try { 
-              window.cueOrPrepareMedia(${JSON.stringify(action.videoId)}, ${action.position || 0}); 
-            } catch(e) {} 
-            true;
-          `);
-          return;
-        }
         if (state.activeEngine === 'native' || isOfflineTarget || (action.url && action.url.startsWith('file://'))) {
-          // 🛡️ WebKit Security & DAC Yield:
-          // Never attempt to load local file:// inside WebView.
-          // Hardware audio is played directly and exclusively by nativeAudioService (expo-av).
-          youtubeWebRef.current?.injectJavaScript(`
-            try {
-              window.stopMedia();
-            } catch(e) {}
-            true;
-          `);
+          // Native / offline playback handled by nativeAudioService or offlineWebRef
+          youtubeWebRef.current?.injectJavaScript(`try { window.stopMedia(); } catch(e) {} true;`);
           return;
-        } else {
-          currentEngine.current = 'youtube';
-          // Stop native offline players
-          releaseNativePlayers().catch(() => {});
-          offlineWebRef.current?.injectJavaScript('try { window.pauseOffline(); } catch(e) {} true;');
-
-          const payload = {
-            videoId: action.videoId,
-            url: action.url,
-            position: typeof action.position === 'number' ? action.position : 0,
-          };
-
-          if (!isYtPlayerReady.current) {
-            pendingYtAction.current = payload;
-          } else {
-            youtubeWebRef.current?.injectJavaScript(`try { window.playMedia(${JSON.stringify(payload)}); } catch(e) {} true;`);
-          }
         }
+
+        // Online YouTube audio is natively & synchronously handled by UnifiedPlayerSheet's persistent YoutubePlayer
+        youtubeWebRef.current?.injectJavaScript(`try { window.stopMedia(); } catch(e) {} true;`);
+        releaseNativePlayers().catch(() => {});
+        offlineWebRef.current?.injectJavaScript('try { window.pauseOffline(); } catch(e) {} true;');
+        return;
       } else if (action.type === 'pause') {
         if (currentEngine.current === 'expo_video') {
           videoPlayerRef.current?.pause();
@@ -929,22 +902,14 @@ export const GlobalAudioBridge: React.FC = () => {
           avSoundRef.current?.pauseAsync().catch(() => {});
         } else if (currentEngine.current === 'webview_offline') {
           offlineWebRef.current?.injectJavaScript('try { window.pauseOffline(); } catch(e) {} true;');
-        } else {
-          youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e) {} true;');
         }
       } else if (action.type === 'resume') {
-        if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
-          youtubeWebRef.current?.injectJavaScript('try { window.pauseMedia(); } catch(e) {} true;');
-          return;
-        }
         if (currentEngine.current === 'expo_video') {
           videoPlayerRef.current?.play();
         } else if (currentEngine.current === 'av_offline') {
           avSoundRef.current?.playAsync().catch(() => {});
         } else if (currentEngine.current === 'webview_offline') {
           offlineWebRef.current?.injectJavaScript('try { window.resumeOffline(); } catch(e) {} true;');
-        } else {
-          youtubeWebRef.current?.injectJavaScript('try { window.resumeMedia(); } catch(e) {} true;');
         }
       } else if (action.type === 'seek') {
         if (typeof action.position === 'number') {
@@ -954,12 +919,6 @@ export const GlobalAudioBridge: React.FC = () => {
             avSoundRef.current?.setPositionAsync(Math.round(action.position * 1000)).catch(() => {});
           } else if (currentEngine.current === 'webview_offline') {
             offlineWebRef.current?.injectJavaScript(`try { window.seekOffline(${action.position}); } catch(e) {} true;`);
-          } else {
-            if (state.playerMediaMode === 'video' && state.isPlayerModalVisible) {
-              youtubeWebRef.current?.injectJavaScript(`try { window.seekMedia(${action.position}); window.pauseMedia(); } catch(e) {} true;`);
-            } else {
-              youtubeWebRef.current?.injectJavaScript(`try { window.seekMedia(${action.position}); } catch(e) {} true;`);
-            }
           }
         }
       } else if (action.type === 'stop') {
@@ -1009,14 +968,14 @@ export const GlobalAudioBridge: React.FC = () => {
           youtubeWebRef.current?.injectJavaScript(`try { window.playMedia(${JSON.stringify(payload)}); } catch(e) {} true;`);
         }
       } else if (msg.eventType === 'progressUpdate' && msg.data) {
-        // If native engine is active or user is watching video in modal, do not let background WebView overwrite progress
-        if (store.activeEngine === 'native' || (store.playerMediaMode === 'video' && store.isPlayerModalVisible)) return;
+        // Online YouTube playback and progress is exclusively managed by UnifiedPlayerSheet
+        if (store.activeEngine === 'youtube' || store.activeEngine === 'native') return;
         if (typeof msg.data.positionMillis === 'number' && msg.data.positionMillis >= 0) {
           store.updateProgress(msg.data.positionMillis, msg.data.durationMillis || store.durationMillis);
         }
       } else if (msg.eventType === 'playerStateChange') {
-        // If native engine is active or user is watching video in modal, ignore background WebView state changes
-        if (store.activeEngine === 'native' || (store.playerMediaMode === 'video' && store.isPlayerModalVisible)) return;
+        // Online YouTube playback state is exclusively managed by UnifiedPlayerSheet
+        if (store.activeEngine === 'youtube' || store.activeEngine === 'native') return;
         // State: 1 = Playing, 2 = Paused, 0 = Ended
         const now = Date.now();
         const timeSinceUserToggle = now - getLastUserToggleTimestamp();
@@ -1102,67 +1061,9 @@ export const GlobalAudioBridge: React.FC = () => {
     } catch (e) {}
   };
 
-  // ── Smart Audio Bridge Handoff ──
-  // When modal is open and in video mode, we keep background audio bridge playing during expand animation
-  // until the on-screen video actually begins playing frames and dispatches 'pause_bridge'.
-  // When collapsing to mini or switching to music mode, hand over audio immediately with zero freeze.
-  const isVideoActiveOnScreen = playerMediaMode === 'video' && isPlayerModalVisible;
-  const prevVideoActiveRef = useRef<boolean>(isVideoActiveOnScreen);
 
-  useEffect(() => {
-    if (activeEngine !== 'youtube') return;
 
-    const wasVideoActive = prevVideoActiveRef.current;
-    const isNowVideoActive = isVideoActiveOnScreen;
-    prevVideoActiveRef.current = isNowVideoActive;
-
-    if (wasVideoActive && !isNowVideoActive) {
-      // ➔ Transferred FROM on-screen video (Switched to Music or collapsed to Mini):
-      // Hand over audio immediately to background bridge at exact timestamp with zero freeze
-      lastHandoverTimeRef.current = Date.now();
-      setLastUserToggleTimestamp(Date.now());
-
-      const store = useAudioStore.getState();
-      const posSec = Math.max(0, Math.floor(store.positionMillis / 1000));
-      const videoId = store.currentTrack?.videoId;
-      const shouldPlay = store.isPlaying;
-
-      if (videoId) {
-        youtubeWebRef.current?.injectJavaScript(`
-          try {
-            window.handoverFromVideo(${JSON.stringify(videoId)}, ${posSec}, ${shouldPlay});
-          } catch(e) {}
-          true;
-        `);
-      }
-    }
-  }, [isVideoActiveOnScreen, activeEngine]);
-
-  // ── Background & Screen-Off Audio Continuity Watchdog ──
-  // When user minimizes the app or turns off screen while in video mode,
-  // the visible WebView gets suspended by Android OS.
-  // We instantly hand over audio to background bridge so playback continues uninterrupted!
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      const isBackground = nextAppState === 'background' || nextAppState === 'inactive';
-      if (isBackground) {
-        const store = useAudioStore.getState();
-        if (store.playerMediaMode === 'video' && store.isPlaying && store.currentTrack?.videoId) {
-          const curSec = Math.max(0, Math.floor(store.positionMillis / 1000));
-          youtubeWebRef.current?.injectJavaScript(`
-            try {
-              window.handoverFromVideo(${JSON.stringify(store.currentTrack.videoId)}, ${curSec}, true);
-            } catch(e) {}
-            true;
-          `);
-        }
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  // ── Background Audio Continuity: Handled natively by UnifiedPlayerSheet ──
 
   return (
     <View style={styles.hiddenContainer} pointerEvents="none">
@@ -1219,7 +1120,7 @@ export const GlobalAudioBridge: React.FC = () => {
         mixedContentMode="always"
         allowsProtectedMedia={true}
         androidLayerType="hardware"
-        userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36"
+        userAgent={Platform.OS === 'android' ? "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Mobile Safari/537.36" : undefined}
         style={styles.hiddenWebView}
       />
 
@@ -1263,15 +1164,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 2,
-    height: 2,
+    width: 1,
+    height: 1,
     opacity: 0.01,
     overflow: 'hidden',
     zIndex: -1000,
   },
   hiddenWebView: {
-    width: 320,
-    height: 240,
+    width: 1,
+    height: 1,
     backgroundColor: '#000',
   },
 });

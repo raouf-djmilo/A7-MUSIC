@@ -377,7 +377,7 @@ export const MusicLibrary = () => {
                     }}
                   >
                     <View style={styles.followedArtistAvatarWrap}>
-                      {item.avatar ? (
+                      {getUniversalArtistAvatar(item.avatar, item.name) || item.avatar ? (
                         <Image
                           source={{ uri: getUniversalArtistAvatar(item.avatar, item.name) || item.avatar }}
                           style={styles.followedArtistAvatar}

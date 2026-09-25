@@ -60,7 +60,7 @@ const LAMBDA_DECAY = 0.05; // Half-life ~ 13.86 days
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6-Hour Time-To-Live
 const CACHE_KEY_PREFIX = '@nouble_dna_';
 const TELEMETRY_KEY_PREFIX = '@nouble_telemetry_';
-const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_';
+const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_v4_';
 
 export interface CachedDnaFeedPayload {
   timestamp: number;
@@ -516,7 +516,7 @@ class MusicDnaEngine {
           !artistMap.has(genuineName) &&
           artistMap.size < 12
         ) {
-          const avatar = getUniversalArtistAvatar(null, genuineName);
+          const avatar = tr.artistAvatar || getUniversalArtistAvatar(tr.artistAvatar, genuineName);
           artistMap.set(genuineName, {
             name: genuineName,
             avatar,

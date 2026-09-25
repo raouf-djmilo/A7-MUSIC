@@ -7,50 +7,49 @@
 
 import { ImageSource } from 'expo-image';
 
-// ── Verified High-Resolution Apple Music / Studio Portrait Dictionary ──
+// ── Verified High-Resolution Real YouTube Channel Avatar Dictionary ──
 const VERIFIED_ARTIST_AVATARS: Record<string, string> = {
-  // Algerian & Maghreb Legends
-  'cheb khaled': 'https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ef/0b/15/ef0b1594-461e-f4bf-93d4-e1df560a3972/06UMGIM00831.rgb.jpg/600x600bb.jpg',
-  'khaled': 'https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ef/0b/15/ef0b1594-461e-f4bf-93d4-e1df560a3972/06UMGIM00831.rgb.jpg/600x600bb.jpg',
-  'soolking': 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg',
-  'djalil palermo': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  'djalil': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  'didine canon 16': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9b/58/d0/9b58d03d-3592-c5ad-6063-3b1e69831259/cover.jpg/600x600bb.jpg',
-  'didine': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9b/58/d0/9b58d03d-3592-c5ad-6063-3b1e69831259/cover.jpg/600x600bb.jpg',
-  'cheb mami': 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/47/f7/56/47f756eb-f2a6-f3d0-8b75-337a8eecd7de/3664216046183.png/600x600bb.jpg',
-  'mami': 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/47/f7/56/47f756eb-f2a6-f3d0-8b75-337a8eecd7de/3664216046183.png/600x600bb.jpg',
-  'cheb hasni': 'https://is1-ssl.mzstatic.com/image/thumb/Music3/v4/c8/fb/8e/c8fb8e76-5778-51ad-614f-a8be1732d77b/3700551765249_cover.jpg/600x600bb.jpg',
-  'hasni': 'https://is1-ssl.mzstatic.com/image/thumb/Music3/v4/c8/fb/8e/c8fb8e76-5778-51ad-614f-a8be1732d77b/3700551765249_cover.jpg/600x600bb.jpg',
-  'cheb bilal': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/12/f6/fc/12f6fcf1-1dc1-f988-d58d-c8754114e827/54bb53c2-f105-47ba-8fb7-906696010c49.jpg/600x600bb.jpg',
-  'bilal': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/12/f6/fc/12f6fcf1-1dc1-f988-d58d-c8754114e827/54bb53c2-f105-47ba-8fb7-906696010c49.jpg/600x600bb.jpg',
-  'elgrandetoto': 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/01/bc/be/01bcbe03-62c9-c02f-f782-bd5e7821e125/190296805783.jpg/600x600bb.jpg',
-  'toto': 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/01/bc/be/01bcbe03-62c9-c02f-f782-bd5e7821e125/190296805783.jpg/600x600bb.jpg',
-  "l'algerino": 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/72/55/c8/7255c858-e7a1-f2e3-b867-05b31a523ed5/886449009831.jpg/600x600bb.jpg',
-  'algerino': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/72/55/c8/7255c858-e7a1-f2e3-b867-05b31a523ed5/886449009831.jpg/600x600bb.jpg',
-  'mouh milano': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  'babylone': 'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/b8/b8/b6/b8b8b603-9bb6-3e74-0f2c-e102613b5ee0/cover.jpg/600x600bb.jpg',
-  'flenn': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9b/58/d0/9b58d03d-3592-c5ad-6063-3b1e69831259/cover.jpg/600x600bb.jpg',
-  'phobia isaac': 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/95/f5/87/95f587f7-21c3-d5f9-d81a-4350f9caa020/16UMGIM27643.rgb.jpg/600x600bb.jpg',
-  'cheba warda': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/72/55/c8/7255c858-e7a1-f2e3-b867-05b31a523ed5/886449009831.jpg/600x600bb.jpg',
-  'cheb bello': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/12/f6/fc/12f6fcf1-1dc1-f988-d58d-c8754114e827/54bb53c2-f105-47ba-8fb7-906696010c49.jpg/600x600bb.jpg',
-  'kordhell': 'https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/0c/82/4e0c82e8-7970-25f5-bfd6-6f0faec83dcb/22UMGIM94151.rgb.jpg/600x600bb.jpg',
+  // Algerian & Maghreb Legends (Real YouTube Channel Avatars)
+  'djalil palermo': 'https://yt3.ggpht.com/jHQCrtU2Nq6eettEeOXTjtGrH3pMxpDdxnvTv5bYcu61BF_LaKP1DrXBouuNQXHjvmEsvm63=s800-c-k-c0x00ffffff-no-rj',
+  'djalil': 'https://yt3.ggpht.com/jHQCrtU2Nq6eettEeOXTjtGrH3pMxpDdxnvTv5bYcu61BF_LaKP1DrXBouuNQXHjvmEsvm63=s800-c-k-c0x00ffffff-no-rj',
+  'soolking': 'https://yt3.ggpht.com/MyEtgnNeUFw0KpnlDH1UvGHATl6trFdoj-uGDRAycJ_u52cTkyZFtf7VY-ASxQmWBd_aIhuX=s800-c-k-c0x00ffffff-no-rj',
+  'cheb khaled': 'https://yt3.ggpht.com/EPX-_vNlCDSIkH5k-7r0SBQOOyu4DuuTvNNGQfKx5EHS0LagmbhK2xgWg8p9UPe5AwA6UxeG=s800-c-k-c0x00ffffff-no-rj',
+  'khaled': 'https://yt3.ggpht.com/EPX-_vNlCDSIkH5k-7r0SBQOOyu4DuuTvNNGQfKx5EHS0LagmbhK2xgWg8p9UPe5AwA6UxeG=s800-c-k-c0x00ffffff-no-rj',
+  'didine canon 16': 'https://yt3.ggpht.com/DfWxspomuU8PBKURnqcWgve5tMmrOd5wFEd2DwS3BI0hiOu2tnZLpStVPjvFNcmHAb9H310t=s800-c-k-c0x00ffffff-no-rj',
+  'didine': 'https://yt3.ggpht.com/DfWxspomuU8PBKURnqcWgve5tMmrOd5wFEd2DwS3BI0hiOu2tnZLpStVPjvFNcmHAb9H310t=s800-c-k-c0x00ffffff-no-rj',
+  'cheb mami': 'https://yt3.ggpht.com/xG5oXQE7cmr8o4aKzG4YdaK0DZef6rxwtTDFBJIHHMxpawH_MzbXFXLCKiHsrnwf-8oKzJxWyw=s800-c-k-c0x00ffffff-no-rj',
+  'mami': 'https://yt3.ggpht.com/xG5oXQE7cmr8o4aKzG4YdaK0DZef6rxwtTDFBJIHHMxpawH_MzbXFXLCKiHsrnwf-8oKzJxWyw=s800-c-k-c0x00ffffff-no-rj',
+  'cheb hasni': 'https://yt3.ggpht.com/aFaKpRFAl6kvdQDvGQ3yi0zFDUXj4j_ZBaPEQOKSgn0WszH8PGzaQNhZZgMqBKGyj1evOaNvsg=s800-c-k-c0x00ffffff-no-rj',
+  'hasni': 'https://yt3.ggpht.com/aFaKpRFAl6kvdQDvGQ3yi0zFDUXj4j_ZBaPEQOKSgn0WszH8PGzaQNhZZgMqBKGyj1evOaNvsg=s800-c-k-c0x00ffffff-no-rj',
+  'cheb bilal': 'https://yt3.ggpht.com/EmaJKQHHvOiFcrK7usxdiyTUGEiFjsmYiXGYkQmiB4C52yEj0dpeVEMbEqz8618Ippz0IssY=s800-c-k-c0x00ffffff-no-rj',
+  'bilal': 'https://yt3.ggpht.com/EmaJKQHHvOiFcrK7usxdiyTUGEiFjsmYiXGYkQmiB4C52yEj0dpeVEMbEqz8618Ippz0IssY=s800-c-k-c0x00ffffff-no-rj',
+  'elgrandetoto': 'https://yt3.ggpht.com/BYPq0IbRH2EBSRDTf7gOMygV6ZR6PPdhzguGCKQZl0HcC25gLpmDfI1G7xgK8ShwHH4H9PKmIko=s800-c-k-c0x00ffffff-no-rj',
+  'toto': 'https://yt3.ggpht.com/BYPq0IbRH2EBSRDTf7gOMygV6ZR6PPdhzguGCKQZl0HcC25gLpmDfI1G7xgK8ShwHH4H9PKmIko=s800-c-k-c0x00ffffff-no-rj',
+  "l'algerino": 'https://yt3.ggpht.com/45hhpO_o_3R5T7iM-LKVXAEOQBZ_OrcL8SR0rV5mn6XMXuUjq4BEPLnS6RkO2k7oBevOuvWjDUY=s800-c-k-c0x00ffffff-no-rj',
+  'algerino': 'https://yt3.ggpht.com/45hhpO_o_3R5T7iM-LKVXAEOQBZ_OrcL8SR0rV5mn6XMXuUjq4BEPLnS6RkO2k7oBevOuvWjDUY=s800-c-k-c0x00ffffff-no-rj',
+  'mouh milano': 'https://yt3.ggpht.com/Xc1e4UrQBelcrs88Z6tJEFidFredPyZeURjE2TpWByiM5tk72JKnAhdOgz8TldIeqiCAiqU=s800-c-k-c0x00ffffff-no-rj',
+  'babylone': 'https://yt3.ggpht.com/1v3cltqDAEeXUDBQ2qZwPkaRTuAOeGzAn5hHAfJFT-kaCoQLDPCTTXn9DpJAEgjyBTcB9Nqs=s800-c-k-c0x00ffffff-no-rj',
+  'flenn': 'https://yt3.ggpht.com/HVdr7xfNWrXePee6LPKORoFSmpcnLmGT7NV_PNktOuYG8Ti8Ia_yFYdJmCiOOwZedzOpjIyIZGQ=s800-c-k-c0x00ffffff-no-rj',
+  'phobia isaac': 'https://yt3.ggpht.com/4InuzMwQiE7itisUd-Xcq6N0LeAU8pC52aoqMnqd296Chhs3NMwmsPJNZ1fPsKeX1gqjAxEr=s800-c-k-c0x00ffffff-no-rj',
+  'cheba warda': 'https://yt3.ggpht.com/67u7fo1F9Iyy62S6nxHaF-22RbceFNklCxJKZtzLF9PqyFjzGnALq0F4YazwJH9ZG64Wo84hVuo=s800-c-k-c0x00ffffff-no-rj',
+  'cheb bello': 'https://yt3.ggpht.com/eaZW0T7SsNuIAN0-lwVaO9F0_1pLB8yIRqcW754IPKvQST6vgGMUKXzXSZe7kJ-gWPljRSSrng=s800-c-k-c0x00ffffff-no-rj',
+  'kordhell': 'https://yt3.ggpht.com/7-4MjHxfx_2QHaTmct11HA42FscZIo_HldDrj3tUFeSjKHzT0hP-G6KUv_t7YDavim_mEPQ4uQ=s800-c-k-c0x00ffffff-no-rj',
 
-  // Global Spotify Superstars
-  'the weeknd': 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/30/05/1e/30051e57-a63a-3acc-4b30-42568293f5f7/15UMGIM36514.rgb.jpg/600x600bb.jpg',
-  'eminem': 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/60/29/11602913-9773-8ccd-30ac-1f6af60a0126/cover_735910926903.jpg/600x600bb.jpg',
-  'drake': 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/95/f5/87/95f587f7-21c3-d5f9-d81a-4350f9caa020/16UMGIM27643.rgb.jpg/600x600bb.jpg',
-  'travis scott': 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/6d/fb/f1/6dfbf17d-4032-f585-35ad-f3f9b6859cd9/886445460421.jpg/600x600bb.jpg',
-  'lana del rey': 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/b0/40/b6/b040b6d4-6fae-cfdc-90a1-a9c53ac0fce5/14UMGIM20561.rgb.jpg/600x600bb.jpg',
-  'gracie abrams': 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/69/b4/fd/69b4fdd7-004f-6aef-6990-585e46821d27/23UM1IM54307.rgb.jpg/600x600bb.jpg',
-  'd4vd': 'https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/4e/0c/82/4e0c82e8-7970-25f5-bfd6-6f0faec83dcb/22UMGIM94151.rgb.jpg/600x600bb.jpg',
-  'billie eilish': 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/49/44/3b/49443b29-496f-f889-96b8-a94b2a1775ec/8721554402851.png/600x600bb.jpg',
-  'dua lipa': 'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0e/c1/57/0ec1575f-5153-ac4b-d578-c5fa3a90bfe1/5021732511676.jpg/600x600bb.jpg',
-  'hyunjin': 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/91/38/cf/9138cf7d-ed92-8a7c-9cef-a95b1e813d0c/8804775132940.jpg/600x600bb.jpg',
-  'artemas': 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/d4/0b/b3/d40bb33f-c309-873b-e01d-551a1e05d013/198391307612.jpg/600x600bb.jpg',
-  'post malone': 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/92/ff/fb/92fffb37-975a-bc82-012b-34a9b6c0b938/23UMGIM80792.rgb.jpg/600x600bb.jpg',
-  'kendrick lamar': 'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/fa/d4/1b/fad41b4b-9eb8-4235-9003-fb66c6b3e7bb/22UMGIM46096.rgb.jpg/600x600bb.jpg',
-  'rihanna': 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/30/05/1e/30051e57-a63a-3acc-4b30-42568293f5f7/15UMGIM36514.rgb.jpg/600x600bb.jpg',
-  'justin bieber': 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/95/f5/87/95f587f7-21c3-d5f9-d81a-4350f9caa020/16UMGIM27643.rgb.jpg/600x600bb.jpg',
+  // Global Superstars (Real YouTube Channel Avatars)
+  'the weeknd': 'https://yt3.ggpht.com/WHvw1ak1FcJaHeEiTmG2iN0dqEjjPxAtT_tA8ruJ3MlNr9I-RHsAur1iAenYeQN_d6LNPH2Z8Ic=s800-c-k-c0x00ffffff-no-rj',
+  'eminem': 'https://yt3.ggpht.com/fYB3KuH8P5jyoReOqbDRyHQJjfKsPj-BYDcJb1XANiEpo6bhCf6LXpsNxE9_fvefub9S1hCkldU=s800-c-k-c0x00ffffff-no-rj',
+  'drake': 'https://yt3.ggpht.com/ytc/AIdro_lCPp6jFXJWIVHM0fIK5HofL3nyLOsmhu1Ek2OwyppYlOM=s800-c-k-c0x00ffffff-no-rj',
+  'travis scott': 'https://yt3.ggpht.com/ytc/AIdro_lYT_V7ztsYEvILayV7Ey_fgzx2VYpeLJxFXf1TO0rjPH8=s800-c-k-c0x00ffffff-no-rj',
+  'lana del rey': 'https://yt3.ggpht.com/v7FFBCqWHtvh-_wLtWV2vOrgBI7p7puXjiZgZJ1bOcwdGUkP8DjHVdt6U-QvSDjEMtYa0aSw=s800-c-k-c0x00ffffff-no-rj',
+  'gracie abrams': 'https://yt3.ggpht.com/1KUHVuD5-fu_8xfzl6b_yAWI9z-UfjP30zd0hnl3WkIihUCldEL6eLtHgZgHJRRP7Ng05rnOfg=s800-c-k-c0x00ffffff-no-rj',
+  'd4vd': 'https://yt3.ggpht.com/7-4MjHxfx_2QHaTmct11HA42FscZIo_HldDrj3tUFeSjKHzT0hP-G6KUv_t7YDavim_mEPQ4uQ=s800-c-k-c0x00ffffff-no-rj',
+  'billie eilish': 'https://yt3.ggpht.com/dirvtoDAmx-u0UR76-pxfhYL6Wxj2vfL2geUcxDwk62tTWWhGG6QDGc63RG3NdOz38-yBwRHDQ=s800-c-k-c0x00ffffff-no-rj',
+  'dua lipa': 'https://yt3.ggpht.com/c3upBFWLu55hnBvqncQS9ZEF_hkvHsNTQiB7m7ZYYavLFMzfyn9Bwo-1VF4HSPGo3G2EdwGtgWg=s800-c-k-c0x00ffffff-no-rj',
+  'post malone': 'https://yt3.ggpht.com/hhANGxHetD6zrJJYLW230Ke7f_lDITYy5-RMgabX66S9Jc7WOaobXKEGHrld5Hzzqku6X9cqBtQ=s800-c-k-c0x00ffffff-no-rj',
+  'kendrick lamar': 'https://yt3.ggpht.com/j1szYhuen1uT1D1icpjxHMFyBc0xINWK1eMtSzrB0TL5jliB7t3JB_wJ6UA9twV7VelxpKEc=s800-c-k-c0x00ffffff-no-rj',
+  'rihanna': 'https://yt3.ggpht.com/qMCGjRaKKRar82KzcIWdUoLbJ03aW2K2sEf-m4GaB7JwLshoHOZHvkxLRXsZVgpKvqCXVhKCWg=s800-c-k-c0x00ffffff-no-rj',
+  'justin bieber': 'https://yt3.ggpht.com/4Mz5el_eyeB5cBod2jHMV-CC3fYiuSmDuCT9A9tGyYh03KQyVdrP04KYYMttZItBCtn4kfef=s800-c-k-c0x00ffffff-no-rj',
+  'dj khaled': 'https://yt3.ggpht.com/J9qAv9jfNNgvHKtpgpUPyRNdFuRyKYVMasSeavZMkIxlS_LIgChL1bR1-Y4BSAszqvHmt_ndrQ=s800-c-k-c0x00ffffff-no-rj',
 };
 
 // ── Verified High-Resolution Track & Album Cover Art Dictionary ──
@@ -69,6 +68,28 @@ export const VERIFIED_TRACK_COVERS: Record<string, string> = {
 
 // Runtime dynamic cache for artists discovered on the fly
 const dynamicArtistAvatarCache = new Map<string, string>();
+
+/**
+ * ⚡ Dynamically registers an authentic artist/channel avatar into runtime cache
+ */
+export function registerDynamicArtistAvatar(artistName: string, avatarUrl: string): void {
+  if (!artistName || !avatarUrl) return;
+  let cleanUrl = avatarUrl.trim();
+  if (cleanUrl.startsWith('//')) {
+    cleanUrl = `https:${cleanUrl}`;
+  }
+  const clean = artistName.trim().toLowerCase();
+  dynamicArtistAvatarCache.set(clean, cleanUrl);
+  const stripped = clean
+    .replace(/\s*-\s*topic$/i, '')
+    .replace(/\s*vevo$/i, '')
+    .replace(/\s*officiel.*$/i, '')
+    .replace(/\s*official.*$/i, '')
+    .trim();
+  if (stripped && stripped !== clean) {
+    dynamicArtistAvatarCache.set(stripped, cleanUrl);
+  }
+}
 
 // Default studio fallback artwork
 const DEFAULT_STUDIO_ARTWORK =
@@ -114,19 +135,26 @@ export const getUniversalStudioArtwork = (
     return VERIFIED_TRACK_COVERS['courage'];
   }
 
-  // 1. YouTube Music Official Square Album Covers (Ultra-res 1000x1000)
+  // 1. YouTube Channel Avatars (yt3.googleusercontent.com / yt3.ggpht.com)
+  if (clean.includes('yt3.googleusercontent.com') || clean.includes('yt3.ggpht.com')) {
+    return clean
+      .replace(/=s\d+(-c-k-c0x[0-9a-fA-F]+-no-rj)?/g, '=s800-c-k-c0x00ffffff-no-rj')
+      .replace(/=w\d+-h\d+(-[a-z0-9-]+)?/g, '=w800-h800-s-no-rj');
+  }
+
+  // 2. YouTube Music Official Square Album Covers (Ultra-res 1000x1000)
   if (clean.includes('googleusercontent.com') || clean.includes('ytimg.com/image/')) {
     if (/=w\d+-h\d+[^?&]*/.test(clean)) {
       return clean.replace(/=w\d+-h\d+[^?&]*/, '=w1000-h1000-l90-rj');
     }
     if (/=s\d+[^?&]*/.test(clean)) {
-      return clean.replace(/=s\d+[^?&]*/, '=w1000-h1000-l90-rj');
+      return clean.replace(/=s\d+[^?&]*/, '=s800-c-k-c0x00ffffff-no-rj');
     }
     const separator = clean.includes('?') ? '&' : '=';
     return `${clean}${separator}w1000-h1000-l90-rj`;
   }
 
-  // 2. YouTube Video Thumbnails: Prefer crisp `sddefault.jpg` (640x480) over 480x360 `hqdefault.jpg`
+  // 3. YouTube Video Thumbnails: Prefer crisp `sddefault.jpg` (640x480) over 480x360 `hqdefault.jpg`
   if (clean.includes('ytimg.com/vi/')) {
     const videoId = clean.split('/vi/')[1]?.split('/')[0];
     if (videoId) {
@@ -134,7 +162,7 @@ export const getUniversalStudioArtwork = (
     }
   }
 
-  // 3. Prevent 404s caused by forced maxresdefault in single URL contexts
+  // 4. Prevent 404s caused by forced maxresdefault in single URL contexts
   if (clean.includes('maxresdefault.jpg')) {
     return clean.replace('maxresdefault.jpg', 'sddefault.jpg');
   }
@@ -210,75 +238,62 @@ export const getUniversalStudioArtworkSource = (
 
 /**
  * 👤 Official Artist Avatar Resolver
- * Returns a guaranteed 100% authentic studio portrait.
- * Banishes gray letter circles forever.
+ * Returns the authentic 100% REAL YouTube channel avatar or verified studio portrait.
+ * Never overrides real YouTube channel avatars with static placeholders.
  */
 export const getUniversalArtistAvatar = (
   url?: string | null,
   artistName?: string | null
 ): string => {
+  // 1. If a genuine YouTube channel avatar URL is provided, enhance and return immediately!
+  if (url && typeof url === 'string' && url.trim().length > 10) {
+    let cleanUrl = url.trim();
+    if (cleanUrl.startsWith('//')) {
+      cleanUrl = `https:${cleanUrl}`;
+    }
+    if (
+      cleanUrl.includes('googleusercontent.com') ||
+      cleanUrl.includes('ggpht.com') ||
+      cleanUrl.includes('ytimg.com/')
+    ) {
+      let highRes = cleanUrl;
+      if (highRes.includes('=s')) {
+        highRes = highRes.replace(/=s\d+[^?&]*/, '=s800-c-k-c0x00ffffff-no-rj');
+      } else if (highRes.includes('=w')) {
+        highRes = highRes.replace(/=w\d+-h\d+[^?&]*/, '=w800-h800-s-no-rj');
+      }
+      return highRes;
+    }
+    if (cleanUrl.startsWith('http')) {
+      return cleanUrl;
+    }
+  }
+
   const cleanName = (artistName || '')
     .toLowerCase()
     .replace(/\s*-\s*topic$/i, '')
     .replace(/\s*vevo$/i, '')
+    .replace(/\s*officiel.*$/i, '')
     .replace(/\s*official.*$/i, '')
     .trim();
 
-  // 1. Check verified preloaded high-res portrait map
-  if (VERIFIED_ARTIST_AVATARS[cleanName]) {
-    return VERIFIED_ARTIST_AVATARS[cleanName];
-  }
-
-  // Partial match in verified map (e.g. "Cheb Khaled feat..." matches "cheb khaled")
-  for (const [key, avatarUrl] of Object.entries(VERIFIED_ARTIST_AVATARS)) {
-    if (cleanName.includes(key) || key.includes(cleanName)) {
-      return avatarUrl;
-    }
-  }
-
   // 2. Check dynamic runtime cache
-  if (dynamicArtistAvatarCache.has(cleanName)) {
+  if (cleanName && dynamicArtistAvatarCache.has(cleanName)) {
     return dynamicArtistAvatarCache.get(cleanName)!;
   }
 
-  // 3. If a genuine Google/YouTube official channel avatar is provided (NOT a video thumbnail)
+  // 3. Check verified preloaded portrait map (Exact match only)
+  if (cleanName && VERIFIED_ARTIST_AVATARS[cleanName]) {
+    return VERIFIED_ARTIST_AVATARS[cleanName];
+  }
+
+  // 4. Return sanitized URL or fallback
   if (url && typeof url === 'string') {
-    const isVideoThumbnail =
-      url.includes('hqdefault') ||
-      url.includes('mqdefault') ||
-      url.includes('sddefault') ||
-      url.includes('maxresdefault') ||
-      url.includes('/vi/');
-
-    if (!isVideoThumbnail && (url.includes('googleusercontent.com') || url.includes('ytimg.com/'))) {
-      const highRes = url
-        .replace(/=s\d+(-c-k-c0x[0-9a-fA-F]+-no-rj)?/g, '=s800-c-k-c0x00ffffff-no-rj')
-        .replace(/=w\d+-h\d+(-[a-z0-9-]+)?/g, '=w800-h800-s-no-rj');
-      dynamicArtistAvatarCache.set(cleanName, highRes);
-      return highRes;
-    }
-
-    if (url.startsWith('http') && !isVideoThumbnail) {
-      return url;
-    }
+    let cleanUrl = url.trim();
+    if (cleanUrl.startsWith('//')) cleanUrl = `https:${cleanUrl}`;
+    if (cleanUrl.startsWith('http')) return cleanUrl;
   }
-
-  // 4. Trigger asynchronous live fetch in background for new artists
-  if (cleanName.length > 2) {
-    fetchArtistStudioAvatarAsync(cleanName).catch(() => {});
-  }
-
-  // 5. High-aesthetic fallback portrait from verified Algerian/workout catalog (Never a gray blank letter!)
-  const fallbackList = [
-    VERIFIED_ARTIST_AVATARS['soolking'],
-    VERIFIED_ARTIST_AVATARS['djalil palermo'],
-    VERIFIED_ARTIST_AVATARS['cheb khaled'],
-    VERIFIED_ARTIST_AVATARS['the weeknd'],
-    VERIFIED_ARTIST_AVATARS['didine canon 16'],
-    VERIFIED_ARTIST_AVATARS['gracie abrams'],
-  ];
-  const charCode = cleanName.charCodeAt(0) || 0;
-  return fallbackList[charCode % fallbackList.length];
+  return '';
 };
 
 /**
