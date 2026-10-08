@@ -8,6 +8,7 @@ import {
   isFakeArtistChannel,
 } from './youtubeMusicService';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import { CURATED_TRACKS } from '../data/curatedMusic';
 
 // ── Dynamic Rotating Seed Pools to Break Repetition ──
 const SEED_POOLS = {
@@ -643,6 +644,11 @@ class MusicDnaEngine {
    * Clean Initial State before first live network fetch resolves
    */
   private getFallbackSections(activeFilter: string = 'All', history: Track[] = []): DynamicHomeSections {
+    const cadenceTracks = CURATED_TRACKS.filter((t) => t.category === 'cardio' || t.category === 'running');
+    const raiTracks = CURATED_TRACKS.filter((t) => t.category === 'rai');
+    const chillTracks = CURATED_TRACKS.filter((t) => t.category === 'walking' || t.category === 'focus');
+    const energyTracks = CURATED_TRACKS.filter((t) => t.category === 'cardio' || t.category === 'running');
+
     const defaultMixes: MoodCluster[] = [
       {
         id: 'cluster-cadence',
@@ -651,7 +657,7 @@ class MusicDnaEngine {
         badgeColor: '#FF6B00',
         subtitle: 'Cardio Beats, 160 BPM Cadence',
         artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/60/29/11602913-9773-8ccd-30ac-1f6af60a0126/cover_735910926903.jpg/600x600bb.jpg',
-        tracks: [],
+        tracks: cadenceTracks.length > 0 ? cadenceTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
         id: 'cluster-signature',
@@ -660,7 +666,7 @@ class MusicDnaEngine {
         badgeColor: '#1DB954',
         subtitle: 'Djalil Palermo, Khaled & Soolking',
         artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-        tracks: [],
+        tracks: raiTracks.length > 0 ? raiTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
         id: 'cluster-replay',
@@ -669,7 +675,7 @@ class MusicDnaEngine {
         badgeColor: '#8E2DE2',
         subtitle: 'Your most played anthems this week',
         artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg',
-        tracks: [],
+        tracks: history.length > 0 ? history.slice(0, 5) : CURATED_TRACKS.slice(0, 5),
       },
       {
         id: 'cluster-chill',
@@ -678,7 +684,7 @@ class MusicDnaEngine {
         badgeColor: '#4A90E2',
         subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
         artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music3/v4/c8/fb/8e/c8fb8e76-5778-51ad-614f-a8be1732d77b/3700551765249_cover.jpg/600x600bb.jpg',
-        tracks: [],
+        tracks: chillTracks.length > 0 ? chillTracks : CURATED_TRACKS.slice(2, 6),
       },
       {
         id: 'cluster-energy',
@@ -687,7 +693,7 @@ class MusicDnaEngine {
         badgeColor: '#FF0055',
         subtitle: 'Gym Phonk, Trap & High Power Drops',
         artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9b/58/d0/9b58d03d-3592-c5ad-6063-3b1e69831259/cover.jpg/600x600bb.jpg',
-        tracks: [],
+        tracks: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
       },
     ];
 
@@ -701,12 +707,12 @@ class MusicDnaEngine {
     ];
 
     return {
-      quickJump: history.slice(0, 6),
+      quickJump: history.length > 0 ? history.slice(0, 6) : CURATED_TRACKS.slice(0, 6),
       topMixes: defaultMixes,
       pickedForYou: null,
       favouriteArtists,
-      recentlyPlayed: history.slice(0, 10),
-      energyWorkout: [],
+      recentlyPlayed: history.length > 0 ? history.slice(0, 10) : CURATED_TRACKS.slice(0, 4),
+      energyWorkout: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
     };
   }
 

@@ -78,12 +78,10 @@ export const SettingsScreen = () => {
   };
 
   // Background audio toggle handler
-  const handleBgPlaybackToggle = async (val: boolean) => {
+  const handleBgPlaybackToggle = (val: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBgPlayback(val);
     setBackgroundAudioEnabled(val);
-    await AsyncStorage.setItem(STORAGE_BG_PLAYBACK_KEY, String(val));
-    await configureAudioSession(val);
 
     ToastManager.show({
       title: val ? 'تم تفعيل التشغيل في الخلفية' : 'تم إيقاف التشغيل في الخلفية',
@@ -191,51 +189,93 @@ export const SettingsScreen = () => {
           <View style={styles.groupWrapper}>
             <Text style={styles.groupHeaderTitle}>الحساب</Text>
             <GlassCard style={styles.groupCard} borderRadius={22}>
-              {/* Profile Tile */}
-              <TouchableOpacity
-                style={styles.insetRow}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.goBack();
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowRightInfo}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(252, 82, 0, 0.12)' }]}>
-                    <Ionicons name="person-outline" size={20} color="#FC5200" />
-                  </View>
-                  <View style={styles.textStack}>
-                    <Text style={styles.rowTitle}>{user?.full_name || 'مستخدم A7 MUSIC'}</Text>
-                    <Text style={styles.rowSubtitle}>@{user?.username || 'user'}</Text>
-                  </View>
-                </View>
-                <View style={styles.rowEndGroup}>
-                  <View style={styles.activeUserBadge}>
-                    <Text style={styles.activeUserBadgeText}>عضو نشط</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-                </View>
-              </TouchableOpacity>
+              {user ? (
+                <>
+                  {/* Profile Tile */}
+                  <TouchableOpacity
+                    style={styles.insetRow}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.goBack();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowRightInfo}>
+                      <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(252, 82, 0, 0.12)' }]}>
+                        <Ionicons name="person-outline" size={20} color="#FC5200" />
+                      </View>
+                      <View style={styles.textStack}>
+                        <Text style={styles.rowTitle}>{user.full_name || 'مستخدم A7 MUSIC'}</Text>
+                        <Text style={styles.rowSubtitle}>@{user.username || 'user'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.rowEndGroup}>
+                      <View style={styles.activeUserBadge}>
+                        <Text style={styles.activeUserBadgeText}>عضو نشط</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                    </View>
+                  </TouchableOpacity>
 
-              <View style={styles.rowDivider} />
+                  <View style={styles.rowDivider} />
 
-              {/* Sign Out Tile */}
-              <TouchableOpacity
-                style={styles.insetRow}
-                onPress={handleLogout}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowRightInfo}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                    <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                  {/* Sign Out Tile */}
+                  <TouchableOpacity
+                    style={styles.insetRow}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowRightInfo}>
+                      <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                      </View>
+                      <View style={styles.textStack}>
+                        <Text style={[styles.rowTitle, { color: '#EF4444' }]}>تسجيل الخروج</Text>
+                        <Text style={styles.rowSubtitle}>إنهاء الجلسة الحالية</Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Guest Status */}
+                  <View style={styles.insetRow}>
+                    <View style={styles.rowRightInfo}>
+                      <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(0, 122, 255, 0.12)' }]}>
+                        <Ionicons name="person-outline" size={20} color="#007AFF" />
+                      </View>
+                      <View style={styles.textStack}>
+                        <Text style={styles.rowTitle}>تتصفح حالياً كضيف</Text>
+                        <Text style={styles.rowSubtitle}>أنشئ حساباً للاحتفاظ ببياناتك</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.textStack}>
-                    <Text style={[styles.rowTitle, { color: '#EF4444' }]}>تسجيل الخروج</Text>
-                    <Text style={styles.rowSubtitle}>إنهاء الجلسة الحالية</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-              </TouchableOpacity>
+
+                  <View style={styles.rowDivider} />
+
+                  {/* Sign In / Sign Up CTA */}
+                  <TouchableOpacity
+                    style={styles.insetRow}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate('Auth', { screen: 'Login' });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowRightInfo}>
+                      <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(52, 199, 89, 0.12)' }]}>
+                        <Ionicons name="log-in-outline" size={20} color="#34C759" />
+                      </View>
+                      <View style={styles.textStack}>
+                        <Text style={[styles.rowTitle, { color: '#34C759' }]}>تسجيل الدخول / إنشاء حساب</Text>
+                        <Text style={styles.rowSubtitle}>للوصول إلى جميع ميزات حسابك</Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                  </TouchableOpacity>
+                </>
+              )}
             </GlassCard>
           </View>
 

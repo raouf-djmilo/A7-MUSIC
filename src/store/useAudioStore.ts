@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import TrackPlayer from 'react-native-track-player';
 import { supabase } from '../lib/supabase';
-import { getSocket } from '../lib/socket';
 import { CURATED_TRACKS } from '../data/curatedMusic';
 import { 
   trackListeningSecond, 
@@ -19,22 +18,6 @@ import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
 import { nativeAudioService } from '../services/nativeAudioService';
 
-const emitStatus = (userId: string | null, track: any, isPlaying: boolean) => {
-  if (!userId) return;
-  try {
-    const socket = getSocket();
-    if (!socket?.connected) return;
-
-    socket.emit('update_status', {
-      userId,
-      videoId: isPlaying ? track?.videoId : null,
-      title: isPlaying ? track?.title : null,
-      artist: isPlaying ? track?.artist : null,
-      thumbnail: isPlaying ? track?.thumbnail : null,
-      isPlaying,
-    });
-  } catch (e) {}
-};
 
 export interface Track {
   videoId: string;
@@ -592,23 +575,29 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
         if (NativeModules.TrackPlayerModule) {
           try {
-            await TrackPlayer.reset();
-            const fallbackSilentUri = await getOrGenerateSilentAudioUri();
-
-            // 🛡️ Exclusive Audio Bus Architecture:
-            // TrackPlayer acts as the background audio session keeper & lock screen metadata anchor.
-            // It plays fallbackSilentUri with absolute volume ZERO (0) to eliminate any audio bus interference,
-            // phasing, or double playback echo.
-            // Actual audio is played exclusively by nativeAudioService (offline) or GlobalAudioBridge (online).
-            await TrackPlayer.add({
-              id: track.videoId || 'unknown',
-              url: fallbackSilentUri,
-              title: finalTitle,
-              artist: finalArtist,
-              artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
-              duration: totalDurationSec,
-            });
-            await TrackPlayer.setRepeatMode(1);
+            const queue = await TrackPlayer.getQueue();
+            if (!queue || queue.length === 0) {
+              const fallbackSilentUri = await getOrGenerateSilentAudioUri();
+              await TrackPlayer.add({
+                id: 'bg_audio_keeper',
+                url: fallbackSilentUri,
+                title: finalTitle,
+                artist: finalArtist,
+                artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+                duration: totalDurationSec,
+              });
+              await TrackPlayer.setRepeatMode(1);
+            } else {
+              // 🛡️ CRITICAL: NEVER call TrackPlayer.reset()! Resetting tears down AVAudioSession and kills WebView playback!
+              // Instead, seamlessly update metadata on the active session
+              await TrackPlayer.updateNowPlayingMetadata({
+                title: finalTitle,
+                artist: finalArtist,
+                artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+                duration: totalDurationSec,
+                elapsedTime: initialPosition,
+              });
+            }
             await TrackPlayer.setVolume(0);
             await TrackPlayer.play();
           } catch (tpErr) {
@@ -824,7 +813,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   toggleLike: async (track) => {
     const { activeUserId, likedTrackIds } = get();
-    if (!activeUserId) return;
+    if (!activeUserId) {
+      const isLiked = likedTrackIds.includes(track.videoId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const newLikedIds = isLiked
+        ? likedTrackIds.filter((id) => id !== track.videoId)
+        : [...likedTrackIds, track.videoId];
+      set({ likedTrackIds: newLikedIds });
+      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => {});
+      return;
+    }
 
     const isLiked = likedTrackIds.includes(track.videoId);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1144,13 +1142,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   }
 }));
 
-// Realtime Presence Socket Subscription
-let lastEmittedStatus = {
-  isPlaying: false,
-  videoId: null as string | null
-};
-let emitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
 useAudioStore.subscribe((state) => {
   // ⚡ 1-Second Heartbeat Engine for continuous live music listening tracking
   if (state.isPlaying && state.activeUserId) {
@@ -1158,30 +1149,6 @@ useAudioStore.subscribe((state) => {
   } else {
     stopListeningHeartbeat();
   }
-
-  const currentVideoId = state.currentTrack?.videoId || null;
-
-  if (state.isLoading) return;
-
-  const hasChanged =
-    state.isPlaying !== lastEmittedStatus.isPlaying ||
-    currentVideoId !== lastEmittedStatus.videoId;
-
-  if (!hasChanged) return;
-
-  if (emitDebounceTimer) clearTimeout(emitDebounceTimer);
-  emitDebounceTimer = setTimeout(() => {
-    const latest = useAudioStore.getState();
-    const latestVideoId = latest.currentTrack?.videoId || null;
-    if (latest.isLoading) return;
-
-    lastEmittedStatus = {
-      isPlaying: latest.isPlaying,
-      videoId: latestVideoId
-    };
-
-    emitStatus(latest.activeUserId, latest.currentTrack, latest.isPlaying);
-  }, 400);
 });
 
 // Hydrate listening history and followed artists on startup

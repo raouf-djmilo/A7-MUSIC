@@ -13,6 +13,8 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 // Navigator & Components
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { InAppToast, setupToast } from './src/components/InAppToast';
+import { AuthPromptModal, setupAuthPrompt } from './src/components/AuthPromptModal';
+import { navigationRef } from './src/navigation/navigationService';
 import { UnifiedPlayerSheet } from './src/components/UnifiedPlayerSheet';
 import { GlobalAudioBridge } from './src/components/GlobalAudioBridge';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,19 +29,16 @@ const AppContent = () => {
   const { theme } = useTheme();
   const { session } = useAuth();
   const toastRef = useRef<any>(null);
+  const authPromptRef = useRef<any>(null);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
       <StatusBar style={theme.statusBar} />
       <RootNavigator />
       
-      {/* 🎵 Global Audio Bridge & Unified Player only when authenticated */}
-      {!!session && (
-        <>
-          <UnifiedPlayerSheet />
-          <GlobalAudioBridge />
-        </>
-      )}
+      {/* 🎵 Global Audio Bridge & Unified Player active for all users (Registered & Guests) */}
+      <UnifiedPlayerSheet />
+      <GlobalAudioBridge />
 
       {/* 🛡️ Enterprise First-Time Offline Session Guard */}
       <OfflineGuardModal />
@@ -48,6 +47,13 @@ const AppContent = () => {
         ref={(r) => {
           toastRef.current = r;
           if (r) setupToast(r);
+        }}
+      />
+
+      <AuthPromptModal
+        ref={(r) => {
+          authPromptRef.current = r;
+          if (r) setupAuthPrompt(r);
         }}
       />
     </View>
@@ -59,8 +65,10 @@ export default function App() {
     // 🌐 Real-Time Network Hardware Monitor & Offline Guard
     initNetworkMonitor();
 
-    // 💾 Physical Offline Storage Inspection on boot
-    inspectOfflineStorage();
+    // 💾 Physical Offline Storage Inspection (deferred to ensure 0ms UI mount)
+    const storageTimer = setTimeout(() => {
+      inspectOfflineStorage();
+    }, 2000);
 
     // 🚀 Enable Background Audio & Professional Mode
     const setupAudio = async () => {
@@ -88,6 +96,7 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(storageTimer);
       appStateSubscription.remove();
     };
   }, []);
@@ -108,7 +117,7 @@ export default function App() {
       <SafeAreaProvider initialMetrics={Platform.OS === 'web' ? undefined : initialWindowMetrics}>
         <AuthProvider>
           <ThemeProvider>
-            <ThemedNavigationContainer navRef={navRef} getActiveRouteName={getActiveRouteName} />
+            <ThemedNavigationContainer getActiveRouteName={getActiveRouteName} />
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>
@@ -116,7 +125,7 @@ export default function App() {
   );
 }
 
-const ThemedNavigationContainer = ({ navRef, getActiveRouteName }: any) => {
+const ThemedNavigationContainer = ({ getActiveRouteName }: any) => {
   const { theme, isDark } = useTheme();
 
   const navigationTheme = React.useMemo(() => {
@@ -136,10 +145,10 @@ const ThemedNavigationContainer = ({ navRef, getActiveRouteName }: any) => {
 
   return (
     <NavigationContainer
-      ref={navRef}
+      ref={navigationRef}
       theme={navigationTheme}
       onReady={() => {
-        const state = navRef.current?.getRootState();
+        const state = navigationRef.getRootState();
         const activeRouteName = getActiveRouteName(state);
         if (activeRouteName) {
           useAudioStore.getState().setCurrentRouteName(activeRouteName);

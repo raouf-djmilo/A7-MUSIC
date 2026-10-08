@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -21,6 +22,9 @@ import { supabase } from '../lib/supabase';
 export const SignUpScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
+
+  const topPadding = Math.max(insets.top, Platform.OS === 'ios' ? 48 : 24);
+  const bottomPadding = Math.max(insets.bottom, 16);
 
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -84,28 +88,36 @@ export const SignUpScreen = ({ navigation }: any) => {
     return () => clearTimeout(delayTimer);
   }, [username]);
 
+  const handleContinueAsGuest = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
+
   const handleSignUp = async () => {
     const cleanFull = fullName.trim();
     const cleanEmail = email.trim().toLowerCase();
     const cleanUname = username.trim().toLowerCase();
 
     if (!cleanFull || !cleanEmail || !cleanUname || !password) {
-      setErrorMsg('Please fill in all required fields.');
+      setErrorMsg('يرجى ملء جميع الحقول المطلوبة.');
       return;
     }
 
     if (cleanUname.includes(' ') || cleanUname.length > 15) {
-      setErrorMsg('Username must be 15 characters max and have no spaces.');
+      setErrorMsg('اسم المستخدم يجب ألا يتجاوز 15 حرفاً وبدون مسافات.');
       return;
     }
 
     if (isUsernameTaken) {
-      setErrorMsg('This username is already taken. Try another.');
+      setErrorMsg('اسم المستخدم هذا محجوز بالفعل. جرب اسماً آخر.');
       return;
     }
 
     if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+      setErrorMsg('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
       return;
     }
 
@@ -128,13 +140,15 @@ export const SignUpScreen = ({ navigation }: any) => {
     setLoading(false);
 
     if (error) {
-      setErrorMsg(error.message || 'Registration failed. Please check your data.');
+      setErrorMsg(error.message || 'تعذر إنشاء الحساب، يرجى التأكد من البيانات والمحاولة ثانية.');
+    } else {
+      handleContinueAsGuest();
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* ── Degradation / Ambient Liquid Gradient Background ── */}
+      {/* ── Ambient Liquid Gradient Background ── */}
       <View style={StyleSheet.absoluteFill}>
         <View style={styles.darkBase} />
         <LinearGradient
@@ -152,19 +166,29 @@ export const SignUpScreen = ({ navigation }: any) => {
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
       </View>
 
-      <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <View style={[styles.mainWrapper, { paddingTop: topPadding, paddingBottom: bottomPadding }]}>
         <KeyboardAvoidingView
           style={styles.keyboardWrap}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          {/* ── Top Navigation Bar ── */}
-          <View style={styles.topBar}>
+          {/* ── Top Navigation Bar: Close & Skip ── */}
+          <View style={styles.topGuestBar}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => navigation.goBack()}
-              style={styles.backBtn}
+              onPress={handleContinueAsGuest}
+              style={styles.closeBtn}
             >
-              <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.skipGuestPill}
+              onPress={handleContinueAsGuest}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
             </TouchableOpacity>
           </View>
 
@@ -176,10 +200,10 @@ export const SignUpScreen = ({ navigation }: any) => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ── Header (Spotify Style Image 3 Reference) ── */}
+            {/* ── Header ── */}
             <View style={styles.header}>
-              <Text style={styles.title}>SIGN UP</Text>
-              <Text style={styles.subtitle}>Never Lost. Discover New Music.</Text>
+              <Text style={styles.title}>إنشاء حساب جديد</Text>
+              <Text style={styles.subtitle}>استمع واكتشف الموسيقى بحرية</Text>
             </View>
 
             {/* Error Message Banner */}
@@ -207,7 +231,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Full Name"
+                  placeholder="الاسم الكامل"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={fullName}
                   onChangeText={(t) => {
@@ -235,7 +259,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Email address"
+                  placeholder="البريد الإلكتروني"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={email}
                   onChangeText={(t) => {
@@ -267,7 +291,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Username"
+                  placeholder="اسم المستخدم"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={username}
                   onChangeText={(t) => {
@@ -295,7 +319,7 @@ export const SignUpScreen = ({ navigation }: any) => {
               {/* Username Suggestions if taken */}
               {!checkingUsername && isUsernameTaken === true && usernameSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
-                  <Text style={styles.suggestionsTitle}>Suggestions:</Text>
+                  <Text style={styles.suggestionsTitle}>اقتراحات:</Text>
                   <View style={styles.chipsRow}>
                     {usernameSuggestions.map((sug) => (
                       <TouchableOpacity
@@ -325,7 +349,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Password (min. 6 characters)"
+                  placeholder="كلمة المرور (6 أحرف على الأقل)"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={password}
                   onChangeText={(t) => {
@@ -367,7 +391,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 <View style={styles.phoneDivider} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Phone number (optional)"
+                  placeholder="رقم الهاتف (اختياري)"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
@@ -396,7 +420,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.signUpBtnText}>CREATE ACCOUNT</Text>
+                    <Text style={styles.signUpBtnText}>إنشاء حساب مجاني</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -404,18 +428,18 @@ export const SignUpScreen = ({ navigation }: any) => {
 
             {/* ── Footer Switcher ── */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account? </Text>
+              <Text style={styles.footerText}>لديك حساب بالفعل؟ </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Login')}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.footerLink}>Log In</Text>
+                <Text style={styles.footerLink}>تسجيل الدخول</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 };
@@ -426,7 +450,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#05070D',
   },
   darkBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#05070D',
   },
   ambientTop: {
@@ -445,16 +469,44 @@ const styles = StyleSheet.create({
     height: 420,
     borderRadius: 210,
   },
-  safeArea: {
+  mainWrapper: {
     flex: 1,
   },
   keyboardWrap: {
     flex: 1,
   },
-  topBar: {
+  topGuestBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingTop: 6,
+    paddingBottom: 10,
+    zIndex: 10,
+  },
+  closeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skipGuestPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 4,
+  },
+  skipGuestPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   backBtn: {
     width: 40,

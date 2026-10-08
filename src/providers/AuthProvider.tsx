@@ -24,6 +24,7 @@ type AuthContextType = {
   session: string | null;
   user: User | null;
   loading: boolean;
+  isGuest: boolean;
   login: (data: any) => Promise<{ data: any; error: any }>;
   register: (data: any) => Promise<{ data: any; error: any }>;
   logout: () => Promise<void>;
@@ -35,7 +36,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const updateUser = async (newData: Partial<User>) => {
     if (!user) return;
@@ -50,46 +51,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
+      // ⚡ 1. INSTANT LOCAL CACHE RESTORE (0ms boot)
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
-        if (initialSession?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', initialSession.user.id)
-            .maybeSingle();
-
-          const currentUser: User = {
-            id: initialSession.user.id,
-            email: initialSession.user.email || '',
-            username: profile?.username || initialSession.user.user_metadata?.username,
-            full_name: profile?.full_name || initialSession.user.user_metadata?.full_name,
-            avatar_url: profile?.avatar_url,
-            bio: profile?.bio,
-            phone_number: profile?.phone_number || initialSession.user.user_metadata?.phone_number,
-          };
-
-          setSession(initialSession.access_token);
-          setUser(currentUser);
-          await AsyncStorage.setItem('userToken', initialSession.access_token);
-          await AsyncStorage.setItem('userData', JSON.stringify(currentUser));
-          useNetworkStore.getState().recordSuccessfulLogin();
-        } else {
-          // Fallback to local storage
-          const storedToken = await AsyncStorage.getItem('userToken');
-          const storedUser = await AsyncStorage.getItem('userData');
-          if (storedToken && storedUser) {
-            setSession(storedToken);
-            setUser(JSON.parse(storedUser));
-            useNetworkStore.getState().recordSuccessfulLogin();
-          }
+        const storedToken = await AsyncStorage.getItem('userToken');
+        const storedUser = await AsyncStorage.getItem('userData');
+        if (storedToken && storedUser && isMounted) {
+          setSession(storedToken);
+          setUser(JSON.parse(storedUser));
         }
       } catch (e) {
-        console.error('Failed to initialize Supabase session:', e);
+        console.warn('Local auth restore error:', e);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false); // Unblock app IMMEDIATELY in ~2ms!
+        }
+      }
+
+      // ⚡ 2. NON-BLOCKING BACKGROUND CLOUD SYNC (with 2.5s safeguard timeout)
+      try {
+        const fetchSessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Auth check timeout')), 2500)
+        );
+
+        const { data } = (await Promise.race([
+          fetchSessionPromise,
+          timeoutPromise,
+        ])) as any;
+
+        const initialSession = data?.session;
+
+        if (initialSession?.user && isMounted) {
+          setSession(initialSession.access_token);
+          await AsyncStorage.setItem('userToken', initialSession.access_token);
+
+          (async () => {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', initialSession.user.id)
+                .maybeSingle();
+
+              if (!isMounted) return;
+              const currentUser: User = {
+                id: initialSession.user.id,
+                email: initialSession.user.email || '',
+                username: profile?.username || initialSession.user.user_metadata?.username,
+                full_name: profile?.full_name || initialSession.user.user_metadata?.full_name,
+                avatar_url: profile?.avatar_url,
+                bio: profile?.bio,
+                phone_number: profile?.phone_number || initialSession.user.user_metadata?.phone_number,
+              };
+              setUser(currentUser);
+              await AsyncStorage.setItem('userData', JSON.stringify(currentUser));
+              useNetworkStore.getState().recordSuccessfulLogin();
+            } catch (err) {
+              // Silently handle background profile sync error
+            }
+          })();
+        }
+      } catch (e) {
+        // Silently handled: Network timeout or offline boot
       }
     };
 
@@ -257,8 +283,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const isGuest = !session;
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ session, user, loading, isGuest, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

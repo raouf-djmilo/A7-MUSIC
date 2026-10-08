@@ -21,7 +21,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Location from 'expo-location';
 import { Pedometer, Barometer } from 'expo-sensors';
-import { PermissionStatus } from 'expo-modules-core';
+export type PermissionStatus = 'granted' | 'denied' | 'undetermined' | 'pending' | string;
 import { KalmanGPS, calculateHaversineDistanceMeters } from '../utils/KalmanGPS';
 
 // ─────────────────────────────────────────────────────────────────
@@ -395,11 +395,11 @@ export const useSensorFusion = (options: UseSensorFusionOptions = {}) => {
     locSubscription.current = await Location.watchPositionAsync(
       {
         accuracy:                          gpsAccuracy,
-        activityType:                      activityType,
         timeInterval:                      gpsInterval,
         distanceInterval:                  minDistanceFilter,
         mayShowUserSettingsDialog:        mayShowUserSettingsDialog,
         showsBackgroundLocationIndicator:  true,
+        ...({ activityType } as any),
       },
       (location) => {
         // ── Drop Stale Point (> 10,000ms old) ──

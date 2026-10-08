@@ -130,18 +130,18 @@ export const MusicSearch = ({ navigation, route }: any) => {
     await AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  const renderTrackItem = ({ item }: any) => {
+  const renderTrackItem = ({ item, index }: any) => {
     const isCurrent = currentTrack?.videoId === item.videoId;
     return (
       <TouchableOpacity 
         style={styles.trackRow} 
         activeOpacity={0.7}
-        onPress={async () => {
+        onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (isCurrent) {
             setPlayerModalVisible(true);
           } else {
-            await playTrack(item, null, 0, results?.tracks || []);
+            playTrack(item, results?.tracks || [], index, 'Search');
             setPlayerModalVisible(true);
           }
         }}
@@ -193,7 +193,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
             if (isCurrent) {
               togglePlay();
             } else {
-              playTrack(item, null, 0, results?.tracks || []);
+              playTrack(item, results?.tracks || [], index, 'Search');
             }
           }}
         >

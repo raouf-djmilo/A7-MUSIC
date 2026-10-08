@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,15 +23,26 @@ export const LoginScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
 
+  const topPadding = Math.max(insets.top, Platform.OS === 'ios' ? 48 : 24);
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'identifier' | 'password' | null>(null);
 
+  const handleContinueAsGuest = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('MainTabs');
+    }
+  };
+
   const onLogin = async () => {
     if (!identifier.trim() || !password) {
-      Alert.alert('Required', 'Please enter your username or email and password.');
+      Alert.alert('تنبيه', 'يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور.');
       return;
     }
 
@@ -42,16 +54,19 @@ export const LoginScreen = ({ navigation }: any) => {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials. Please try again.');
+      Alert.alert('تعذر تسجيل الدخول', error.message || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.');
+    } else {
+      handleContinueAsGuest();
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* ── Degradation / Ambient Liquid Gradient Background ── */}
+      <StatusBar style="light" />
+
+      {/* ── Ambient Liquid Gradient Background ── */}
       <View style={StyleSheet.absoluteFill}>
         <View style={styles.darkBase} />
-        {/* Deep ambient light degradation orbs */}
         <LinearGradient
           colors={['rgba(0, 122, 255, 0.18)', 'rgba(56, 189, 248, 0.05)', 'transparent']}
           start={{ x: 0.1, y: 0 }}
@@ -64,11 +79,30 @@ export const LoginScreen = ({ navigation }: any) => {
           end={{ x: 0.9, y: 1 }}
           style={styles.ambientBottom}
         />
-        {/* Subtle Frosted Matte Overlay */}
         <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
       </View>
 
-      <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.mainWrapper, { paddingTop: topPadding, paddingBottom: bottomPadding }]}>
+        {/* ── Top Bar: Close / Skip as Guest ── */}
+        <View style={styles.topGuestBar}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={handleContinueAsGuest}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.skipGuestPill}
+            onPress={handleContinueAsGuest}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
+            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
+          </TouchableOpacity>
+        </View>
+
         <KeyboardAvoidingView
           style={styles.keyboardWrap}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -76,12 +110,12 @@ export const LoginScreen = ({ navigation }: any) => {
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 24) },
+              { paddingTop: 10, paddingBottom: Math.max(insets.bottom, 24) },
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ── Brand Header (Spotify / Apple Music Style) ── */}
+            {/* ── Brand Header ── */}
             <View style={styles.header}>
               <View style={styles.logoBadgeContainer}>
                 <Image
@@ -93,12 +127,12 @@ export const LoginScreen = ({ navigation }: any) => {
               </View>
 
               <Text style={styles.brandTitle}>A7 MUSIC</Text>
-              <Text style={styles.tagline}>Never Lost. Discover New Music.</Text>
+              <Text style={styles.tagline}>استمع واكتشف الموسيقى بحرية</Text>
             </View>
 
             {/* ── Liquid Glass Form Card ── */}
             <View style={styles.glassCard}>
-              {/* Identifier Input (Username or Email) */}
+              {/* Identifier Input */}
               <View
                 style={[
                   styles.inputWrap,
@@ -113,7 +147,7 @@ export const LoginScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Email or Username"
+                  placeholder="البريد الإلكتروني أو اسم المستخدم"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={identifier}
                   onChangeText={setIdentifier}
@@ -139,7 +173,7 @@ export const LoginScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Password"
+                  placeholder="كلمة المرور"
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={password}
                   onChangeText={setPassword}
@@ -165,12 +199,12 @@ export const LoginScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 style={styles.forgotBtn}
                 activeOpacity={0.7}
-                onPress={() => Alert.alert('Reset Password', 'Please contact support or check your registered email to reset your password.')}
+                onPress={() => Alert.alert('استعادة كلمة المرور', 'يرجى مراجعة بريدك الإلكتروني المسجل لتعيين كلمة مرور جديدة.')}
               >
-                <Text style={styles.forgotText}>Forgot password?</Text>
+                <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
               </TouchableOpacity>
 
-              {/* Log In Button (Spotify Style Pill CTA) */}
+              {/* Log In Button */}
               <TouchableOpacity
                 activeOpacity={0.88}
                 onPress={onLogin}
@@ -186,7 +220,7 @@ export const LoginScreen = ({ navigation }: any) => {
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.loginBtnText}>LOG IN</Text>
+                    <Text style={styles.loginBtnText}>تسجيل الدخول</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -194,18 +228,18 @@ export const LoginScreen = ({ navigation }: any) => {
 
             {/* ── Footer Switcher ── */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={styles.footerText}>ليس لديك حساب؟ </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('SignUp')}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.footerLink}>Sign Up</Text>
+                <Text style={styles.footerLink}>إنشاء حساب جديد</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 };
@@ -216,7 +250,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#05070D',
   },
   darkBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#05070D',
   },
   ambientTop: {
@@ -235,8 +269,41 @@ const styles = StyleSheet.create({
     height: 420,
     borderRadius: 210,
   },
-  safeArea: {
+  mainWrapper: {
     flex: 1,
+  },
+  topGuestBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 10,
+    zIndex: 10,
+  },
+  closeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skipGuestPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 4,
+  },
+  skipGuestPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   keyboardWrap: {
     flex: 1,

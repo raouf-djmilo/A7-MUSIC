@@ -28,6 +28,7 @@ import {
 } from '../utils/artworkHelper';
 import { musicDnaService, DynamicHomeSections, MoodCluster } from '../services/musicDnaService';
 import { ToastManager } from '../components/InAppToast';
+import { CURATED_TRACKS } from '../data/curatedMusic';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = 144;
@@ -148,21 +149,22 @@ export const MusicHome = ({ navigation }: any) => {
     }
   };
 
-  const handlePlaySong = async (
+  const handlePlaySong = (
     track: Track,
     contextQueue: Track[] = [],
     contextName: string = 'home'
   ) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const idx = contextQueue.findIndex((t) => t.videoId === track.videoId);
-    await playTrack(track, contextQueue, idx >= 0 ? idx : 0, contextName);
+    playTrack(track, contextQueue, idx >= 0 ? idx : 0, contextName);
     setPlayerModalVisible(true);
   };
 
-  const handlePlayMix = async (cluster: MoodCluster) => {
-    if (!cluster.tracks || cluster.tracks.length === 0) return;
+  const handlePlayMix = (cluster: MoodCluster) => {
+    const playList = cluster.tracks && cluster.tracks.length > 0 ? cluster.tracks : CURATED_TRACKS;
+    if (!playList || playList.length === 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await playTrack(cluster.tracks[0], cluster.tracks, 0, cluster.title);
+    playTrack(playList[0], playList, 0, cluster.title);
     setPlayerModalVisible(true);
   };
 
@@ -193,11 +195,15 @@ export const MusicHome = ({ navigation }: any) => {
     }
 
     if (likedTracks.length > 0) {
-      await playTrack(likedTracks[0], likedTracks, 0, 'Liked Songs');
+      playTrack(likedTracks[0], likedTracks, 0, 'Liked Songs');
       setPlayerModalVisible(true);
     } else if (sections.quickJump.length > 0) {
       // Fallback to top favorite tracks
-      await playTrack(sections.quickJump[0], sections.quickJump, 0, 'Liked Anthems');
+      playTrack(sections.quickJump[0], sections.quickJump, 0, 'Liked Anthems');
+      setPlayerModalVisible(true);
+    } else {
+      // Instant Guest fallback: play from curated anthems
+      playTrack(CURATED_TRACKS[0], CURATED_TRACKS, 0, 'Top Anthems');
       setPlayerModalVisible(true);
     }
   };
@@ -247,7 +253,7 @@ export const MusicHome = ({ navigation }: any) => {
             if (isCurrent) {
               togglePlay();
             } else {
-              playTrack(item, sections.quickJump, index, 'quick_jump');
+              handlePlaySong(item, sections.quickJump, 'quick_jump');
             }
           }}
         >
@@ -363,7 +369,7 @@ export const MusicHome = ({ navigation }: any) => {
               if (isCurrent) {
                 togglePlay();
               } else {
-                playTrack(item, queue, index, 'recommendation');
+                handlePlaySong(item, queue, 'recommendation');
               }
             }}
           >

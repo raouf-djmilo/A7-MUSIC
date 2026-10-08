@@ -1112,13 +1112,29 @@ export const RecordingScreen = () => {
       } catch (e) {}
 
       if (!userId) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          userId = user?.id || null;
-        } catch (e) {}
+        setIsSaving(false);
+        setShowShare(false);
+        Alert.alert(
+          'تمرين رائع! 🏃‍♂️',
+          'أكملت جولة ممتازة بنجاح. أنشئ حسابك للاحتفاظ بسجل تمارينك وأرقامك القياسية ومراجعتها دائماً.',
+          [
+            {
+              text: 'المتابعة كضيف',
+              style: 'cancel',
+              onPress: () => {
+                setTimeout(() => navigation.navigate('Dashboard'), 250);
+              },
+            },
+            {
+              text: 'تسجيل الدخول / إنشاء حساب',
+              onPress: () => {
+                navigation.navigate('Auth', { screen: 'Login' });
+              },
+            },
+          ]
+        );
+        return;
       }
-
-      if (!userId) throw new Error('يرجى تسجيل الدخول لحفظ النشاط');
 
       const finalSteps = sensor.data.totalSessionSteps;
       const finalSpeed = sensor.data.speed;
@@ -1152,8 +1168,8 @@ export const RecordingScreen = () => {
         await queueOfflineActivity(activityPayload);
         setShowShare(false);
         Alert.alert(
-          'تم الحفظ في ذاكرة الهاتف 💾',
-          'تم حفظ بيانات تمرينك بنجاح في الوضع غير المتصل (Offline). ستتم المزامنة تلقائياً مع خوادم السحابة بمجرد عودة الإنترنت.'
+          'تم الحفظ في هاتفك 💾',
+          'تم حفظ بيانات تمرينك بنجاح على هاتفك. سيتم تحديثها في حسابك تلقائياً بمجرد عودة الاتصال بالإنترنت.'
         );
         setTimeout(() => navigation.navigate('Dashboard'), 250);
         return;
@@ -1167,8 +1183,8 @@ export const RecordingScreen = () => {
         await queueOfflineActivity(activityPayload);
         setShowShare(false);
         Alert.alert(
-          'تم الحفظ أوفلاين 💾',
-          'تعذر الاتصال بالخادم مؤقتاً، تم حفظ التمرين محلياً وستتم المزامنة تلقائياً فور استقرار الشبكة.'
+          'تم الحفظ في هاتفك 💾',
+          'تعذر الاتصال مؤقتاً، تم حفظ التمرين بنجاح على هاتفك وسيتم تحديثه في حسابك فور استقرار الاتصال.'
         );
         setTimeout(() => navigation.navigate('Dashboard'), 250);
         return;

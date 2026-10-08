@@ -456,7 +456,7 @@ export const DashboardScreen: React.FC = () => {
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Audio Store & State ──
@@ -522,7 +522,11 @@ export const DashboardScreen: React.FC = () => {
   const totalRuns = activities.filter((a) => a.activity_type === 'run').length;
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const [{ data: acts }, { data: prof }] = await Promise.all([
         supabase
@@ -538,6 +542,8 @@ export const DashboardScreen: React.FC = () => {
       ]);
       if (acts) setActivities(acts as Activity[]);
       if (prof) setProfile(prof);
+    } catch (err) {
+      // Non-blocking: network timeout or offline boot
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -552,14 +558,6 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(true);
     fetchData();
   };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.textPrimary} />
-      </View>
-    );
-  }
 
   const latestActivity = activities.length > 0 ? activities[0] : null;
 

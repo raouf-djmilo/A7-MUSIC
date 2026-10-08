@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
   sheetContainer: {

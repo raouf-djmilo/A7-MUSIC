@@ -79,15 +79,9 @@ export const configureAudioSession = async (
   isPlaying: boolean = false
 ): Promise<void> => {
   try {
-    // 🛡️ Safety Guard: If the session is already configured with this exact setting,
-    // NEVER re-execute setAudioModeAsync because that resets native AVAudioSession/AudioTrack and cuts audio!
-    if (isSessionConfigured && lastConfiguredBgSetting === backgroundEnabled) {
-      return;
-    }
-
-    // 🛡️ Safety Guard: If audio is currently playing, avoid resetting hardware session unless setting changed
-    if (isPlaying && isSessionConfigured) {
-      // Just persist the preference without dropping active playback
+    // 🛡️ Safety Guard: Once configured on boot, NEVER re-execute setAudioModeAsync
+    // because tearing down/resetting native AVAudioSession drops active audio streams and causes glitches!
+    if (isSessionConfigured) {
       lastConfiguredBgSetting = backgroundEnabled;
       return;
     }
@@ -98,7 +92,7 @@ export const configureAudioSession = async (
         staysActiveInBackground: backgroundEnabled,
         playsInSilentModeIOS: true,
         shouldDuckAndroid: false, // 🛡️ Prevent dynamic compression & volume swings on Android
-        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix (1)
+        interruptionModeIOS: 0, // InterruptionModeIOS.MixWithOthers (0) - Allows background audio to mix cleanly without cutting
         interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix (1)
         playThroughEarpieceAndroid: false,
       });

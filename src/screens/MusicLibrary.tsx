@@ -109,7 +109,7 @@ export const MusicLibrary = () => {
 
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
   const [savedTracks, setSavedTracks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -327,6 +327,26 @@ export const MusicLibrary = () => {
       {/* ── Tab View B: LIKED SONGS & CURATED ── */}
       {activeTab === 'liked' && (
         <>
+          {/* Guest Sync Invitation */}
+          {!user && (
+            <TouchableOpacity
+              style={styles.guestBannerCard}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
+            >
+              <View style={styles.guestBannerLeft}>
+                <View style={styles.guestBannerIconWrap}>
+                  <Ionicons name="sparkles" size={18} color="#007AFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.guestBannerTitle}>احتفظ بموسيقاك في حسابك</Text>
+                  <Text style={styles.guestBannerSubtitle}>سجّل دخولك لحفظ أغانيك المفضلة والوصول إليها دائماً</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          )}
+
           {/* Liked Songs Hero Banner */}
           <LinearGradient
             colors={['#450af5', '#8e2de2']}
@@ -676,14 +696,6 @@ export const MusicLibrary = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1DB954" />
-      </View>
-    );
-  }
-
   const activeListData = activeTab === 'downloads' ? filteredDownloads : filteredTracks;
 
   return (
@@ -789,6 +801,42 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
       elevation: 5,
+    },
+    guestBannerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: 'rgba(0, 122, 255, 0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(0, 122, 255, 0.2)',
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 16,
+    },
+    guestBannerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    guestBannerIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(0, 122, 255, 0.14)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    guestBannerTitle: {
+      color: theme.textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    guestBannerSubtitle: {
+      color: theme.textMuted,
+      fontSize: 12,
+      lineHeight: 16,
     },
     sectionHeader: {
       flexDirection: 'row',

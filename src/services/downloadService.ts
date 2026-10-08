@@ -246,17 +246,12 @@ export const inspectOfflineStorage = async (): Promise<void> => {
     const dir = `${FileSystem.documentDirectory}a7flow_download_music/tracks/`;
     const info = await FileSystem.getInfoAsync(dir);
     if (!info.exists) {
-      console.log('[Storage Check] Dossier offline ma yegzistich!');
       return;
     }
     const files = await FileSystem.readDirectoryAsync(dir);
-    console.log(`[Storage Check] Nombre de fichiers: ${files.length}`);
-    for (const file of files) {
-      const fileInfo = await FileSystem.getInfoAsync(dir + file);
-      console.log(`- File: ${file} | Size: ${(((fileInfo as any).size || 0) / (1024 * 1024)).toFixed(2)} MB`);
-    }
+    console.log(`[Storage Check] Offline files ready: ${files.length}`);
   } catch (e) {
-    console.warn('[Storage Check] Error inspecting storage:', e);
+    // Non-blocking
   }
 };
 

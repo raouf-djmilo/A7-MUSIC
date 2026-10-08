@@ -18,8 +18,6 @@ import { RecordingScreen } from '../screens/RecordingScreen';
 import { MusicScreen } from '../screens/MusicScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { NotificationsScreen } from '../screens/NotificationsScreen';
-import { PublicProfileScreen } from '../screens/PublicProfileScreen';
 import { AlbumDetailsScreen } from '../screens/AlbumDetailsScreen';
 import { ArtistDetailsScreen } from '../screens/ArtistDetailsScreen';
 import { WorkoutSummaryScreen } from '../screens/WorkoutSummaryScreen';
@@ -104,12 +102,6 @@ export const MainNavigator = () => {
           options={{ animation: 'slide_from_bottom' }}
         />
 
-        {/* Profile & Music Sub-screens */}
-        <Stack.Screen
-          name="UserProfile"
-          component={PublicProfileScreen}
-          options={{ animation: 'slide_from_right' }}
-        />
         {/* Artist & Album Detail Screens */}
         <Stack.Screen 
           name="ArtistDetail" 
@@ -125,11 +117,6 @@ export const MainNavigator = () => {
           name="Settings" 
           component={SettingsScreen} 
           options={{ headerShown: false, animation: 'slide_from_right' }} 
-        />
-        <Stack.Screen 
-          name="Notifications" 
-          component={NotificationsScreen} 
-          options={{ headerShown: false, presentation: 'pageSheet' }} 
         />
         <Stack.Screen 
           name="SoftwareUpdate" 

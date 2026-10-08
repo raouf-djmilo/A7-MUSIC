@@ -241,7 +241,7 @@ export const ProfileScreen = () => {
   const [musicLikes, setMusicLikes] = useState<any[]>([]);
   const [listeningSeconds, setListeningSeconds] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'activities' | 'music'>('activities');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Edit Profile States
@@ -274,7 +274,11 @@ export const ProfileScreen = () => {
   });
 
   const fetchProfileData = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       // 1. Fetch Profile
       const { data: prof } = await supabase
@@ -423,74 +427,115 @@ export const ProfileScreen = () => {
   const renderHeader = () => {
     return (
       <View style={styles.headerContainer}>
-        {/* ── 1. Athlete Identity Card (ONLY avatar, name, handle, badge, edit) ── */}
-        <GlassCard style={styles.identityCard} borderRadius={20}>
-          <View style={styles.identityRow}>
-            {/* Neon Ring Avatar */}
-            <View style={styles.avatarNeonWrapper}>
-              <TouchableOpacity
-                onPress={handlePickAvatar}
-                disabled={uploadingAvatar}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{
-                    uri:
-                      displayUser?.avatar_url ||
-                      `https://i.pravatar.cc/150?u=${displayUser?.id || 'runner'}`,
-                  }}
-                  style={styles.avatarImg}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  priority="high"
-                />
-                {uploadingAvatar && (
-                  <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
-                    <ActivityIndicator color="#FFF" size="small" />
-                  </View>
-                )}
-                <View style={styles.cameraPill}>
-                  <Ionicons name="camera" size={11} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Athlete Details */}
-            <View style={styles.identityDetails}>
-              <Text style={styles.athleteName} numberOfLines={1}>
-                {displayUser?.full_name || 'عدّاء Nouble'}
-              </Text>
-              <Text style={styles.athleteHandle} numberOfLines={1}>
-                @{displayUser?.username || 'athlete'}
-              </Text>
-
-              {/* Athletic Explorer Badge */}
-              <View style={styles.badgeRow}>
-                <View style={styles.explorerBadge}>
-                  <Ionicons name="flash" size={11} color="#FC5200" />
-                  <Text style={styles.explorerBadgeTxt}>Athletic Explorer</Text>
+        {/* ── 1. Athlete Identity Card / Guest Hero Card ── */}
+        {!user ? (
+          <GlassCard style={styles.guestCard} borderRadius={20}>
+            <View style={styles.guestHeaderRow}>
+              <View style={styles.guestAvatarWrap}>
+                <Ionicons name="musical-notes" size={26} color="#007AFF" />
+              </View>
+              <View style={styles.guestHeaderInfo}>
+                <Text style={styles.guestTitle}>مرحباً بك في A7 MUSIC</Text>
+                <View style={styles.guestBadgePill}>
+                  <View style={styles.guestBadgeDot} />
+                  <Text style={styles.guestBadgeTxt}>وضع الضيف</Text>
                 </View>
               </View>
             </View>
-          </View>
 
-          {/* Bio snippet */}
-          {displayUser?.bio ? (
-            <Text style={styles.bioText} numberOfLines={2}>
-              {displayUser.bio}
+            <Text style={styles.guestDescription}>
+              أنت تتصفح التطبيق كضيف. أنشئ حساباً مجانياً للاحتفاظ بأغانيك وقوائمك المفضلة وسجل تمارينك والوصول إليها من أي هاتف.
             </Text>
-          ) : null}
 
-          {/* Edit Profile Button */}
-          <TouchableOpacity
-            style={styles.editProfileBtn}
-            onPress={() => setShowEdit(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={15} color={theme.textPrimary} />
-            <Text style={styles.editProfileBtnTxt}>تعديل الملف الرياضي</Text>
-          </TouchableOpacity>
-        </GlassCard>
+            <View style={styles.guestActionsRow}>
+              <TouchableOpacity
+                style={styles.guestLoginBtn}
+                onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="log-in-outline" size={17} color="#FFF" style={{ marginRight: 6 }} />
+                <Text style={styles.guestLoginBtnTxt}>تسجيل الدخول</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.guestSignUpBtn}
+                onPress={() => navigation.navigate('Auth', { screen: 'SignUp' })}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="sparkles-outline" size={16} color={theme.textPrimary} style={{ marginRight: 6 }} />
+                <Text style={[styles.guestSignUpBtnTxt, { color: theme.textPrimary }]}>إنشاء حساب جديد</Text>
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
+        ) : (
+          <GlassCard style={styles.identityCard} borderRadius={20}>
+            <View style={styles.identityRow}>
+              {/* Neon Ring Avatar */}
+              <View style={styles.avatarNeonWrapper}>
+                <TouchableOpacity
+                  onPress={handlePickAvatar}
+                  disabled={uploadingAvatar}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{
+                      uri:
+                        displayUser?.avatar_url ||
+                        `https://i.pravatar.cc/150?u=${displayUser?.id || 'runner'}`,
+                    }}
+                    style={styles.avatarImg}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    priority="high"
+                  />
+                  {uploadingAvatar && (
+                    <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
+                      <ActivityIndicator color="#FFF" size="small" />
+                    </View>
+                  )}
+                  <View style={styles.cameraPill}>
+                    <Ionicons name="camera" size={11} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Athlete Details */}
+              <View style={styles.identityDetails}>
+                <Text style={styles.athleteName} numberOfLines={1}>
+                  {displayUser?.full_name || 'مستخدم A7 MUSIC'}
+                </Text>
+                <Text style={styles.athleteHandle} numberOfLines={1}>
+                  @{displayUser?.username || 'athlete'}
+                </Text>
+
+                {/* Athletic Explorer Badge */}
+                <View style={styles.badgeRow}>
+                  <View style={styles.explorerBadge}>
+                    <Ionicons name="flash" size={11} color="#FC5200" />
+                    <Text style={styles.explorerBadgeTxt}>عضو متميز</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Bio snippet */}
+            {displayUser?.bio ? (
+              <Text style={styles.bioText} numberOfLines={2}>
+                {displayUser.bio}
+              </Text>
+            ) : null}
+
+            {/* Edit Profile Button */}
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={() => setShowEdit(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={15} color={theme.textPrimary} />
+              <Text style={styles.editProfileBtnTxt}>تعديل الملف الرياضي</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
 
         {/* ── 2. Clean Minimalist 2x2 Telemetry Grid (Strava/Apple Pure Style) ── */}
         <View style={styles.sectionHeaderRow}>
@@ -897,6 +942,98 @@ const createStyles = (theme: ThemeTokens) =>
     },
     headerContainer: {
       marginBottom: 8,
+    },
+
+    // ── Guest Hero Card ──
+    guestCard: {
+      padding: 18,
+      marginBottom: 12,
+    },
+    guestHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 12,
+    },
+    guestAvatarWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: 'rgba(0, 122, 255, 0.12)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(0, 122, 255, 0.25)',
+    },
+    guestHeaderInfo: {
+      flex: 1,
+    },
+    guestTitle: {
+      color: theme.textPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    guestBadgePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      backgroundColor: 'rgba(0, 122, 255, 0.1)',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 12,
+      gap: 5,
+    },
+    guestBadgeDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#007AFF',
+    },
+    guestBadgeTxt: {
+      color: '#007AFF',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    guestDescription: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      lineHeight: 20,
+      marginBottom: 16,
+      textAlign: 'right',
+    },
+    guestActionsRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    guestLoginBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#007AFF',
+      height: 42,
+      borderRadius: 14,
+    },
+    guestLoginBtnTxt: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    guestSignUpBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: theme.border,
+      height: 42,
+      borderRadius: 14,
+    },
+    guestSignUpBtnTxt: {
+      fontSize: 13,
+      fontWeight: '700',
     },
 
     // ── Athlete Identity Card ──

@@ -10,7 +10,10 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  AppState,
+  NativeModules,
 } from 'react-native';
+import TrackPlayer from 'react-native-track-player';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -345,6 +348,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           activeRef.pauseVideo?.();
         }
       }
+      if (NativeModules?.TrackPlayerModule) {
+        try {
+          if (nextPlaying) {
+            await TrackPlayer.play();
+          } else {
+            await TrackPlayer.pause();
+          }
+        } catch (e) {}
+      }
     } else {
       await togglePlay();
     }
@@ -670,8 +682,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   // ── MiniPlayer Upward Pan Expand Gesture (Continuous 120 FPS Touch Tracking) ──
   const miniPanGesture = Gesture.Pan()
-    .activeOffsetY([-6, 6])
-    .failOffsetX([-18, 18])
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-25, 25])
     .onStart(() => {
       'worklet';
       fullStartY.value = fullTranslateY.value;
@@ -709,8 +721,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     const isVisible = fullTranslateY.value < (SCREEN_HEIGHT > 0 ? SCREEN_HEIGHT * 0.92 : 750);
     return {
       transform: [{ translateY: fullTranslateY.value }],
-      opacity: isVisible ? 1 : 0,
-      zIndex: isVisible ? 100000 : -1,
+      opacity: 1, // 🛡️ Keep opacity 1 so WebKit never suspends/freezes media decoding when sheet is collapsed
+      zIndex: isVisible ? 100000 : 0,
     };
   });
 
@@ -783,7 +795,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   };
 
   const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
-  if (!session || !currentTrack || isMiniPlayerSuppressed || isWorkoutSummary || isAuthScreen) return null;
+  if (!currentTrack || isMiniPlayerSuppressed || isWorkoutSummary || isAuthScreen) return null;
 
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
   const resolvedArtistAvatar = getUniversalArtistAvatar(
@@ -818,9 +830,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           pointerEvents="none"
         />
 
-        <GestureDetector gesture={miniPanGesture}>
-          <View style={styles.miniInnerRow} pointerEvents="auto">
-            {/* Left Display Area (Tap opens FullPlayer) */}
+        <View style={styles.miniInnerRow} pointerEvents="auto">
+          {/* Left Display Area (Tap opens FullPlayer) - isolated PanGesture */}
+          <GestureDetector gesture={miniPanGesture}>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={expandToFull}
@@ -856,56 +868,56 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 </View>
               </View>
             </TouchableOpacity>
+          </GestureDetector>
 
-            {/* Right Isolated Controls */}
-            <View style={styles.miniControls}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  handlePlayPausePress();
-                }}
-                style={[styles.miniPlayBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : theme.surfaceSubtle }]}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
-                  size={17}
-                  color={isDark ? '#FFFFFF' : theme.textPrimary}
-                  style={{ marginLeft: isPlaying ? 0 : 1 }}
-                />
-              </TouchableOpacity>
+          {/* Right Isolated Controls - completely outside pan gesture so button clicks are NEVER cancelled */}
+          <View style={styles.miniControls}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                handlePlayPausePress();
+              }}
+              style={[styles.miniPlayBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : theme.surfaceSubtle }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={17}
+                color={isDark ? '#FFFFFF' : theme.textPrimary}
+                style={{ marginLeft: isPlaying ? 0 : 1 }}
+              />
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  handleNextPress();
-                }}
-                style={[styles.miniNextBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : theme.surfaceSubtle }]}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="play-skip-forward" size={15} color={isDark ? '#FFFFFF' : theme.textPrimary} />
-              </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                handleNextPress();
+              }}
+              style={[styles.miniNextBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : theme.surfaceSubtle }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="play-skip-forward" size={15} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  stopTrack();
-                }}
-                style={styles.miniCloseBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={17} color={isDark ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Bottom Subtle Progress Bar (Isolated Component) */}
-            <MiniProgressBar isDark={isDark} accentColor={theme.textPrimary} />
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                stopTrack();
+              }}
+              style={styles.miniCloseBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={17} color={isDark ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
+            </TouchableOpacity>
           </View>
-        </GestureDetector>
+
+          {/* Bottom Subtle Progress Bar (Isolated Component) */}
+          <MiniProgressBar isDark={isDark} accentColor={theme.textPrimary} />
+        </View>
       </Animated.View>
 
       {/* ════════════════════════════════════════════════════════════════════════
@@ -1145,6 +1157,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                           width={cardWidth}
                           play={isPlaying}
                           videoId={currentTrack.videoId}
+                          onReady={() => {
+                            if (useAudioStore.getState().isPlaying) {
+                              (youtubePlayerRef.current as any)?.playVideo?.();
+                            }
+                          }}
                           initialPlayerParams={{
                             controls: false,
                             modestbranding: true,
@@ -1163,8 +1180,22 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                 loadingTrackId: null,
                               });
                             } else if (state === 'paused') {
-                              // If user is currently switching between Video and Music, suppress spurious WebKit paused event
+                              // 🛡️ CRITICAL FIX 1: If user is switching between Video and Music, suppress spurious paused event
                               if (isSwitchingModeRef.current) {
+                                return;
+                              }
+                              // 🛡️ CRITICAL FIX 2: If app is in background or inactive, NEVER pause the store!
+                              if (AppState.currentState !== 'active') {
+                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+                                activeRef?.playVideo?.();
+                                return;
+                              }
+                              // 🛡️ CRITICAL FIX 3: Suppress unwanted pauses if store is playing or within 5000ms of user action
+                              const isStorePlaying = useAudioStore.getState().isPlaying;
+                              const timeSinceToggle = Date.now() - getLastUserToggleTimestamp();
+                              if (isStorePlaying || timeSinceToggle < 5000) {
+                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+                                activeRef?.playVideo?.();
                                 return;
                               }
                               useAudioStore.setState({ isPlaying: false });
@@ -1174,16 +1205,142 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                             androidLayerType: 'hardware',
                             allowsInlineMediaPlayback: true,
                             mediaPlaybackRequiresUserAction: false,
+                            allowsPictureInPictureMediaPlayback: true,
+                            allowsAirPlayForMediaPlayback: true,
                             scrollEnabled: false,
+                            injectedJavaScriptForMainFrameOnly: false,
+                            injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
+                            injectedJavaScriptBeforeContentLoaded: `
+                              (function() {
+                                window._shouldKeepPlaying = true;
+                                window._userWantsPause = false;
+
+                                if (navigator.audioSession) {
+                                  try { navigator.audioSession.type = 'playback'; } catch(e) {}
+                                }
+
+                                try {
+                                  Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+                                  Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+                                  Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+                                } catch(e) {}
+
+                                try {
+                                  var origAddEventListener = EventTarget.prototype.addEventListener;
+                                  EventTarget.prototype.addEventListener = function(type, listener, options) {
+                                    if (
+                                      type === 'visibilitychange' || 
+                                      type === 'webkitvisibilitychange' || 
+                                      type === 'pagehide' || 
+                                      type === 'blur' || 
+                                      type === 'freeze'
+                                    ) {
+                                      return;
+                                    }
+                                    return origAddEventListener.call(this, type, listener, options);
+                                  };
+                                } catch(e) {}
+
+                                try {
+                                  Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
+                                  Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
+                                  Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
+                                } catch(e) {}
+
+                                try {
+                                  var origPause = HTMLMediaElement.prototype.pause;
+                                  HTMLMediaElement.prototype.pause = function() {
+                                    if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
+                                      return;
+                                    }
+                                    return origPause.call(this);
+                                  };
+                                } catch(e) {}
+
+                                try {
+                                  var origPlay = HTMLMediaElement.prototype.play;
+                                  HTMLMediaElement.prototype.play = function() {
+                                    this.setAttribute('playsinline', 'true');
+                                    this.setAttribute('webkit-playsinline', 'true');
+                                    return origPlay.call(this);
+                                  };
+                                } catch(e) {}
+                              })();
+                              true;
+                            `,
                             injectedJavaScript: `
                               (function() {
+                                window._shouldKeepPlaying = true;
+                                window._userWantsPause = false;
+
+                                if (navigator.audioSession) {
+                                  try { navigator.audioSession.type = 'playback'; } catch(e) {}
+                                }
+
+                                try {
+                                  Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+                                  Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+                                  Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+                                } catch(e) {}
+
+                                try {
+                                  var origPause = HTMLMediaElement.prototype.pause;
+                                  HTMLMediaElement.prototype.pause = function() {
+                                    if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
+                                      return;
+                                    }
+                                    return origPause.call(this);
+                                  };
+                                } catch(e) {}
+
+                                function hookVideos() {
+                                  var videos = document.querySelectorAll('video');
+                                  for (var i = 0; i < videos.length; i++) {
+                                    var v = videos[i];
+                                    if (!v._bgHooked) {
+                                      v._bgHooked = true;
+                                      v.setAttribute('playsinline', 'true');
+                                      v.setAttribute('webkit-playsinline', 'true');
+                                      v.addEventListener('pause', function(e) {
+                                        if (window._shouldKeepPlaying && !window._userWantsPause && !v.ended) {
+                                          try {
+                                            var pr = v.play();
+                                            if (pr && typeof pr.catch === 'function') { pr.catch(function() {}); }
+                                          } catch(err) {}
+                                        }
+                                      });
+                                    }
+                                  }
+                                }
+                                hookVideos();
+                                setInterval(hookVideos, 400);
+
                                 function handleMsg(e) {
                                   try {
                                     var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
                                     if (d && d.eventName === 'playVideo') {
+                                      window._shouldKeepPlaying = true;
+                                      window._userWantsPause = false;
                                       if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
+                                      var videos = document.querySelectorAll('video');
+                                      for (var i = 0; i < videos.length; i++) {
+                                        if (videos[i].paused) {
+                                          try {
+                                            var p = videos[i].play();
+                                            if (p && typeof p.catch === 'function') { p.catch(function() {}); }
+                                          } catch(err) {}
+                                        }
+                                      }
                                     } else if (d && d.eventName === 'pauseVideo') {
+                                      window._shouldKeepPlaying = false;
+                                      window._userWantsPause = true;
                                       if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
+                                      var vids = document.querySelectorAll('video');
+                                      for (var j = 0; j < vids.length; j++) {
+                                        try {
+                                          origPause ? origPause.call(vids[j]) : vids[j].pause();
+                                        } catch(err) {}
+                                      }
                                     }
                                   } catch(err) {}
                                 }
@@ -1672,6 +1829,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   width={SCREEN_WIDTH}
                   play={isPlaying}
                   videoId={currentTrack.videoId}
+                  onReady={() => {
+                    if (useAudioStore.getState().isPlaying) {
+                      (fullscreenPlayerRef.current as any)?.playVideo?.();
+                    }
+                  }}
                   initialPlayerParams={{
                     controls: false,
                     modestbranding: true,
@@ -1693,6 +1855,18 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       });
                     } else if (state === 'paused') {
                       if (!useAudioStore.getState().isPlayerModalVisible) return;
+                      // 🛡️ CRITICAL FIX 1: If app is in background or inactive, NEVER pause the store!
+                      if (AppState.currentState !== 'active') {
+                        (fullscreenPlayerRef.current as any)?.playVideo?.();
+                        return;
+                      }
+                      // 🛡️ CRITICAL FIX 2: Suppress unwanted pause if store is playing or within 5000ms of user action
+                      const isStorePlaying = useAudioStore.getState().isPlaying;
+                      const timeSinceToggle = Date.now() - getLastUserToggleTimestamp();
+                      if (isStorePlaying || timeSinceToggle < 5000) {
+                        (fullscreenPlayerRef.current as any)?.playVideo?.();
+                        return;
+                      }
                       useAudioStore.setState({ isPlaying: false });
                     }
                   }}
@@ -1700,16 +1874,142 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     androidLayerType: 'hardware',
                     allowsInlineMediaPlayback: true,
                     mediaPlaybackRequiresUserAction: false,
+                    allowsPictureInPictureMediaPlayback: true,
+                    allowsAirPlayForMediaPlayback: true,
                     scrollEnabled: false,
+                    injectedJavaScriptForMainFrameOnly: false,
+                    injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
+                    injectedJavaScriptBeforeContentLoaded: `
+                      (function() {
+                        window._shouldKeepPlaying = true;
+                        window._userWantsPause = false;
+
+                        if (navigator.audioSession) {
+                          try { navigator.audioSession.type = 'playback'; } catch(e) {}
+                        }
+
+                        try {
+                          Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+                          Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+                          Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+                        } catch(e) {}
+
+                        try {
+                          var origAddEventListener = EventTarget.prototype.addEventListener;
+                          EventTarget.prototype.addEventListener = function(type, listener, options) {
+                            if (
+                              type === 'visibilitychange' || 
+                              type === 'webkitvisibilitychange' || 
+                              type === 'pagehide' || 
+                              type === 'blur' || 
+                              type === 'freeze'
+                            ) {
+                              return;
+                            }
+                            return origAddEventListener.call(this, type, listener, options);
+                          };
+                        } catch(e) {}
+
+                        try {
+                          Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
+                          Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
+                          Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
+                        } catch(e) {}
+
+                        try {
+                          var origPause = HTMLMediaElement.prototype.pause;
+                          HTMLMediaElement.prototype.pause = function() {
+                            if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
+                              return;
+                            }
+                            return origPause.call(this);
+                          };
+                        } catch(e) {}
+
+                        try {
+                          var origPlay = HTMLMediaElement.prototype.play;
+                          HTMLMediaElement.prototype.play = function() {
+                            this.setAttribute('playsinline', 'true');
+                            this.setAttribute('webkit-playsinline', 'true');
+                            return origPlay.call(this);
+                          };
+                        } catch(e) {}
+                      })();
+                      true;
+                    `,
                     injectedJavaScript: `
                       (function() {
+                        window._shouldKeepPlaying = true;
+                        window._userWantsPause = false;
+
+                        if (navigator.audioSession) {
+                          try { navigator.audioSession.type = 'playback'; } catch(e) {}
+                        }
+
+                        try {
+                          Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+                          Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+                          Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+                        } catch(e) {}
+
+                        try {
+                          var origPause = HTMLMediaElement.prototype.pause;
+                          HTMLMediaElement.prototype.pause = function() {
+                            if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
+                              return;
+                            }
+                            return origPause.call(this);
+                          };
+                        } catch(e) {}
+
+                        function hookVideos() {
+                          var videos = document.querySelectorAll('video');
+                          for (var i = 0; i < videos.length; i++) {
+                            var v = videos[i];
+                            if (!v._bgHooked) {
+                              v._bgHooked = true;
+                              v.setAttribute('playsinline', 'true');
+                              v.setAttribute('webkit-playsinline', 'true');
+                              v.addEventListener('pause', function(e) {
+                                if (window._shouldKeepPlaying && !window._userWantsPause && !v.ended) {
+                                  try {
+                                    var pr = v.play();
+                                    if (pr && typeof pr.catch === 'function') { pr.catch(function() {}); }
+                                  } catch(err) {}
+                                }
+                              });
+                            }
+                          }
+                        }
+                        hookVideos();
+                        setInterval(hookVideos, 400);
+
                         function handleMsg(e) {
                           try {
                             var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
                             if (d && d.eventName === 'playVideo') {
+                              window._shouldKeepPlaying = true;
+                              window._userWantsPause = false;
                               if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
+                              var videos = document.querySelectorAll('video');
+                              for (var i = 0; i < videos.length; i++) {
+                                if (videos[i].paused) {
+                                  try {
+                                    var p = videos[i].play();
+                                    if (p && typeof p.catch === 'function') { p.catch(function() {}); }
+                                  } catch(err) {}
+                                }
+                              }
                             } else if (d && d.eventName === 'pauseVideo') {
+                              window._shouldKeepPlaying = false;
+                              window._userWantsPause = true;
                               if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
+                              var vids = document.querySelectorAll('video');
+                              for (var j = 0; j < vids.length; j++) {
+                                try {
+                                  origPause ? origPause.call(vids[j]) : vids[j].pause();
+                                } catch(err) {}
+                              }
                             }
                           } catch(err) {}
                         }
@@ -2010,6 +2310,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderRadius: 18,
     backgroundColor: '#000000',
+    zIndex: 10,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -2048,8 +2349,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    opacity: 0,
-    zIndex: -1,
+    zIndex: 1,
+    pointerEvents: 'none',
   },
   videoStageContainer: {
     alignItems: 'center',

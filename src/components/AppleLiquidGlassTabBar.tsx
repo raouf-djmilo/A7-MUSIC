@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
   interpolate,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -39,7 +40,7 @@ const TRANSITION_EASING = Easing.bezier(0.25, 0.1, 0.25, 1);
 interface TabItemProps {
   route: any;
   index: number;
-  activeProgress: Animated.SharedValue<number>;
+  activeProgress: SharedValue<number>;
   onPress: () => void;
   label: string;
   outlineIcon: string;
