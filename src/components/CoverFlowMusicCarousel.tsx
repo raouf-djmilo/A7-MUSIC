@@ -263,11 +263,13 @@ const CoverFlowCard = React.memo(({
 interface CoverFlowProps {
   tracks: Track[];
   onTrackSelect?: (track: Track) => void;
+  onLoadMore?: () => void;
 }
 
 export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   tracks,
   onTrackSelect,
+  onLoadMore,
 }) => {
   const { theme, isDark } = useTheme();
 
@@ -317,14 +319,18 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     (targetInt: number) => {
       if (numTracks === 0) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const normalized = ((targetInt % numTracks) + numTracks) % numTracks;
-      setSettledIndex(normalized);
-      const targetTrack = tracks[normalized];
+      const clamped = Math.max(0, Math.min(numTracks - 1, targetInt));
+      setSettledIndex(clamped);
+      const targetTrack = tracks[clamped];
       if (targetTrack && onTrackSelect) {
         onTrackSelect(targetTrack);
       }
+      // 🚀 Infinite Streaming: auto-load more tracks when within 4 cards of the end
+      if (clamped >= numTracks - 4 && onLoadMore) {
+        onLoadMore();
+      }
     },
-    [numTracks, tracks, onTrackSelect]
+    [numTracks, tracks, onTrackSelect, onLoadMore]
   );
 
   // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center!)
@@ -346,7 +352,8 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         const moveFraction = -e.translationX / SPACING;
         const velocityContribution = -e.velocityX / 600;
         const targetFraction = moveFraction + velocityContribution * 0.4;
-        const targetInt = Math.round(dragStartVirtual.value + targetFraction);
+        const rawTarget = Math.round(dragStartVirtual.value + targetFraction);
+        const targetInt = Math.max(0, Math.min(numTracks - 1, rawTarget));
 
         virtualIndex.value = withSpring(
           targetInt,
@@ -362,7 +369,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           }
         );
       });
-  }, [handleSettle]);
+  }, [handleSettle, numTracks]);
 
   // Tap on card: smoothly springs to that card and settles
   const handleCardTap = useCallback(
@@ -373,17 +380,19 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       if (isCenter) {
         // Tapped Center Card -> Play or open sheet
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        const norm = ((targetVirtualPos % numTracks) + numTracks) % numTracks;
-        const centerTrack = tracks[norm];
-        if (currentTrack?.videoId !== centerTrack?.videoId) {
-          playTrack(centerTrack, tracks, norm, 'Dashboard');
+        const centerTrack = tracks[targetVirtualPos];
+        if (centerTrack) {
+          if (currentTrack?.videoId !== centerTrack?.videoId) {
+            playTrack(centerTrack, tracks, targetVirtualPos, 'Dashboard');
+          }
+          setPlayerModalVisible(true);
         }
-        setPlayerModalVisible(true);
       } else {
         // Tapped Side Card -> Smoothly glide that card into center
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const clamped = Math.max(0, Math.min(numTracks - 1, targetVirtualPos));
         virtualIndex.value = withSpring(
-          targetVirtualPos,
+          clamped,
           {
             damping: 26,
             stiffness: 280,
@@ -391,7 +400,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           },
           (finished) => {
             if (finished) {
-              runOnJS(handleSettle)(targetVirtualPos);
+              runOnJS(handleSettle)(clamped);
             }
           }
         );
@@ -401,7 +410,8 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   );
 
   const handleNextBtn = useCallback(() => {
-    const targetInt = Math.round(virtualIndex.value) + 1;
+    const current = Math.round(virtualIndex.value);
+    const targetInt = Math.min(numTracks - 1, current + 1);
     virtualIndex.value = withSpring(
       targetInt,
       {
@@ -415,10 +425,11 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         }
       }
     );
-  }, [handleSettle]);
+  }, [handleSettle, numTracks]);
 
   const handlePrevBtn = useCallback(() => {
-    const targetInt = Math.round(virtualIndex.value) - 1;
+    const current = Math.round(virtualIndex.value);
+    const targetInt = Math.max(0, current - 1);
     virtualIndex.value = withSpring(
       targetInt,
       {
@@ -446,8 +457,8 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     }
   }, [activeCenterTrack, currentTrack?.videoId, settledIndex, playTrack, togglePlay, tracks]);
 
-  // 5 Slots visible: [-2, -1, 0, 1, 2] around settledIndex
-  const slots = useMemo(() => [-2, -1, 0, 1, 2], []);
+  // 7 Slots visible: [-3, -2, -1, 0, 1, 2, 3] around settledIndex for zero-flicker wide perspective
+  const slots = useMemo(() => [-3, -2, -1, 0, 1, 2, 3], []);
 
   if (numTracks === 0) return null;
 
@@ -480,8 +491,8 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         <View style={styles.carouselContainer}>
           {slots.map((offset) => {
             const cardVirtualPos = settledIndex + offset;
-            const trackIdx = ((cardVirtualPos % numTracks) + numTracks) % numTracks;
-            const t = tracks[trackIdx];
+            if (cardVirtualPos < 0 || cardVirtualPos >= numTracks) return null;
+            const t = tracks[cardVirtualPos];
             if (!t) return null;
 
             return (

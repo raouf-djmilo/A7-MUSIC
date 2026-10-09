@@ -30,6 +30,13 @@ import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 import { cleanArtistName } from '../services/youtubeMusicService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { CoverFlowMusicCarousel } from '../components/CoverFlowMusicCarousel';
+import {
+  fetchInitialInfiniteRadio,
+  fetchInfiniteRadioNextBatch,
+  getCachedInfiniteRadio,
+  analyzeUserVibe,
+} from '../services/infiniteRecommendationEngine';
+import { musicDnaService } from '../services/musicDnaService';
 
 const { width } = Dimensions.get('window');
 
@@ -373,8 +380,8 @@ const createStyles = (theme: ThemeTokens) =>
     },
   });
 
-// ── "Your Vibe" Intelligent Recommendation Engine ──
-const buildYourVibeQueue = (
+// ── "Your Vibe" Dynamic Initial Queue Builder (Zero Hardcoded Injections) ──
+const buildInitialQueue = (
   activeTrack: Track | null,
   history: Track[],
   likedIds: string[]
@@ -395,54 +402,18 @@ const buildYourVibeQueue = (
     });
   };
 
-  // 1. Card #0: Priority to current track or last played track
-  if (activeTrack) {
-    addTrack(activeTrack);
-  } else if (history && history.length > 0) {
-    addTrack(history[0]);
-  } else {
-    addTrack(CURATED_TRACKS[0]);
+  // Prioritize active listening track
+  if (activeTrack) addTrack(activeTrack);
+
+  // Add recent history tracks
+  if (history && history.length > 0) {
+    history.slice(0, 10).forEach(addTrack);
   }
 
-  // 2. Vibe Detection: inspect last 3 tracks to determine active user mood
-  const recentTracks = [activeTrack, ...(history || [])].filter(Boolean).slice(0, 3) as Track[];
-  let dominantCategory: CuratedTrack['category'] = 'cardio';
-
-  for (const t of recentTracks) {
-    const title = (t.title || '').toLowerCase();
-    const artist = (t.artist || '').toLowerCase();
-    const match = CURATED_TRACKS.find((c) => c.videoId === t.videoId);
-    if (match) {
-      dominantCategory = match.category;
-      break;
-    } else if (title.includes('phonk') || title.includes('pump') || title.includes('energy')) {
-      dominantCategory = 'cardio';
-      break;
-    } else if (title.includes('run') || title.includes('160') || title.includes('marathon')) {
-      dominantCategory = 'running';
-      break;
-    } else if (title.includes('rai') || artist.includes('khaled') || artist.includes('palermo') || artist.includes('soolking')) {
-      dominantCategory = 'rai';
-      break;
-    } else if (title.includes('walk') || title.includes('step') || title.includes('chill') || title.includes('lofi')) {
-      dominantCategory = 'walking';
-      break;
-    }
+  // Graceful initial fallback only if user is brand new with zero history
+  if (result.length === 0) {
+    CURATED_TRACKS.slice(0, 8).forEach(addTrack);
   }
-
-  // 3. Add tracks matching dominant vibe
-  const vibeTracks = CURATED_TRACKS.filter((c) => c.category === dominantCategory);
-  vibeTracks.forEach((vt) => addTrack(vt));
-
-  // 4. Add up to 3 liked tracks
-  if (likedIds && likedIds.length > 0) {
-    const likedSet = new Set(likedIds);
-    (history || []).filter((t) => likedSet.has(t.videoId)).slice(0, 3).forEach((lt) => addTrack(lt));
-    CURATED_TRACKS.filter((c) => likedSet.has(c.videoId)).slice(0, 3).forEach((lt) => addTrack(lt));
-  }
-
-  // 5. Fill remaining curated tracks
-  CURATED_TRACKS.forEach((ct) => addTrack(ct));
 
   return result;
 };
@@ -471,10 +442,97 @@ export const DashboardScreen: React.FC = () => {
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
   const history = useAudioStore((s) => s.history);
 
-  // ── 1. "Your Vibe" Intelligent Recommendation Queue ──
+  // ── 1. "Your Vibe" Dynamic Infinite Radio Queue ──
   const [tracks, setTracks] = useState<DashboardTrack[]>(() =>
-    buildYourVibeQueue(currentTrack, history, likedTrackIds)
+    buildInitialQueue(currentTrack, history, likedTrackIds)
   );
+
+  // 🚀 Live Background Discovery: Loads cache with 0ms delay then queries fresh YouTube Music radio
+  useEffect(() => {
+    let isMounted = true;
+    const loadDynamicRadio = async () => {
+      try {
+        // Fast 0ms cache load
+        const cached = await getCachedInfiniteRadio();
+        if (cached && cached.length > 0 && isMounted) {
+          setTracks((prev) => {
+            const seen = new Set(prev.map((t) => t.videoId));
+            const toAdd = cached.filter((t) => t.videoId && !seen.has(t.videoId));
+            return toAdd.length > 0
+              ? [...prev, ...toAdd.map((t) => ({ ...t, id: t.videoId }))]
+              : prev;
+          });
+        }
+
+        // Live YouTube Music dynamic radio generation (tailored to user taste & Algerian/Athletic vibes)
+        const fresh = await fetchInitialInfiniteRadio(currentTrack, history, likedTrackIds);
+        if (fresh && fresh.length > 0 && isMounted) {
+          setTracks((prev) => {
+            const seen = new Set<string>();
+            const merged: DashboardTrack[] = [];
+
+            // Maintain current playing track at position 0
+            if (currentTrack?.videoId) {
+              seen.add(currentTrack.videoId);
+              merged.push({ ...currentTrack, id: currentTrack.videoId });
+            } else if (prev.length > 0 && prev[0]?.videoId) {
+              seen.add(prev[0].videoId);
+              merged.push(prev[0]);
+            }
+
+            for (const t of fresh) {
+              if (t.videoId && !seen.has(t.videoId)) {
+                seen.add(t.videoId);
+                merged.push({ ...t, id: t.videoId });
+              }
+            }
+
+            return merged.length > 0 ? merged : prev;
+          });
+        }
+      } catch (err) {
+        console.warn('[DashboardScreen] Dynamic radio load warning:', err);
+      }
+    };
+
+    loadDynamicRadio();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 🔄 Infinite Auto-Append: Called when user swipes within 4 cards of the end
+  const isFetchingMoreRef = useRef(false);
+  const handleLoadMoreTracks = useCallback(async () => {
+    if (isFetchingMoreRef.current) return;
+    isFetchingMoreRef.current = true;
+
+    try {
+      const activeFocal = currentTrack || tracks[tracks.length - 1];
+      if (!activeFocal) return;
+
+      const existingIds = new Set(tracks.map((t) => t.videoId).filter(Boolean) as string[]);
+      const newBatch = await fetchInfiniteRadioNextBatch(activeFocal, existingIds);
+
+      if (newBatch.length > 0) {
+        setTracks((prev) => {
+          const seen = new Set(prev.map((t) => t.videoId));
+          const toAdd: DashboardTrack[] = [];
+          for (const nb of newBatch) {
+            if (nb.videoId && !seen.has(nb.videoId)) {
+              seen.add(nb.videoId);
+              toAdd.push({ ...nb, id: nb.videoId });
+            }
+          }
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+      }
+    } catch (e) {
+      console.warn('[DashboardScreen] Infinite radio load more error:', e);
+    } finally {
+      isFetchingMoreRef.current = false;
+    }
+  }, [tracks, currentTrack]);
 
   useEffect(() => {
     if (currentTrack?.videoId) {
@@ -614,6 +672,7 @@ export const DashboardScreen: React.FC = () => {
         <CoverFlowMusicCarousel
           tracks={tracks}
           onTrackSelect={(selected) => {
+            musicDnaService.recordListeningSignal(selected, 'play');
             if (isPlaying) {
               const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
               playTrack(selected, tracks, idx !== -1 ? idx : 0, 'Dashboard');
@@ -625,6 +684,7 @@ export const DashboardScreen: React.FC = () => {
               });
             }
           }}
+          onLoadMore={handleLoadMoreTracks}
         />
 
         {/* ── 3. Subordinate Workout Feed Beneath the Focal Card ── */}
