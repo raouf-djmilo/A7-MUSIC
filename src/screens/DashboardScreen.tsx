@@ -428,6 +428,8 @@ export const DashboardScreen: React.FC = () => {
 
   // ── Audio Store & State ──
   const currentTrack = useAudioStore((s) => s.currentTrack);
+  const audioQueue = useAudioStore((s) => s.queue);
+  const currentContextName = useAudioStore((s) => s.currentContextName);
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const toggleLike = useAudioStore((s) => s.toggleLike);
@@ -519,7 +521,11 @@ export const DashboardScreen: React.FC = () => {
               toAdd.push({ ...nb, id: nb.videoId });
             }
           }
-          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+          const updated = toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+          if (useAudioStore.getState().currentContextName === 'Dashboard' && toAdd.length > 0) {
+            useAudioStore.setState({ queue: updated, currentQueue: updated });
+          }
+          return updated;
         });
       }
     } catch (e) {
@@ -528,6 +534,20 @@ export const DashboardScreen: React.FC = () => {
       isFetchingMoreRef.current = false;
     }
   }, [tracks, currentTrack]);
+
+  // 🔄 Synchronize audio store queue into Cover Flow cards when in Dashboard context
+  useEffect(() => {
+    if (currentContextName === 'Dashboard' && audioQueue.length > tracks.length) {
+      setTracks((prev) => {
+        const seen = new Set(prev.map((t) => t.videoId));
+        const missing = audioQueue.filter((t) => t.videoId && !seen.has(t.videoId));
+        if (missing.length > 0) {
+          return [...prev, ...missing.map((t) => ({ ...t, id: t.videoId }))];
+        }
+        return prev;
+      });
+    }
+  }, [audioQueue, currentContextName, tracks.length]);
 
   useEffect(() => {
     if (currentTrack?.videoId) {
@@ -667,18 +687,12 @@ export const DashboardScreen: React.FC = () => {
         <CoverFlowMusicCarousel
           tracks={tracks}
           onTrackSelect={(selected) => {
+            const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
+            const resolvedIdx = idx !== -1 ? idx : 0;
             recordUserSignal(selected, 'play');
             musicDnaService.recordListeningSignal(selected, 'play');
-            if (isPlaying) {
-              const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
-              playTrack(selected, tracks, idx !== -1 ? idx : 0, 'Dashboard');
-            } else {
-              useAudioStore.setState({
-                currentTrack: selected,
-                positionMillis: 0,
-                durationMillis: selected.duration || 180000,
-              });
-            }
+            // 🚀 Direct automatic playback on card swipe!
+            playTrack(selected, tracks, resolvedIdx, 'Dashboard');
           }}
           onLoadMore={handleLoadMoreTracks}
         />

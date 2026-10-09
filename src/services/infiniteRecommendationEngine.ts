@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Track } from '../store/useAudioStore';
+import type { Track } from '../store/useAudioStore';
 import { searchYouTubeMusicWithArtist, cleanArtistName } from './youtubeMusicService';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 
@@ -432,3 +432,82 @@ export async function fetchInfiniteRadioNextBatch(
 
   return newTracks;
 }
+
+/**
+ * 🎯 YouTube Music Context-Aware Endless Navigation Engine
+ * Intelligently extends playback based on where the track originated:
+ * - 'Dashboard': Cover Flow dynamic Algerian / Workout vibe radio
+ * - 'artist': Deep dive into artist's catalog and affinity peer artists
+ * - 'Liked Songs' / 'Liked Anthems': Explores user's learned musical DNA
+ * - 'Search' / 'Album' / custom clusters: Seeds dynamic radio from current track
+ */
+export async function fetchContextAwareNextBatch(
+  currentTrack: Track,
+  contextName: string | null,
+  existingIds: Set<string>
+): Promise<Track[]> {
+  if (!currentTrack) return [];
+
+  const artist = cleanArtistName(currentTrack.artist);
+  const title = currentTrack.title || '';
+  const newTracks: Track[] = [];
+
+  try {
+    let queryList: string[] = [];
+
+    if (contextName === 'artist') {
+      // 1. Artist screen context: explore artist catalog & affinity peer circle
+      const artistKey = normalizeKey(artist);
+      const peers = ARTIST_AFFINITY_GRAPH[artistKey] || [];
+      const relatedPeer = peers.length > 0 ? pickRandom(peers) : null;
+
+      queryList = [
+        `${artist} official songs hits`,
+        `${artist} radio mix 2026`,
+        relatedPeer ? `${relatedPeer} top songs official` : `${artist} feat`,
+      ];
+    } else if (contextName === 'Liked Songs' || contextName === 'Liked Anthems') {
+      // 2. Favorites context: explore user's learned taste profile
+      const profile = await getLearnedTasteProfile();
+      const topArtists = profile.topLikedArtists;
+      const topArtist = topArtists.length > 0 ? pickRandom(topArtists) : artist;
+
+      queryList = [
+        `${topArtist} hits official`,
+        `${artist} ${title} radio mix`,
+        pickRandom(VIBE_ROTATING_QUERIES.algerian_rai),
+      ];
+    } else if (contextName === 'Dashboard') {
+      // 3. Home Dashboard Cover Flow: full multi-vector radio
+      return await fetchInfiniteRadioNextBatch(currentTrack, existingIds);
+    } else {
+      // 4. General / Playlist / Search context: seed radio off current song
+      queryList = [
+        `${artist} ${title} radio mix`,
+        `${artist} top hits`,
+        pickRandom(VIBE_ROTATING_QUERIES.workout_energy),
+      ];
+    }
+
+    const selectedQuery = pickRandom(queryList);
+    const res = await searchYouTubeMusicWithArtist(selectedQuery);
+
+    for (const t of res.tracks) {
+      if (!t?.videoId || existingIds.has(t.videoId)) continue;
+      existingIds.add(t.videoId);
+
+      newTracks.push({
+        ...t,
+        thumbnail: getUniversalStudioArtwork(t.thumbnail, t.title, t.artist),
+        artistAvatar: t.artistAvatar || getUniversalArtistAvatar(null, t.artist),
+      });
+
+      if (newTracks.length >= 10) break;
+    }
+  } catch (err) {
+    console.warn('[InfiniteRadio] Context-aware batch fetch error:', err);
+  }
+
+  return newTracks;
+}
+

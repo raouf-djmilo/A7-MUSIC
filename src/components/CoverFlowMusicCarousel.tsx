@@ -258,11 +258,19 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const handleSettle = useCallback(
     (targetInt: number) => {
       if (numTracks === 0) return;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const clamped = Math.max(0, Math.min(numTracks - 1, targetInt));
       setSettledIndex(clamped);
       const targetTrack = tracks[clamped];
-      if (targetTrack && onTrackSelect) {
+      if (!targetTrack) return;
+
+      const isSame = currentTrack?.videoId === targetTrack.videoId;
+      if (isSame && useAudioStore.getState().isPlaying) {
+        // Already playing this exact card, keep playing smoothly without interruption
+        return;
+      }
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (onTrackSelect) {
         onTrackSelect(targetTrack);
       }
       // 🚀 Infinite Streaming: auto-load more tracks when within 4 cards of the end
@@ -270,7 +278,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         onLoadMore();
       }
     },
-    [numTracks, tracks, onTrackSelect, onLoadMore]
+    [numTracks, tracks, currentTrack?.videoId, onTrackSelect, onLoadMore]
   );
 
   // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center!)
@@ -301,13 +309,10 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
             damping: 26,
             stiffness: 280,
             mass: 0.5,
-          },
-          (finished) => {
-            if (finished) {
-              runOnJS(handleSettle)(targetInt);
-            }
           }
         );
+        // 🚀 Instant 0ms Auto-Play on Swipe: trigger immediately upon gesture release!
+        runOnJS(handleSettle)(targetInt);
       });
   }, [handleSettle, numTracks]);
 
@@ -318,17 +323,19 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       const isCenter = currentCameraInt === targetVirtualPos;
 
       if (isCenter) {
-        // Tapped Center Card -> Play or open sheet
+        // Tapped Center Card -> Play if paused, then open full player sheet
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         const centerTrack = tracks[targetVirtualPos];
         if (centerTrack) {
           if (currentTrack?.videoId !== centerTrack?.videoId) {
             playTrack(centerTrack, tracks, targetVirtualPos, 'Dashboard');
+          } else if (!useAudioStore.getState().isPlaying) {
+            useAudioStore.getState().resumeTrack();
           }
           setPlayerModalVisible(true);
         }
       } else {
-        // Tapped Side Card -> Smoothly glide that card into center
+        // Tapped Side Card -> Smoothly glide that card into center and play it directly!
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const clamped = Math.max(0, Math.min(numTracks - 1, targetVirtualPos));
         virtualIndex.value = withSpring(
@@ -337,13 +344,9 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
             damping: 26,
             stiffness: 280,
             mass: 0.5,
-          },
-          (finished) => {
-            if (finished) {
-              runOnJS(handleSettle)(clamped);
-            }
           }
         );
+        handleSettle(clamped);
       }
     },
     [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks]

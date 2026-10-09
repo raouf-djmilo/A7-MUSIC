@@ -17,6 +17,7 @@ import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
 import { nativeAudioService } from '../services/nativeAudioService';
+import { fetchContextAwareNextBatch } from '../services/infiniteRecommendationEngine';
 
 
 export interface Track {
@@ -146,6 +147,36 @@ let fallbackInProgressVideoId: string | null = null;
 export const getLastUserToggleTimestamp = () => lastUserToggleTimestamp;
 export const setLastUserToggleTimestamp = (ts: number = Date.now()) => {
   lastUserToggleTimestamp = ts;
+};
+
+let isExtendingQueueMutex = false;
+
+const extendQueueWithContextRadio = async (get: any, set: any): Promise<boolean> => {
+  if (isExtendingQueueMutex) return false;
+  const state = get();
+  const { currentTrack, queue, currentContextName, isOfflinePlayback } = state;
+  if (isOfflinePlayback || currentContextName === 'Downloads') return false;
+  if (!currentTrack) return false;
+
+  isExtendingQueueMutex = true;
+  try {
+    const existingIds = new Set(queue.map((t: Track) => t.videoId).filter(Boolean) as string[]);
+    const nextBatch = await fetchContextAwareNextBatch(currentTrack, currentContextName, existingIds);
+    if (nextBatch.length > 0) {
+      const currentQ = get().queue;
+      const updatedQueue = [...currentQ, ...nextBatch];
+      set({
+        queue: updatedQueue,
+        currentQueue: updatedQueue,
+      });
+      return true;
+    }
+  } catch (err) {
+    console.warn('[AudioStore] Extend queue error:', err);
+  } finally {
+    isExtendingQueueMutex = false;
+  }
+  return false;
 };
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -396,8 +427,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       resolvedContextName = contextName || (typeof contextQueueOrContextName === 'string' ? contextQueueOrContextName : null);
     }
 
-    // ── 0. Idempotent Play/Pause Guard ──
-    // If clicking the same active track, toggle play/pause directly without reloading
+    // ── 0. Idempotent Play Guard ──
+    // If clicking the same active track, resume if paused, otherwise do not disrupt
     const isSameTrack = Boolean(
       state.currentTrack &&
       ((track.videoId && state.currentTrack.videoId === track.videoId) ||
@@ -405,7 +436,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     );
 
     if (isSameTrack && (!targetQueue.length || targetQueue === state.queue)) {
-      await get().togglePlay();
+      if (!state.isPlaying) {
+        await get().resumeTrack();
+      }
       return;
     }
 
@@ -665,7 +698,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastNavTimestamp = now;
     lastUserToggleTimestamp = now;
 
-    const { queue, currentIndex, isShuffle, shuffledIndices, repeatMode, currentTrack, positionMillis, durationMillis } = get();
+    const { queue, currentIndex, isShuffle, shuffledIndices, repeatMode, currentTrack, positionMillis, durationMillis, currentContextName } = get();
     if (queue.length === 0) return;
 
     // Record skip signal for Music DNA if skipped early (< 25s)
@@ -693,35 +726,53 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         if (repeatMode === 'all') {
           nextIdx = shuffledIndices[0]; // Loop back to start
         } else {
-          // Repeat OFF: gracefully stop at end of queue
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          get().pauseTrack();
-          await get().seekTo(0);
-          return;
+          // Repeat OFF: try extending context radio
+          const extended = await extendQueueWithContextRadio(get, set);
+          const freshQueue = get().queue;
+          if (extended && freshQueue.length > queue.length) {
+            nextIdx = queue.length;
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            get().pauseTrack();
+            await get().seekTo(0);
+            return;
+          }
         }
       }
     } else {
       // 3. Normal Sequential mode
       if (currentIndex < queue.length - 1 && currentIndex >= 0) {
         nextIdx = currentIndex + 1;
+        // 🚀 Proactive YouTube Music Endless Radio: prefetch next batch when 3 or fewer tracks remain
+        if (currentIndex >= queue.length - 3) {
+          extendQueueWithContextRadio(get, set).catch(() => {});
+        }
       } else {
         // End of queue reached
         if (repeatMode === 'all') {
           nextIdx = 0; // Wrap around to start
         } else {
-          // Repeat OFF: gracefully stop at end of queue
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          get().pauseTrack();
-          await get().seekTo(0);
-          return;
+          // 🚀 Context-Aware Queue Auto-Continuation: Extend dynamically based on context (Artist/Liked/Home/Search)
+          const extended = await extendQueueWithContextRadio(get, set);
+          const freshQueue = get().queue;
+          if (extended && freshQueue.length > currentIndex + 1) {
+            nextIdx = currentIndex + 1;
+          } else {
+            // Repeat OFF & truly no more tracks: gracefully stop at end of queue
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            get().pauseTrack();
+            await get().seekTo(0);
+            return;
+          }
         }
       }
     }
 
-    if (nextIdx >= 0 && nextIdx < queue.length) {
+    const activeQueue = get().queue;
+    if (nextIdx >= 0 && nextIdx < activeQueue.length) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       set({ currentIndex: nextIdx });
-      await get().playTrack(queue[nextIdx]);
+      await get().playTrack(activeQueue[nextIdx], activeQueue, nextIdx, currentContextName || undefined);
     }
   },
 
@@ -732,7 +783,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastNavTimestamp = now;
     lastUserToggleTimestamp = now;
 
-    const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices, repeatMode } = get();
+    const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices, repeatMode, currentContextName } = get();
     if (queue.length === 0) return;
     
     // Spotify Standard: If played >3 seconds, restart current track from 0
@@ -780,7 +831,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (prevIdx >= 0 && prevIdx < queue.length) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       set({ currentIndex: prevIdx });
-      await get().playTrack(queue[prevIdx]);
+      await get().playTrack(queue[prevIdx], queue, prevIdx, currentContextName || undefined);
     }
   },
 
