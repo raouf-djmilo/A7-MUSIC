@@ -30,6 +30,8 @@ const Stack = createNativeStackNavigator();
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
 
+const RecordTabPlaceholder = () => null;
+
 // ======================================================
 // Tab Navigator (Apple Liquid Glass - Unified Tabs + Search)
 // ======================================================
@@ -43,6 +45,8 @@ const TabNavigator = () => {
       detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
+        lazy: false,
+        freezeOnBlur: false,
         animation: 'none',
         sceneStyle: {
           backgroundColor: theme.background,
@@ -50,7 +54,7 @@ const TabNavigator = () => {
       }}
     >
       <Tab.Screen name="DashboardTab" component={DashboardScreen} />
-      <Tab.Screen name="RecordTab" component={DashboardScreen} />
+      <Tab.Screen name="RecordTab" component={RecordTabPlaceholder} />
       <Tab.Screen name="MusicTab" component={MusicScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>

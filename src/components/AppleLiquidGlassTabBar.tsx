@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withSpring,
   withTiming,
-  interpolate,
   Easing,
-  type SharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -33,15 +32,11 @@ const PILL_PADDING = 5;
 const PILL_H_MARGIN = 2;
 const STRAVA_ORANGE = '#FC5200';
 
-// 🚀 Silky Apple Liquid Motion Curve (Fast acceleration, buttery smooth deceleration)
-const TRANSITION_DURATION = 230;
-const TRANSITION_EASING = Easing.bezier(0.25, 0.1, 0.25, 1);
-
 interface TabItemProps {
   route: any;
   index: number;
-  activeProgress: SharedValue<number>;
-  onPress: () => void;
+  isActive: boolean;
+  onPressTab: (route: any, index: number) => void;
   label: string;
   outlineIcon: string;
   filledIcon: string;
@@ -90,22 +85,11 @@ const createStyles = (theme: ThemeTokens) =>
       height: TAB_BAR_HEIGHT - PILL_PADDING * 2,
       borderRadius: (TAB_BAR_HEIGHT - PILL_PADDING * 2) / 2,
       backgroundColor:
-        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.12)',
+        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.14)',
       borderWidth: 1,
       borderColor:
-        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.08)',
+        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.10)',
       zIndex: 1,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: theme.mode === 'light' ? 0.04 : 0.10,
-          shadowRadius: 3,
-        },
-        android: {
-          elevation: 1,
-        },
-      }),
     },
     tabsRow: {
       flex: 1,
@@ -126,19 +110,6 @@ const createStyles = (theme: ThemeTokens) =>
       height: '100%',
       justifyContent: 'center',
       alignItems: 'center',
-      position: 'relative',
-    },
-    tabContentLayer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      width: '100%',
-    },
-    tabContentLayerActive: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
     },
     iconWrapper: {
       justifyContent: 'center',
@@ -151,11 +122,12 @@ const createStyles = (theme: ThemeTokens) =>
     },
   });
 
-// ── Liquid Continuous Tab Item (Zero Hard-Cuts, GPU Smooth Cross-Fade) ──
+// ── Ultra-Snappy Native Tab Item (0ms Latency, Zero Worklet Overdraw) ──
 const AnimatedTabItem = React.memo(({
+  route,
   index,
-  activeProgress,
-  onPress,
+  isActive,
+  onPressTab,
   label,
   outlineIcon,
   filledIcon,
@@ -167,73 +139,37 @@ const AnimatedTabItem = React.memo(({
   const inactiveColor =
     theme.mode === 'light' ? 'rgba(17, 24, 39, 0.60)' : 'rgba(255, 255, 255, 0.45)';
 
-  // 🚀 Active layer dissolves in as bubble arrives, with subtle spring expansion
-  const activeAnimatedStyle = useAnimatedStyle(() => {
-    const dist = Math.abs(activeProgress.value - index);
-    const p = Math.max(0, 1 - dist);
-    return {
-      opacity: p,
-      transform: [
-        {
-          scale: interpolate(p, [0, 1], [0.94, 1.04]),
-        },
-      ],
-    };
-  });
-
-  // 🚀 Inactive layer dissolves out as bubble arrives
-  const inactiveAnimatedStyle = useAnimatedStyle(() => {
-    const dist = Math.abs(activeProgress.value - index);
-    const p = Math.max(0, 1 - dist);
-    return {
-      opacity: 1 - p,
-      transform: [
-        {
-          scale: interpolate(p, [0, 1], [1.0, 0.94]),
-        },
-      ],
-    };
-  });
+  const handleItemPress = useCallback(() => {
+    onPressTab(route, index);
+  }, [onPressTab, route, index]);
 
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={onPress}
+      onPress={handleItemPress}
       style={styles.tabButton}
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
     >
       <View style={styles.tabItemInner}>
-        {/* 1. Inactive State (Soft Gray, Dissolves out continuously) */}
-        <Animated.View style={[styles.tabContentLayer, inactiveAnimatedStyle]}>
-          <View style={styles.iconWrapper}>
-            <Ionicons name={outlineIcon as any} size={21} color={inactiveColor} />
-          </View>
-          <Text
-            style={[styles.tabLabel, { color: inactiveColor, fontWeight: '500' }]}
-            numberOfLines={1}
-          >
-            {label}
-          </Text>
-        </Animated.View>
-
-        {/* 2. Active State (Athletic Orange, Dissolves in continuously with Bubble) */}
-        <Animated.View
+        <View style={styles.iconWrapper}>
+          <Ionicons
+            name={(isActive ? filledIcon : outlineIcon) as any}
+            size={21}
+            color={isActive ? activeColor : inactiveColor}
+          />
+        </View>
+        <Text
           style={[
-            styles.tabContentLayer,
-            styles.tabContentLayerActive,
-            activeAnimatedStyle,
+            styles.tabLabel,
+            {
+              color: isActive ? activeColor : inactiveColor,
+              fontWeight: isActive ? '700' : '500',
+            },
           ]}
+          numberOfLines={1}
         >
-          <View style={styles.iconWrapper}>
-            <Ionicons name={filledIcon as any} size={21} color={activeColor} />
-          </View>
-          <Text
-            style={[styles.tabLabel, { color: activeColor, fontWeight: '700' }]}
-            numberOfLines={1}
-          >
-            {label}
-          </Text>
-        </Animated.View>
+          {label}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -254,23 +190,22 @@ export const AppleLiquidGlassTabBar = ({
   const tabWidth = innerWidth / numTabs;
   const indicatorWidth = tabWidth - PILL_H_MARGIN * 2;
 
-  // 🚀 Pure GPU Worklet Values (Bubble Position & Liquid Progress)
+  // 🚀 Pure GPU Worklet Shared Value for Bubble Position
   const indicatorX = useSharedValue(state.index * tabWidth);
-  const activeProgress = useSharedValue(state.index);
   const targetIndexRef = useRef(state.index);
+  const [activeTabIdx, setActiveTabIdx] = useState(state.index);
 
-  // Sync with external state changes gracefully (e.g. initial render or programmatic back)
+  // Sync with external state changes gracefully
   useEffect(() => {
     if (targetIndexRef.current !== state.index) {
       targetIndexRef.current = state.index;
+      setActiveTabIdx(state.index);
       const targetX = state.index * tabWidth;
-      indicatorX.value = withTiming(targetX, {
-        duration: TRANSITION_DURATION,
-        easing: TRANSITION_EASING,
-      });
-      activeProgress.value = withTiming(state.index, {
-        duration: TRANSITION_DURATION,
-        easing: TRANSITION_EASING,
+      indicatorX.value = withSpring(targetX, {
+        damping: 26,
+        stiffness: 320,
+        mass: 0.5,
+        overshootClamping: true,
       });
     }
   }, [state.index, tabWidth]);
@@ -342,7 +277,10 @@ export const AppleLiquidGlassTabBar = ({
     }
   };
 
-  const handlePress = (route: any, index: number) => {
+  const stateIndexRef = useRef(state.index);
+  stateIndexRef.current = state.index;
+
+  const handlePress = useCallback((route: any, index: number) => {
     // 📳 Tactile selection haptics
     Haptics.selectionAsync().catch(() => {});
 
@@ -356,17 +294,17 @@ export const AppleLiquidGlassTabBar = ({
       return;
     }
 
-    if (state.index !== index) {
+    if (stateIndexRef.current !== index) {
       targetIndexRef.current = index;
-      // 🚀 Move bubble and liquid progress simultaneously with 0ms touch latency
+      setActiveTabIdx(index);
+
+      // 🚀 Move bubble with instant native Apple spring physics
       const targetX = index * tabWidth;
-      indicatorX.value = withTiming(targetX, {
-        duration: TRANSITION_DURATION,
-        easing: TRANSITION_EASING,
-      });
-      activeProgress.value = withTiming(index, {
-        duration: TRANSITION_DURATION,
-        easing: TRANSITION_EASING,
+      indicatorX.value = withSpring(targetX, {
+        damping: 26,
+        stiffness: 320,
+        mass: 0.5,
+        overshootClamping: true,
       });
 
       const event = navigation.emit({
@@ -379,7 +317,7 @@ export const AppleLiquidGlassTabBar = ({
         navigation.navigate(route.name);
       }
     }
-  };
+  }, [tabWidth, navigation, indicatorX, tabBarTranslateY, tabBarOpacity]);
 
   return (
     <Animated.View
@@ -420,11 +358,11 @@ export const AppleLiquidGlassTabBar = ({
                 key={route.key}
                 route={route}
                 index={index}
-                activeProgress={activeProgress}
+                isActive={activeTabIdx === index}
                 label={meta.label}
                 outlineIcon={meta.outlineIcon}
                 filledIcon={meta.filledIcon}
-                onPress={() => handlePress(route, index)}
+                onPressTab={handlePress}
               />
             );
           })}
@@ -435,3 +373,4 @@ export const AppleLiquidGlassTabBar = ({
 };
 
 export default AppleLiquidGlassTabBar;
+

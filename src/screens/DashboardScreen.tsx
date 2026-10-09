@@ -372,6 +372,27 @@ const createStyles = (theme: ThemeTokens) =>
     },
   });
 
+// ── Isolated Mini Progress Bar (Prevents full screen re-rendering every 250ms) ──
+const SmartWidgetMiniProgressBar = React.memo(({ styles }: { styles: any }) => {
+  const positionMillis = useAudioStore((s) => s.positionMillis);
+  const durationMillis = useAudioStore((s) => s.durationMillis);
+  const progressPercent =
+    (durationMillis || 0) > 0
+      ? Math.min(100, Math.max(0, (positionMillis / (durationMillis || 180000)) * 100))
+      : 0;
+
+  return (
+    <View style={styles.smartWidgetProgressTrack}>
+      <View
+        style={[
+          styles.smartWidgetProgressFill,
+          { width: `${progressPercent}%` },
+        ]}
+      />
+    </View>
+  );
+});
+
 // ── "Your Vibe" Intelligent Recommendation Engine ──
 const buildYourVibeQueue = (
   activeTrack: Track | null,
@@ -462,8 +483,6 @@ export const DashboardScreen: React.FC = () => {
   // ── Audio Store & State ──
   const currentTrack = useAudioStore((s) => s.currentTrack);
   const isPlaying = useAudioStore((s) => s.isPlaying);
-  const positionMillis = useAudioStore((s) => s.positionMillis);
-  const durationMillis = useAudioStore((s) => s.durationMillis);
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const toggleLike = useAudioStore((s) => s.toggleLike);
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
@@ -492,10 +511,6 @@ export const DashboardScreen: React.FC = () => {
 
   const activeTrack: Track = currentTrack || tracks[0] || CURATED_TRACKS[0];
   const isLiked = activeTrack?.videoId ? likedTrackIds.includes(activeTrack.videoId) : false;
-  const progressPercent =
-    (durationMillis || 0) > 0
-      ? Math.min(100, Math.max(0, (positionMillis / (durationMillis || 180000)) * 100))
-      : 0;
 
   const handlePressPlay = useCallback(
     (track: Track) => {
@@ -690,14 +705,7 @@ export const DashboardScreen: React.FC = () => {
             </View>
 
             {/* Mini Progress Bar */}
-            <View style={styles.smartWidgetProgressTrack}>
-              <View
-                style={[
-                  styles.smartWidgetProgressFill,
-                  { width: `${progressPercent}%` },
-                ]}
-              />
-            </View>
+            <SmartWidgetMiniProgressBar styles={styles} />
           </View>
 
           {/* Fast Controls (Like, Play/Pause, Next) */}
