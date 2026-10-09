@@ -152,7 +152,7 @@ const createStyles = (theme: ThemeTokens) =>
   });
 
 // ── Liquid Continuous Tab Item (Zero Hard-Cuts, GPU Smooth Cross-Fade) ──
-const AnimatedTabItem = ({
+const AnimatedTabItem = React.memo(({
   index,
   activeProgress,
   onPress,
@@ -175,7 +175,7 @@ const AnimatedTabItem = ({
       opacity: p,
       transform: [
         {
-          scale: interpolate(p, [0, 1], [0.94, 1.06]),
+          scale: interpolate(p, [0, 1], [0.94, 1.04]),
         },
       ],
     };
@@ -237,7 +237,7 @@ const AnimatedTabItem = ({
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 export const AppleLiquidGlassTabBar = ({
   state,
@@ -257,11 +257,13 @@ export const AppleLiquidGlassTabBar = ({
   // 🚀 Pure GPU Worklet Values (Bubble Position & Liquid Progress)
   const indicatorX = useSharedValue(state.index * tabWidth);
   const activeProgress = useSharedValue(state.index);
+  const targetIndexRef = useRef(state.index);
 
   // Sync with external state changes gracefully (e.g. initial render or programmatic back)
   useEffect(() => {
-    const targetX = state.index * tabWidth;
-    if (Math.abs(indicatorX.value - targetX) > 1) {
+    if (targetIndexRef.current !== state.index) {
+      targetIndexRef.current = state.index;
+      const targetX = state.index * tabWidth;
       indicatorX.value = withTiming(targetX, {
         duration: TRANSITION_DURATION,
         easing: TRANSITION_EASING,
@@ -355,6 +357,7 @@ export const AppleLiquidGlassTabBar = ({
     }
 
     if (state.index !== index) {
+      targetIndexRef.current = index;
       // 🚀 Move bubble and liquid progress simultaneously with 0ms touch latency
       const targetX = index * tabWidth;
       indicatorX.value = withTiming(targetX, {

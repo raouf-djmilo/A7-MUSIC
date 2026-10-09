@@ -362,6 +362,18 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     }
   }, [activeEngine, isPlaying, isVideoFullscreen, togglePlay]);
 
+  // ── 🛡️ Global Play / Pause Synchronization across all screens (Home, Music, Library, Mini-Bar) ──
+  useEffect(() => {
+    if (activeEngine !== 'youtube') return;
+    const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+    if (!activeRef) return;
+    if (isPlaying) {
+      activeRef.playVideo?.();
+    } else {
+      activeRef.pauseVideo?.();
+    }
+  }, [isPlaying, activeEngine, isVideoFullscreen]);
+
   // ── Unified Next / Prev Handlers (Ensures Video Player restarts at 0) ──
   const handleNextPress = useCallback(async () => {
     if (activeEngine === 'youtube') {
@@ -627,18 +639,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const triggerCollapseHandover = useCallback(() => {
     isSwitchingModeRef.current = true;
     setPlayerModalVisible(false);
+    setTimeout(() => {
+      isSwitchingModeRef.current = false;
+    }, 500);
   }, [setPlayerModalVisible]);
 
   const collapseToMini = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     triggerCollapseHandover();
-    fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
-      if (finished) {
-        setTimeout(() => {
-          isSwitchingModeRef.current = false;
-        }, 400);
-      }
-    });
+    fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
   }, [triggerCollapseHandover, HIDDEN_OFFSET]);
 
   // ── FullPlayer Downward Pan Dismiss Gesture (Full Viewport Coverage) ──
@@ -664,13 +673,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       }
       if (event.translationY > 100 || event.velocityY > 350) {
         runOnJS(triggerCollapseHandover)();
-        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
-          if (finished) {
-            setTimeout(() => {
-              isSwitchingModeRef.current = false;
-            }, 400);
-          }
-        });
+        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
       } else {
         fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished) => {
           if (finished) {
@@ -706,13 +709,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         });
       } else {
         runOnJS(triggerCollapseHandover)();
-        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG, (finished) => {
-          if (finished) {
-            setTimeout(() => {
-              isSwitchingModeRef.current = false;
-            }, 400);
-          }
-        });
+        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
       }
     });
 
@@ -1180,20 +1177,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                 loadingTrackId: null,
                               });
                             } else if (state === 'paused') {
-                              // 🛡️ CRITICAL FIX 1: If user is switching between Video and Music, suppress spurious paused event
-                              if (isSwitchingModeRef.current) {
-                                return;
-                              }
-                              // 🛡️ CRITICAL FIX 2: If app is in background or inactive, NEVER pause the store!
-                              if (AppState.currentState !== 'active') {
-                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-                                activeRef?.playVideo?.();
-                                return;
-                              }
-                              // 🛡️ CRITICAL FIX 3: Suppress unwanted pauses if store is playing or within 5000ms of user action
+                              if (isSwitchingModeRef.current) return;
                               const isStorePlaying = useAudioStore.getState().isPlaying;
-                              const timeSinceToggle = Date.now() - getLastUserToggleTimestamp();
-                              if (isStorePlaying || timeSinceToggle < 5000) {
+                              if (!isStorePlaying) {
+                                // 🛡️ Deliberate user pause: keep paused!
+                                useAudioStore.setState({ isPlaying: false, isLoading: false });
+                                return;
+                              }
+                              // 🛡️ Background audio guard: if app is in background and user wants playing, keep playing!
+                              if (AppState.currentState !== 'active') {
                                 const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
                                 activeRef?.playVideo?.();
                                 return;
@@ -1212,9 +1204,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                             injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
                             injectedJavaScriptBeforeContentLoaded: `
                               (function() {
-                                window._shouldKeepPlaying = true;
-                                window._userWantsPause = false;
-
                                 if (navigator.audioSession) {
                                   try { navigator.audioSession.type = 'playback'; } catch(e) {}
                                 }
@@ -1248,16 +1237,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                 } catch(e) {}
 
                                 try {
-                                  var origPause = HTMLMediaElement.prototype.pause;
-                                  HTMLMediaElement.prototype.pause = function() {
-                                    if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
-                                      return;
-                                    }
-                                    return origPause.call(this);
-                                  };
-                                } catch(e) {}
-
-                                try {
                                   var origPlay = HTMLMediaElement.prototype.play;
                                   HTMLMediaElement.prototype.play = function() {
                                     this.setAttribute('playsinline', 'true');
@@ -1270,9 +1249,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                             `,
                             injectedJavaScript: `
                               (function() {
-                                window._shouldKeepPlaying = true;
-                                window._userWantsPause = false;
-
                                 if (navigator.audioSession) {
                                   try { navigator.audioSession.type = 'playback'; } catch(e) {}
                                 }
@@ -1283,16 +1259,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                   Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
                                 } catch(e) {}
 
-                                try {
-                                  var origPause = HTMLMediaElement.prototype.pause;
-                                  HTMLMediaElement.prototype.pause = function() {
-                                    if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
-                                      return;
-                                    }
-                                    return origPause.call(this);
-                                  };
-                                } catch(e) {}
-
                                 function hookVideos() {
                                   var videos = document.querySelectorAll('video');
                                   for (var i = 0; i < videos.length; i++) {
@@ -1301,51 +1267,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                       v._bgHooked = true;
                                       v.setAttribute('playsinline', 'true');
                                       v.setAttribute('webkit-playsinline', 'true');
-                                      v.addEventListener('pause', function(e) {
-                                        if (window._shouldKeepPlaying && !window._userWantsPause && !v.ended) {
-                                          try {
-                                            var pr = v.play();
-                                            if (pr && typeof pr.catch === 'function') { pr.catch(function() {}); }
-                                          } catch(err) {}
-                                        }
-                                      });
                                     }
                                   }
                                 }
                                 hookVideos();
-                                setInterval(hookVideos, 400);
-
-                                function handleMsg(e) {
-                                  try {
-                                    var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-                                    if (d && d.eventName === 'playVideo') {
-                                      window._shouldKeepPlaying = true;
-                                      window._userWantsPause = false;
-                                      if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
-                                      var videos = document.querySelectorAll('video');
-                                      for (var i = 0; i < videos.length; i++) {
-                                        if (videos[i].paused) {
-                                          try {
-                                            var p = videos[i].play();
-                                            if (p && typeof p.catch === 'function') { p.catch(function() {}); }
-                                          } catch(err) {}
-                                        }
-                                      }
-                                    } else if (d && d.eventName === 'pauseVideo') {
-                                      window._shouldKeepPlaying = false;
-                                      window._userWantsPause = true;
-                                      if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
-                                      var vids = document.querySelectorAll('video');
-                                      for (var j = 0; j < vids.length; j++) {
-                                        try {
-                                          origPause ? origPause.call(vids[j]) : vids[j].pause();
-                                        } catch(err) {}
-                                      }
-                                    }
-                                  } catch(err) {}
-                                }
-                                document.addEventListener('message', handleMsg);
-                                window.addEventListener('message', handleMsg);
+                                setInterval(hookVideos, 500);
                               })();
                               true;
                             `,
@@ -1842,9 +1768,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     start: Math.max(0, Math.floor(useAudioStore.getState().positionMillis / 1000)),
                   }}
                   onChangeState={(state: string) => {
-                    if (isSwitchingModeRef.current) {
-                      return;
-                    }
+                    if (isSwitchingModeRef.current) return;
                     if (state === 'ended') {
                       useAudioStore.getState().handleTrackEnded();
                     } else if (state === 'playing') {
@@ -1855,15 +1779,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       });
                     } else if (state === 'paused') {
                       if (!useAudioStore.getState().isPlayerModalVisible) return;
-                      // 🛡️ CRITICAL FIX 1: If app is in background or inactive, NEVER pause the store!
-                      if (AppState.currentState !== 'active') {
-                        (fullscreenPlayerRef.current as any)?.playVideo?.();
+                      const isStorePlaying = useAudioStore.getState().isPlaying;
+                      if (!isStorePlaying) {
+                        useAudioStore.setState({ isPlaying: false, isLoading: false });
                         return;
                       }
-                      // 🛡️ CRITICAL FIX 2: Suppress unwanted pause if store is playing or within 5000ms of user action
-                      const isStorePlaying = useAudioStore.getState().isPlaying;
-                      const timeSinceToggle = Date.now() - getLastUserToggleTimestamp();
-                      if (isStorePlaying || timeSinceToggle < 5000) {
+                      if (AppState.currentState !== 'active') {
                         (fullscreenPlayerRef.current as any)?.playVideo?.();
                         return;
                       }
@@ -1881,9 +1802,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
                     injectedJavaScriptBeforeContentLoaded: `
                       (function() {
-                        window._shouldKeepPlaying = true;
-                        window._userWantsPause = false;
-
                         if (navigator.audioSession) {
                           try { navigator.audioSession.type = 'playback'; } catch(e) {}
                         }
@@ -1917,16 +1835,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         } catch(e) {}
 
                         try {
-                          var origPause = HTMLMediaElement.prototype.pause;
-                          HTMLMediaElement.prototype.pause = function() {
-                            if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
-                              return;
-                            }
-                            return origPause.call(this);
-                          };
-                        } catch(e) {}
-
-                        try {
                           var origPlay = HTMLMediaElement.prototype.play;
                           HTMLMediaElement.prototype.play = function() {
                             this.setAttribute('playsinline', 'true');
@@ -1939,9 +1847,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     `,
                     injectedJavaScript: `
                       (function() {
-                        window._shouldKeepPlaying = true;
-                        window._userWantsPause = false;
-
                         if (navigator.audioSession) {
                           try { navigator.audioSession.type = 'playback'; } catch(e) {}
                         }
@@ -1952,16 +1857,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                           Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
                         } catch(e) {}
 
-                        try {
-                          var origPause = HTMLMediaElement.prototype.pause;
-                          HTMLMediaElement.prototype.pause = function() {
-                            if (window._shouldKeepPlaying && !window._userWantsPause && !this.ended) {
-                              return;
-                            }
-                            return origPause.call(this);
-                          };
-                        } catch(e) {}
-
                         function hookVideos() {
                           var videos = document.querySelectorAll('video');
                           for (var i = 0; i < videos.length; i++) {
@@ -1970,51 +1865,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                               v._bgHooked = true;
                               v.setAttribute('playsinline', 'true');
                               v.setAttribute('webkit-playsinline', 'true');
-                              v.addEventListener('pause', function(e) {
-                                if (window._shouldKeepPlaying && !window._userWantsPause && !v.ended) {
-                                  try {
-                                    var pr = v.play();
-                                    if (pr && typeof pr.catch === 'function') { pr.catch(function() {}); }
-                                  } catch(err) {}
-                                }
-                              });
                             }
                           }
                         }
                         hookVideos();
-                        setInterval(hookVideos, 400);
-
-                        function handleMsg(e) {
-                          try {
-                            var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-                            if (d && d.eventName === 'playVideo') {
-                              window._shouldKeepPlaying = true;
-                              window._userWantsPause = false;
-                              if (typeof player !== 'undefined' && player && player.playVideo) player.playVideo();
-                              var videos = document.querySelectorAll('video');
-                              for (var i = 0; i < videos.length; i++) {
-                                if (videos[i].paused) {
-                                  try {
-                                    var p = videos[i].play();
-                                    if (p && typeof p.catch === 'function') { p.catch(function() {}); }
-                                  } catch(err) {}
-                                }
-                              }
-                            } else if (d && d.eventName === 'pauseVideo') {
-                              window._shouldKeepPlaying = false;
-                              window._userWantsPause = true;
-                              if (typeof player !== 'undefined' && player && player.pauseVideo) player.pauseVideo();
-                              var vids = document.querySelectorAll('video');
-                              for (var j = 0; j < vids.length; j++) {
-                                try {
-                                  origPause ? origPause.call(vids[j]) : vids[j].pause();
-                                } catch(err) {}
-                              }
-                            }
-                          } catch(err) {}
-                        }
-                        document.addEventListener('message', handleMsg);
-                        window.addEventListener('message', handleMsg);
+                        setInterval(hookVideos, 500);
                       })();
                       true;
                     `,

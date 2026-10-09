@@ -160,7 +160,7 @@ export const MusicScreen = () => {
         )}
         screenOptions={{
           swipeEnabled: true,
-          lazy: false,
+          lazy: true,
         }}
       >
         <Tab.Screen 
