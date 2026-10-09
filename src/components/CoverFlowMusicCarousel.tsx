@@ -47,59 +47,6 @@ const cleanText = (str?: string): string => {
     .trim();
 };
 
-// ── Micro Animated Equalizer Waveform Bars (Matches Images 2 & 3) ──
-const WaveBar = ({ delay, isPlaying }: { delay: number; isPlaying: boolean }) => {
-  const height = useSharedValue(4);
-
-  useEffect(() => {
-    if (isPlaying) {
-      height.value = withRepeat(
-        withSequence(
-          withTiming(11 + Math.random() * 4, { duration: 220 + delay * 40 }),
-          withTiming(3 + Math.random() * 3, { duration: 220 + delay * 40 })
-        ),
-        -1,
-        true
-      );
-    } else {
-      height.value = withTiming(4, { duration: 150 });
-    }
-  }, [isPlaying, delay]);
-
-  const style = useAnimatedStyle(() => ({
-    height: height.value,
-  }));
-
-  return <Animated.View style={[styles.waveBar, style]} />;
-};
-
-const AudioWaveformVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
-  return (
-    <View style={styles.waveContainer}>
-      <WaveBar delay={0} isPlaying={isPlaying} />
-      <WaveBar delay={1} isPlaying={isPlaying} />
-      <WaveBar delay={2} isPlaying={isPlaying} />
-    </View>
-  );
-};
-
-// ── Real-time Mini Progress Underneath Bar (Isolated to Prevent Re-renders) ──
-const CoverFlowMiniPillProgress = React.memo(() => {
-  const positionMillis = useAudioStore((s) => s.positionMillis);
-  const durationMillis = useAudioStore((s) => s.durationMillis);
-
-  const percent =
-    durationMillis > 0
-      ? Math.min(100, Math.max(0, (positionMillis / durationMillis) * 100))
-      : 0;
-
-  return (
-    <View style={styles.pillProgressTrack} pointerEvents="none">
-      <View style={[styles.pillProgressFill, { width: `${percent}%` }]} />
-    </View>
-  );
-});
-
 // ── Individual 3D Perspective Card (Driven by Continuous virtualIndex) ──
 interface CardItemProps {
   track: Track;
@@ -275,14 +222,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
 
   // Audio Store state
   const currentTrack = useAudioStore((s) => s.currentTrack);
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const isShuffle = useAudioStore((s) => s.isShuffle);
-  const repeatMode = useAudioStore((s) => s.repeatMode);
-  const isRepeat = repeatMode !== 'off';
   const playTrack = useAudioStore((s) => s.playTrack);
-  const togglePlay = useAudioStore((s) => s.togglePlay);
-  const toggleShuffle = useAudioStore((s) => s.toggleShuffle);
-  const toggleRepeat = useAudioStore((s) => s.toggleRepeat);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
 
   const numTracks = tracks.length;
@@ -409,54 +349,6 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks]
   );
 
-  const handleNextBtn = useCallback(() => {
-    const current = Math.round(virtualIndex.value);
-    const targetInt = Math.min(numTracks - 1, current + 1);
-    virtualIndex.value = withSpring(
-      targetInt,
-      {
-        damping: 26,
-        stiffness: 280,
-        mass: 0.5,
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(handleSettle)(targetInt);
-        }
-      }
-    );
-  }, [handleSettle, numTracks]);
-
-  const handlePrevBtn = useCallback(() => {
-    const current = Math.round(virtualIndex.value);
-    const targetInt = Math.max(0, current - 1);
-    virtualIndex.value = withSpring(
-      targetInt,
-      {
-        damping: 26,
-        stiffness: 280,
-        mass: 0.5,
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(handleSettle)(targetInt);
-        }
-      }
-    );
-  }, [handleSettle]);
-
-  const activeCenterTrack: Track =
-    tracks[settledIndex] || currentTrack || tracks[0];
-
-  const handleTogglePlay = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    if (currentTrack?.videoId === activeCenterTrack?.videoId) {
-      togglePlay();
-    } else {
-      playTrack(activeCenterTrack, tracks, settledIndex, 'Dashboard');
-    }
-  }, [activeCenterTrack, currentTrack?.videoId, settledIndex, playTrack, togglePlay, tracks]);
-
   // 7 Slots visible: [-3, -2, -1, 0, 1, 2, 3] around settledIndex for zero-flicker wide perspective
   const slots = useMemo(() => [-3, -2, -1, 0, 1, 2, 3], []);
 
@@ -487,6 +379,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       </View>
 
       {/* ── 3D Arc Cover Flow Carousel (5 Cards in 3D Perspective) ── */}
+      {/* ── 3D Arc Cover Flow Carousel (5 Cards in 3D Perspective) ── */}
       <GestureDetector gesture={panGesture}>
         <View style={styles.carouselContainer}>
           {slots.map((offset) => {
@@ -508,176 +401,6 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           })}
         </View>
       </GestureDetector>
-
-      {/* ── Subtitle Context (Matches Image 2 & 3) ── */}
-      <Text style={[styles.vibeSubtitle, { color: theme.textMuted }]}>
-        الموسيقى المختارة لإيقاع تمرينك ونشاطك ⚡
-      </Text>
-
-      {/* ── Unified Wide Frosted Glass Capsule Bar (Exact Match to Images 2 & 3) ── */}
-      <View
-        style={[
-          styles.unifiedPillBar,
-          {
-            borderColor: theme.border,
-            shadowColor: theme.cardShadow.shadowColor,
-          },
-        ]}
-      >
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 75 : 55}
-          tint={theme.blurTint}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View
-          style={[
-            styles.pillTintOverlay,
-            {
-              backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.04)'
-                : 'rgba(0, 0, 0, 0.03)',
-            },
-          ]}
-          pointerEvents="none"
-        />
-
-        {/* 1. Left Cluster: Prev | Play/Pause | Next */}
-        <View style={styles.pillLeftCluster}>
-          <TouchableOpacity
-            style={styles.pillControlBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={handlePrevBtn}
-          >
-            <Ionicons name="play-skip-back" size={17} color={theme.textPrimary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pillPlayBtn}
-            activeOpacity={0.8}
-            onPress={handleTogglePlay}
-          >
-            <Ionicons
-              name={
-                isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
-                  ? 'pause'
-                  : 'play'
-              }
-              size={18}
-              color={theme.textPrimary}
-              style={
-                isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
-                  ? undefined
-                  : { marginLeft: 1.5 }
-              }
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pillControlBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={handleNextBtn}
-          >
-            <Ionicons name="play-skip-forward" size={17} color={theme.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* 2. Center Widget: Rounded Thumb + Meta + Waveform (Clickable to open player) */}
-        <TouchableOpacity
-          style={styles.pillCenterWidget}
-          activeOpacity={0.85}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
-              playTrack(activeCenterTrack, tracks, settledIndex, 'Dashboard');
-            }
-            setPlayerModalVisible(true);
-          }}
-        >
-          <Image
-            source={{ uri: getUniversalStudioArtwork(activeCenterTrack?.thumbnail) }}
-            style={styles.pillCenterThumb}
-            contentFit="cover"
-            priority="high"
-          />
-
-          <View style={styles.pillCenterMeta}>
-            <Text
-              style={[styles.pillCenterArtist, { color: theme.textPrimary }]}
-              numberOfLines={1}
-            >
-              {cleanArtistName(activeCenterTrack?.artist)}
-            </Text>
-            <Text
-              style={[styles.pillCenterTitle, { color: theme.textMuted }]}
-              numberOfLines={1}
-            >
-              {cleanText(activeCenterTrack?.title)}
-            </Text>
-          </View>
-
-          {/* Equalizer Waveform */}
-          <AudioWaveformVisualizer
-            isPlaying={isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId}
-          />
-
-          {/* Mini Real-time Progress Fill Line Underneath Widget */}
-          <CoverFlowMiniPillProgress />
-        </TouchableOpacity>
-
-        {/* 3. Right Cluster: Shuffle | Repeat | Sound */}
-        <View style={styles.pillRightCluster}>
-          <TouchableOpacity
-            style={styles.pillControlBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              toggleShuffle();
-            }}
-          >
-            <Ionicons
-              name="shuffle"
-              size={16}
-              color={isShuffle ? '#FC5200' : theme.textMuted}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pillControlBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              toggleRepeat();
-            }}
-          >
-            <Ionicons
-              name="repeat"
-              size={16}
-              color={isRepeat ? '#FC5200' : theme.textMuted}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pillControlBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setPlayerModalVisible(true);
-            }}
-          >
-            <Ionicons
-              name="volume-medium"
-              size={17}
-              color={theme.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
     </View>
   );
 };
@@ -688,13 +411,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 4,
   },
   ambientGlowContainer: {
     position: 'absolute',
     top: -15,
     width: SCREEN_WIDTH,
-    height: CARD_HEIGHT + 130,
+    height: CARD_HEIGHT + 35,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 0,
@@ -785,125 +508,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     letterSpacing: -0.1,
-  },
-  vibeSubtitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 14,
-    zIndex: 1,
-  },
-  // ── Unified Wide Frosted Glass Capsule Bar (Images 2 & 3) ──
-  unifiedPillBar: {
-    width: Math.min(SCREEN_WIDTH - 28, 380),
-    height: 52,
-    borderRadius: 26,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    zIndex: 3,
-    ...Platform.select({
-      ios: {
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.20,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  pillTintOverlay: {
-    ...StyleSheet.absoluteFill,
-  },
-  pillLeftCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginRight: 6,
-    zIndex: 2,
-  },
-  pillControlBtn: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pillPlayBtn: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pillCenterWidget: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 6,
-    position: 'relative',
-    overflow: 'hidden',
-    zIndex: 2,
-  },
-  pillCenterThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginRight: 6,
-  },
-  pillCenterMeta: {
-    flex: 1,
-    justifyContent: 'center',
-    marginRight: 4,
-  },
-  pillCenterArtist: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  pillCenterTitle: {
-    fontSize: 9.5,
-    fontWeight: '500',
-    letterSpacing: -0.1,
-  },
-  pillProgressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    overflow: 'hidden',
-    zIndex: 3,
-  },
-  pillProgressFill: {
-    height: '100%',
-    backgroundColor: '#FC5200',
-  },
-  pillRightCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 6,
-    zIndex: 2,
-  },
-  waveContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    height: 14,
-    paddingHorizontal: 2,
-  },
-  waveBar: {
-    width: 2,
-    borderRadius: 1,
-    backgroundColor: '#FC5200',
   },
 });
 

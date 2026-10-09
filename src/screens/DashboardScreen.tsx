@@ -25,7 +25,6 @@ import { useAuth } from '../providers/AuthProvider';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
 import { useAudioStore, Track } from '../store/useAudioStore';
-import { CURATED_TRACKS, CuratedTrack } from '../data/curatedMusic';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 import { cleanArtistName } from '../services/youtubeMusicService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
@@ -35,6 +34,7 @@ import {
   fetchInfiniteRadioNextBatch,
   getCachedInfiniteRadio,
   analyzeUserVibe,
+  recordUserSignal,
 } from '../services/infiniteRecommendationEngine';
 import { musicDnaService } from '../services/musicDnaService';
 
@@ -407,12 +407,7 @@ const buildInitialQueue = (
 
   // Add recent history tracks
   if (history && history.length > 0) {
-    history.slice(0, 10).forEach(addTrack);
-  }
-
-  // Graceful initial fallback only if user is brand new with zero history
-  if (result.length === 0) {
-    CURATED_TRACKS.slice(0, 8).forEach(addTrack);
+    history.slice(0, 15).forEach(addTrack);
   }
 
   return result;
@@ -548,7 +543,7 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [currentTrack?.videoId]);
 
-  const activeTrack: Track = currentTrack || tracks[0] || CURATED_TRACKS[0];
+  const activeTrack: Track | undefined = currentTrack || tracks[0];
   const isLiked = activeTrack?.videoId ? likedTrackIds.includes(activeTrack.videoId) : false;
 
   const handlePressPlay = useCallback(
@@ -668,10 +663,11 @@ export const DashboardScreen: React.FC = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective + Frosted Player) ── */}
+        {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective, Zero Clutter) ── */}
         <CoverFlowMusicCarousel
           tracks={tracks}
           onTrackSelect={(selected) => {
+            recordUserSignal(selected, 'play');
             musicDnaService.recordListeningSignal(selected, 'play');
             if (isPlaying) {
               const idx = tracks.findIndex((t) => t.videoId === selected.videoId);

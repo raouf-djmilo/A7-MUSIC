@@ -3,7 +3,8 @@ import { Track } from '../store/useAudioStore';
 import { searchYouTubeMusicWithArtist, cleanArtistName } from './youtubeMusicService';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 
-const CACHE_KEY_INFINITE_RADIO = '@a7_infinite_coverflow_radio_v1';
+const CACHE_KEY_INFINITE_RADIO = '@a7_infinite_coverflow_radio_v2';
+const CACHE_KEY_LEARNED_TASTE = '@a7_user_learned_taste_v2';
 
 export type MusicVibeCategory =
   | 'algerian_rai'
@@ -18,10 +19,36 @@ export interface VibeAnalysisResult {
   primaryArtist: string;
   regionalPreference: 'DZ' | 'GLOBAL';
   seedQuery: string;
+  relatedArtists: string[];
 }
 
-// ── Curated Seed Vectors (Dynamic Live Queries, Not Hardcoded Injected Files!) ──
-// These queries yield 100% fresh, live, real YouTube Music items dynamically
+export interface UserLearnedTasteProfile {
+  artistScores: Record<string, number>;
+  genreScores: Record<MusicVibeCategory, number>;
+  topLikedArtists: string[];
+  totalListens: number;
+  skipsCount: number;
+  lastUpdated: number;
+}
+
+// ── Deep Musical Affinity Graph (Connected Musical Circles) ──
+// Mimics YouTube Music's collaborative vector embeddings
+export const ARTIST_AFFINITY_GRAPH: Record<string, string[]> = {
+  'djalil palermo': ['Soolking', 'Didine Canon 16', 'Mouh Milano', 'Cheb Khaled', 'Cheb Bilal', 'Kader Japonais', 'Bilal Sghir'],
+  'soolking': ['Djalil Palermo', 'Didine Canon 16', 'ElGrandeToto', 'Cheb Khaled', 'Heuss LEnfoire', 'Kendji Girac', 'Alonzo'],
+  'didine canon 16': ['Phobia Isaac', 'Djalil Palermo', 'Soolking', 'ElGrandeToto', 'Inkonnu', 'Draganov', 'Morpheus'],
+  'cheb khaled': ['Cheb Mami', 'Cheb Hasni', 'Cheb Bilal', 'Djalil Palermo', 'Faudel', 'Rachid Taha'],
+  'cheb hasni': ['Cheb Nasro', 'Cheb Khaled', 'Cheb Mami', 'Cheb Bilal', 'Cheb Anouar', 'Cheb Hindi'],
+  'cheb mami': ['Cheb Khaled', 'Cheb Hasni', 'Cheb Bilal', 'Cheb Faudel', 'Cheb Sahraoui'],
+  'cheb bilal': ['Cheb Khaled', 'Cheb Hasni', 'Djalil Palermo', 'Kader Japonais', 'Reda Taliani', 'Cheb Akil'],
+  'mouh milano': ['Djalil Palermo', 'Didine Canon 16', 'Soolking', 'Phobia Isaac', 'Amine Babylone'],
+  'kordhell': ['Interworld', 'DVRST', 'Hensonn', 'PlayaPhonk', 'Ghostface Playa', 'Twisted', 'Dxrk'],
+  'interworld': ['Kordhell', 'DVRST', 'Hensonn', 'Gravechill', 'PlayaPhonk', 'ShadowxFunk'],
+  'the weeknd': ['Travis Scott', 'Drake', 'Post Malone', 'Kendrick Lamar', 'Metro Boomin'],
+  'eminem': ['Dr. Dre', '50 Cent', 'NF', 'Tupac', 'Snoop Dogg'],
+};
+
+// ── Dynamic Live Query Vectors (Zero Hardcoded Injected Track Lists!) ──
 const VIBE_ROTATING_QUERIES: Record<MusicVibeCategory, string[]> = {
   algerian_rai: [
     'Djalil Palermo nouveaux titres officiels',
@@ -31,6 +58,7 @@ const VIBE_ROTATING_QUERIES: Record<MusicVibeCategory, string[]> = {
     'Cheb Mami rai anthems',
     'Cheb Bilal top chansons',
     'Mouh Milano official music',
+    'Rai algerien tendance ambiance',
   ],
   rap_dz: [
     'Didine Canon 16 official hits',
@@ -38,23 +66,27 @@ const VIBE_ROTATING_QUERIES: Record<MusicVibeCategory, string[]> = {
     'Phobia Isaac rap dz workout',
     'ElGrandeToto rap hits',
     'Soolking rap algerien',
+    'Rap DZ drill workout motivation',
   ],
   workout_energy: [
     'Gym Phonk Kordhell Interworld aggressive bass',
     'Workout motivation aggressive drill hits',
     'High energy gym bass boosted 2026',
     'Brazilian phonk workout gym motivation',
+    'Hardstyle workout motivation beats',
   ],
   running_cadence: [
     '160 BPM running cadence cardio workout beats',
     'High cadence 165 bpm running stride music',
     'Marathon cardio workout running motivation',
+    'Electronic cardio running workout 160 bpm',
   ],
   chill_acoustic: [
     'Babylone Zina acoustic rai',
     'Soolking acoustic chill sessions',
     'Algerian acoustic guitar chill vibes',
     'The Weeknd acoustic lofi beats',
+    'Acoustic guitar workout cool down',
   ],
   global_trending: [
     'The Weeknd top official hits',
@@ -68,18 +100,79 @@ function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function shuffleList<T>(array: T[]): T[] {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+function normalizeKey(str?: string): string {
+  if (!str) return '';
+  return str.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
 }
 
 /**
- * 🧠 Analyzes user listening history, liked tracks and current song
- * to identify musical DNA, regional preference and active vibe.
+ * 🎓 Self-Training User Taste Memory Protocol
+ * Learns and adapts continuously based on user engagement signals
+ */
+export async function getLearnedTasteProfile(): Promise<UserLearnedTasteProfile> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY_LEARNED_TASTE);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {
+    console.warn('[InfiniteRadio] Failed to read learned taste:', e);
+  }
+
+  return {
+    artistScores: {},
+    genreScores: {
+      algerian_rai: 5,
+      rap_dz: 3,
+      workout_energy: 3,
+      running_cadence: 2,
+      chill_acoustic: 2,
+      global_trending: 2,
+    },
+    topLikedArtists: [],
+    totalListens: 0,
+    skipsCount: 0,
+    lastUpdated: Date.now(),
+  };
+}
+
+export async function recordUserSignal(
+  track: Track,
+  signal: 'play' | 'complete' | 'like' | 'skip'
+): Promise<void> {
+  if (!track?.artist) return;
+  try {
+    const profile = await getLearnedTasteProfile();
+    const artistKey = cleanArtistName(track.artist).toLowerCase();
+
+    const currentScore = profile.artistScores[artistKey] || 0;
+
+    if (signal === 'play') {
+      profile.artistScores[artistKey] = currentScore + 2;
+      profile.totalListens += 1;
+    } else if (signal === 'complete') {
+      profile.artistScores[artistKey] = currentScore + 5;
+    } else if (signal === 'like') {
+      profile.artistScores[artistKey] = currentScore + 10;
+      if (!profile.topLikedArtists.includes(artistKey)) {
+        profile.topLikedArtists.push(artistKey);
+      }
+    } else if (signal === 'skip') {
+      profile.artistScores[artistKey] = Math.max(0, currentScore - 2);
+      profile.skipsCount += 1;
+    }
+
+    profile.lastUpdated = Date.now();
+    await AsyncStorage.setItem(CACHE_KEY_LEARNED_TASTE, JSON.stringify(profile));
+  } catch (e) {
+    console.warn('[InfiniteRadio] Failed to record user signal:', e);
+  }
+}
+
+/**
+ * 🧠 Analyzes user listening history, learned taste and current song
+ * to identify musical DNA, regional preference, and related artist cluster.
  */
 export function analyzeUserVibe(
   activeTrack?: Track | null,
@@ -87,7 +180,7 @@ export function analyzeUserVibe(
   likedIds: string[] = []
 ): VibeAnalysisResult {
   const recent = [activeTrack, ...history].filter(Boolean) as Track[];
-  const candidatePool = recent.slice(0, 5);
+  const candidatePool = recent.slice(0, 7);
 
   let algerianCount = 0;
   let rapCount = 0;
@@ -111,7 +204,7 @@ export function analyzeUserVibe(
       artist.includes('milano') ||
       title.includes('rai')
     ) {
-      algerianCount += 2;
+      algerianCount += 3;
     }
 
     if (
@@ -121,7 +214,7 @@ export function analyzeUserVibe(
       title.includes('rap dz') ||
       title.includes('drill')
     ) {
-      rapCount += 2;
+      rapCount += 3;
     }
 
     if (
@@ -131,7 +224,7 @@ export function analyzeUserVibe(
       title.includes('bass') ||
       title.includes('gym')
     ) {
-      energyCount += 2;
+      energyCount += 3;
     }
 
     if (
@@ -140,7 +233,7 @@ export function analyzeUserVibe(
       title.includes('run') ||
       title.includes('cadence')
     ) {
-      runningCount += 2;
+      runningCount += 3;
     }
 
     if (
@@ -149,14 +242,14 @@ export function analyzeUserVibe(
       title.includes('zina') ||
       title.includes('lofi')
     ) {
-      chillCount += 2;
+      chillCount += 3;
     }
   }
 
-  // Determine dominant category
+  // Determine dominant category with Algerian regional affinity default
   let vibe: MusicVibeCategory = 'algerian_rai';
   const scores = [
-    { vibe: 'algerian_rai' as MusicVibeCategory, score: algerianCount + 1 }, // default regional affinity
+    { vibe: 'algerian_rai' as MusicVibeCategory, score: algerianCount + 2 },
     { vibe: 'rap_dz' as MusicVibeCategory, score: rapCount },
     { vibe: 'workout_energy' as MusicVibeCategory, score: energyCount },
     { vibe: 'running_cadence' as MusicVibeCategory, score: runningCount },
@@ -164,21 +257,39 @@ export function analyzeUserVibe(
   ];
 
   scores.sort((a, b) => b.score - a.score);
-  vibe = scores[0].vibe;
+  vibe = scores[0].score > 0 ? scores[0].vibe : 'algerian_rai';
 
   const queries = VIBE_ROTATING_QUERIES[vibe] || VIBE_ROTATING_QUERIES.algerian_rai;
-  const seedQuery = leadingArtist ? `${leadingArtist} official mix` : pickRandom(queries);
+  const seedQuery = leadingArtist ? `${leadingArtist} official mix 2026` : pickRandom(queries);
+
+  // Find related artists from the affinity graph
+  const normalizedArtist = normalizeKey(leadingArtist);
+  let related = ARTIST_AFFINITY_GRAPH[normalizedArtist] || [];
+  if (related.length === 0) {
+    // Search partial match in affinity graph
+    for (const [key, list] of Object.entries(ARTIST_AFFINITY_GRAPH)) {
+      if (normalizedArtist.includes(key) || key.includes(normalizedArtist)) {
+        related = list;
+        break;
+      }
+    }
+  }
+
+  if (related.length === 0) {
+    related = ['Soolking', 'Djalil Palermo', 'Didine Canon 16', 'Cheb Khaled', 'Mouh Milano'];
+  }
 
   return {
     vibe,
     primaryArtist: leadingArtist,
     regionalPreference: 'DZ',
     seedQuery,
+    relatedArtists: related,
   };
 }
 
 /**
- * ⚡ Loads initial dynamic recommendations (from cache for 0ms start, then live background refresh)
+ * ⚡ Instant Startup Cache Protocol
  */
 export async function getCachedInfiniteRadio(): Promise<Track[] | null> {
   try {
@@ -197,10 +308,9 @@ export async function getCachedInfiniteRadio(): Promise<Track[] | null> {
 export async function saveCachedInfiniteRadio(tracks: Track[]): Promise<void> {
   try {
     if (!tracks || tracks.length === 0) return;
-    // Cache the first 25 tracks to keep storage light and fast
     await AsyncStorage.setItem(
       CACHE_KEY_INFINITE_RADIO,
-      JSON.stringify(tracks.slice(0, 25))
+      JSON.stringify(tracks.slice(0, 30))
     );
   } catch (e) {
     console.warn('[InfiniteRadio] Failed to write cache:', e);
@@ -208,8 +318,9 @@ export async function saveCachedInfiniteRadio(tracks: Track[]): Promise<void> {
 }
 
 /**
- * 🌟 Dynamic Initial Fetch: Queries YouTube Music for a fresh, live radio batch
- * tailored to user's taste and regional Algerian/Athletic preferences.
+ * 🌟 Dynamic Initial Fetch: Queries YouTube Music live for fresh radio seed
+ * based on user taste, affinity graph and Algerian/Athletic vibes.
+ * ZERO HARDCODED TRACK ARRAYS!
  */
 export async function fetchInitialInfiniteRadio(
   activeTrack?: Track | null,
@@ -226,9 +337,14 @@ export async function fetchInitialInfiniteRadio(
     results.push(activeTrack);
   }
 
-  // 2. Query YouTube Music for the primary artist mix & regional vibe
+  // 2. Build multi-dimensional query vectors (Artist + Related Artists + Regional Pulse)
+  const relatedA = pickRandom(analysis.relatedArtists);
+  const relatedB = pickRandom(analysis.relatedArtists);
+
   const queryList = [
     analysis.seedQuery,
+    `${relatedA} official music`,
+    `${relatedB} hits`,
     pickRandom(VIBE_ROTATING_QUERIES[analysis.vibe]),
     pickRandom(VIBE_ROTATING_QUERIES.algerian_rai),
   ];
@@ -250,15 +366,14 @@ export async function fetchInitialInfiniteRadio(
           artistAvatar: t.artistAvatar || getUniversalArtistAvatar(null, t.artist),
         });
 
-        if (results.length >= 20) break;
+        if (results.length >= 22) break;
       }
-      if (results.length >= 20) break;
+      if (results.length >= 22) break;
     }
   } catch (e) {
     console.warn('[InfiniteRadio] Initial fetch error:', e);
   }
 
-  // Persist discovery
   if (results.length > 0) {
     saveCachedInfiniteRadio(results);
   }
@@ -269,23 +384,29 @@ export async function fetchInitialInfiniteRadio(
 /**
  * 🔄 Infinite Swiping Batch Fetcher:
  * Automatically called when user approaches the end of cards in Cover Flow.
- * Appends 8–12 completely new, non-repeating tracks matching the active vibe.
+ * Appends 8–12 completely new, non-repeating tracks exploring the user's style deeply.
  */
 export async function fetchInfiniteRadioNextBatch(
   activeTrack: Track,
   existingIds: Set<string>,
   vibe?: MusicVibeCategory
 ): Promise<Track[]> {
-  const effectiveVibe = vibe || 'algerian_rai';
-  const artist = cleanArtistName(activeTrack?.artist) || 'Soolking';
+  const analysis = analyzeUserVibe(activeTrack);
+  const effectiveVibe = vibe || analysis.vibe;
+  const artist = cleanArtistName(activeTrack?.artist) || analysis.primaryArtist;
 
-  // Dynamic rotating search vectors for YouTube Music Radio Continuation
+  // Pick related artists from affinity graph to avoid repetitive loops of the same singer
+  const relatedA = pickRandom(analysis.relatedArtists);
+  const relatedB = pickRandom(analysis.relatedArtists);
+
+  // Dynamic rotating search vectors for deep style continuation (YouTube Music Radio Protocol)
   const queryPool = [
-    `${artist} radio mix`,
-    `${artist} similar songs`,
+    `${artist} radio mix 2026`,
+    `${artist} feat`,
+    `${relatedA} official music`,
+    `${relatedB} top tracks`,
     pickRandom(VIBE_ROTATING_QUERIES[effectiveVibe]),
     pickRandom(VIBE_ROTATING_QUERIES.algerian_rai),
-    pickRandom(VIBE_ROTATING_QUERIES.workout_energy),
   ];
 
   const selectedQuery = pickRandom(queryPool);
