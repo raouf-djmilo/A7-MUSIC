@@ -484,7 +484,8 @@ export const DashboardScreen: React.FC = () => {
           ...currentTrack,
           id: currentTrack.videoId,
         };
-        setTracks((prev) => [newTrack, ...prev.filter((t) => t.videoId !== currentTrack.videoId)]);
+        // Append to the end so existing card queue indices are never shifted or scrambled
+        setTracks((prev) => [...prev, newTrack]);
       }
     }
   }, [currentTrack?.videoId]);

@@ -32,7 +32,7 @@ import { cleanArtistName } from '../services/youtubeMusicService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ── Exact Mathematical Geometry for 3D Arc Perspective (Matches Image 2 & 3) ──
+// ── Mathematical Geometry for 3D Arc Perspective (Matches Image 2 & 3) ──
 const CARD_WIDTH = Math.min(Math.round(SCREEN_WIDTH * 0.44), 175);
 const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.22);
 const ARTWORK_HEIGHT = Math.round(CARD_HEIGHT * 0.68);
@@ -100,27 +100,28 @@ const CoverFlowMiniPillProgress = React.memo(() => {
   );
 });
 
-// ── Individual 3D Perspective Card (Exact Match to Images 2 & 3) ──
+// ── Individual 3D Perspective Card (Driven by Continuous virtualIndex) ──
 interface CardItemProps {
   track: Track;
-  slotIndex: number;
-  panX: SharedValue<number>;
+  cardVirtualPos: number;
+  virtualIndex: SharedValue<number>;
   onPress: () => void;
   isCenter: boolean;
 }
 
 const CoverFlowCard = React.memo(({
   track,
-  slotIndex,
-  panX,
+  cardVirtualPos,
+  virtualIndex,
   onPress,
   isCenter,
 }: CardItemProps) => {
   const { theme, isDark } = useTheme();
 
   const animatedStyle = useAnimatedStyle(() => {
-    // 🚀 Natural finger tracking: dragging right (panX > 0) increases p, moving cards to the right
-    const p = slotIndex + panX.value / SPACING;
+    // 🚀 Continuous camera coordinate: p = cardVirtualPos - virtualIndex.value
+    // When virtualIndex == cardVirtualPos, p == 0 (center position)
+    const p = cardVirtualPos - virtualIndex.value;
 
     // Scale curve: 1.0 in center, 0.85 at inner sides, 0.72 at outer edges
     const scale = interpolate(
@@ -130,7 +131,7 @@ const CoverFlowCard = React.memo(({
       'clamp'
     );
 
-    // Horizontal offset: follows finger 1:1 in natural direction
+    // Horizontal offset: follows finger 1:1 in continuous physical coordinates
     const translateX = interpolate(
       p,
       [-2.5, -2, -1, 0, 1, 2, 2.5],
@@ -283,153 +284,169 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
 
   const numTracks = tracks.length;
-  const [currentIndex, setCurrentIndex] = useState(() => {
+
+  // Initial index calibrated once from currentTrack or 0
+  const initialIndex = useMemo(() => {
     if (!currentTrack?.videoId || numTracks === 0) return 0;
     const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
     return found !== -1 ? found : 0;
-  });
+  }, []);
 
-  // Keep currentIndex synchronized with active playing track
+  // 🚀 Continuous Shared Float for Camera Position (Never jumps back to 0!)
+  const virtualIndex = useSharedValue(initialIndex);
+  const dragStartVirtual = useSharedValue(initialIndex);
+  const [settledIndex, setSettledIndex] = useState(initialIndex);
+
+  // Synchronize when currentTrack changes externally (Lock Screen, Mini Player, Bottom Sheet)
   useEffect(() => {
     if (currentTrack?.videoId && numTracks > 0) {
       const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
-      if (found !== -1 && found !== currentIndex) {
-        setCurrentIndex(found);
+      if (found !== -1 && found !== settledIndex) {
+        setSettledIndex(found);
+        virtualIndex.value = withSpring(found, {
+          damping: 26,
+          stiffness: 280,
+          mass: 0.5,
+        });
       }
     }
-  }, [currentTrack?.videoId, numTracks]);
+  }, [currentTrack?.videoId, numTracks, tracks]);
 
-  const activeCenterTrack: Track =
-    tracks[currentIndex] || currentTrack || tracks[0];
-
-  // 🚀 Reanimated Pan Gesture for 120 FPS Natural Touch Response
-  const panX = useSharedValue(0);
-
-  const handleNextTrack = useCallback(() => {
-    if (numTracks === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    panX.value = 0;
-    setCurrentIndex((prev) => {
-      const nextIdx = (prev + 1) % numTracks;
-      const target = tracks[nextIdx];
-      if (target && onTrackSelect) {
-        onTrackSelect(target);
+  // Handle settling at a target integer index
+  const handleSettle = useCallback(
+    (targetInt: number) => {
+      if (numTracks === 0) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const normalized = ((targetInt % numTracks) + numTracks) % numTracks;
+      setSettledIndex(normalized);
+      const targetTrack = tracks[normalized];
+      if (targetTrack && onTrackSelect) {
+        onTrackSelect(targetTrack);
       }
-      return nextIdx;
-    });
-  }, [numTracks, tracks, onTrackSelect]);
+    },
+    [numTracks, tracks, onTrackSelect]
+  );
 
-  const handlePrevTrack = useCallback(() => {
-    if (numTracks === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    panX.value = 0;
-    setCurrentIndex((prev) => {
-      const prevIdx = (prev - 1 + numTracks) % numTracks;
-      const target = tracks[prevIdx];
-      if (target && onTrackSelect) {
-        onTrackSelect(target);
-      }
-      return prevIdx;
-    });
-  }, [numTracks, tracks, onTrackSelect]);
-
+  // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center!)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
-      .activeOffsetX([-10, 10])
+      .activeOffsetX([-8, 8])
+      .onBegin(() => {
+        'worklet';
+        dragStartVirtual.value = virtualIndex.value;
+      })
       .onUpdate((e) => {
         'worklet';
-        // 🚀 Natural finger tracking: cards follow finger 1:1
-        panX.value = e.translationX;
+        // When user drags right (e.translationX > 0), virtualIndex decreases, bringing left card into center
+        // When user drags left (e.translationX < 0), virtualIndex increases, bringing right card into center
+        virtualIndex.value = dragStartVirtual.value - e.translationX / SPACING;
       })
       .onEnd((e) => {
         'worklet';
-        const threshold = SPACING * 0.32;
-        const velocityThreshold = 350;
+        const moveFraction = -e.translationX / SPACING;
+        const velocityContribution = -e.velocityX / 600;
+        const targetFraction = moveFraction + velocityContribution * 0.4;
+        const targetInt = Math.round(dragStartVirtual.value + targetFraction);
 
-        // Swiped Right -> Pulling previous card into center
-        if (e.translationX > threshold || e.velocityX > velocityThreshold) {
-          panX.value = withSpring(SPACING, {
-            damping: 24,
+        virtualIndex.value = withSpring(
+          targetInt,
+          {
+            damping: 26,
             stiffness: 280,
             mass: 0.5,
-          }, (finished) => {
+          },
+          (finished) => {
             if (finished) {
-              runOnJS(handlePrevTrack)();
+              runOnJS(handleSettle)(targetInt);
             }
-          });
-        }
-        // Swiped Left -> Pulling next card into center
-        else if (e.translationX < -threshold || e.velocityX < -velocityThreshold) {
-          panX.value = withSpring(-SPACING, {
-            damping: 24,
-            stiffness: 280,
-            mass: 0.5,
-          }, (finished) => {
-            if (finished) {
-              runOnJS(handleNextTrack)();
-            }
-          });
-        }
-        // Not enough threshold -> snap cleanly back to center
-        else {
-          panX.value = withSpring(0, {
-            damping: 24,
-            stiffness: 300,
-            mass: 0.5,
-          });
-        }
+          }
+        );
       });
-  }, [handleNextTrack, handlePrevTrack]);
+  }, [handleSettle]);
 
-  // Card click triggers
-  const handleCardPress = useCallback(
-    (slotOffset: number) => {
-      if (slotOffset === 0) {
-        // Center card clicked -> Toggle playback or open player sheet
+  // Tap on card: smoothly springs to that card and settles
+  const handleCardTap = useCallback(
+    (targetVirtualPos: number) => {
+      const currentCameraInt = Math.round(virtualIndex.value);
+      const isCenter = currentCameraInt === targetVirtualPos;
+
+      if (isCenter) {
+        // Tapped Center Card -> Play or open sheet
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
-          playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
+        const norm = ((targetVirtualPos % numTracks) + numTracks) % numTracks;
+        const centerTrack = tracks[norm];
+        if (currentTrack?.videoId !== centerTrack?.videoId) {
+          playTrack(centerTrack, tracks, norm, 'Dashboard');
         }
         setPlayerModalVisible(true);
-      } else if (slotOffset > 0) {
-        // Tapped right card -> advance forward smoothly
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        panX.value = withSpring(-SPACING, {
-          damping: 24,
-          stiffness: 280,
-          mass: 0.5,
-        }, (finished) => {
-          if (finished) {
-            runOnJS(handleNextTrack)();
-          }
-        });
       } else {
-        // Tapped left card -> go backward smoothly
+        // Tapped Side Card -> Smoothly glide that card into center
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        panX.value = withSpring(SPACING, {
-          damping: 24,
-          stiffness: 280,
-          mass: 0.5,
-        }, (finished) => {
-          if (finished) {
-            runOnJS(handlePrevTrack)();
+        virtualIndex.value = withSpring(
+          targetVirtualPos,
+          {
+            damping: 26,
+            stiffness: 280,
+            mass: 0.5,
+          },
+          (finished) => {
+            if (finished) {
+              runOnJS(handleSettle)(targetVirtualPos);
+            }
           }
-        });
+        );
       }
     },
-    [activeCenterTrack, currentTrack?.videoId, currentIndex, handleNextTrack, handlePrevTrack, playTrack, setPlayerModalVisible, tracks]
+    [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks]
   );
+
+  const handleNextBtn = useCallback(() => {
+    const targetInt = Math.round(virtualIndex.value) + 1;
+    virtualIndex.value = withSpring(
+      targetInt,
+      {
+        damping: 26,
+        stiffness: 280,
+        mass: 0.5,
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(handleSettle)(targetInt);
+        }
+      }
+    );
+  }, [handleSettle]);
+
+  const handlePrevBtn = useCallback(() => {
+    const targetInt = Math.round(virtualIndex.value) - 1;
+    virtualIndex.value = withSpring(
+      targetInt,
+      {
+        damping: 26,
+        stiffness: 280,
+        mass: 0.5,
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(handleSettle)(targetInt);
+        }
+      }
+    );
+  }, [handleSettle]);
+
+  const activeCenterTrack: Track =
+    tracks[settledIndex] || currentTrack || tracks[0];
 
   const handleTogglePlay = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     if (currentTrack?.videoId === activeCenterTrack?.videoId) {
       togglePlay();
     } else {
-      playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
+      playTrack(activeCenterTrack, tracks, settledIndex, 'Dashboard');
     }
-  }, [activeCenterTrack, currentTrack?.videoId, currentIndex, playTrack, togglePlay, tracks]);
+  }, [activeCenterTrack, currentTrack?.videoId, settledIndex, playTrack, togglePlay, tracks]);
 
-  // 5 Slots visible: [-2, -1, 0, 1, 2]
+  // 5 Slots visible: [-2, -1, 0, 1, 2] around settledIndex
   const slots = useMemo(() => [-2, -1, 0, 1, 2], []);
 
   if (numTracks === 0) return null;
@@ -461,19 +478,20 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       {/* ── 3D Arc Cover Flow Carousel (5 Cards in 3D Perspective) ── */}
       <GestureDetector gesture={panGesture}>
         <View style={styles.carouselContainer}>
-          {slots.map((slot) => {
-            const trackIdx = (currentIndex + slot + numTracks * 1000) % numTracks;
+          {slots.map((offset) => {
+            const cardVirtualPos = settledIndex + offset;
+            const trackIdx = ((cardVirtualPos % numTracks) + numTracks) % numTracks;
             const t = tracks[trackIdx];
             if (!t) return null;
 
             return (
               <CoverFlowCard
-                key={`slot-${slot}-${t.videoId || (t as any).id}`}
+                key={`slot-${cardVirtualPos}-${t.videoId || (t as any).id}`}
                 track={t}
-                slotIndex={slot}
-                panX={panX}
-                isCenter={slot === 0}
-                onPress={() => handleCardPress(slot)}
+                cardVirtualPos={cardVirtualPos}
+                virtualIndex={virtualIndex}
+                isCenter={offset === 0}
+                onPress={() => handleCardTap(cardVirtualPos)}
               />
             );
           })}
@@ -519,7 +537,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
             style={styles.pillControlBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={() => handleCardPress(-1)}
+            onPress={handlePrevBtn}
           >
             <Ionicons name="play-skip-back" size={17} color={theme.textPrimary} />
           </TouchableOpacity>
@@ -549,7 +567,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
             style={styles.pillControlBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            onPress={() => handleCardPress(1)}
+            onPress={handleNextBtn}
           >
             <Ionicons name="play-skip-forward" size={17} color={theme.textPrimary} />
           </TouchableOpacity>
@@ -562,7 +580,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
-              playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
+              playTrack(activeCenterTrack, tracks, settledIndex, 'Dashboard');
             }
             setPlayerModalVisible(true);
           }}
