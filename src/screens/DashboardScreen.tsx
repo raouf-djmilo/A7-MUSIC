@@ -29,6 +29,7 @@ import { CURATED_TRACKS, CuratedTrack } from '../data/curatedMusic';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 import { cleanArtistName } from '../services/youtubeMusicService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { CoverFlowMusicCarousel } from '../components/CoverFlowMusicCarousel';
 
 const { width } = Dimensions.get('window');
 
@@ -372,27 +373,6 @@ const createStyles = (theme: ThemeTokens) =>
     },
   });
 
-// ── Isolated Mini Progress Bar (Prevents full screen re-rendering every 250ms) ──
-const SmartWidgetMiniProgressBar = React.memo(({ styles }: { styles: any }) => {
-  const positionMillis = useAudioStore((s) => s.positionMillis);
-  const durationMillis = useAudioStore((s) => s.durationMillis);
-  const progressPercent =
-    (durationMillis || 0) > 0
-      ? Math.min(100, Math.max(0, (positionMillis / (durationMillis || 180000)) * 100))
-      : 0;
-
-  return (
-    <View style={styles.smartWidgetProgressTrack}>
-      <View
-        style={[
-          styles.smartWidgetProgressFill,
-          { width: `${progressPercent}%` },
-        ]}
-      />
-    </View>
-  );
-});
-
 // ── "Your Vibe" Intelligent Recommendation Engine ──
 const buildYourVibeQueue = (
   activeTrack: Track | null,
@@ -629,136 +609,22 @@ export const DashboardScreen: React.FC = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* ── 2. Compact Smart Music Widget (~110px) ── */}
-        <TouchableOpacity
-          activeOpacity={0.92}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (currentTrack?.videoId !== activeTrack.videoId) {
-              if (isPlaying) {
-                playTrack(activeTrack, tracks, 0, 'Dashboard');
-              } else {
-                useAudioStore.setState({
-                  currentTrack: activeTrack,
-                  positionMillis: 0,
-                  durationMillis: activeTrack.duration || 180000,
-                });
-              }
+        {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective + Frosted Player) ── */}
+        <CoverFlowMusicCarousel
+          tracks={tracks}
+          onTrackSelect={(selected) => {
+            if (isPlaying) {
+              const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
+              playTrack(selected, tracks, idx !== -1 ? idx : 0, 'Dashboard');
+            } else {
+              useAudioStore.setState({
+                currentTrack: selected,
+                positionMillis: 0,
+                durationMillis: selected.duration || 180000,
+              });
             }
-            setPlayerModalVisible(true);
           }}
-          style={styles.smartWidgetContainer}
-        >
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 45 : 40}
-            tint={theme.blurTint}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-
-          {/* 82x82 Square Studio Artwork (contentFit="cover" without black bars) */}
-          <View style={styles.smartWidgetArtworkWrap}>
-            <Image
-              source={{ uri: getUniversalStudioArtwork(activeTrack?.thumbnail) }}
-              style={styles.smartWidgetArtwork}
-              contentFit="cover"
-              priority="high"
-              cachePolicy="memory-disk"
-              transition={120}
-            />
-            {isPlaying && (
-              <View style={styles.smartWidgetPlayBadge}>
-                <Ionicons name="musical-notes" size={11} color="#1DB954" />
-              </View>
-            )}
-          </View>
-
-          {/* Center Info with Verification Badge & Mini Progress Bar */}
-          <View style={styles.smartWidgetInfo}>
-            <View style={styles.smartWidgetBadgeRow}>
-              <Text
-                style={[
-                  styles.smartWidgetTag,
-                  { color: isPlaying ? '#1DB954' : theme.textMuted },
-                ]}
-              >
-                {isPlaying ? 'NOW PLAYING' : 'RECOMMENDED CADENCE'}
-              </Text>
-            </View>
-
-            <Text style={styles.smartWidgetTitle} numberOfLines={1}>
-              {cleanText(activeTrack?.title)}
-            </Text>
-
-            <View style={styles.smartWidgetArtistRow}>
-              <Text style={styles.smartWidgetArtist} numberOfLines={1}>
-                {cleanArtistName(activeTrack?.artist)}
-              </Text>
-              {activeTrack?.isOfficial && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={12}
-                  color="#458eff"
-                  style={{ marginLeft: 3 }}
-                />
-              )}
-            </View>
-
-            {/* Mini Progress Bar */}
-            <SmartWidgetMiniProgressBar styles={styles} />
-          </View>
-
-          {/* Fast Controls (Like, Play/Pause, Next) */}
-          <View style={styles.smartWidgetControls}>
-            <TouchableOpacity
-              style={styles.smartWidgetControlBtn}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-              onPress={(e) => {
-                e.stopPropagation();
-                handlePressLike(activeTrack);
-              }}
-            >
-              <Ionicons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isLiked ? '#E91E63' : theme.textMuted}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.smartWidgetPlayBtn}
-              activeOpacity={0.8}
-              onPress={(e) => {
-                e.stopPropagation();
-                handlePressPlay(activeTrack);
-              }}
-            >
-              <Ionicons
-                name={isPlaying ? 'pause' : 'play'}
-                size={18}
-                color="#000"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.smartWidgetControlBtn}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-              onPress={(e) => {
-                e.stopPropagation();
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                nextTrack();
-              }}
-            >
-              <Ionicons
-                name="play-skip-forward"
-                size={20}
-                color={theme.textPrimary}
-              />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+        />
 
         {/* ── 3. Subordinate Workout Feed Beneath the Focal Card ── */}
         {latestActivity && (
