@@ -32,10 +32,13 @@ import { cleanArtistName } from '../services/youtubeMusicService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ── Mathematical Geometry for 3D Arc Perspective (Matches Spotify/Apple Cover Flow) ──
-const CARD_WIDTH = Math.min(Math.round(SCREEN_WIDTH * 0.54), 220);
-const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.34);
-const SPACING = Math.round(CARD_WIDTH * 0.38);
+// ── Exact Mathematical Geometry for 3D Arc Perspective (Matches Image 2 & 3) ──
+const CARD_WIDTH = Math.min(Math.round(SCREEN_WIDTH * 0.44), 175);
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.22);
+const ARTWORK_HEIGHT = Math.round(CARD_HEIGHT * 0.68);
+const FOOTER_HEIGHT = CARD_HEIGHT - ARTWORK_HEIGHT;
+// SPACING is calibrated so >55% of side cards remain clearly visible with no clutter
+const SPACING = Math.round(CARD_WIDTH * 0.58);
 
 const cleanText = (str?: string): string => {
   if (!str) return '';
@@ -44,30 +47,22 @@ const cleanText = (str?: string): string => {
     .trim();
 };
 
-const formatTime = (ms: number): string => {
-  if (!ms || isNaN(ms) || ms < 0) return '0:00';
-  const totalSec = Math.floor(ms / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-};
-
-// ── Micro Animated Waveform Equalizer (Image 1 Style) ──
+// ── Micro Animated Equalizer Waveform Bars (Matches Images 2 & 3) ──
 const WaveBar = ({ delay, isPlaying }: { delay: number; isPlaying: boolean }) => {
-  const height = useSharedValue(5);
+  const height = useSharedValue(4);
 
   useEffect(() => {
     if (isPlaying) {
       height.value = withRepeat(
         withSequence(
-          withTiming(12 + Math.random() * 5, { duration: 240 + delay * 50 }),
-          withTiming(4 + Math.random() * 3, { duration: 240 + delay * 50 })
+          withTiming(11 + Math.random() * 4, { duration: 220 + delay * 40 }),
+          withTiming(3 + Math.random() * 3, { duration: 220 + delay * 40 })
         ),
         -1,
         true
       );
     } else {
-      height.value = withTiming(5, { duration: 180 });
+      height.value = withTiming(4, { duration: 150 });
     }
   }, [isPlaying, delay]);
 
@@ -84,12 +79,11 @@ const AudioWaveformVisualizer = ({ isPlaying }: { isPlaying: boolean }) => {
       <WaveBar delay={0} isPlaying={isPlaying} />
       <WaveBar delay={1} isPlaying={isPlaying} />
       <WaveBar delay={2} isPlaying={isPlaying} />
-      <WaveBar delay={3} isPlaying={isPlaying} />
     </View>
   );
 };
 
-// ── Isolated Real-time Progress Bar & Time Display (Prevents Re-renders) ──
+// ── Real-time Mini Progress Underneath Bar (Isolated to Prevent Re-renders) ──
 const CoverFlowMiniPillProgress = React.memo(() => {
   const positionMillis = useAudioStore((s) => s.positionMillis);
   const durationMillis = useAudioStore((s) => s.durationMillis);
@@ -106,21 +100,7 @@ const CoverFlowMiniPillProgress = React.memo(() => {
   );
 });
 
-const CoverFlowTimeDisplay = React.memo(() => {
-  const positionMillis = useAudioStore((s) => s.positionMillis);
-  const durationMillis = useAudioStore((s) => s.durationMillis);
-
-  const posText = formatTime(positionMillis);
-  const durText = formatTime(durationMillis || 180000);
-
-  return (
-    <Text style={styles.pillTimeText}>
-      {posText} / {durText}
-    </Text>
-  );
-});
-
-// ── Individual 3D Perspective Card (Slots -2, -1, 0, 1, 2) ──
+// ── Individual 3D Perspective Card (Exact Match to Images 2 & 3) ──
 interface CardItemProps {
   track: Track;
   slotIndex: number;
@@ -136,50 +116,60 @@ const CoverFlowCard = React.memo(({
   onPress,
   isCenter,
 }: CardItemProps) => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const animatedStyle = useAnimatedStyle(() => {
-    // Relative position offset (-2.0 to +2.0)
-    const p = slotIndex - panX.value / CARD_WIDTH;
+    // 🚀 Natural finger tracking: dragging right (panX > 0) increases p, moving cards to the right
+    const p = slotIndex + panX.value / SPACING;
 
-    // Scale curve: 1.0 at center, 0.83 at inner sides, 0.68 at outer edges
+    // Scale curve: 1.0 in center, 0.85 at inner sides, 0.72 at outer edges
     const scale = interpolate(
       p,
       [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [0.62, 0.70, 0.84, 1.0, 0.84, 0.70, 0.62],
+      [0.64, 0.72, 0.85, 1.0, 0.85, 0.72, 0.64],
       'clamp'
     );
 
-    // Horizontal arc offset
+    // Horizontal offset: follows finger 1:1 in natural direction
     const translateX = interpolate(
       p,
       [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [-SPACING * 2.1, -SPACING * 1.82, -SPACING, 0, SPACING, SPACING * 1.82, SPACING * 2.1],
+      [-SPACING * 2.1, -SPACING * 1.85, -SPACING, 0, SPACING, SPACING * 1.85, SPACING * 2.1],
       'clamp'
     );
 
-    // 3D Rotation: positive on left (tilts rightwards), negative on right (tilts leftwards)
+    // Vertical U-shaped Arc curve (Center is highest, sides dip gently)
+    const translateY = interpolate(
+      Math.abs(p),
+      [0, 1, 2, 2.5],
+      [0, 8, 18, 22],
+      'clamp'
+    );
+
+    // 3D Perspective Rotation:
+    // Left cards (p < 0) face inward to the right (positive rotation)
+    // Right cards (p > 0) face inward to the left (negative rotation)
     const rotateYDeg = interpolate(
       p,
       [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [38, 32, 20, 0, -20, -32, -38],
+      [30, 24, 15, 0, -15, -24, -30],
       'clamp'
     );
 
-    // Smooth continuous opacity cross-fade
+    // Smooth continuous opacity
     const opacity = interpolate(
       p,
-      [-3, -2.2, -2, -1, 0, 1, 2, 2.2, 3],
-      [0, 0.22, 0.46, 0.80, 1.0, 0.80, 0.46, 0.22, 0],
+      [-3, -2.3, -2, -1, 0, 1, 2, 2.3, 3],
+      [0, 0.35, 0.65, 0.88, 1.0, 0.88, 0.65, 0.35, 0],
       'clamp'
     );
 
-    // Z-Index: Center is top, then inner sides, then outer
+    // Z-Index: Center is 10, inner sides are 5, outer edges are 2
     const zIndex = Math.round(
       interpolate(
         Math.abs(p),
-        [0, 1, 2, 3],
-        [10, 5, 2, 0],
+        [0, 0.6, 1, 1.6, 2, 3],
+        [10, 8, 5, 3, 2, 0],
         'clamp'
       )
     );
@@ -188,6 +178,7 @@ const CoverFlowCard = React.memo(({
       transform: [
         { perspective: 900 },
         { translateX },
+        { translateY },
         { scale },
         { rotateY: `${rotateYDeg}deg` },
       ],
@@ -203,38 +194,64 @@ const CoverFlowCard = React.memo(({
         onPress={onPress}
         style={styles.cardTouchable}
       >
-        <View style={styles.cardInner}>
-          {/* Universal High Resolution Studio Artwork */}
-          <Image
-            source={{ uri: getUniversalStudioArtwork(track?.thumbnail) }}
-            style={styles.cardImage}
-            contentFit="cover"
-            priority={isCenter ? 'high' : 'normal'}
-            cachePolicy="memory-disk"
-          />
+        <View
+          style={[
+            styles.cardContainer,
+            {
+              borderColor: isCenter
+                ? (isDark ? 'rgba(255, 255, 255, 0.36)' : 'rgba(0, 0, 0, 0.16)')
+                : (isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)'),
+              shadowOpacity: isCenter ? 0.38 : 0.18,
+            },
+          ]}
+        >
+          {/* Top Square Artwork */}
+          <View style={styles.cardArtworkWrap}>
+            <Image
+              source={{ uri: getUniversalStudioArtwork(track?.thumbnail) }}
+              style={styles.cardArtwork}
+              contentFit="cover"
+              priority={isCenter ? 'high' : 'normal'}
+              cachePolicy="memory-disk"
+            />
+            {/* Subtle Gradient Veil */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.22)']}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          </View>
 
-          {/* Delicate Frosted Specular Border */}
-          <View style={styles.cardGlassBorder} pointerEvents="none" />
-
-          {/* Deep Legibility Gradient Scrim */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.88)']}
-            style={styles.cardGradient}
-            pointerEvents="none"
+          {/* Bottom Distinct Frosted Card Footer (Matches Image 2 & 3) */}
+          <View
+            style={[
+              styles.cardFooter,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(28, 28, 38, 0.94)'
+                  : 'rgba(244, 244, 248, 0.96)',
+                borderTopColor: isDark
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : 'rgba(0, 0, 0, 0.05)',
+              },
+            ]}
           >
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {cleanText(track?.title)}
-            </Text>
-            <Text style={styles.cardArtist} numberOfLines={1}>
+            {/* Artist Name */}
+            <Text
+              style={[styles.cardArtist, { color: theme.textPrimary }]}
+              numberOfLines={1}
+            >
               {cleanArtistName(track?.artist)}
             </Text>
 
-            {/* Spotify / A7 Music Logo Badge */}
-            <View style={styles.cardBrandBadge}>
-              <Ionicons name="musical-notes" size={11} color="#FC5200" />
-              <Text style={styles.cardBrandText}>A7 MUSIC</Text>
-            </View>
-          </LinearGradient>
+            {/* Song Title */}
+            <Text
+              style={[styles.cardTitle, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {cleanText(track?.title)}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -272,7 +289,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     return found !== -1 ? found : 0;
   });
 
-  // Keep currentIndex synchronized with currentTrack changes
+  // Keep currentIndex synchronized with active playing track
   useEffect(() => {
     if (currentTrack?.videoId && numTracks > 0) {
       const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
@@ -285,7 +302,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const activeCenterTrack: Track =
     tracks[currentIndex] || currentTrack || tracks[0];
 
-  // 🚀 Reanimated Pan Gesture for 60/120 FPS Native Dragging
+  // 🚀 Reanimated Pan Gesture for 120 FPS Natural Touch Response
   const panX = useSharedValue(0);
 
   const handleNextTrack = useCallback(() => {
@@ -321,27 +338,17 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       .activeOffsetX([-10, 10])
       .onUpdate((e) => {
         'worklet';
+        // 🚀 Natural finger tracking: cards follow finger 1:1
         panX.value = e.translationX;
       })
       .onEnd((e) => {
         'worklet';
-        const threshold = CARD_WIDTH * 0.28;
-        const velocityThreshold = 420;
+        const threshold = SPACING * 0.32;
+        const velocityThreshold = 350;
 
-        if (e.translationX < -threshold || e.velocityX < -velocityThreshold) {
-          // Swiped Left -> Advance to next track
-          panX.value = withSpring(-CARD_WIDTH, {
-            damping: 24,
-            stiffness: 280,
-            mass: 0.5,
-          }, (finished) => {
-            if (finished) {
-              runOnJS(handleNextTrack)();
-            }
-          });
-        } else if (e.translationX > threshold || e.velocityX > velocityThreshold) {
-          // Swiped Right -> Go back to prev track
-          panX.value = withSpring(CARD_WIDTH, {
+        // Swiped Right -> Pulling previous card into center
+        if (e.translationX > threshold || e.velocityX > velocityThreshold) {
+          panX.value = withSpring(SPACING, {
             damping: 24,
             stiffness: 280,
             mass: 0.5,
@@ -350,8 +357,21 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
               runOnJS(handlePrevTrack)();
             }
           });
-        } else {
-          // Snap back to center
+        }
+        // Swiped Left -> Pulling next card into center
+        else if (e.translationX < -threshold || e.velocityX < -velocityThreshold) {
+          panX.value = withSpring(-SPACING, {
+            damping: 24,
+            stiffness: 280,
+            mass: 0.5,
+          }, (finished) => {
+            if (finished) {
+              runOnJS(handleNextTrack)();
+            }
+          });
+        }
+        // Not enough threshold -> snap cleanly back to center
+        else {
           panX.value = withSpring(0, {
             damping: 24,
             stiffness: 300,
@@ -365,16 +385,16 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const handleCardPress = useCallback(
     (slotOffset: number) => {
       if (slotOffset === 0) {
-        // Center card clicked -> Play and open player sheet
+        // Center card clicked -> Toggle playback or open player sheet
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
           playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
         }
         setPlayerModalVisible(true);
       } else if (slotOffset > 0) {
-        // Tapped right card -> animate smoothly forward
+        // Tapped right card -> advance forward smoothly
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        panX.value = withSpring(-CARD_WIDTH, {
+        panX.value = withSpring(-SPACING, {
           damping: 24,
           stiffness: 280,
           mass: 0.5,
@@ -384,9 +404,9 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           }
         });
       } else {
-        // Tapped left card -> animate smoothly backward
+        // Tapped left card -> go backward smoothly
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        panX.value = withSpring(CARD_WIDTH, {
+        panX.value = withSpring(SPACING, {
           damping: 24,
           stiffness: 280,
           mass: 0.5,
@@ -400,6 +420,15 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     [activeCenterTrack, currentTrack?.videoId, currentIndex, handleNextTrack, handlePrevTrack, playTrack, setPlayerModalVisible, tracks]
   );
 
+  const handleTogglePlay = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (currentTrack?.videoId === activeCenterTrack?.videoId) {
+      togglePlay();
+    } else {
+      playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
+    }
+  }, [activeCenterTrack, currentTrack?.videoId, currentIndex, playTrack, togglePlay, tracks]);
+
   // 5 Slots visible: [-2, -1, 0, 1, 2]
   const slots = useMemo(() => [-2, -1, 0, 1, 2], []);
 
@@ -411,21 +440,21 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       <View style={styles.ambientGlowContainer} pointerEvents="none">
         <LinearGradient
           colors={[
-            isDark ? 'rgba(252, 82, 0, 0.16)' : 'rgba(252, 82, 0, 0.10)',
-            isDark ? 'rgba(28, 44, 94, 0.22)' : 'rgba(120, 150, 220, 0.08)',
+            isDark ? 'rgba(252, 82, 0, 0.14)' : 'rgba(252, 82, 0, 0.08)',
+            isDark ? 'rgba(28, 44, 94, 0.20)' : 'rgba(120, 150, 220, 0.07)',
             'transparent',
           ]}
           style={styles.ambientGlow}
-          start={{ x: 0.5, y: 0.2 }}
+          start={{ x: 0.5, y: 0.15 }}
           end={{ x: 0.5, y: 1 }}
         />
       </View>
 
-      {/* ── Minimalist Top Branding ── */}
+      {/* ── Top Emblem & Title (Matches Spotify/A7 Music) ── */}
       <View style={styles.topBrandRow}>
-        <Ionicons name="sparkles" size={13} color="#FC5200" />
+        <Ionicons name="musical-notes" size={14} color="#FC5200" />
         <Text style={[styles.topBrandText, { color: theme.textSecondary }]}>
-          A7 AUDIO FLOW
+          A7 MUSIC
         </Text>
       </View>
 
@@ -451,25 +480,23 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         </View>
       </GestureDetector>
 
-      {/* ── Subtitle Context (Matches Image 2) ── */}
+      {/* ── Subtitle Context (Matches Image 2 & 3) ── */}
       <Text style={[styles.vibeSubtitle, { color: theme.textMuted }]}>
-        اسحب يميناً أو يساراً للتنقل بين المقاطع بانسيابية ⚡
+        الموسيقى المختارة لإيقاع تمرينك ونشاطك ⚡
       </Text>
 
-      {/* ── Floating Frosted Glass Capsule (Matches Image 1) ── */}
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
-            playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
-          }
-          setPlayerModalVisible(true);
-        }}
-        style={[styles.glassPillContainer, { borderColor: theme.border }]}
+      {/* ── Unified Wide Frosted Glass Capsule Bar (Exact Match to Images 2 & 3) ── */}
+      <View
+        style={[
+          styles.unifiedPillBar,
+          {
+            borderColor: theme.border,
+            shadowColor: theme.cardShadow.shadowColor,
+          },
+        ]}
       >
         <BlurView
-          intensity={Platform.OS === 'ios' ? 65 : 45}
+          intensity={Platform.OS === 'ios' ? 75 : 55}
           tint={theme.blurTint}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
@@ -478,149 +505,149 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
           style={[
             styles.pillTintOverlay,
             {
-              backgroundColor:
-                isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.04)'
+                : 'rgba(0, 0, 0, 0.03)',
             },
           ]}
           pointerEvents="none"
         />
 
-        {/* Real-time Top Progress Bar */}
-        <CoverFlowMiniPillProgress />
+        {/* 1. Left Cluster: Prev | Play/Pause | Next */}
+        <View style={styles.pillLeftCluster}>
+          <TouchableOpacity
+            style={styles.pillControlBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={() => handleCardPress(-1)}
+          >
+            <Ionicons name="play-skip-back" size={17} color={theme.textPrimary} />
+          </TouchableOpacity>
 
-        {/* Capsule Inner Content Row */}
-        <View style={styles.pillContentRow}>
-          {/* Mini Album Thumbnail */}
+          <TouchableOpacity
+            style={styles.pillPlayBtn}
+            activeOpacity={0.8}
+            onPress={handleTogglePlay}
+          >
+            <Ionicons
+              name={
+                isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
+                  ? 'pause'
+                  : 'play'
+              }
+              size={18}
+              color={theme.textPrimary}
+              style={
+                isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
+                  ? undefined
+                  : { marginLeft: 1.5 }
+              }
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.pillControlBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={() => handleCardPress(1)}
+          >
+            <Ionicons name="play-skip-forward" size={17} color={theme.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* 2. Center Widget: Rounded Thumb + Meta + Waveform (Clickable to open player) */}
+        <TouchableOpacity
+          style={styles.pillCenterWidget}
+          activeOpacity={0.85}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (currentTrack?.videoId !== activeCenterTrack?.videoId) {
+              playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
+            }
+            setPlayerModalVisible(true);
+          }}
+        >
           <Image
             source={{ uri: getUniversalStudioArtwork(activeCenterTrack?.thumbnail) }}
-            style={styles.pillArtwork}
+            style={styles.pillCenterThumb}
             contentFit="cover"
             priority="high"
-            cachePolicy="memory-disk"
           />
 
-          {/* Title & Artist */}
-          <View style={styles.pillInfoCol}>
+          <View style={styles.pillCenterMeta}>
             <Text
-              style={[styles.pillTitle, { color: theme.textPrimary }]}
-              numberOfLines={1}
-            >
-              {cleanText(activeCenterTrack?.title)}
-            </Text>
-            <Text
-              style={[styles.pillArtist, { color: theme.textSecondary }]}
+              style={[styles.pillCenterArtist, { color: theme.textPrimary }]}
               numberOfLines={1}
             >
               {cleanArtistName(activeCenterTrack?.artist)}
             </Text>
+            <Text
+              style={[styles.pillCenterTitle, { color: theme.textMuted }]}
+              numberOfLines={1}
+            >
+              {cleanText(activeCenterTrack?.title)}
+            </Text>
           </View>
 
-          {/* Micro Equalizer Waveform */}
-          <AudioWaveformVisualizer isPlaying={isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId} />
+          {/* Equalizer Waveform */}
+          <AudioWaveformVisualizer
+            isPlaying={isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId}
+          />
 
-          {/* Real-time Timestamp */}
-          <CoverFlowTimeDisplay />
+          {/* Mini Real-time Progress Fill Line Underneath Widget */}
+          <CoverFlowMiniPillProgress />
+        </TouchableOpacity>
+
+        {/* 3. Right Cluster: Shuffle | Repeat | Sound */}
+        <View style={styles.pillRightCluster}>
+          <TouchableOpacity
+            style={styles.pillControlBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleShuffle();
+            }}
+          >
+            <Ionicons
+              name="shuffle"
+              size={16}
+              color={isShuffle ? '#FC5200' : theme.textMuted}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.pillControlBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleRepeat();
+            }}
+          >
+            <Ionicons
+              name="repeat"
+              size={16}
+              color={isRepeat ? '#FC5200' : theme.textMuted}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.pillControlBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPlayerModalVisible(true);
+            }}
+          >
+            <Ionicons
+              name="volume-medium"
+              size={17}
+              color={theme.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-
-      {/* ── Precision Control Bar (Shuffle, Prev, Big Play, Next, Repeat) ── */}
-      <View style={styles.controlsRow}>
-        {/* Shuffle */}
-        <TouchableOpacity
-          style={styles.controlIconBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            toggleShuffle();
-          }}
-        >
-          <Ionicons
-            name="shuffle"
-            size={20}
-            color={isShuffle ? '#FC5200' : theme.textMuted}
-          />
-        </TouchableOpacity>
-
-        {/* Previous Track */}
-        <TouchableOpacity
-          style={styles.controlIconBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => handleCardPress(-1)}
-        >
-          <Ionicons
-            name="play-skip-back"
-            size={22}
-            color={theme.textPrimary}
-          />
-        </TouchableOpacity>
-
-        {/* Big Center Play / Pause Disc */}
-        <TouchableOpacity
-          style={[
-            styles.playPauseDisc,
-            {
-              backgroundColor: isDark ? '#FFFFFF' : '#111827',
-              shadowColor: '#FC5200',
-            },
-          ]}
-          activeOpacity={0.85}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            if (currentTrack?.videoId === activeCenterTrack?.videoId) {
-              togglePlay();
-            } else {
-              playTrack(activeCenterTrack, tracks, currentIndex, 'Dashboard');
-            }
-          }}
-        >
-          <Ionicons
-            name={
-              isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
-                ? 'pause'
-                : 'play'
-            }
-            size={23}
-            color={isDark ? '#000000' : '#FFFFFF'}
-            style={
-              isPlaying && currentTrack?.videoId === activeCenterTrack?.videoId
-                ? undefined
-                : { marginLeft: 2.5 }
-            }
-          />
-        </TouchableOpacity>
-
-        {/* Next Track */}
-        <TouchableOpacity
-          style={styles.controlIconBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => handleCardPress(1)}
-        >
-          <Ionicons
-            name="play-skip-forward"
-            size={22}
-            color={theme.textPrimary}
-          />
-        </TouchableOpacity>
-
-        {/* Repeat */}
-        <TouchableOpacity
-          style={styles.controlIconBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            toggleRepeat();
-          }}
-        >
-          <Ionicons
-            name="repeat"
-            size={20}
-            color={isRepeat ? '#FC5200' : theme.textMuted}
-          />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -631,38 +658,38 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     position: 'relative',
-    marginTop: 6,
+    marginTop: 4,
     marginBottom: 16,
   },
   ambientGlowContainer: {
     position: 'absolute',
-    top: -20,
+    top: -15,
     width: SCREEN_WIDTH,
-    height: CARD_HEIGHT + 140,
+    height: CARD_HEIGHT + 130,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 0,
   },
   ambientGlow: {
-    width: Math.round(SCREEN_WIDTH * 0.94),
-    height: Math.round(CARD_HEIGHT * 1.15),
-    borderRadius: Math.round(CARD_HEIGHT * 0.58),
+    width: Math.round(SCREEN_WIDTH * 0.92),
+    height: Math.round(CARD_HEIGHT * 1.1),
+    borderRadius: Math.round(CARD_HEIGHT * 0.55),
   },
   topBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 10,
     zIndex: 1,
   },
   topBrandText: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    fontWeight: '800',
+    letterSpacing: 1.4,
   },
   carouselContainer: {
     width: SCREEN_WIDTH,
-    height: CARD_HEIGHT + 24,
+    height: CARD_HEIGHT + 28,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -674,203 +701,180 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     left: (SCREEN_WIDTH - CARD_WIDTH) / 2,
-    top: 12,
+    top: 6,
   },
   cardTouchable: {
     width: '100%',
     height: '100%',
   },
-  cardInner: {
+  cardContainer: {
     width: '100%',
     height: '100%',
-    borderRadius: 24,
+    borderRadius: 22,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: 'rgba(18, 18, 24, 0.95)',
+    borderWidth: 1.4,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.38,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        shadowRadius: 14,
       },
       android: {
-        elevation: 8,
+        elevation: 7,
       },
     }),
   },
-  cardImage: {
+  cardArtworkWrap: {
+    width: '100%',
+    height: ARTWORK_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(18, 18, 24, 0.95)',
+  },
+  cardArtwork: {
     width: '100%',
     height: '100%',
   },
-  cardGlassBorder: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 24,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.20)',
-    zIndex: 2,
-  },
-  cardGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '48%',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    zIndex: 3,
-  },
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    marginBottom: 2,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+  cardFooter: {
+    width: '100%',
+    height: FOOTER_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
   },
   cardArtist: {
-    color: 'rgba(255, 255, 255, 0.72)',
     fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  cardBrandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cardBrandText: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 9.5,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    marginBottom: 2,
+  },
+  cardTitle: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    textAlign: 'center',
+    letterSpacing: -0.1,
   },
   vibeSubtitle: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: -0.2,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 14,
     zIndex: 1,
   },
-  glassPillContainer: {
-    width: Math.min(SCREEN_WIDTH - 40, 360),
-    height: 54,
-    borderRadius: 27,
+  // ── Unified Wide Frosted Glass Capsule Bar (Images 2 & 3) ──
+  unifiedPillBar: {
+    width: Math.min(SCREEN_WIDTH - 28, 380),
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
     zIndex: 3,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.22,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.20,
         shadowRadius: 10,
       },
       android: {
-        elevation: 4,
+        elevation: 5,
       },
     }),
   },
   pillTintOverlay: {
     ...StyleSheet.absoluteFill,
   },
+  pillLeftCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 6,
+    zIndex: 2,
+  },
+  pillControlBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pillPlayBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pillCenterWidget: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 6,
+    position: 'relative',
+    overflow: 'hidden',
+    zIndex: 2,
+  },
+  pillCenterThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginRight: 6,
+  },
+  pillCenterMeta: {
+    flex: 1,
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  pillCenterArtist: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  pillCenterTitle: {
+    fontSize: 9.5,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
   pillProgressTrack: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
-    height: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    bottom: 0,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     overflow: 'hidden',
-    zIndex: 4,
+    zIndex: 3,
   },
   pillProgressFill: {
     height: '100%',
     backgroundColor: '#FC5200',
   },
-  pillContentRow: {
-    flex: 1,
+  pillRightCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 10,
-    zIndex: 3,
-  },
-  pillArtwork: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  pillInfoCol: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  pillTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-    marginBottom: 1,
-  },
-  pillArtist: {
-    fontSize: 10.5,
-    fontWeight: '500',
+    gap: 8,
+    marginLeft: 6,
+    zIndex: 2,
   },
   waveContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2.5,
-    height: 18,
-    paddingHorizontal: 4,
+    gap: 2,
+    height: 14,
+    paddingHorizontal: 2,
   },
   waveBar: {
-    width: 2.5,
-    borderRadius: 1.25,
+    width: 2,
+    borderRadius: 1,
     backgroundColor: '#FC5200',
-  },
-  pillTimeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E8E93',
-    letterSpacing: -0.2,
-    fontVariant: ['tabular-nums'],
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 22,
-    marginTop: 14,
-    zIndex: 3,
-  },
-  controlIconBtn: {
-    padding: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playPauseDisc: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.28,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
 });
 
