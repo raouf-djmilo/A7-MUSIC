@@ -757,7 +757,7 @@ export const DashboardScreen: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: insets.top + 8,
+            paddingTop: insets.top + 16,
             paddingBottom: Math.max(miniBottomGap, 40),
           },
         ]}
@@ -770,47 +770,7 @@ export const DashboardScreen: React.FC = () => {
           />
         }
       >
-        {/* ── 1. Clean Centered Header: Status Pill & Avatar ── */}
-        <View style={styles.topBar}>
-          {/* User Profile Avatar */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ProfileTab')}
-            style={styles.avatarWrap}
-            activeOpacity={0.85}
-          >
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Ionicons name="person" size={17} color={theme.textPrimary} />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Ultra-Compact Clean Centered Sport Stats Pill */}
-          <View style={styles.ultraMinimalPill}>
-            <BlurView
-              intensity={Platform.OS === 'ios' ? 70 : 45}
-              tint={theme.blurTint}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <View style={styles.pillGlassOverlay} pointerEvents="none" />
-            <Ionicons name="flame" size={14} color={theme.textPrimary} />
-            <Text style={styles.pillMetricText}>
-              {totalKm > 0 ? totalKm.toFixed(1) : '12.4'} km
-            </Text>
-            <View style={styles.pillDot} />
-            <Text style={styles.pillRunsText}>
-              {totalRuns > 0 ? totalRuns : '4'} {totalRuns === 1 ? 'Run' : 'Runs'}
-            </Text>
-          </View>
-
-          {/* Symmetrical balance spacer for exact center alignment */}
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective, Zero Clutter) ── */}
+        {/* ── 3D Arc Cover Flow Carousel (5-Cards in Perspective, Zero Clutter) ── */}
         <CoverFlowMusicCarousel
           tracks={tracks}
           onActiveCardChange={handleActiveCardChange}

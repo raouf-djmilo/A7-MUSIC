@@ -1197,6 +1197,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                               });
                             } else if (state === 'paused') {
                               if (isSwitchingModeRef.current) return;
+                              // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
+                              if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
+                                return;
+                              }
                               const isStorePlaying = useAudioStore.getState().isPlaying;
                               if (!isStorePlaying) {
                                 // 🛡️ Deliberate user pause: keep paused!
@@ -1807,6 +1811,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         audioEngineAction: { type: 'pause_bridge', id: Date.now() },
                       });
                     } else if (state === 'paused') {
+                      if (isSwitchingModeRef.current) return;
+                      // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
+                      if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
+                        return;
+                      }
                       if (!useAudioStore.getState().isPlayerModalVisible) return;
                       const isStorePlaying = useAudioStore.getState().isPlaying;
                       if (!isStorePlaying) {

@@ -326,7 +326,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
   // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center, strict 1-card step!)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
-      .activeOffsetX([-8, 8])
+      .activeOffsetX([-6, 6])
       .onBegin(() => {
         'worklet';
         cancelAnimation(virtualIndex);
@@ -340,19 +340,20 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
       .onEnd((e) => {
         'worklet';
         const startInt = Math.round(dragStartVirtual.value);
-        const currentPos = virtualIndex.value;
-        const delta = currentPos - startInt; // > 0 = moved towards next card, < 0 = moved towards prev card
-        const vel = -e.velocityX; // > 0 = flicked towards next card, < 0 = flicked towards prev card
+        const dragDist = e.translationX;
+        const dragVel = e.velocityX;
 
         let target = startInt;
 
-        // 🎯 Strict 1-Card Step: a single swipe always advances or retreats exactly 1 card!
-        if (vel > 350 || delta > 0.30) {
+        // 🎯 Strict 1-Card Step:
+        // dragDist < -18 or dragVel < -150 -> user swiped left -> NEXT card (+1)
+        // dragDist > 18 or dragVel > 150 -> user swiped right -> PREVIOUS card (-1)
+        if (dragDist < -18 || dragVel < -150) {
           target = startInt + 1;
-        } else if (vel < -350 || delta < -0.30) {
+        } else if (dragDist > 18 || dragVel > 150) {
           target = startInt - 1;
         } else {
-          target = Math.round(currentPos);
+          target = Math.round(virtualIndex.value);
         }
 
         const targetInt = Math.max(0, Math.min(numTracks - 1, target));
@@ -360,7 +361,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
         virtualIndex.value = withSpring(targetInt, {
           damping: 26,
           stiffness: 280,
-          mass: 0.5,
+          mass: 0.45,
         });
 
         // 🚀 Instant 0ms playback: settles immediately on the exact card!
@@ -395,7 +396,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
           {
             damping: 26,
             stiffness: 280,
-            mass: 0.5,
+            mass: 0.45,
           }
         );
         handleSettle(clamped);
@@ -411,29 +412,6 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
 
   return (
     <View style={styles.rootWrapper}>
-      {/* ── Ambient Radial Atmosphere Glow ── */}
-      <View style={styles.ambientGlowContainer} pointerEvents="none">
-        <LinearGradient
-          colors={[
-            isDark ? 'rgba(252, 82, 0, 0.14)' : 'rgba(252, 82, 0, 0.08)',
-            isDark ? 'rgba(28, 44, 94, 0.20)' : 'rgba(120, 150, 220, 0.07)',
-            'transparent',
-          ]}
-          style={styles.ambientGlow}
-          start={{ x: 0.5, y: 0.15 }}
-          end={{ x: 0.5, y: 1 }}
-        />
-      </View>
-
-      {/* ── Top Emblem & Title (Matches Spotify/A7 Music) ── */}
-      <View style={styles.topBrandRow}>
-        <Ionicons name="musical-notes" size={14} color="#FC5200" />
-        <Text style={[styles.topBrandText, { color: theme.textSecondary }]}>
-          A7 MUSIC
-        </Text>
-      </View>
-
-      {/* ── 3D Arc Cover Flow Carousel (5 Cards in 3D Perspective) ── */}
       {/* ── 3D Arc Cover Flow Carousel (5 Cards in 3D Perspective) ── */}
       <GestureDetector gesture={panGesture}>
         <View style={styles.carouselContainer}>
@@ -465,34 +443,8 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     position: 'relative',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  ambientGlowContainer: {
-    position: 'absolute',
-    top: -15,
-    width: SCREEN_WIDTH,
-    height: CARD_HEIGHT + 35,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0,
-  },
-  ambientGlow: {
-    width: Math.round(SCREEN_WIDTH * 0.92),
-    height: Math.round(CARD_HEIGHT * 1.1),
-    borderRadius: Math.round(CARD_HEIGHT * 0.55),
-  },
-  topBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-    zIndex: 1,
-  },
-  topBrandText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
+    marginTop: 8,
+    marginBottom: 8,
   },
   carouselContainer: {
     width: SCREEN_WIDTH,
