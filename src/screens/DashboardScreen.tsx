@@ -418,7 +418,7 @@ const buildInitialQueue = (
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
@@ -567,6 +567,11 @@ export const DashboardScreen: React.FC = () => {
 
   // 🎨 Real-time Focused Card in Carousel for Dynamic Home Ambient Canvas
   const [activeCarouselTrack, setActiveCarouselTrack] = useState<Track | null>(null);
+
+  const handleActiveCardChange = useCallback((track: Track) => {
+    if (!track?.videoId) return;
+    setActiveCarouselTrack((prev) => (prev?.videoId === track.videoId ? prev : track));
+  }, []);
 
   const homeAmbientTrack: Track | undefined = activeCarouselTrack || currentTrack || tracks[0];
 
@@ -777,9 +782,9 @@ export const DashboardScreen: React.FC = () => {
         {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective, Zero Clutter) ── */}
         <CoverFlowMusicCarousel
           tracks={tracks}
-          onActiveCardChange={setActiveCarouselTrack}
+          onActiveCardChange={handleActiveCardChange}
           onTrackSelect={(selected) => {
-            setActiveCarouselTrack(selected);
+            handleActiveCardChange(selected);
             const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
             const resolvedIdx = idx !== -1 ? idx : 0;
             recordUserSignal(selected, 'play');

@@ -257,23 +257,12 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const dragStartVirtual = useSharedValue(initialIndex);
   const [settledIndex, setSettledIndex] = useState(initialIndex);
 
-  // Initial notification of the active card
-  useEffect(() => {
-    if (tracks.length > 0 && onActiveCardChange) {
-      const initTrack = tracks[initialIndex] || tracks[0];
-      if (initTrack) {
-        onActiveCardChange(initTrack);
-      }
-    }
-  }, [tracks.length, initialIndex, onActiveCardChange]);
-
   // Synchronize when currentTrack changes externally (Lock Screen, Mini Player, Bottom Sheet)
   useEffect(() => {
     if (currentTrack?.videoId && numTracks > 0) {
       const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
       if (found !== -1 && found !== settledIndex) {
         setSettledIndex(found);
-        onActiveCardChange?.(tracks[found]);
         virtualIndex.value = withSpring(found, {
           damping: 26,
           stiffness: 280,
@@ -281,7 +270,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         });
       }
     }
-  }, [currentTrack?.videoId, numTracks, tracks, onActiveCardChange, settledIndex]);
+  }, [currentTrack?.videoId, numTracks, tracks, settledIndex]);
 
   // Handle settling at a target integer index
   const handleSettle = useCallback(
