@@ -641,7 +641,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     return {
       transform: [{ translateY: fullTranslateY.value }],
       opacity: 1, // 🛡️ Keep opacity 1 so WebKit never suspends/freezes media decoding when sheet is collapsed
-      zIndex: isVisible ? 100000 : 0,
+      zIndex: isVisible ? 100000 : -10, // 🛡️ Send far behind when collapsed so it never shows behind mini player
+    };
+  });
+
+  // ── Full Player Ambient Canvas Backdrop Fade (Smooth entrance, 0 opacity when collapsed) ──
+  const animatedBackdropStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      fullTranslateY.value,
+      [SCREEN_HEIGHT * 0.5, 0],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: progress,
     };
   });
 
@@ -721,18 +734,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           styles.miniFloatingContainer,
           {
             bottom: baseMiniBottom,
-            backgroundColor: isDark ? 'rgba(18, 22, 30, 0.88)' : 'rgba(255, 255, 255, 0.88)',
-            borderColor: isDark ? tint.borderTint : 'rgba(0, 0, 0, 0.08)',
-            shadowColor: isDark ? tint.accent : '#000000',
-            shadowOpacity: isDark ? 0.32 : 0.12,
-            shadowRadius: 18,
+            backgroundColor: 'transparent',
+            borderColor: isDark ? tint.miniBorderTint : 'rgba(0, 0, 0, 0.10)',
+            shadowColor: '#000000',
+            shadowOpacity: isDark ? 0.28 : 0.12,
+            shadowOffset: { width: 0, height: 6 },
+            shadowRadius: 14,
           },
           animatedMiniStyle,
         ]}
         pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
       >
-        {/* Living Ambient Artwork Backdrop (YouTube Music & Spotify Style) */}
-        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
+        {/* Living Ambient Artwork Backdrop (100% Reactive Cover Colors directly INSIDE the mini bar) */}
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 16 }]} pointerEvents="none">
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
@@ -740,31 +754,39 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 StyleSheet.absoluteFill,
                 {
                   transform: [{ scale: 2.2 }],
-                  opacity: isDark ? 0.38 : 0.28,
+                  opacity: isDark ? 0.72 : 0.58,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 35 : 22}
+              blurRadius={Platform.OS === 'ios' ? 24 : 16}
               cachePolicy="memory-disk"
-              transition={400}
+              transition={300}
             />
           )}
 
-          {/* Frosted Glass Diffusion */}
+          {/* Layer B: Vibrant Harmonic Gradient Wash reflecting the exact cover colors */}
+          <LinearGradient
+            colors={[tint.miniBg1, tint.miniBg2]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Layer C: Silky Frosted Glass Diffusion (tuned intensity so colors shine through) */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 70 : 50}
+            intensity={Platform.OS === 'ios' ? 35 : 20}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Frosted Matte Surface Veil */}
+          {/* Layer D: Delicate Luminous Top Sheen for Ultra-Premium Finish */}
           <View
             style={[
               StyleSheet.absoluteFill,
               {
-                backgroundColor: isDark
-                  ? 'rgba(16, 20, 28, 0.72)'
-                  : 'rgba(255, 255, 255, 0.76)',
+                borderTopWidth: 1,
+                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.60)',
+                borderRadius: 16,
               },
             ]}
           />
@@ -869,12 +891,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           animatedFullStyle,
           {
             backgroundColor: isDark ? tint.bottom : '#F5F4EF',
+            overflow: 'hidden',
           },
         ]}
         pointerEvents={isPlayerModalVisible ? 'auto' : 'none'}
       >
-        {/* ── 1. YouTube Music & Apple Music Ambient Canvas Backdrop Mesh ── */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* ── 1. YouTube Music & Apple Music Ambient Canvas Backdrop Mesh (Radiates across the WHOLE screen) ── */}
+        <Animated.View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }, animatedBackdropStyle]} pointerEvents="none">
           {/* Deep Base Ground */}
           <View
             style={[
@@ -883,55 +906,55 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             ]}
           />
 
-          {/* Layer A: Full-Bleed Scaled Ambient Artwork Canvas (Exact 1:1 Cover Colors) */}
+          {/* Layer A: Full-Bleed Scaled Ambient Artwork Canvas (Exact 1:1 Cover Colors across the entire viewport) */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  transform: [{ scale: 1.7 }],
-                  opacity: isDark ? 0.65 : 0.45,
+                  transform: [{ scale: 1.5 }],
+                  opacity: isDark ? 0.85 : 0.65,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 75 : 50}
+              blurRadius={Platform.OS === 'ios' ? 45 : 30}
               priority="high"
               cachePolicy="memory-disk"
-              transition={600}
+              transition={400}
             />
           )}
 
-          {/* Layer B: Apple Music Style Frosted Glass Diffusion Veil */}
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 75 : 50}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Layer C: Cinematic Vignette & Readability Gradient Mesh */}
+          {/* Layer B: Vibrant Full-Screen Ambient Radiant Gradient Mesh */}
           <LinearGradient
             colors={
               isDark
                 ? [
                     tint.top,
-                    'rgba(0, 0, 0, 0.18)',
                     tint.mid,
+                    'rgba(10, 12, 18, 0.40)',
                     tint.bottom,
                   ]
                 : [
-                    'rgba(255, 255, 255, 0.65)',
-                    'rgba(240, 240, 235, 0.25)',
+                    'rgba(255, 255, 255, 0.50)',
                     tint.top,
+                    tint.mid,
                     tint.bottom,
                   ]
             }
-            locations={[0, 0.32, 0.68, 1]}
+            locations={[0, 0.35, 0.70, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-        </View>
+
+          {/* Layer C: Apple Music Style Frosted Glass Diffusion Veil (tuned intensity so colors shine through) */}
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 40 : 25}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
 
         {/* Viewport-Locked Fixed Content - Full Viewport Swipe-to-Dismiss */}
         <GestureDetector gesture={fullPanGesture}>
@@ -1073,17 +1096,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   playerMediaMode === 'video' ? { display: 'none' } : undefined,
                 ]}
               >
-                {/* Atmospheric Glow Backdrop (Apple Music Ambient Light) */}
-                <View
-                  style={[
-                    styles.artworkAmbientGlow,
-                    {
-                      width: cardWidth * 0.9,
-                      height: cardWidth * 0.9,
-                      backgroundColor: tint.ambientGlow || tint.accent,
-                    },
-                  ]}
-                />
 
                 {/* 1. YouTube Music Canvas Protocol: Full-Bleed Ambient Backdrop Fill (Fills 100% of card, eliminates all black bars) */}
                 <Image
@@ -2051,6 +2063,7 @@ const styles = StyleSheet.create({
   // ── Viewport-Locked FullPlayer ──
   fullPlayerOverlay: {
     ...StyleSheet.absoluteFill,
+    overflow: 'hidden',
     zIndex: 100000,
   },
   fullFixedContainer: {
