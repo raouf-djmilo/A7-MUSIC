@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
@@ -25,10 +26,11 @@ import { useAuth } from '../providers/AuthProvider';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
 import { useAudioStore, Track } from '../store/useAudioStore';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, getUniversalStudioArtworkSource } from '../utils/artworkHelper';
 import { cleanArtistName } from '../services/youtubeMusicService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { CoverFlowMusicCarousel } from '../components/CoverFlowMusicCarousel';
+import { getTrackAtmosphericTint } from '../services/atmosphericColorEngine';
 import {
   fetchInitialInfiniteRadio,
   fetchInfiniteRadioNextBatch,
@@ -563,6 +565,27 @@ export const DashboardScreen: React.FC = () => {
     }
   }, [currentTrack?.videoId]);
 
+  // 🎨 Real-time Focused Card in Carousel for Dynamic Home Ambient Canvas
+  const [activeCarouselTrack, setActiveCarouselTrack] = useState<Track | null>(null);
+
+  const homeAmbientTrack: Track | undefined = activeCarouselTrack || currentTrack || tracks[0];
+
+  const ambientArtworkSources = useMemo(() => {
+    return getUniversalStudioArtworkSource(
+      homeAmbientTrack?.thumbnail,
+      homeAmbientTrack?.title,
+      homeAmbientTrack?.artist,
+      homeAmbientTrack?.videoId
+    );
+  }, [homeAmbientTrack?.videoId, homeAmbientTrack?.thumbnail, homeAmbientTrack?.title, homeAmbientTrack?.artist]);
+
+  const homeTint = useMemo(
+    () => getTrackAtmosphericTint(homeAmbientTrack, isDark),
+    [homeAmbientTrack, isDark]
+  );
+
+  const miniBottomGap = useMiniPlayerBottomGap();
+
   const activeTrack: Track | undefined = currentTrack || tracks[0];
   const isLiked = activeTrack?.videoId ? likedTrackIds.includes(activeTrack.videoId) : false;
 
@@ -632,8 +655,76 @@ export const DashboardScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* ── 0. Home Screen Dynamic Ambient Canvas (Pure 1:1 Cover Art Reflection) ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {/* Foundation Base Ground */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? (homeTint.bottom || '#080A10') : '#F4F3EE' },
+          ]}
+        />
+
+        {/* Layer A: Full-Bleed GPU Blurred Artwork (100% True Authentic Colors of Focused Card) */}
+        {ambientArtworkSources && ambientArtworkSources.length > 0 && (
+          <Image
+            source={ambientArtworkSources}
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                transform: [{ scale: 1.5 }],
+                opacity: isDark ? 0.75 : 0.55,
+              },
+            ]}
+            contentFit="cover"
+            blurRadius={Platform.OS === 'ios' ? 60 : 38}
+            priority="high"
+            cachePolicy="memory-disk"
+            transition={500}
+          />
+        )}
+
+        {/* Layer B: Apple Music Frosted Glass Diffusion Veil */}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 45 : 30}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Layer C: Cinematic Vignette (Preserves Text, Stats Pill & Workout Feed Contrast) */}
+        <LinearGradient
+          colors={
+            isDark
+              ? [
+                  'rgba(8, 10, 16, 0.60)',    // Top bar & stats pill
+                  'rgba(8, 10, 16, 0.12)',    // Carousel upper region
+                  'rgba(8, 10, 16, 0.00)',    // Carousel focal center (100% pure cover bloom)
+                  'rgba(8, 10, 16, 0.50)',    // Lower feed transition
+                  'rgba(8, 10, 16, 0.95)',    // Bottom workout feed & mini player docking
+                ]
+              : [
+                  'rgba(255, 255, 255, 0.70)',
+                  'rgba(255, 255, 255, 0.15)',
+                  'rgba(255, 255, 255, 0.00)',
+                  'rgba(244, 243, 238, 0.55)',
+                  'rgba(244, 243, 238, 0.95)',
+                ]
+          }
+          locations={[0, 0.18, 0.38, 0.65, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: Math.max(miniBottomGap, 40),
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -686,7 +777,9 @@ export const DashboardScreen: React.FC = () => {
         {/* ── 2. 3D Arc Cover Flow Carousel (5-Cards in Perspective, Zero Clutter) ── */}
         <CoverFlowMusicCarousel
           tracks={tracks}
+          onActiveCardChange={setActiveCarouselTrack}
           onTrackSelect={(selected) => {
+            setActiveCarouselTrack(selected);
             const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
             const resolvedIdx = idx !== -1 ? idx : 0;
             recordUserSignal(selected, 'play');

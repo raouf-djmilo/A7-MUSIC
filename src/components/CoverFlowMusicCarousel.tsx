@@ -226,12 +226,14 @@ const CoverFlowCard = React.memo(({
 interface CoverFlowProps {
   tracks: Track[];
   onTrackSelect?: (track: Track) => void;
+  onActiveCardChange?: (track: Track) => void;
   onLoadMore?: () => void;
 }
 
 export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   tracks,
   onTrackSelect,
+  onActiveCardChange,
   onLoadMore,
 }) => {
   const { theme, isDark } = useTheme();
@@ -255,12 +257,23 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const dragStartVirtual = useSharedValue(initialIndex);
   const [settledIndex, setSettledIndex] = useState(initialIndex);
 
+  // Initial notification of the active card
+  useEffect(() => {
+    if (tracks.length > 0 && onActiveCardChange) {
+      const initTrack = tracks[initialIndex] || tracks[0];
+      if (initTrack) {
+        onActiveCardChange(initTrack);
+      }
+    }
+  }, [tracks.length, initialIndex, onActiveCardChange]);
+
   // Synchronize when currentTrack changes externally (Lock Screen, Mini Player, Bottom Sheet)
   useEffect(() => {
     if (currentTrack?.videoId && numTracks > 0) {
       const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
       if (found !== -1 && found !== settledIndex) {
         setSettledIndex(found);
+        onActiveCardChange?.(tracks[found]);
         virtualIndex.value = withSpring(found, {
           damping: 26,
           stiffness: 280,
@@ -268,7 +281,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         });
       }
     }
-  }, [currentTrack?.videoId, numTracks, tracks]);
+  }, [currentTrack?.videoId, numTracks, tracks, onActiveCardChange, settledIndex]);
 
   // Handle settling at a target integer index
   const handleSettle = useCallback(
@@ -278,6 +291,9 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       setSettledIndex(clamped);
       const targetTrack = tracks[clamped];
       if (!targetTrack) return;
+
+      // 🎨 Notify Home Ambient Canvas immediately for smooth crossfade
+      onActiveCardChange?.(targetTrack);
 
       const isSame = currentTrack?.videoId === targetTrack.videoId;
       if (isSame && useAudioStore.getState().isPlaying) {
@@ -294,7 +310,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
         onLoadMore();
       }
     },
-    [numTracks, tracks, currentTrack?.videoId, onTrackSelect, onLoadMore]
+    [numTracks, tracks, currentTrack?.videoId, onTrackSelect, onActiveCardChange, onLoadMore]
   );
 
   // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center!)
