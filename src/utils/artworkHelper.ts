@@ -6,8 +6,11 @@
  * Banishes 16:9 letterbox black bars with native HD cascades and ambient canvas backdrops.
  */
 
+import { Image } from 'react-native';
 import { ImageSource } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 // ── Runtime Dynamic Cache for Artists Learned on the Fly ──
 const dynamicArtistAvatarCache = new Map<string, string>();
@@ -314,3 +317,120 @@ export const STUDIO_IMAGE_PROPS = {
   cachePolicy: 'memory-disk' as const,
   transition: 150,
 };
+
+// ── In-Memory Cache for Resolved 1:1 Square Lock Screen Artworks ──
+const lockScreenSquareCache = new Map<string, string>();
+
+/**
+ * 🖼️ High-Definition Square Artwork Resolver for Lock Screen & Control Center Widget
+ * Guarantees a borderless 1:1 square image (no letterboxing / black bars):
+ * 1. Returns Apple Music / iTunes 1200x1200bb square master if available in cache.
+ * 2. Returns YouTube Music 1200x1200 square master if available.
+ * 3. Returns Channel avatar 800x800 square if available.
+ * 4. For 16:9 YouTube video thumbnails, downloads and center-crops into an authentic 1:1 square (800x800 HD),
+ *    saving to local cache for instant 0ms lockscreen display.
+ */
+export async function resolveLockScreenSquareArtworkAsync(
+  thumbnail?: string | null,
+  title?: string,
+  artist?: string,
+  videoId?: string
+): Promise<string> {
+  const cleanTitle = (title || '').toLowerCase().trim();
+  const cleanArtist = (artist || '').toLowerCase().trim();
+  const resolvedVid = videoId || (thumbnail && thumbnail.includes('/vi/') ? thumbnail.split('/vi/')[1]?.split('/')[0] : null);
+  const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
+
+  if (cacheKey && lockScreenSquareCache.has(cacheKey)) {
+    return lockScreenSquareCache.get(cacheKey)!;
+  }
+
+  // 1. Check studio album art cache (1200x1200bb square from Apple Music / iTunes)
+  if (cacheKey && studioArtworkCache.has(cacheKey)) {
+    const art = studioArtworkCache.get(cacheKey)!;
+    lockScreenSquareCache.set(cacheKey, art);
+    return art;
+  }
+
+  // 2. Already authentic 1:1 square image (YouTube Music 1200x1200 or Channel avatar 800x800)
+  if (thumbnail && typeof thumbnail === 'string') {
+    const clean = thumbnail.trim();
+    if (clean.includes('googleusercontent.com') || clean.includes('ytimg.com/image/') || clean.includes('yt3.ggpht.com')) {
+      const squareUrl = getUniversalStudioArtwork(thumbnail, title, artist, videoId);
+      if (cacheKey) lockScreenSquareCache.set(cacheKey, squareUrl);
+      return squareUrl;
+    }
+  }
+
+  // 3. Check local filesystem for already cropped 1:1 square thumbnail
+  if (resolvedVid) {
+    const squareLocalPath = `${FileSystem.cacheDirectory}a7_sq_lock_${resolvedVid}.jpg`;
+    try {
+      const info = await FileSystem.getInfoAsync(squareLocalPath);
+      if (info.exists && ((info as any).size || 0) > 1000) {
+        lockScreenSquareCache.set(cacheKey || resolvedVid, squareLocalPath);
+        return squareLocalPath;
+      }
+    } catch {}
+
+    // 4. Download 16:9 YouTube thumbnail (maxresdefault -> hq720 -> hqdefault) and center crop to true 1:1 square
+    try {
+      const candidates = [
+        `https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`,
+        `https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`,
+        `https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`,
+      ];
+
+      for (const remoteUrl of candidates) {
+        try {
+          const tempRawPath = `${FileSystem.cacheDirectory}a7_raw_lock_${resolvedVid}.jpg`;
+          const dlRes = await FileSystem.downloadAsync(remoteUrl, tempRawPath);
+          if (dlRes && dlRes.status === 200) {
+            const fileInfo = await FileSystem.getInfoAsync(tempRawPath);
+            if (fileInfo.exists && ((fileInfo as any).size || 0) > 2500) {
+              // Get actual pixel dimensions of the downloaded image
+              const dims = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+                Image.getSize(
+                  tempRawPath,
+                  (w, h) => resolve({ width: w, height: h }),
+                  (err) => reject(err)
+                );
+              });
+
+              if (dims.width > 0 && dims.height > 0) {
+                const minDim = Math.min(dims.width, dims.height);
+                const originX = Math.max(0, Math.floor((dims.width - minDim) / 2));
+                const originY = Math.max(0, Math.floor((dims.height - minDim) / 2));
+
+                const manipResult = await manipulateAsync(
+                  tempRawPath,
+                  [
+                    { crop: { originX, originY, width: minDim, height: minDim } },
+                    { resize: { width: 800, height: 800 } },
+                  ],
+                  { compress: 0.95, format: SaveFormat.JPEG }
+                );
+
+                await FileSystem.copyAsync({ from: manipResult.uri, to: squareLocalPath });
+                FileSystem.deleteAsync(tempRawPath, { idempotent: true }).catch(() => {});
+
+                if (cacheKey) lockScreenSquareCache.set(cacheKey, squareLocalPath);
+                return squareLocalPath;
+              }
+            }
+          }
+        } catch {
+          // Try next candidate
+        }
+      }
+    } catch (cropErr) {
+      // Fallback
+    }
+  }
+
+  // 5. Default fallback to standard studio artwork
+  const fallback = getUniversalStudioArtwork(thumbnail, title, artist, videoId);
+  if (cacheKey && fallback) lockScreenSquareCache.set(cacheKey, fallback);
+  return fallback;
+}
+

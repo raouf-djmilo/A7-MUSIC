@@ -2,7 +2,23 @@ import { NativeModules, Platform } from 'react-native';
 import TrackPlayer, { Event } from 'react-native-track-player';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Track } from '../store/useAudioStore';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, resolveLockScreenSquareArtworkAsync } from '../utils/artworkHelper';
+
+export type PlayerControlsBridge = {
+  play: () => void;
+  pause: () => void;
+  seekTo?: (sec: number) => void;
+};
+
+let _activePlayerBridge: PlayerControlsBridge | null = null;
+
+export const registerActivePlayerBridge = (bridge: PlayerControlsBridge | null): void => {
+  _activePlayerBridge = bridge;
+};
+
+export const getActivePlayerBridge = (): PlayerControlsBridge | null => {
+  return _activePlayerBridge;
+};
 
 // Valid 310-byte silent MP3 frame in Base64 (0ms latency, zero cellular data, works offline/airplane mode)
 const SILENT_MP3_BASE64 =
@@ -128,11 +144,18 @@ export const updateNowPlayingLockScreen = async (
   lastLockScreenSyncTime = now;
 
   try {
-    const artworkUrl = getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, track.videoId);
     const validDurationSec = Math.max(1, Math.floor(
       (durationMillis > 0 ? durationMillis : track.duration || 180000) / 1000
     ));
     const elapsedSec = Math.max(0, Math.floor(positionMillis / 1000));
+
+    // Resolve pristine 1:1 square artwork without black bars / letterbox
+    const artworkUrl = await resolveLockScreenSquareArtworkAsync(
+      track.thumbnail,
+      track.title,
+      track.artist,
+      track.videoId
+    );
 
     await TrackPlayer.updateNowPlayingMetadata({
       title: track.title,

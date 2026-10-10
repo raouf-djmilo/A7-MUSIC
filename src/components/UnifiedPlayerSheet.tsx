@@ -50,6 +50,7 @@ import {
 import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
 import { ToastManager } from './InAppToast';
 import { playerModalTranslateY, PLAYER_SPRING_CONFIG, DEFAULT_HIDDEN_OFFSET } from '../utils/playerMotion';
+import { registerActivePlayerBridge } from '../services/audioSessionService';
 import { AtmosphericPalette, getTrackAtmosphericTint } from '../services/atmosphericColorEngine';
 export { AtmosphericPalette, getTrackAtmosphericTint };
 
@@ -286,6 +287,28 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       await togglePlay();
     }
   }, [activeEngine, isPlaying, isVideoFullscreen, togglePlay]);
+
+  // ── 🛡️ Direct Native Remote Control & Audio Session Bridge ──
+  useEffect(() => {
+    registerActivePlayerBridge({
+      play: () => {
+        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+        activeRef?.playVideo?.();
+      },
+      pause: () => {
+        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+        activeRef?.pauseVideo?.();
+      },
+      seekTo: (sec: number) => {
+        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+        activeRef?.seekTo?.(sec, true);
+      },
+    });
+
+    return () => {
+      registerActivePlayerBridge(null);
+    };
+  }, [isVideoFullscreen]);
 
   // ── 🛡️ Global Play / Pause Synchronization across all screens (Home, Music, Library, Mini-Bar) ──
   useEffect(() => {
@@ -1207,12 +1230,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                                 useAudioStore.setState({ isPlaying: false, isLoading: false });
                                 return;
                               }
-                              // 🛡️ Background audio guard: if app is in background and user wants playing, keep playing!
-                              if (AppState.currentState !== 'active') {
-                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-                                activeRef?.playVideo?.();
-                                return;
-                              }
                               useAudioStore.setState({ isPlaying: false });
                             }
                           }}
@@ -1820,10 +1837,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       const isStorePlaying = useAudioStore.getState().isPlaying;
                       if (!isStorePlaying) {
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
-                        return;
-                      }
-                      if (AppState.currentState !== 'active') {
-                        (fullscreenPlayerRef.current as any)?.playVideo?.();
                         return;
                       }
                       useAudioStore.setState({ isPlaying: false });

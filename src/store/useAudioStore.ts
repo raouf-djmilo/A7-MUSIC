@@ -11,8 +11,8 @@ import {
   startListeningHeartbeat, 
   stopListeningHeartbeat 
 } from '../services/listeningTimeService';
-import { configureAudioSession, updateNowPlayingLockScreen, getOrGenerateSilentAudioUri } from '../services/audioSessionService';
-import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync } from '../utils/artworkHelper';
+import { configureAudioSession, updateNowPlayingLockScreen, getOrGenerateSilentAudioUri, getActivePlayerBridge } from '../services/audioSessionService';
+import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync, resolveLockScreenSquareArtworkAsync } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
@@ -657,6 +657,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                   }).catch(() => {});
                 }
               }
+            } else {
+              resolveLockScreenSquareArtworkAsync(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId)
+                .then((sqArt) => {
+                  if (sqArt && NativeModules.TrackPlayerModule) {
+                    TrackPlayer.updateNowPlayingMetadata({
+                      title: finalTrack.title,
+                      artist: finalTrack.artist,
+                      artwork: sqArt,
+                      duration: totalDurationSec,
+                    }).catch(() => {});
+                  }
+                })
+                .catch(() => {});
             }
           })
           .catch(() => {});
@@ -979,6 +992,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const { activeEngine } = get();
     if (activeEngine === 'native') {
       nativeAudioService.pause().catch(() => {});
+    } else if (activeEngine === 'youtube') {
+      getActivePlayerBridge()?.pause();
     }
     set({ 
       isPlaying: false,
@@ -998,6 +1013,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const { activeEngine } = get();
     if (activeEngine === 'native') {
       nativeAudioService.resume().catch(() => {});
+    } else if (activeEngine === 'youtube') {
+      getActivePlayerBridge()?.play();
     }
     set({ 
       isPlaying: true,

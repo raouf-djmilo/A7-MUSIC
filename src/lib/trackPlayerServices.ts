@@ -65,8 +65,6 @@ export const SetupService = async () => {
             Capability.SkipToPrevious,
             Capability.Stop,
             Capability.SeekTo,
-            Capability.JumpForward,
-            Capability.JumpBackward,
           ],
           compactCapabilities: [
             Capability.Play,
@@ -80,11 +78,7 @@ export const SetupService = async () => {
             Capability.SkipToNext,
             Capability.SkipToPrevious,
             Capability.SeekTo,
-            Capability.JumpForward,
-            Capability.JumpBackward,
           ],
-          forwardJumpInterval: 10,
-          backwardJumpInterval: 10,
           progressUpdateEventInterval: 2,
         });
       }
