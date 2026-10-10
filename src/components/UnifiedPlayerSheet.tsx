@@ -50,6 +50,8 @@ import {
 import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
 import { ToastManager } from './InAppToast';
 import { playerModalTranslateY, PLAYER_SPRING_CONFIG, DEFAULT_HIDDEN_OFFSET } from '../utils/playerMotion';
+import { AtmosphericPalette, getTrackAtmosphericTint } from '../services/atmosphericColorEngine';
+export { AtmosphericPalette, getTrackAtmosphericTint };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,88 +67,6 @@ const SPRING_CONFIG = {
   stiffness: 320,
   mass: 0.7,
 };
-
-// ── Deterministic 0ms Atmospheric Tint Engine ──
-interface AtmosphericPalette {
-  top: string;
-  mid: string;
-  bottom: string;
-  accent: string;
-}
-
-export function getTrackAtmosphericTint(track?: Track | null, isDark = true): AtmosphericPalette {
-  if (!track) {
-    return isDark
-      ? { top: '#1c2e24', mid: '#131e18', bottom: '#0b100d', accent: '#1DB954' }
-      : { top: '#e0ece4', mid: '#edf4ef', bottom: '#f8faf8', accent: '#1DB954' };
-  }
-
-  const titleAndArtist = `${track.title || ''} ${track.artist || ''}`.toLowerCase();
-
-  // 1. Khaled / Rai / 1,2,3 Soleils: Exact Sage Moss Green from Spotify Screenshots
-  if (
-    titleAndArtist.includes('khaled') ||
-    titleAndArtist.includes('soleils') ||
-    titleAndArtist.includes('rai') ||
-    titleAndArtist.includes('mami') ||
-    titleAndArtist.includes('hasni') ||
-    titleAndArtist.includes('aicha') ||
-    titleAndArtist.includes('abdel kader')
-  ) {
-    return isDark
-      ? { top: '#3e5c4a', mid: '#253a2f', bottom: '#111b15', accent: '#1DB954' }
-      : { top: '#cfe3d6', mid: '#e1ede5', bottom: '#f3f8f5', accent: '#1DB954' };
-  }
-
-  // 2. High-Cadence Running / 160 BPM / Cardio / Workout
-  if (
-    titleAndArtist.includes('bpm') ||
-    titleAndArtist.includes('cadence') ||
-    titleAndArtist.includes('workout') ||
-    titleAndArtist.includes('cardio') ||
-    titleAndArtist.includes('stride')
-  ) {
-    return isDark
-      ? { top: '#462719', mid: '#2c1810', bottom: '#130a07', accent: '#FF6B00' }
-      : { top: '#f8dfd0', mid: '#faede4', bottom: '#fdf7f3', accent: '#FF6B00' };
-  }
-
-  // 3. Rap / Trap / Phonk
-  if (
-    titleAndArtist.includes('phonk') ||
-    titleAndArtist.includes('rap') ||
-    titleAndArtist.includes('trap') ||
-    titleAndArtist.includes('drill')
-  ) {
-    return isDark
-      ? { top: '#36224c', mid: '#231533', bottom: '#11091a', accent: '#8e2de2' }
-      : { top: '#e5d7f7', mid: '#f0e8fa', bottom: '#faf6fd', accent: '#8e2de2' };
-  }
-
-  // 4. Deterministic Hash Palette for any other song
-  let hash = 0;
-  const str = track.videoId || track.title || 'default';
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  const hue = Math.abs(hash) % 360;
-  if (isDark) {
-    return {
-      top: `hsl(${hue}, 36%, 20%)`,
-      mid: `hsl(${hue}, 28%, 13%)`,
-      bottom: `hsl(${hue}, 22%, 8%)`,
-      accent: '#1DB954',
-    };
-  } else {
-    return {
-      top: `hsl(${hue}, 40%, 88%)`,
-      mid: `hsl(${hue}, 30%, 94%)`,
-      bottom: `hsl(${hue}, 18%, 98%)`,
-      accent: '#1DB954',
-    };
-  }
-}
 
 function formatTime(millis: number): string {
   if (!millis || isNaN(millis) || millis < 0) return '0:00';
@@ -189,11 +109,12 @@ const MiniProgressBar: React.FC<MiniProgressBarProps> = React.memo(({ isDark, ac
 interface PlayerScrubberProps {
   isDark: boolean;
   themeMuted: string;
+  accentColor?: string;
   onSeek?: (millis: number) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
 }
 
-const PlayerScrubber: React.FC<PlayerScrubberProps> = React.memo(({ isDark, themeMuted, onSeek, onScrubbingChange }) => {
+const PlayerScrubber: React.FC<PlayerScrubberProps> = React.memo(({ isDark, themeMuted, accentColor = '#1DB954', onSeek, onScrubbingChange }) => {
   const positionMillis = useAudioStore((s) => s.positionMillis);
   const durationMillis = useAudioStore((s) => s.durationMillis);
   const trackDuration = useAudioStore((s) => s.currentTrack?.duration || 180000);
@@ -231,9 +152,9 @@ const PlayerScrubber: React.FC<PlayerScrubberProps> = React.memo(({ isDark, them
             await seekTo(val);
           }
         }}
-        minimumTrackTintColor="#1DB954"
+        minimumTrackTintColor={accentColor}
         maximumTrackTintColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.15)'}
-        thumbTintColor="#1DB954"
+        thumbTintColor={accentColor}
       />
       <View style={styles.timeRow}>
         <Text style={[styles.timeText, { color: isDark ? 'rgba(255,255,255,0.55)' : themeMuted }]}>
@@ -800,20 +721,54 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           styles.miniFloatingContainer,
           {
             bottom: baseMiniBottom,
-            backgroundColor: isDark ? 'rgba(20, 24, 32, 0.94)' : 'rgba(255, 255, 255, 0.94)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+            backgroundColor: isDark ? 'rgba(18, 22, 30, 0.88)' : 'rgba(255, 255, 255, 0.88)',
+            borderColor: isDark ? tint.borderTint : 'rgba(0, 0, 0, 0.08)',
+            shadowColor: isDark ? tint.accent : '#000000',
+            shadowOpacity: isDark ? 0.32 : 0.12,
+            shadowRadius: 18,
           },
           animatedMiniStyle,
         ]}
         pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
       >
-        {/* Glass Frosted Matte Background */}
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 70 : 45}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
+        {/* Living Ambient Artwork Backdrop (YouTube Music & Spotify Style) */}
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 28 }]} pointerEvents="none">
+          {heroArtworkSources && heroArtworkSources.length > 0 && (
+            <Image
+              source={heroArtworkSources}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  transform: [{ scale: 2.2 }],
+                  opacity: isDark ? 0.38 : 0.28,
+                },
+              ]}
+              contentFit="cover"
+              blurRadius={Platform.OS === 'ios' ? 35 : 22}
+              cachePolicy="memory-disk"
+              transition={400}
+            />
+          )}
+
+          {/* Frosted Glass Diffusion */}
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 70 : 50}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Frosted Matte Surface Veil */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(16, 20, 28, 0.72)'
+                  : 'rgba(255, 255, 255, 0.76)',
+              },
+            ]}
+          />
+        </View>
 
         <View style={styles.miniInnerRow} pointerEvents="auto">
           {/* Left Display Area (Tap opens FullPlayer) - isolated PanGesture */}
@@ -901,7 +856,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           </View>
 
           {/* Bottom Subtle Progress Bar (Isolated Component) */}
-          <MiniProgressBar isDark={isDark} accentColor={theme.textPrimary} />
+          <MiniProgressBar isDark={isDark} accentColor={tint.accent} />
         </View>
       </Animated.View>
 
@@ -918,21 +873,62 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         ]}
         pointerEvents={isPlayerModalVisible ? 'auto' : 'none'}
       >
-        {/* Dynamic Atmospheric Tint Background */}
+        {/* ── 1. YouTube Music & Apple Music Ambient Canvas Backdrop Mesh ── */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {/* Deep Base Ground */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: isDark ? tint.bottom : '#F2F1EC' },
+            ]}
+          />
+
+          {/* Layer A: Full-Bleed Scaled Ambient Artwork Canvas (Exact 1:1 Cover Colors) */}
+          {heroArtworkSources && heroArtworkSources.length > 0 && (
+            <Image
+              source={heroArtworkSources}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  transform: [{ scale: 1.7 }],
+                  opacity: isDark ? 0.65 : 0.45,
+                },
+              ]}
+              contentFit="cover"
+              blurRadius={Platform.OS === 'ios' ? 75 : 50}
+              priority="high"
+              cachePolicy="memory-disk"
+              transition={600}
+            />
+          )}
+
+          {/* Layer B: Apple Music Style Frosted Glass Diffusion Veil */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 65 : 45}
+            intensity={Platform.OS === 'ios' ? 75 : 50}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
+
+          {/* Layer C: Cinematic Vignette & Readability Gradient Mesh */}
           <LinearGradient
             colors={
               isDark
-                ? [tint.top, tint.mid, tint.bottom]
-                : ['rgba(245, 245, 240, 0.95)', 'rgba(235, 235, 230, 0.98)', '#F2F1EC']
+                ? [
+                    tint.top,
+                    'rgba(0, 0, 0, 0.18)',
+                    tint.mid,
+                    tint.bottom,
+                  ]
+                : [
+                    'rgba(255, 255, 255, 0.65)',
+                    'rgba(240, 240, 235, 0.25)',
+                    tint.top,
+                    tint.bottom,
+                  ]
             }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
+            locations={[0, 0.32, 0.68, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
         </View>
@@ -1084,7 +1080,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     {
                       width: cardWidth * 0.9,
                       height: cardWidth * 0.9,
-                      backgroundColor: tint.accent,
+                      backgroundColor: tint.ambientGlow || tint.accent,
                     },
                   ]}
                 />
@@ -1398,6 +1394,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             <PlayerScrubber
               isDark={isDark}
               themeMuted={theme.textMuted}
+              accentColor={tint.accent}
               onSeek={handleScrubberSeek}
               onScrubbingChange={(scrubbing) => {
                 isScrubbingTimeline.value = scrubbing;
@@ -1414,7 +1411,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <Ionicons
                   name="shuffle"
                   size={22}
-                  color={isShuffle ? '#1DB954' : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
+                  color={isShuffle ? tint.accent : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
                 />
               </TouchableOpacity>
 
@@ -1442,7 +1439,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               {/* Big Circular Green Play / Pause Button */}
               <TouchableOpacity
                 onPress={handlePlayPausePress}
-                style={styles.fullPlayPauseBtn}
+                style={[styles.fullPlayPauseBtn, { backgroundColor: tint.accent, shadowColor: tint.accent }]}
                 activeOpacity={0.85}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
@@ -1484,7 +1481,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <Ionicons
                     name="repeat"
                     size={22}
-                    color={repeatMode !== 'off' ? '#1DB954' : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
+                    color={repeatMode !== 'off' ? tint.accent : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
                   />
                   {repeatMode === 'one' && (
                     <View style={styles.repeatBadge}>
