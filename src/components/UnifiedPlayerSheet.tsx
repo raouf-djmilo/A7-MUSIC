@@ -761,6 +761,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     );
   }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
 
+  const heroArtworkUrl = useMemo(() => {
+    return getUniversalStudioArtwork(
+      currentTrack?.thumbnail,
+      currentTrack?.title,
+      currentTrack?.artist,
+      currentTrack?.videoId
+    );
+  }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
+
   const handleShare = async () => {
     if (!currentTrack) return;
     try {
@@ -1605,9 +1614,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               {/* Track Preview Pill */}
               {currentTrack && (
                 <View style={styles.qualityTrackPill}>
-                  {heroArtworkUrl ? (
+                  {heroArtworkSources && heroArtworkSources.length > 0 ? (
                     <Image
-                      source={{ uri: heroArtworkUrl }}
+                      source={heroArtworkSources}
                       style={styles.qualityTrackThumb}
                       contentFit="cover"
                       transition={150}

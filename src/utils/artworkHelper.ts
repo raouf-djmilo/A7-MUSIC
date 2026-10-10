@@ -1,73 +1,15 @@
 /**
- * 🎨 Universal Ultra-HD Cover Art & Artist Identity Engine
+ * 🎨 Universal Ultra-HD Dynamic Artwork & Artist Identity Engine
  *
- * Guarantees crisp 1000x1000 square 1:1 cover art from YouTube Music & YouTube,
- * banishes 16:9 letterbox black bars, and guarantees 100% authentic studio artist portraits.
+ * 100% DYNAMIC: Zero fixed/hardcoded dictionaries, zero fake placeholder covers.
+ * Every song and artist uses their own authentic high-resolution media.
+ * Banishes 16:9 letterbox black bars with native HD cascades and ambient canvas backdrops.
  */
 
 import { ImageSource } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ── Verified High-Resolution Real YouTube Channel Avatar Dictionary ──
-const VERIFIED_ARTIST_AVATARS: Record<string, string> = {
-  // Algerian & Maghreb Legends (Real YouTube Channel Avatars)
-  'djalil palermo': 'https://yt3.ggpht.com/jHQCrtU2Nq6eettEeOXTjtGrH3pMxpDdxnvTv5bYcu61BF_LaKP1DrXBouuNQXHjvmEsvm63=s800-c-k-c0x00ffffff-no-rj',
-  'djalil': 'https://yt3.ggpht.com/jHQCrtU2Nq6eettEeOXTjtGrH3pMxpDdxnvTv5bYcu61BF_LaKP1DrXBouuNQXHjvmEsvm63=s800-c-k-c0x00ffffff-no-rj',
-  'soolking': 'https://yt3.ggpht.com/MyEtgnNeUFw0KpnlDH1UvGHATl6trFdoj-uGDRAycJ_u52cTkyZFtf7VY-ASxQmWBd_aIhuX=s800-c-k-c0x00ffffff-no-rj',
-  'cheb khaled': 'https://yt3.ggpht.com/EPX-_vNlCDSIkH5k-7r0SBQOOyu4DuuTvNNGQfKx5EHS0LagmbhK2xgWg8p9UPe5AwA6UxeG=s800-c-k-c0x00ffffff-no-rj',
-  'khaled': 'https://yt3.ggpht.com/EPX-_vNlCDSIkH5k-7r0SBQOOyu4DuuTvNNGQfKx5EHS0LagmbhK2xgWg8p9UPe5AwA6UxeG=s800-c-k-c0x00ffffff-no-rj',
-  'didine canon 16': 'https://yt3.ggpht.com/DfWxspomuU8PBKURnqcWgve5tMmrOd5wFEd2DwS3BI0hiOu2tnZLpStVPjvFNcmHAb9H310t=s800-c-k-c0x00ffffff-no-rj',
-  'didine': 'https://yt3.ggpht.com/DfWxspomuU8PBKURnqcWgve5tMmrOd5wFEd2DwS3BI0hiOu2tnZLpStVPjvFNcmHAb9H310t=s800-c-k-c0x00ffffff-no-rj',
-  'cheb mami': 'https://yt3.ggpht.com/xG5oXQE7cmr8o4aKzG4YdaK0DZef6rxwtTDFBJIHHMxpawH_MzbXFXLCKiHsrnwf-8oKzJxWyw=s800-c-k-c0x00ffffff-no-rj',
-  'mami': 'https://yt3.ggpht.com/xG5oXQE7cmr8o4aKzG4YdaK0DZef6rxwtTDFBJIHHMxpawH_MzbXFXLCKiHsrnwf-8oKzJxWyw=s800-c-k-c0x00ffffff-no-rj',
-  'cheb hasni': 'https://yt3.ggpht.com/aFaKpRFAl6kvdQDvGQ3yi0zFDUXj4j_ZBaPEQOKSgn0WszH8PGzaQNhZZgMqBKGyj1evOaNvsg=s800-c-k-c0x00ffffff-no-rj',
-  'hasni': 'https://yt3.ggpht.com/aFaKpRFAl6kvdQDvGQ3yi0zFDUXj4j_ZBaPEQOKSgn0WszH8PGzaQNhZZgMqBKGyj1evOaNvsg=s800-c-k-c0x00ffffff-no-rj',
-  'cheb bilal': 'https://yt3.ggpht.com/EmaJKQHHvOiFcrK7usxdiyTUGEiFjsmYiXGYkQmiB4C52yEj0dpeVEMbEqz8618Ippz0IssY=s800-c-k-c0x00ffffff-no-rj',
-  'bilal': 'https://yt3.ggpht.com/EmaJKQHHvOiFcrK7usxdiyTUGEiFjsmYiXGYkQmiB4C52yEj0dpeVEMbEqz8618Ippz0IssY=s800-c-k-c0x00ffffff-no-rj',
-  'elgrandetoto': 'https://yt3.ggpht.com/BYPq0IbRH2EBSRDTf7gOMygV6ZR6PPdhzguGCKQZl0HcC25gLpmDfI1G7xgK8ShwHH4H9PKmIko=s800-c-k-c0x00ffffff-no-rj',
-  'toto': 'https://yt3.ggpht.com/BYPq0IbRH2EBSRDTf7gOMygV6ZR6PPdhzguGCKQZl0HcC25gLpmDfI1G7xgK8ShwHH4H9PKmIko=s800-c-k-c0x00ffffff-no-rj',
-  "l'algerino": 'https://yt3.ggpht.com/45hhpO_o_3R5T7iM-LKVXAEOQBZ_OrcL8SR0rV5mn6XMXuUjq4BEPLnS6RkO2k7oBevOuvWjDUY=s800-c-k-c0x00ffffff-no-rj',
-  'algerino': 'https://yt3.ggpht.com/45hhpO_o_3R5T7iM-LKVXAEOQBZ_OrcL8SR0rV5mn6XMXuUjq4BEPLnS6RkO2k7oBevOuvWjDUY=s800-c-k-c0x00ffffff-no-rj',
-  'mouh milano': 'https://yt3.ggpht.com/Xc1e4UrQBelcrs88Z6tJEFidFredPyZeURjE2TpWByiM5tk72JKnAhdOgz8TldIeqiCAiqU=s800-c-k-c0x00ffffff-no-rj',
-  'babylone': 'https://yt3.ggpht.com/1v3cltqDAEeXUDBQ2qZwPkaRTuAOeGzAn5hHAfJFT-kaCoQLDPCTTXn9DpJAEgjyBTcB9Nqs=s800-c-k-c0x00ffffff-no-rj',
-  'flenn': 'https://yt3.ggpht.com/HVdr7xfNWrXePee6LPKORoFSmpcnLmGT7NV_PNktOuYG8Ti8Ia_yFYdJmCiOOwZedzOpjIyIZGQ=s800-c-k-c0x00ffffff-no-rj',
-  'phobia isaac': 'https://yt3.ggpht.com/4InuzMwQiE7itisUd-Xcq6N0LeAU8pC52aoqMnqd296Chhs3NMwmsPJNZ1fPsKeX1gqjAxEr=s800-c-k-c0x00ffffff-no-rj',
-  'cheba warda': 'https://yt3.ggpht.com/67u7fo1F9Iyy62S6nxHaF-22RbceFNklCxJKZtzLF9PqyFjzGnALq0F4YazwJH9ZG64Wo84hVuo=s800-c-k-c0x00ffffff-no-rj',
-  'cheb bello': 'https://yt3.ggpht.com/eaZW0T7SsNuIAN0-lwVaO9F0_1pLB8yIRqcW754IPKvQST6vgGMUKXzXSZe7kJ-gWPljRSSrng=s800-c-k-c0x00ffffff-no-rj',
-  'kordhell': 'https://yt3.ggpht.com/7-4MjHxfx_2QHaTmct11HA42FscZIo_HldDrj3tUFeSjKHzT0hP-G6KUv_t7YDavim_mEPQ4uQ=s800-c-k-c0x00ffffff-no-rj',
-
-  // Global Superstars (Real YouTube Channel Avatars)
-  'the weeknd': 'https://yt3.ggpht.com/WHvw1ak1FcJaHeEiTmG2iN0dqEjjPxAtT_tA8ruJ3MlNr9I-RHsAur1iAenYeQN_d6LNPH2Z8Ic=s800-c-k-c0x00ffffff-no-rj',
-  'eminem': 'https://yt3.ggpht.com/fYB3KuH8P5jyoReOqbDRyHQJjfKsPj-BYDcJb1XANiEpo6bhCf6LXpsNxE9_fvefub9S1hCkldU=s800-c-k-c0x00ffffff-no-rj',
-  'drake': 'https://yt3.ggpht.com/ytc/AIdro_lCPp6jFXJWIVHM0fIK5HofL3nyLOsmhu1Ek2OwyppYlOM=s800-c-k-c0x00ffffff-no-rj',
-  'travis scott': 'https://yt3.ggpht.com/ytc/AIdro_lYT_V7ztsYEvILayV7Ey_fgzx2VYpeLJxFXf1TO0rjPH8=s800-c-k-c0x00ffffff-no-rj',
-  'lana del rey': 'https://yt3.ggpht.com/v7FFBCqWHtvh-_wLtWV2vOrgBI7p7puXjiZgZJ1bOcwdGUkP8DjHVdt6U-QvSDjEMtYa0aSw=s800-c-k-c0x00ffffff-no-rj',
-  'gracie abrams': 'https://yt3.ggpht.com/1KUHVuD5-fu_8xfzl6b_yAWI9z-UfjP30zd0hnl3WkIihUCldEL6eLtHgZgHJRRP7Ng05rnOfg=s800-c-k-c0x00ffffff-no-rj',
-  'd4vd': 'https://yt3.ggpht.com/7-4MjHxfx_2QHaTmct11HA42FscZIo_HldDrj3tUFeSjKHzT0hP-G6KUv_t7YDavim_mEPQ4uQ=s800-c-k-c0x00ffffff-no-rj',
-  'billie eilish': 'https://yt3.ggpht.com/dirvtoDAmx-u0UR76-pxfhYL6Wxj2vfL2geUcxDwk62tTWWhGG6QDGc63RG3NdOz38-yBwRHDQ=s800-c-k-c0x00ffffff-no-rj',
-  'dua lipa': 'https://yt3.ggpht.com/c3upBFWLu55hnBvqncQS9ZEF_hkvHsNTQiB7m7ZYYavLFMzfyn9Bwo-1VF4HSPGo3G2EdwGtgWg=s800-c-k-c0x00ffffff-no-rj',
-  'post malone': 'https://yt3.ggpht.com/hhANGxHetD6zrJJYLW230Ke7f_lDITYy5-RMgabX66S9Jc7WOaobXKEGHrld5Hzzqku6X9cqBtQ=s800-c-k-c0x00ffffff-no-rj',
-  'kendrick lamar': 'https://yt3.ggpht.com/j1szYhuen1uT1D1icpjxHMFyBc0xINWK1eMtSzrB0TL5jliB7t3JB_wJ6UA9twV7VelxpKEc=s800-c-k-c0x00ffffff-no-rj',
-  'rihanna': 'https://yt3.ggpht.com/qMCGjRaKKRar82KzcIWdUoLbJ03aW2K2sEf-m4GaB7JwLshoHOZHvkxLRXsZVgpKvqCXVhKCWg=s800-c-k-c0x00ffffff-no-rj',
-  'justin bieber': 'https://yt3.ggpht.com/4Mz5el_eyeB5cBod2jHMV-CC3fYiuSmDuCT9A9tGyYh03KQyVdrP04KYYMttZItBCtn4kfef=s800-c-k-c0x00ffffff-no-rj',
-  'dj khaled': 'https://yt3.ggpht.com/J9qAv9jfNNgvHKtpgpUPyRNdFuRyKYVMasSeavZMkIxlS_LIgChL1bR1-Y4BSAszqvHmt_ndrQ=s800-c-k-c0x00ffffff-no-rj',
-};
-
-// ── Verified High-Resolution Track & Album Cover Art Dictionary ──
-export const VERIFIED_TRACK_COVERS: Record<string, string> = {
-  courage: 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  'djalil palermo': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  suavemente: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg',
-  'el arbi': 'https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ef/0b/15/ef0b1594-461e-f4bf-93d4-e1df560a3972/06UMGIM00831.rgb.jpg/600x600bb.jpg',
-  'les ailes': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  'detni essekra': 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
-  babylone: 'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/b8/b8/b6/b8b8b603-9bb6-3e74-0f2c-e102613b5ee0/cover.jpg/600x600bb.jpg',
-  zina: 'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/b8/b8/b6/b8b8b603-9bb6-3e74-0f2c-e102613b5ee0/cover.jpg/600x600bb.jpg',
-  guerilla: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg',
-  aicha: 'https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/ef/0b/15/ef0b1594-461e-f4bf-93d4-e1df560a3972/06UMGIM00831.rgb.jpg/600x600bb.jpg',
-};
-
-// Runtime dynamic cache for artists discovered on the fly
+// ── Runtime Dynamic Cache for Artists Learned on the Fly ──
 const dynamicArtistAvatarCache = new Map<string, string>();
 
 /**
@@ -92,10 +34,6 @@ export function registerDynamicArtistAvatar(artistName: string, avatarUrl: strin
   }
 }
 
-// Default studio fallback artwork
-const DEFAULT_STUDIO_ARTWORK =
-  'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/1200x1200bb.jpg';
-
 // ── Ultra-HD Studio Artwork Runtime Cache (1200x1200bb Apple Music / YouTube Music Masters) ──
 const studioArtworkCache = new Map<string, string>();
 
@@ -117,7 +55,7 @@ AsyncStorage.getAllKeys()
 
 /**
  * ⚡ Ultra-Fast Studio Album Art Resolver via Apple Music / iTunes Public Catalog
- * Resolves pristine 1200x1200 square studio artwork for any song (Rai, Rap DZ, Pop, Phonk, etc.)
+ * Resolves pristine 1200x1200 square studio artwork dynamically for the specific track
  * Caches in memory and AsyncStorage.
  */
 export async function fetchStudioAlbumArtAsync(
@@ -134,8 +72,8 @@ export async function fetchStudioAlbumArtAsync(
     .replace(/[-_]/g, ' ')
     .trim();
 
-  const cacheKey = videoId || `${cleanA.toLowerCase()}::${cleanT.toLowerCase()}`;
-  if (studioArtworkCache.has(cacheKey)) {
+  const cacheKey = videoId || (cleanA && cleanT ? `${cleanA.toLowerCase()}::${cleanT.toLowerCase()}` : null);
+  if (cacheKey && studioArtworkCache.has(cacheKey)) {
     return studioArtworkCache.get(cacheKey)!;
   }
 
@@ -146,12 +84,13 @@ export async function fetchStudioAlbumArtAsync(
     const json = await res.json();
     if (json.results && json.results.length > 0 && json.results[0].artworkUrl100) {
       const art = json.results[0].artworkUrl100.replace('100x100bb.jpg', '1200x1200bb.jpg');
-      studioArtworkCache.set(cacheKey, art);
+      if (cacheKey) studioArtworkCache.set(cacheKey, art);
       if (videoId) studioArtworkCache.set(videoId, art);
       if (cleanA && cleanT) studioArtworkCache.set(`${cleanA.toLowerCase()}::${cleanT.toLowerCase()}`, art);
 
-      // Async write to persistent cache
-      AsyncStorage.setItem(`@a7_art_${cacheKey}`, art).catch(() => {});
+      if (cacheKey) {
+        AsyncStorage.setItem(`@a7_art_${cacheKey}`, art).catch(() => {});
+      }
       return art;
     }
   } catch (e) {
@@ -165,13 +104,14 @@ export async function fetchStudioAlbumArtAsync(
  * 🌟 Resolves Ultra-HD 1080p Studio Artwork for YouTube video thumbnails
  */
 export const getUltraStudioArtwork = (videoId?: string, fallbackUrl?: string): string => {
-  if (!videoId || videoId.length < 8) return fallbackUrl || DEFAULT_STUDIO_ARTWORK;
+  if (!videoId || videoId.length < 8) return fallbackUrl || '';
   return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
 };
 
 /**
- * 🌟 Resolves Ultra-HD Cover Art safely as a single string URL (for lock screen & metadata)
- * Upgrades YouTube videos to maxresdefault.jpg (1280x720, NO black bars!) and YouTube Music to 1200x1200.
+ * 🌟 Resolves Ultra-HD Cover Art dynamically as a single string URL (for lock screen & metadata)
+ * Upgrades YouTube videos to maxresdefault.jpg (1280x720, NO black bars!) and YouTube Music to 1200x1200 master.
+ * 100% Dynamic: Never returns hardcoded fake album art.
  */
 export const getUniversalStudioArtwork = (
   url?: string | null,
@@ -183,38 +123,29 @@ export const getUniversalStudioArtwork = (
   const cleanArtist = (artist || '').toLowerCase().trim();
   const resolvedVid = videoId || (url && url.includes('/vi/') ? url.split('/vi/')[1]?.split('/')[0] : null);
 
-  // 1. Check studio album art cache
-  const cacheKey = resolvedVid || `${cleanArtist}::${cleanTitle}`;
-  if (studioArtworkCache.has(cacheKey)) {
+  // 1. Check studio album art cache dynamically discovered for this exact song
+  const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
+  if (cacheKey && studioArtworkCache.has(cacheKey)) {
     return studioArtworkCache.get(cacheKey)!;
   }
 
-  // 2. Check verified track catalog (e.g. Courage, Suavemente, etc.)
-  for (const [key, coverUrl] of Object.entries(VERIFIED_TRACK_COVERS)) {
-    if (cleanTitle.includes(key) || cleanArtist.includes(key)) {
-      return coverUrl;
-    }
-  }
-
   if (!url || typeof url !== 'string' || url.trim() === '') {
-    return DEFAULT_STUDIO_ARTWORK;
+    if (resolvedVid && resolvedVid.length >= 8) {
+      return `https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`;
+    }
+    return '';
   }
 
   const clean = url.trim();
 
-  // Special case: Courage video ID
-  if (clean.includes('vU6qmNxOa44') || cleanTitle.includes('courage')) {
-    return VERIFIED_TRACK_COVERS['courage'];
-  }
-
-  // 3. YouTube Channel Avatars: upgrade to studio 800x800
+  // 2. YouTube Channel Avatars: upgrade to studio 800x800
   if (clean.includes('yt3.googleusercontent.com') || clean.includes('yt3.ggpht.com')) {
     return clean
       .replace(/=s\d+(-c-k-c0x[0-9a-fA-F]+-no-rj)?/g, '=s800-c-k-c0x00ffffff-no-rj')
       .replace(/=w\d+-h\d+(-[a-z0-9-]+)?/g, '=w800-h800-s-no-rj');
   }
 
-  // 4. YouTube Music Official Square Album Covers: upgrade to 1200x1200 master
+  // 3. YouTube Music Official Square Album Covers: upgrade to 1200x1200 master
   if (clean.includes('googleusercontent.com') || clean.includes('ytimg.com/image/')) {
     if (/=w\d+-h\d+[^?&]*/.test(clean)) {
       return clean.replace(/=w\d+-h\d+[^?&]*/, '=w1200-h1200-l90-rj');
@@ -226,7 +157,7 @@ export const getUniversalStudioArtwork = (
     return `${clean}${separator}w1200-h1200-l90-rj`;
   }
 
-  // 5. YouTube Video Thumbnails: Upgrade to maxresdefault.jpg (1280x720 HD, ZERO black bars!)
+  // 4. YouTube Video Thumbnails: Upgrade to maxresdefault.jpg (1280x720 HD, ZERO black bars!)
   if (clean.includes('ytimg.com/vi/') || clean.includes('/vi/')) {
     const vid = clean.split('/vi/')[1]?.split('/')[0];
     if (vid && vid.length >= 8) {
@@ -234,14 +165,19 @@ export const getUniversalStudioArtwork = (
     }
   }
 
+  // 5. If we have a video ID, return maxresdefault
+  if (resolvedVid && resolvedVid.length >= 8) {
+    return `https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`;
+  }
+
   return clean;
 };
 
 /**
  * 🛡️ Native Resolution Cascade Engine for `expo-image`
- * Returns an array of image sources:
- * [Studio 1200x1200, YouTube Music Square 1200x1200, maxresdefault (1080p/720p HD), hq720, maxresdefault.webp, sddefault, hqdefault]
- * Guaranteed: Zero black bars, Zero pixelation, Zero broken image boxes!
+ * Returns an array of dynamic image sources:
+ * [Studio 1200x1200, YouTube Music Square 1200x1200, maxresdefault (1080p/720p HD), hq720, maxresdefault.webp, sddefault, original]
+ * Guaranteed: Zero black bars, Zero pixelation, Zero fake fixed images!
  */
 export const getUniversalStudioArtworkSource = (
   url?: string | null,
@@ -264,65 +200,44 @@ export const getUniversalStudioArtworkSource = (
     sources.push({ uri: trimmed });
   };
 
-  // 1. Studio official square album cover from runtime cache (1200x1200bb)
-  const cacheKey = resolvedVid || `${cleanArtist}::${cleanTitle}`;
-  if (studioArtworkCache.has(cacheKey)) {
+  // 1. Studio official square album cover from dynamic runtime cache (1200x1200bb)
+  const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
+  if (cacheKey && studioArtworkCache.has(cacheKey)) {
     pushSource(studioArtworkCache.get(cacheKey));
   }
 
-  // 2. Direct match for Courage or Djalil Palermo
-  if (cleanTitle.includes('courage') || (url && url.includes('vU6qmNxOa44'))) {
-    pushSource(VERIFIED_TRACK_COVERS['courage']);
-  }
-
-  // 3. Verified Track Catalog (e.g. Suavemente, Aicha, etc.)
-  for (const [key, coverUrl] of Object.entries(VERIFIED_TRACK_COVERS)) {
-    if (cleanTitle.includes(key) || cleanArtist.includes(key)) {
-      pushSource(coverUrl);
-    }
-  }
-
-  // 4. YouTube Music Official Square Album Covers (Ultra-res 1200x1200)
+  // 2. YouTube Music Official Square Album Covers (Ultra-res 1200x1200)
   if (url && (url.includes('googleusercontent.com') || url.includes('ytimg.com/image/'))) {
-    pushSource(getUniversalStudioArtwork(url, title, artist));
+    pushSource(getUniversalStudioArtwork(url, title, artist, videoId));
   }
 
-  // 5. YouTube Video Thumbnails: 5-Tier Native HD Cascade (NO letterbox black bars!)
+  // 3. YouTube Video Thumbnails: 5-Tier Native HD Cascade (NO letterbox black bars!)
   if (resolvedVid && resolvedVid.length >= 8) {
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`);
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
     pushSource(`https://i.ytimg.com/vi_webp/${resolvedVid}/maxresdefault.webp`);
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/sddefault.jpg`);
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
-  } else if (url && typeof url === 'string' && url.startsWith('http')) {
+  }
+
+  // 4. Track's own original thumbnail URL if valid
+  if (url && typeof url === 'string' && url.startsWith('http')) {
     pushSource(url);
   }
-
-  // 6. Verified Artist Avatar fallback
-  for (const [key, avatarUrl] of Object.entries(VERIFIED_ARTIST_AVATARS)) {
-    if (cleanArtist.includes(key)) {
-      pushSource(avatarUrl);
-      break;
-    }
-  }
-
-  // 7. Universal Default Studio Artwork
-  pushSource(DEFAULT_STUDIO_ARTWORK);
 
   return sources;
 };
 
-
 /**
- * 👤 Official Artist Avatar Resolver
- * Returns the authentic 100% REAL YouTube channel avatar or verified studio portrait.
- * Never overrides real YouTube channel avatars with static placeholders.
+ * 👤 Official Artist Avatar Resolver (100% DYNAMIC)
+ * Returns the authentic YouTube channel avatar or artist portrait.
+ * Never overrides with static or fixed placeholders.
  */
 export const getUniversalArtistAvatar = (
   url?: string | null,
   artistName?: string | null
 ): string => {
-  // 1. If a genuine YouTube channel avatar URL is provided, enhance and return immediately!
+  // 1. If a genuine YouTube channel avatar URL is provided, enhance to 800x800 and return immediately!
   if (url && typeof url === 'string' && url.trim().length > 10) {
     let cleanUrl = url.trim();
     if (cleanUrl.startsWith('//')) {
@@ -354,17 +269,12 @@ export const getUniversalArtistAvatar = (
     .replace(/\s*official.*$/i, '')
     .trim();
 
-  // 2. Check dynamic runtime cache
+  // 2. Check dynamic runtime cache (registered dynamically at runtime from channel responses)
   if (cleanName && dynamicArtistAvatarCache.has(cleanName)) {
     return dynamicArtistAvatarCache.get(cleanName)!;
   }
 
-  // 3. Check verified preloaded portrait map (Exact match only)
-  if (cleanName && VERIFIED_ARTIST_AVATARS[cleanName]) {
-    return VERIFIED_ARTIST_AVATARS[cleanName];
-  }
-
-  // 4. Return sanitized URL or fallback
+  // 3. Return sanitized original URL
   if (url && typeof url === 'string') {
     let cleanUrl = url.trim();
     if (cleanUrl.startsWith('//')) cleanUrl = `https:${cleanUrl}`;

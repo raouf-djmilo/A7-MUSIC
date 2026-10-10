@@ -409,8 +409,9 @@ class MusicDnaEngine {
           subtitle: 'Cardio Beats, 160 BPM Cadence',
           artwork: getUniversalStudioArtwork(
             cadenceTracks[0]?.thumbnail,
-            cadenceTracks[0]?.title || 'Cardio Cadence 160',
-            'Cadence Beats'
+            cadenceTracks[0]?.title,
+            cadenceTracks[0]?.artist,
+            cadenceTracks[0]?.videoId
           ),
           tracks: cadenceTracks.slice(0, 15),
         },
@@ -423,7 +424,8 @@ class MusicDnaEngine {
           artwork: getUniversalStudioArtwork(
             signatureTracks[0]?.thumbnail,
             signatureTracks[0]?.title,
-            signatureArtist
+            signatureTracks[0]?.artist,
+            signatureTracks[0]?.videoId
           ),
           tracks: signatureTracks.slice(0, 15),
         },
@@ -436,7 +438,8 @@ class MusicDnaEngine {
           artwork: getUniversalStudioArtwork(
             replayTracks[0]?.thumbnail,
             replayTracks[0]?.title,
-            replayTracks[0]?.artist
+            replayTracks[0]?.artist,
+            replayTracks[0]?.videoId
           ),
           tracks: replayTracks,
         },
@@ -448,8 +451,9 @@ class MusicDnaEngine {
           subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
           artwork: getUniversalStudioArtwork(
             chillTracks[0]?.thumbnail,
-            'Zina Acoustic',
-            'Babylone'
+            chillTracks[0]?.title,
+            chillTracks[0]?.artist,
+            chillTracks[0]?.videoId
           ),
           tracks: chillTracks.slice(0, 15),
         },
@@ -461,8 +465,9 @@ class MusicDnaEngine {
           subtitle: 'Gym Phonk, Trap & High Power Drops',
           artwork: getUniversalStudioArtwork(
             energyTracks[0]?.thumbnail,
-            energyTracks[0]?.title || 'Phonk Energy',
-            'Kordhell'
+            energyTracks[0]?.title,
+            energyTracks[0]?.artist,
+            energyTracks[0]?.videoId
           ),
           tracks: energyTracks.slice(0, 15),
         },
@@ -656,7 +661,7 @@ class MusicDnaEngine {
         title: '160 BPM Stride',
         badgeColor: '#FF6B00',
         subtitle: 'Cardio Beats, 160 BPM Cadence',
-        artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/60/29/11602913-9773-8ccd-30ac-1f6af60a0126/cover_735910926903.jpg/600x600bb.jpg',
+        artwork: cadenceTracks[0]?.thumbnail || CURATED_TRACKS[0]?.thumbnail || '',
         tracks: cadenceTracks.length > 0 ? cadenceTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -665,7 +670,7 @@ class MusicDnaEngine {
         title: 'Rai DZ Mix',
         badgeColor: '#1DB954',
         subtitle: 'Djalil Palermo, Khaled & Soolking',
-        artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/01/99/c9/0199c9ea-010a-391c-689e-86e077dbb9e9/cover.jpg/600x600bb.jpg',
+        artwork: raiTracks[0]?.thumbnail || CURATED_TRACKS[1]?.thumbnail || '',
         tracks: raiTracks.length > 0 ? raiTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -674,7 +679,7 @@ class MusicDnaEngine {
         title: 'On Repeat',
         badgeColor: '#8E2DE2',
         subtitle: 'Your most played anthems this week',
-        artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/ce/8e/0f/ce8e0f35-e9ff-db39-9f1c-4a71dd4dc1be/cover.jpg/600x600bb.jpg',
+        artwork: history[0]?.thumbnail || CURATED_TRACKS[2]?.thumbnail || '',
         tracks: history.length > 0 ? history.slice(0, 5) : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -683,7 +688,7 @@ class MusicDnaEngine {
         title: 'Sunset Chill',
         badgeColor: '#4A90E2',
         subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
-        artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music3/v4/c8/fb/8e/c8fb8e76-5778-51ad-614f-a8be1732d77b/3700551765249_cover.jpg/600x600bb.jpg',
+        artwork: chillTracks[0]?.thumbnail || CURATED_TRACKS[3]?.thumbnail || '',
         tracks: chillTracks.length > 0 ? chillTracks : CURATED_TRACKS.slice(2, 6),
       },
       {
@@ -692,18 +697,18 @@ class MusicDnaEngine {
         title: 'Energy Boost',
         badgeColor: '#FF0055',
         subtitle: 'Gym Phonk, Trap & High Power Drops',
-        artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/9b/58/d0/9b58d03d-3592-c5ad-6063-3b1e69831259/cover.jpg/600x600bb.jpg',
+        artwork: energyTracks[0]?.thumbnail || CURATED_TRACKS[4]?.thumbnail || '',
         tracks: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
       },
     ];
 
     const favouriteArtists = [
-      { name: 'Djalil Palermo', avatar: getUniversalArtistAvatar(null, 'Djalil Palermo'), isOfficial: true },
-      { name: 'Soolking', avatar: getUniversalArtistAvatar(null, 'Soolking'), isOfficial: true },
-      { name: 'Cheb Khaled', avatar: getUniversalArtistAvatar(null, 'Cheb Khaled'), isOfficial: true },
-      { name: 'Didine Canon 16', avatar: getUniversalArtistAvatar(null, 'Didine Canon 16'), isOfficial: true },
-      { name: 'Cheb Mami', avatar: getUniversalArtistAvatar(null, 'Cheb Mami'), isOfficial: true },
-      { name: 'The Weeknd', avatar: getUniversalArtistAvatar(null, 'The Weeknd'), isOfficial: true },
+      { name: 'Djalil Palermo', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('djalil'))?.thumbnail || '', isOfficial: true },
+      { name: 'Soolking', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('soolking'))?.thumbnail || '', isOfficial: true },
+      { name: 'Cheb Khaled', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('khaled'))?.thumbnail || '', isOfficial: true },
+      { name: 'Didine Canon 16', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('didine'))?.thumbnail || '', isOfficial: true },
+      { name: 'Cheb Mami', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('mami'))?.thumbnail || '', isOfficial: true },
+      { name: 'The Weeknd', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('weeknd'))?.thumbnail || '', isOfficial: true },
     ];
 
     return {
