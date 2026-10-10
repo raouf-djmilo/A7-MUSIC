@@ -97,7 +97,10 @@ const MiniProgressBar: React.FC<MiniProgressBarProps> = React.memo(({ isDark, ac
           styles.miniProgressFill,
           {
             width: `${progressPercent}%`,
-            backgroundColor: isDark ? '#FFFFFF' : accentColor,
+            backgroundColor: accentColor,
+            shadowColor: accentColor,
+            shadowOpacity: 0.65,
+            shadowRadius: 6,
           },
         ]}
       />
@@ -747,6 +750,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       >
         {/* Living Ambient Artwork Backdrop (100% Reactive Cover Colors directly INSIDE the mini bar) */}
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 16 }]} pointerEvents="none">
+          {/* Layer A: Full-bleed blurred cover image reacting directly inside the pill */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
@@ -754,19 +758,23 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 StyleSheet.absoluteFill,
                 {
                   transform: [{ scale: 2.2 }],
-                  opacity: isDark ? 0.72 : 0.58,
+                  opacity: isDark ? 0.85 : 0.70,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 24 : 16}
+              blurRadius={Platform.OS === 'ios' ? 22 : 14}
               cachePolicy="memory-disk"
               transition={300}
             />
           )}
 
-          {/* Layer B: Vibrant Harmonic Gradient Wash reflecting the exact cover colors */}
+          {/* Layer B: Gentle Depth Tint preserving 100% of the authentic cover art reflection */}
           <LinearGradient
-            colors={[tint.miniBg1, tint.miniBg2]}
+            colors={
+              isDark
+                ? ['rgba(12, 16, 24, 0.35)', 'rgba(8, 10, 16, 0.65)']
+                : ['rgba(255, 255, 255, 0.40)', 'rgba(240, 242, 245, 0.70)']
+            }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -774,7 +782,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
           {/* Layer C: Silky Frosted Glass Diffusion (tuned intensity so colors shine through) */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 35 : 20}
+            intensity={Platform.OS === 'ios' ? 30 : 18}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
@@ -906,51 +914,53 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             ]}
           />
 
-          {/* Layer A: Full-Bleed Scaled Ambient Artwork Canvas (Exact 1:1 Cover Colors across the entire viewport) */}
+          {/* Layer A: Pure GPU Blurred Cover Art (100% True Authentic Colors of the Album Art across the entire viewport) */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  transform: [{ scale: 1.5 }],
-                  opacity: isDark ? 0.85 : 0.65,
+                  transform: [{ scale: 1.45 }],
+                  opacity: 1, // 🛡️ 100% full authentic vibrancy of the real cover image!
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 45 : 30}
+              blurRadius={Platform.OS === 'ios' ? 42 : 28}
               priority="high"
               cachePolicy="memory-disk"
               transition={400}
             />
           )}
 
-          {/* Layer B: Vibrant Full-Screen Ambient Radiant Gradient Mesh */}
+          {/* Layer B: Cinematic Vignette & Atmospheric Contrast Mesh (Transparent Center so Real Cover Glows 100%) */}
           <LinearGradient
             colors={
               isDark
                 ? [
-                    tint.top,
-                    tint.mid,
-                    'rgba(10, 12, 18, 0.40)',
-                    tint.bottom,
+                    'rgba(0, 0, 0, 0.42)',     // Top: Protects header icons & status bar
+                    'rgba(0, 0, 0, 0.05)',     // Upper center: pure cover colors shine
+                    'rgba(0, 0, 0, 0.00)',     // Dead center: 100% pure authentic cover art colors!
+                    'rgba(6, 8, 12, 0.50)',    // Lower center: subtle cinematic transition
+                    'rgba(6, 8, 12, 0.94)',    // Bottom: solid velvet contrast for electric buttons & scrubber!
                   ]
                 : [
-                    'rgba(255, 255, 255, 0.50)',
-                    tint.top,
-                    tint.mid,
-                    tint.bottom,
+                    'rgba(255, 255, 255, 0.55)',
+                    'rgba(255, 255, 255, 0.10)',
+                    'rgba(255, 255, 255, 0.00)',
+                    'rgba(240, 242, 245, 0.45)',
+                    'rgba(240, 242, 245, 0.94)',
                   ]
             }
-            locations={[0, 0.35, 0.70, 1]}
+            locations={[0, 0.22, 0.48, 0.75, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Layer C: Apple Music Style Frosted Glass Diffusion Veil (tuned intensity so colors shine through) */}
+          {/* Layer C: Subtle Apple Music Glass Diffusion (feathered so colors glow smoothly) */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 40 : 25}
+            intensity={Platform.OS === 'ios' ? 30 : 18}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
@@ -1451,14 +1461,23 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               {/* Big Circular Green Play / Pause Button */}
               <TouchableOpacity
                 onPress={handlePlayPausePress}
-                style={[styles.fullPlayPauseBtn, { backgroundColor: tint.accent, shadowColor: tint.accent }]}
+                style={[
+                  styles.fullPlayPauseBtn,
+                  {
+                    backgroundColor: tint.accent,
+                    shadowColor: tint.accent,
+                    shadowOpacity: 0.75,
+                    shadowRadius: 20,
+                    elevation: 14,
+                  },
+                ]}
                 activeOpacity={0.85}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons
                   name={isPlaying ? 'pause' : 'play'}
                   size={34}
-                  color="#000000"
+                  color={tint.accentContrastText}
                   style={{ marginLeft: isPlaying ? 0 : 3 }}
                 />
               </TouchableOpacity>
@@ -2053,8 +2072,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   miniProgressFill: {
     height: '100%',
