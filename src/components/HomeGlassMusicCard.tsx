@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import Animated, {
 import { Track } from '../store/useAudioStore';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
-import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, getUniversalArtistAvatar, getUniversalStudioArtworkSource } from '../utils/artworkHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -277,6 +277,11 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
   const { theme } = useTheme();
   const styles = useThemedStyles(createCardStyles);
 
+  const artworkSources = useMemo(
+    () => getUniversalStudioArtworkSource(track.thumbnail, track.title, track.artist, track.videoId),
+    [track.thumbnail, track.title, track.artist, track.videoId]
+  );
+
   // ── Scale & Opacity Motion Physics Interpolation (UI Thread) ──
   const animatedCardStyle = useAnimatedStyle(() => {
     const inputRange = [
@@ -334,7 +339,7 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
           {/* Artist Pill */}
           <View style={styles.artistPill} pointerEvents="none">
             <Image
-              source={{ uri: getUniversalArtistAvatar(track.artistAvatar, track.artist) || getUniversalStudioArtwork(track.thumbnail) }}
+              source={{ uri: getUniversalArtistAvatar(track.artistAvatar, track.artist) || getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, track.videoId) }}
               style={styles.artistAvatar}
               contentFit="cover"
               cachePolicy="memory-disk"
@@ -381,8 +386,18 @@ export const HomeGlassMusicCard: React.FC<HomeGlassMusicCardProps> = React.memo(
           onPress={onPressArtwork}
           style={styles.artworkWrapper}
         >
+          {/* Ambient blurred underlay fills entire card container - Zero Black Bars */}
           <Image
-            source={{ uri: getUniversalStudioArtwork(track.thumbnail) }}
+            source={artworkSources}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            blurRadius={Platform.OS === 'ios' ? 22 : 14}
+            priority="low"
+            cachePolicy="memory-disk"
+          />
+
+          <Image
+            source={artworkSources}
             style={styles.artwork}
             contentFit="cover"
             priority="high"

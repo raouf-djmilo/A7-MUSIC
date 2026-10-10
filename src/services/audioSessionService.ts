@@ -128,7 +128,7 @@ export const updateNowPlayingLockScreen = async (
   lastLockScreenSyncTime = now;
 
   try {
-    const artworkUrl = getUniversalStudioArtwork(track.thumbnail);
+    const artworkUrl = getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, track.videoId);
     const validDurationSec = Math.max(1, Math.floor(
       (durationMillis > 0 ? durationMillis : track.duration || 180000) / 1000
     ));

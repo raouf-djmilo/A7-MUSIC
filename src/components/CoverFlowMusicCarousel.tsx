@@ -27,7 +27,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '../theme/ThemeContext';
 import { useAudioStore, Track } from '../store/useAudioStore';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, getUniversalStudioArtworkSource } from '../utils/artworkHelper';
 import { cleanArtistName } from '../services/youtubeMusicService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -64,6 +64,11 @@ const CoverFlowCard = React.memo(({
   isCenter,
 }: CardItemProps) => {
   const { theme, isDark } = useTheme();
+
+  const artworkSources = useMemo(
+    () => getUniversalStudioArtworkSource(track?.thumbnail, track?.title, track?.artist, track?.videoId),
+    [track?.thumbnail, track?.title, track?.artist, track?.videoId]
+  );
 
   const animatedStyle = useAnimatedStyle(() => {
     // 🚀 Continuous camera coordinate: p = cardVirtualPos - virtualIndex.value
@@ -155,12 +160,23 @@ const CoverFlowCard = React.memo(({
         >
           {/* Top Square Artwork */}
           <View style={styles.cardArtworkWrap}>
+            {/* Ambient blurred underlay fills 100% with glowing colors (Zero Black Bars) */}
             <Image
-              source={{ uri: getUniversalStudioArtwork(track?.thumbnail) }}
+              source={artworkSources}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              blurRadius={Platform.OS === 'ios' ? 18 : 12}
+              priority="low"
+              cachePolicy="memory-disk"
+            />
+            {/* Crisp HD Artwork */}
+            <Image
+              source={artworkSources}
               style={styles.cardArtwork}
               contentFit="cover"
               priority={isCenter ? 'high' : 'normal'}
               cachePolicy="memory-disk"
+              transition={180}
             />
             {/* Subtle Gradient Veil */}
             <LinearGradient

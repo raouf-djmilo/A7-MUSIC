@@ -78,11 +78,11 @@ export function getHighResYouTubeAvatar(url?: string | null): string {
 }
 
 /**
- * 🌟 Returns the highest resolution cover available for a YouTube video
+ * 🌟 Returns the highest resolution cover available for a YouTube video (1280x720 HD, zero black bars)
  */
 export function getHighResThumbnail(videoId: string, fallbackUrl?: string | null): string {
   if (videoId && videoId.length > 5 && !videoId.startsWith('http')) {
-    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
   }
   return fallbackUrl || '';
 }
@@ -281,9 +281,12 @@ export async function searchYouTubeMusicWithArtist(query: string): Promise<Searc
         }
 
         const thumbs = v.thumbnail?.thumbnails || [];
-        const thumbnail = thumbs.length > 0 
+        const rawThumbnail = thumbs.length > 0 
           ? thumbs[thumbs.length - 1]?.url 
-          : `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+          : `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`;
+        const thumbnail = rawThumbnail.includes('ytimg.com/vi/')
+          ? `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`
+          : rawThumbnail;
 
         rawTracks.push({
           videoId: v.videoId,

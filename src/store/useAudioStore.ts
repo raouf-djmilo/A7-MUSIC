@@ -12,7 +12,7 @@ import {
   stopListeningHeartbeat 
 } from '../services/listeningTimeService';
 import { configureAudioSession, updateNowPlayingLockScreen, getOrGenerateSilentAudioUri } from '../services/audioSessionService';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
@@ -616,7 +616,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 url: fallbackSilentUri,
                 title: finalTitle,
                 artist: finalArtist,
-                artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+                artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
                 duration: totalDurationSec,
               });
               await TrackPlayer.setRepeatMode(1);
@@ -626,7 +626,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
               await TrackPlayer.updateNowPlayingMetadata({
                 title: finalTitle,
                 artist: finalArtist,
-                artwork: getUniversalStudioArtwork(finalTrack.thumbnail) || undefined,
+                artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
                 duration: totalDurationSec,
                 elapsedTime: initialPosition,
               });
@@ -637,6 +637,29 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             // Native TrackPlayer fallback is non-blocking
           }
         }
+
+        // 🎨 Asynchronous Ultra-HD Studio Artwork Auto-Discovery (Apple Music / YouTube Music Protocol)
+        // Background queries official 1200x1200bb square album art and upgrades currentTrack + Lock Screen dynamically
+        fetchStudioAlbumArtAsync(finalTrack.artist, finalTrack.title, finalTrack.videoId)
+          .then((studioArt) => {
+            if (studioArt) {
+              const current = get().currentTrack;
+              if (current && current.videoId === finalTrack.videoId && current.thumbnail !== studioArt) {
+                const upgradedTrack: Track = { ...current, thumbnail: studioArt };
+                set({ currentTrack: upgradedTrack });
+                updateNowPlayingLockScreen(upgradedTrack, get().positionMillis, get().durationMillis, true);
+                if (NativeModules.TrackPlayerModule) {
+                  TrackPlayer.updateNowPlayingMetadata({
+                    title: upgradedTrack.title,
+                    artist: upgradedTrack.artist,
+                    artwork: studioArt,
+                    duration: Math.floor(get().durationMillis / 1000),
+                  }).catch(() => {});
+                }
+              }
+            }
+          })
+          .catch(() => {});
       } catch (error: any) {
         console.warn('[AudioStore] Background Play Error:', error);
       }

@@ -43,6 +43,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../providers/AuthProvider';
 import {
   getUniversalStudioArtwork,
+  getUniversalStudioArtworkSource,
   getUniversalArtistAvatar,
   STUDIO_IMAGE_PROPS,
 } from '../utils/artworkHelper';
@@ -750,35 +751,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const tint = useMemo(() => getTrackAtmosphericTint(currentTrack, isDark), [currentTrack, isDark]);
 
-  // ── Ultra-HD Artwork Resolution Cascade (maxresdefault -> hqdefault -> thumbnail -> studio) ──
-  const [artworkUriIndex, setArtworkUriIndex] = useState(0);
-
-  const artworkCandidates = useMemo(() => {
-    if (!currentTrack) return [];
-    const vid = currentTrack.videoId;
-    const list: string[] = [];
-
-    // 1. High-priority: Authentic square album cover (UniversalStudioArtwork)
-    if (currentTrack.thumbnail) {
-      const studioCover = getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist);
-      if (studioCover) {
-        list.push(studioCover);
-      }
-    }
-
-    // 2. High-res YouTube video thumbnails (sddefault 640x480, maxresdefault 1280x720)
-    if (vid && vid.length >= 8) {
-      list.push(`https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`);
-      list.push(`https://i.ytimg.com/vi/${vid}/sddefault.jpg`);
-      list.push(`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
-    }
-
-    return list;
+  // ── YouTube Music Ultra-HD Studio Artwork Cascade (1200x1200bb / 1080p HD, zero black bars) ──
+  const heroArtworkSources = useMemo(() => {
+    return getUniversalStudioArtworkSource(
+      currentTrack?.thumbnail,
+      currentTrack?.title,
+      currentTrack?.artist,
+      currentTrack?.videoId
+    );
   }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
-
-  useEffect(() => {
-    setArtworkUriIndex(0);
-  }, [currentTrack?.videoId]);
 
   const handleShare = async () => {
     if (!currentTrack) return;
@@ -799,8 +780,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     currentTrack.artistAvatar,
     currentTrack.artist
   );
-  const heroArtworkUrl = artworkCandidates[artworkUriIndex] || artworkCandidates[0] || getUniversalStudioArtwork(currentTrack.thumbnail);
-  const miniArtworkUrl = heroArtworkUrl || getUniversalStudioArtwork(currentTrack.thumbnail);
 
   return (
     <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -835,9 +814,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               onPress={expandToFull}
               style={styles.miniDisplayArea}
             >
-              {/* 42x42 Square Thumbnail – Universal Studio Engine (zero black bars) */}
+              {/* 44x44 Square Thumbnail – Universal Studio Engine (zero black bars, retina sharp) */}
               <Image
-                source={{ uri: miniArtworkUrl || 'https://i.ytimg.com/vi/default/maxresdefault.jpg' }}
+                source={heroArtworkSources}
                 style={styles.miniCover}
                 contentFit="cover"
                 priority="high"
@@ -1100,25 +1079,38 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     },
                   ]}
                 />
+
+                {/* 1. YouTube Music Canvas Protocol: Full-Bleed Ambient Backdrop Fill (Fills 100% of card, eliminates all black bars) */}
                 <Image
-                  source={{ uri: heroArtworkUrl }}
+                  source={heroArtworkSources}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  blurRadius={Platform.OS === 'ios' ? 28 : 20}
+                  priority="low"
+                />
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.22)' : 'rgba(255, 255, 255, 0.12)' },
+                  ]}
+                  pointerEvents="none"
+                />
+
+                {/* 2. Main Razor-Sharp Ultra-HD Artwork Stage (1:1 / 1080p Studio Quality) */}
+                <Image
+                  source={heroArtworkSources}
                   style={[
                     styles.heroArtworkImg,
                     {
                       width: cardWidth,
                       height: cardWidth,
-                      transform: [{ scale: isPlaying ? 1 : 0.95 }],
+                      transform: [{ scale: isPlaying ? 1 : 0.96 }],
                     },
                   ]}
                   contentFit="cover"
                   priority="high"
                   cachePolicy="memory-disk"
                   transition={200}
-                  onError={() => {
-                    if (artworkUriIndex < artworkCandidates.length - 1) {
-                      setArtworkUriIndex((prev) => prev + 1);
-                    }
-                  }}
                 />
               </View>
 
