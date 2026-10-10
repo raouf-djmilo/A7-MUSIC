@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
+  cancelAnimation,
   runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -230,7 +231,7 @@ interface CoverFlowProps {
   onLoadMore?: () => void;
 }
 
-export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
+export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = React.memo(({
   tracks,
   onTrackSelect,
   onActiveCardChange,
@@ -257,29 +258,21 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
   const dragStartVirtual = useSharedValue(initialIndex);
   const [settledIndex, setSettledIndex] = useState(initialIndex);
 
-  // Synchronize when currentTrack changes externally (Lock Screen, Mini Player, Bottom Sheet)
-  useEffect(() => {
-    if (currentTrack?.videoId && numTracks > 0) {
-      const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
-      if (found !== -1 && found !== settledIndex) {
-        setSettledIndex(found);
-        virtualIndex.value = withSpring(found, {
-          damping: 26,
-          stiffness: 280,
-          mass: 0.5,
-        });
-      }
-    }
-  }, [currentTrack?.videoId, numTracks, tracks, settledIndex]);
+  // Synchronous tracking refs to eliminate race conditions & double-spring loops
+  const settledIndexRef = useRef(initialIndex);
+  const isSelfTriggeredRef = useRef(false);
 
   // Handle settling at a target integer index
   const handleSettle = useCallback(
     (targetInt: number) => {
       if (numTracks === 0) return;
       const clamped = Math.max(0, Math.min(numTracks - 1, targetInt));
+      settledIndexRef.current = clamped;
       setSettledIndex(clamped);
       const targetTrack = tracks[clamped];
       if (!targetTrack) return;
+
+      isSelfTriggeredRef.current = true;
 
       // 🎨 Notify Home Ambient Canvas immediately for smooth crossfade
       onActiveCardChange?.(targetTrack);
@@ -302,40 +295,78 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
     [numTracks, tracks, currentTrack?.videoId, onTrackSelect, onActiveCardChange, onLoadMore]
   );
 
-  // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center!)
+  // Keep a stable ref to handleSettle so the Pan gesture NEVER re-creates while user is swiping
+  const handleSettleRef = useRef(handleSettle);
+  handleSettleRef.current = handleSettle;
+
+  const onSettleFromWorklet = useCallback((targetInt: number) => {
+    handleSettleRef.current(targetInt);
+  }, []);
+
+  // Synchronize when currentTrack changes externally (Lock Screen, Mini Player, Bottom Sheet)
+  useEffect(() => {
+    if (isSelfTriggeredRef.current) {
+      isSelfTriggeredRef.current = false;
+      return;
+    }
+    if (currentTrack?.videoId && numTracks > 0) {
+      const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
+      if (found !== -1 && found !== settledIndexRef.current) {
+        settledIndexRef.current = found;
+        setSettledIndex(found);
+        virtualIndex.value = withSpring(found, {
+          damping: 26,
+          stiffness: 280,
+          mass: 0.5,
+        });
+      }
+    }
+  }, [currentTrack?.videoId, numTracks, tracks]);
+
+  // 🚀 Natural 1:1 Gesture Handling (Dragging right moves left card into center, strict 1-card step!)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
       .activeOffsetX([-8, 8])
       .onBegin(() => {
         'worklet';
+        cancelAnimation(virtualIndex);
         dragStartVirtual.value = virtualIndex.value;
       })
       .onUpdate((e) => {
         'worklet';
-        // When user drags right (e.translationX > 0), virtualIndex decreases, bringing left card into center
-        // When user drags left (e.translationX < 0), virtualIndex increases, bringing right card into center
+        // 1:1 natural finger drag
         virtualIndex.value = dragStartVirtual.value - e.translationX / SPACING;
       })
       .onEnd((e) => {
         'worklet';
-        const moveFraction = -e.translationX / SPACING;
-        const velocityContribution = -e.velocityX / 600;
-        const targetFraction = moveFraction + velocityContribution * 0.4;
-        const rawTarget = Math.round(dragStartVirtual.value + targetFraction);
-        const targetInt = Math.max(0, Math.min(numTracks - 1, rawTarget));
+        const startInt = Math.round(dragStartVirtual.value);
+        const currentPos = virtualIndex.value;
+        const delta = currentPos - startInt; // > 0 = moved towards next card, < 0 = moved towards prev card
+        const vel = -e.velocityX; // > 0 = flicked towards next card, < 0 = flicked towards prev card
 
-        virtualIndex.value = withSpring(
-          targetInt,
-          {
-            damping: 26,
-            stiffness: 280,
-            mass: 0.5,
-          }
-        );
-        // 🚀 Instant 0ms Auto-Play on Swipe: trigger immediately upon gesture release!
-        runOnJS(handleSettle)(targetInt);
+        let target = startInt;
+
+        // 🎯 Strict 1-Card Step: a single swipe always advances or retreats exactly 1 card!
+        if (vel > 350 || delta > 0.30) {
+          target = startInt + 1;
+        } else if (vel < -350 || delta < -0.30) {
+          target = startInt - 1;
+        } else {
+          target = Math.round(currentPos);
+        }
+
+        const targetInt = Math.max(0, Math.min(numTracks - 1, target));
+
+        virtualIndex.value = withSpring(targetInt, {
+          damping: 26,
+          stiffness: 280,
+          mass: 0.5,
+        });
+
+        // 🚀 Instant 0ms playback: settles immediately on the exact card!
+        runOnJS(onSettleFromWorklet)(targetInt);
       });
-  }, [handleSettle, numTracks]);
+  }, [numTracks, onSettleFromWorklet]);
 
   // Tap on card: smoothly springs to that card and settles
   const handleCardTap = useCallback(
@@ -427,7 +458,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowProps> = ({
       </GestureDetector>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   rootWrapper: {
