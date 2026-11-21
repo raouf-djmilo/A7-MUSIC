@@ -1,10 +1,10 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '../store/useAudioStore';
 import { Platform } from 'react-native';
+import { APPLE_BAR_METRICS } from '../theme/AppleLiquidTokens';
 
-const TAB_BAR_HEIGHT = 56;
 const MINI_PLAYER_HEIGHT = 58;
-const DOCK_MARGIN = 10;
+const MINI_TAB_GAP = 8;
 
 /**
  * 🎵 useMiniPlayerBottomGap
@@ -18,6 +18,8 @@ export const useMiniPlayerBottomGap = () => {
   const insets = useSafeAreaInsets();
   
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
+  const tabBarTotalHeight = Math.max(insets.bottom + 6, APPLE_BAR_METRICS.bottomOffset) + APPLE_BAR_METRICS.barHeight;
+  
   const TAB_SCREENS = [
     'DashboardTab',
     'Dashboard',
@@ -33,13 +35,13 @@ export const useMiniPlayerBottomGap = () => {
 
   if (currentTrack && !isMiniPlayerSuppressed) {
     if (isTabBarVisible) {
-      return bottomInset + TAB_BAR_HEIGHT + DOCK_MARGIN + MINI_PLAYER_HEIGHT + 16;
+      return tabBarTotalHeight + MINI_TAB_GAP + MINI_PLAYER_HEIGHT + 16;
     }
     // In stack screens like ArtistDetailsScreen where tab bar is hidden
-    return bottomInset + DOCK_MARGIN + MINI_PLAYER_HEIGHT + 16;
+    return bottomInset + MINI_TAB_GAP + MINI_PLAYER_HEIGHT + 16;
   }
 
-  return isTabBarVisible ? bottomInset + TAB_BAR_HEIGHT + 12 : bottomInset + 16;
+  return isTabBarVisible ? tabBarTotalHeight + 12 : bottomInset + 16;
 };
 
 export default useMiniPlayerBottomGap;

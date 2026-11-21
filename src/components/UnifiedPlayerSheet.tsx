@@ -213,7 +213,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const isVideoFullscreen = useAudioStore((s) => s.isVideoFullscreen);
   const setVideoFullscreen = useAudioStore((s) => s.setVideoFullscreen);
   const activeEngine = useAudioStore((s) => s.activeEngine);
-  const mediaContainerRef = useRef<View>(null);
+  const mediaContainerRef = useRef<any>(null);
   const youtubePlayerRef = useRef<YoutubeIframeRef>(null);
   const fullscreenPlayerRef = useRef<YoutubeIframeRef>(null);
   const isSwitchingModeRef = useRef<boolean>(false);
@@ -392,7 +392,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   // ── Precise Dynamic Geometry Offsets (Spotify & Apple Music Standard) ──
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
-  const baseMiniBottom = bottomInset + TAB_BAR_HEIGHT + DOCK_MARGIN;
+  const tabBarTop = Math.max(insets.bottom + 6, 22) + 60;
+  const baseMiniBottom = tabBarTop + 8; // Exactly 8px safety clearance above tab bar
   const HIDDEN_OFFSET = DEFAULT_HIDDEN_OFFSET;
   const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.42, 380);
 
@@ -454,7 +455,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   // Smooth 250ms glide when navigating between Tab screens and Stack screens
   useEffect(() => {
-    const targetOffset = isTabBarVisible ? 0 : TAB_BAR_HEIGHT;
+    const targetOffset = isTabBarVisible ? 0 : 68;
     dockTranslateY.value = withTiming(targetOffset, {
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),

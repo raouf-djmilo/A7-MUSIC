@@ -18,7 +18,7 @@ import { SoftwareUpdateScreen } from '../screens/SoftwareUpdateScreen';
 
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
-import { ZeroLagTabContainer } from './ZeroLagTabContainer';
+import { FastTabViewport } from './FastTabViewport';
 import { useAudioStore } from '../store/useAudioStore';
 
 const Stack = createNativeStackNavigator();
@@ -26,7 +26,7 @@ const Stack = createNativeStackNavigator();
 const TAB_ROUTES = ['DashboardTab', 'MusicTab', 'ProfileTab'];
 
 // ======================================================
-// Zero-Lag Keep-Alive Tab Container & Apple Liquid Glass
+// Fast Tab Viewport (display: 'none' + startTransition)
 // ======================================================
 const TabNavigator = ({ route }: any) => {
   const { theme } = useTheme();
@@ -53,7 +53,7 @@ const TabNavigator = ({ route }: any) => {
     }
   }, [route?.params?.screen, activeTab]);
 
-  const screens = useMemo(
+  const tabs = useMemo(
     () => [
       { key: 'DashboardTab', component: DashboardScreen },
       { key: 'MusicTab', component: MusicScreen },
@@ -70,7 +70,7 @@ const TabNavigator = ({ route }: any) => {
 
   return (
     <View style={[styles.tabRoot, { backgroundColor: theme.background }]}>
-      <ZeroLagTabContainer screens={screens} activeIndex={activeTab} />
+      <FastTabViewport tabs={tabs} activeIndex={activeTab} />
       <AppleLiquidGlassTabBar
         activeIndex={activeTab}
         onTabChange={handleTabChange}

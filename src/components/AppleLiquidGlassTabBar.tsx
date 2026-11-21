@@ -14,7 +14,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withSequence,
   runOnJS,
   SharedValue,
 } from 'react-native-reanimated';
@@ -28,6 +27,19 @@ import {
 } from '../theme/AppleLiquidTokens';
 
 const { width } = Dimensions.get('window');
+
+/**
+ * ⚡ iOS Crisp Spring Physics Configuration (Rule 1 & 2)
+ * High stiffness = instant zero-lag response on finger release
+ * Balanced damping = smooth settle without oscillation
+ * Low mass = light liquid droplet feel
+ */
+const IOS_CRISP_SPRING = {
+  stiffness: 420,
+  damping: 30,
+  mass: 0.75,
+  overshootClamping: false,
+};
 
 const TAB_METAS: { [key: string]: { label: string; outlineIcon: string; filledIcon: string } } = {
   DashboardTab: {
@@ -159,37 +171,19 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
 
   const bottomOffset = Math.max(insets.bottom + 6, APPLE_BAR_METRICS.bottomOffset);
 
-  // 🚀 Pure GPU Shared Values for Bubble Position & Volume-Preserving Stretch (Sx * Sy = 1.0)
+  // 🚀 Pure GPU Shared Values for Bubble Position & Crisp Physics
   const indicatorX = useSharedValue(currentIndex * tabWidth);
   const bubbleScaleX = useSharedValue(1);
   const bubbleScaleY = useSharedValue(1);
   const targetIndexRef = useRef(currentIndex);
 
-  // Volume-preserving continuous spring animation
-  const animateBubbleTo = useCallback(
+  // iOS Crisp Spring Settle (Zero Stuck State Guarantee)
+  const settleToPosition = useCallback(
     (index: number) => {
-      const distance = Math.abs(index - targetIndexRef.current);
       targetIndexRef.current = index;
-
-      const stretchRatio = Math.min(1 + distance * 0.10, 1.20);
-      const squashRatio = 1 / stretchRatio; // S_x * S_y = 1.0
-
-      bubbleScaleX.value = withSequence(
-        withSpring(stretchRatio, { damping: 14, stiffness: 280, mass: 0.4 }),
-        withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
-      );
-
-      bubbleScaleY.value = withSequence(
-        withSpring(squashRatio, { damping: 14, stiffness: 280, mass: 0.4 }),
-        withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
-      );
-
-      indicatorX.value = withSpring(index * tabWidth, {
-        damping: 22,
-        stiffness: 280,
-        mass: 0.5,
-        overshootClamping: false,
-      });
+      indicatorX.value = withSpring(index * tabWidth, IOS_CRISP_SPRING);
+      bubbleScaleX.value = withSpring(1.0, IOS_CRISP_SPRING);
+      bubbleScaleY.value = withSpring(1.0, IOS_CRISP_SPRING);
     },
     [tabWidth, indicatorX, bubbleScaleX, bubbleScaleY]
   );
@@ -197,9 +191,9 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
   // Sync with external state changes gracefully
   useEffect(() => {
     if (targetIndexRef.current !== currentIndex) {
-      animateBubbleTo(currentIndex);
+      settleToPosition(currentIndex);
     }
-  }, [currentIndex, animateBubbleTo]);
+  }, [currentIndex, settleToPosition]);
 
   const maxTravel = (numTabs - 1) * tabWidth;
   const startDragX = useSharedValue(0);
@@ -215,12 +209,16 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
 
   const handleTabSelect = useCallback(
     (index: number) => {
-      if (targetIndexRef.current === index && currentIndex === index) return;
+      if (targetIndexRef.current === index && currentIndex === index) {
+        settleToPosition(index);
+        return;
+      }
 
       // 1. Instant tactile feedback
       triggerHaptic('selection');
+
       // 2. Animate bubble immediately on UI thread GPU (0ms delay)
-      animateBubbleTo(index);
+      settleToPosition(index);
 
       // 3. Defer screen switch to next animation frame so bubble glide begins with 0ms freeze
       requestAnimationFrame(() => {
@@ -232,17 +230,20 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
         }
       });
     },
-    [currentIndex, animateBubbleTo, onTabChange, navigation, routes]
+    [currentIndex, settleToPosition, onTabChange, navigation, routes]
   );
 
-  // 🌊 Continuous Damped Spring & Volume-Preserving Physics
+  // 🌊 Continuous Damped Spring & Volume-Preserving Physics (Zero Stuck State Guarantee)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
-      .activeOffsetX([-14, 14])
+      .activeOffsetX([-12, 12])
       .failOffsetY([-12, 12])
       .onBegin(() => {
         'worklet';
         startDragX.value = indicatorX.value;
+        // Instant tactile press feedback on GPU
+        bubbleScaleX.value = withSpring(1.04, IOS_CRISP_SPRING);
+        bubbleScaleY.value = withSpring(1 / 1.04, IOS_CRISP_SPRING);
       })
       .onStart(() => {
         'worklet';
@@ -261,14 +262,14 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
         }
         indicatorX.value = clampedX;
 
-        // Volume-Preserving Soft-Body Physics: Sx * Sy = 1.0
+        // Volume-Preserving Soft-Body Physics: Sx * Sy = 1.0 (clamped to max 18% stretch)
         const velocity = Math.abs(e.velocityX);
-        const stretch = Math.min(velocity / 1800, 0.24);
-        const sx = 1 + stretch;
+        const clampedSpeed = Math.min(velocity / 1600, 1);
+        const sx = 1 + clampedSpeed * 0.18;
         const sy = 1 / sx;
 
-        bubbleScaleX.value = withSpring(sx, { damping: 18, stiffness: 280, mass: 0.4 });
-        bubbleScaleY.value = withSpring(sy, { damping: 18, stiffness: 280, mass: 0.4 });
+        bubbleScaleX.value = sx;
+        bubbleScaleY.value = sy;
 
         // Magnetic Detent: tactile click when crossing midpoints
         const closest = Math.max(0, Math.min(Math.round(clampedX / tabWidth), numTabs - 1));
@@ -287,16 +288,17 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
         lastSnappedIdx.value = target;
         const finalX = target * tabWidth;
 
-        indicatorX.value = withSpring(finalX, {
-          damping: 20,
-          stiffness: 260,
-          mass: 0.5,
-        });
-
-        bubbleScaleX.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
-        bubbleScaleY.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
+        indicatorX.value = withSpring(finalX, IOS_CRISP_SPRING);
+        bubbleScaleX.value = withSpring(1.0, IOS_CRISP_SPRING);
+        bubbleScaleY.value = withSpring(1.0, IOS_CRISP_SPRING);
 
         runOnJS(handleTabSelect)(target);
+      })
+      .onFinalize(() => {
+        'worklet';
+        // 🛡️ Mandatory Safety Guarantee: NEVER leave the bubble stuck in a pressed state on interrupt/cancel
+        bubbleScaleX.value = withSpring(1.0, IOS_CRISP_SPRING);
+        bubbleScaleY.value = withSpring(1.0, IOS_CRISP_SPRING);
       });
   }, [indicatorX, bubbleScaleX, bubbleScaleY, maxTravel, tabWidth, numTabs, handleTabSelect]);
 
