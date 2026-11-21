@@ -20,101 +20,54 @@ import Animated, {
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { ThemeTokens } from '../theme/types';
+import { useTheme } from '../theme/ThemeContext';
 import { LiquidGlassBubble } from './liquidGlass/LiquidGlassBubble';
+import {
+  APPLE_BAR_METRICS,
+  APPLE_LIQUID_COLORS,
+} from '../theme/AppleLiquidTokens';
 
 const { width } = Dimensions.get('window');
 
-// ── Perfect Mathematical Geometry Constants ──
-const TAB_BAR_HEIGHT = 60;
-const HORIZONTAL_MARGIN = 16;
-const PILL_PADDING = 5;
-const PILL_H_MARGIN = 2;
+const TAB_METAS: { [key: string]: { label: string; outlineIcon: string; filledIcon: string } } = {
+  DashboardTab: {
+    label: 'الرئيسية',
+    outlineIcon: 'home-outline',
+    filledIcon: 'home',
+  },
+  MusicTab: {
+    label: 'الموسيقى',
+    outlineIcon: 'musical-notes-outline',
+    filledIcon: 'musical-notes',
+  },
+  ProfileTab: {
+    label: 'حسابي',
+    outlineIcon: 'person-outline',
+    filledIcon: 'person',
+  },
+};
+
+const DEFAULT_ROUTES = [
+  { name: 'DashboardTab', key: 'DashboardTab' },
+  { name: 'MusicTab', key: 'MusicTab' },
+  { name: 'ProfileTab', key: 'ProfileTab' },
+];
 
 interface TabItemProps {
   route: any;
   index: number;
   isActive: boolean;
-  onPressTab: (route: any, index: number) => void;
+  onPressTab: (index: number) => void;
   label: string;
   outlineIcon: string;
   filledIcon: string;
   indicatorX: SharedValue<number>;
   tabWidth: number;
+  isDark: boolean;
 }
-
-const createStyles = (theme: ThemeTokens) =>
-  StyleSheet.create({
-    outerContainer: {
-      position: 'absolute',
-      left: HORIZONTAL_MARGIN,
-      right: HORIZONTAL_MARGIN,
-      height: TAB_BAR_HEIGHT,
-      zIndex: 1000,
-    },
-    mattePillContainer: {
-      flex: 1,
-      height: TAB_BAR_HEIGHT,
-      borderRadius: TAB_BAR_HEIGHT / 2,
-      overflow: 'hidden',
-      position: 'relative',
-      borderWidth: 1,
-      borderColor: theme.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: theme.cardShadow.shadowColor,
-          shadowOffset: theme.cardShadow.shadowOffset,
-          shadowOpacity: theme.cardShadow.shadowOpacity,
-          shadowRadius: theme.cardShadow.shadowRadius,
-        },
-        android: {
-          elevation: theme.cardShadow.elevation,
-        },
-      }),
-    },
-    matteBackground: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor:
-        Platform.OS === 'ios'
-          ? (theme.mode === 'light' ? 'rgba(240, 239, 234, 0.82)' : 'rgba(18, 18, 24, 0.78)')
-          : theme.androidSurfaceFallback,
-    },
-    tabsRow: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: PILL_PADDING,
-      zIndex: 2,
-      height: '100%',
-    },
-    tabButton: {
-      flex: 1,
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    tabItemInner: {
-      width: '100%',
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    iconWrapper: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 3,
-    },
-    tabLabel: {
-      fontSize: 10.5,
-      letterSpacing: -0.2,
-    },
-  });
 
 // ── Ultra-Fast Native Tab Item with Dynamic Optical Lens Magnification ──
 const AnimatedTabItem = React.memo(({
-  route,
   index,
   isActive,
   onPressTab,
@@ -123,19 +76,15 @@ const AnimatedTabItem = React.memo(({
   filledIcon,
   indicatorX,
   tabWidth,
+  isDark,
 }: TabItemProps) => {
-  const { isDark } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  // Strict Monochrome Apple Spec (Rule 8): Pure Obsidian Black (#0A0A0A) / Crisp White (#FFFFFF)
-  const activeColor = isDark ? '#FFFFFF' : '#0A0A0A';
-  const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(60, 60, 67, 0.55)';
+  const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
 
   const handleItemPress = useCallback(() => {
-    onPressTab(route, index);
-  }, [onPressTab, route, index]);
+    onPressTab(index);
+  }, [onPressTab, index]);
 
-  // 🔍 Dynamic Optical Refraction (Rule 7): 1.08x Magnification, Focus, and Elevation under the Glass Bubble
+  // 🔍 Dynamic Optical Refraction: Magnification, Focus, and Elevation under the Glass Bubble
   const animatedLensStyle = useAnimatedStyle(() => {
     const tabCenterX = index * tabWidth;
     const distance = Math.abs(indicatorX.value - tabCenterX);
@@ -160,15 +109,15 @@ const AnimatedTabItem = React.memo(({
         <View style={styles.iconWrapper}>
           <Ionicons
             name={(isActive ? filledIcon : outlineIcon) as any}
-            size={21}
-            color={isActive ? activeColor : inactiveColor}
+            size={APPLE_BAR_METRICS.iconSize}
+            color={isActive ? colors.activeTint : colors.inactiveTint}
           />
         </View>
         <Text
           style={[
             styles.tabLabel,
             {
-              color: isActive ? activeColor : inactiveColor,
+              color: isActive ? colors.activeTint : colors.inactiveTint,
               fontWeight: isActive ? '700' : '500',
             },
           ]}
@@ -181,35 +130,49 @@ const AnimatedTabItem = React.memo(({
   );
 });
 
-export const AppleLiquidGlassTabBar = ({
+export interface AppleLiquidGlassTabBarProps {
+  activeIndex?: number;
+  onTabChange?: (index: number) => void;
+  state?: any;
+  navigation?: any;
+}
+
+export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
+  activeIndex,
+  onTabChange,
   state,
   navigation,
-}: BottomTabBarProps) => {
-  const { theme, isDark } = useTheme();
-  const styles = useThemedStyles(createStyles);
+}) => {
+  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const bottomOffset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 12);
+  const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
 
-  const containerWidth = width - HORIZONTAL_MARGIN * 2;
-  const numTabs = state.routes.length || 3;
-  const innerWidth = containerWidth - PILL_PADDING * 2;
+  const routes = state?.routes || DEFAULT_ROUTES;
+  const numTabs = routes.length || 3;
+  const currentIndex = activeIndex !== undefined ? activeIndex : (state?.index ?? 0);
+
+  // Exact Apple Floating Island Proportions
+  const containerWidth = width - APPLE_BAR_METRICS.horizontalMargin * 2;
+  const innerWidth = containerWidth - APPLE_BAR_METRICS.innerInset * 2;
   const tabWidth = innerWidth / numTabs;
-  const indicatorWidth = tabWidth - PILL_H_MARGIN * 2;
+  const indicatorWidth = tabWidth;
 
-  // 🚀 Pure GPU Shared Values for Bubble Position & Volume-Preserving Stretch ($S_x \times S_y \approx 1.0$)
-  const indicatorX = useSharedValue(state.index * tabWidth);
+  const bottomOffset = Math.max(insets.bottom + 6, APPLE_BAR_METRICS.bottomOffset);
+
+  // 🚀 Pure GPU Shared Values for Bubble Position & Volume-Preserving Stretch (Sx * Sy = 1.0)
+  const indicatorX = useSharedValue(currentIndex * tabWidth);
   const bubbleScaleX = useSharedValue(1);
   const bubbleScaleY = useSharedValue(1);
-  const targetIndexRef = useRef(state.index);
+  const targetIndexRef = useRef(currentIndex);
 
-  // Volume-preserving continuous spring animation (Rule 4 & 5)
+  // Volume-preserving continuous spring animation
   const animateBubbleTo = useCallback(
     (index: number) => {
       const distance = Math.abs(index - targetIndexRef.current);
       targetIndexRef.current = index;
 
       const stretchRatio = Math.min(1 + distance * 0.10, 1.20);
-      const squashRatio = 1 / stretchRatio; // Volume preserving S_x * S_y = 1.0
+      const squashRatio = 1 / stretchRatio; // S_x * S_y = 1.0
 
       bubbleScaleX.value = withSequence(
         withSpring(stretchRatio, { damping: 14, stiffness: 280, mass: 0.4 }),
@@ -233,43 +196,14 @@ export const AppleLiquidGlassTabBar = ({
 
   // Sync with external state changes gracefully
   useEffect(() => {
-    if (targetIndexRef.current !== state.index) {
-      animateBubbleTo(state.index);
+    if (targetIndexRef.current !== currentIndex) {
+      animateBubbleTo(currentIndex);
     }
-  }, [state.index, animateBubbleTo]);
-
-  const getTabMeta = (routeName: string) => {
-    switch (routeName) {
-      case 'DashboardTab':
-        return {
-          label: 'الرئيسية',
-          outlineIcon: 'home-outline',
-          filledIcon: 'home',
-        };
-      case 'MusicTab':
-        return {
-          label: 'الموسيقى',
-          outlineIcon: 'musical-notes-outline',
-          filledIcon: 'musical-notes',
-        };
-      case 'ProfileTab':
-        return {
-          label: 'حسابي',
-          outlineIcon: 'person-outline',
-          filledIcon: 'person',
-        };
-      default:
-        return {
-          label: routeName,
-          outlineIcon: 'ellipse-outline',
-          filledIcon: 'ellipse',
-        };
-    }
-  };
+  }, [currentIndex, animateBubbleTo]);
 
   const maxTravel = (numTabs - 1) * tabWidth;
   const startDragX = useSharedValue(0);
-  const lastSnappedIdx = useSharedValue(state.index);
+  const lastSnappedIdx = useSharedValue(currentIndex);
 
   const triggerHaptic = (type: 'light' | 'selection') => {
     if (type === 'selection') {
@@ -279,17 +213,29 @@ export const AppleLiquidGlassTabBar = ({
     }
   };
 
-  const onDragEndSnap = useCallback(
-    (targetIdx: number) => {
-      targetIndexRef.current = targetIdx;
-      if (state.index !== targetIdx && state.routes[targetIdx]) {
-        navigation.navigate(state.routes[targetIdx].name);
-      }
+  const handleTabSelect = useCallback(
+    (index: number) => {
+      if (targetIndexRef.current === index && currentIndex === index) return;
+
+      // 1. Instant tactile feedback
+      triggerHaptic('selection');
+      // 2. Animate bubble immediately on UI thread GPU (0ms delay)
+      animateBubbleTo(index);
+
+      // 3. Defer screen switch to next animation frame so bubble glide begins with 0ms freeze
+      requestAnimationFrame(() => {
+        if (onTabChange) {
+          onTabChange(index);
+        }
+        if (navigation && routes[index]) {
+          navigation.navigate(routes[index].name);
+        }
+      });
     },
-    [navigation, state.index, state.routes]
+    [currentIndex, animateBubbleTo, onTabChange, navigation, routes]
   );
 
-  // 🌊 Continuous Damped Spring & Volume-Preserving Physics (Rule 4, 5 & 6)
+  // 🌊 Continuous Damped Spring & Volume-Preserving Physics
   const panGesture = useMemo(() => {
     return Gesture.Pan()
       .activeOffsetX([-14, 14])
@@ -315,17 +261,16 @@ export const AppleLiquidGlassTabBar = ({
         }
         indicatorX.value = clampedX;
 
-        // Dynamic Volume-Preserving Soft-Body Physics: S_x * S_y = 1.0 (Rule 4)
+        // Volume-Preserving Soft-Body Physics: Sx * Sy = 1.0
         const velocity = Math.abs(e.velocityX);
         const stretch = Math.min(velocity / 1800, 0.24);
         const sx = 1 + stretch;
-        const sy = 1 / sx; // Exact inverse preserving volume
+        const sy = 1 / sx;
 
-        // Continuous spring response to touch direction changes (Rule 5)
         bubbleScaleX.value = withSpring(sx, { damping: 18, stiffness: 280, mass: 0.4 });
         bubbleScaleY.value = withSpring(sy, { damping: 18, stiffness: 280, mass: 0.4 });
 
-        // Magnetic Detent: tactile click when crossing midpoints without blocking JS thread (Rule 6)
+        // Magnetic Detent: tactile click when crossing midpoints
         const closest = Math.max(0, Math.min(Math.round(clampedX / tabWidth), numTabs - 1));
         if (closest !== lastSnappedIdx.value) {
           lastSnappedIdx.value = closest;
@@ -342,7 +287,6 @@ export const AppleLiquidGlassTabBar = ({
         lastSnappedIdx.value = target;
         const finalX = target * tabWidth;
 
-        // Magnetic Snapping with liquid spring settling
         indicatorX.value = withSpring(finalX, {
           damping: 20,
           stiffness: 260,
@@ -352,78 +296,74 @@ export const AppleLiquidGlassTabBar = ({
         bubbleScaleX.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
         bubbleScaleY.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
 
-        runOnJS(onDragEndSnap)(target);
+        runOnJS(handleTabSelect)(target);
       });
-  }, [indicatorX, bubbleScaleX, bubbleScaleY, maxTravel, tabWidth, numTabs, onDragEndSnap]);
-
-  const stateIndexRef = useRef(state.index);
-  stateIndexRef.current = state.index;
-
-  // Rule 3: Decoupled UI-thread First Touch (0ms Latency)
-  const handlePress = useCallback(
-    (route: any, index: number) => {
-      if (stateIndexRef.current !== index) {
-        // 📳 Instant tactile click
-        Haptics.selectionAsync().catch(() => {});
-        // 🚀 Instant 0ms bubble spring on GPU
-        animateBubbleTo(index);
-        // ⚡ Immediate navigation
-        navigation.navigate(route.name);
-      }
-    },
-    [navigation, animateBubbleTo]
-  );
+  }, [indicatorX, bubbleScaleX, bubbleScaleY, maxTravel, tabWidth, numTabs, handleTabSelect]);
 
   return (
     <View
       style={[
         styles.outerContainer,
-        { bottom: bottomOffset },
+        {
+          left: APPLE_BAR_METRICS.horizontalMargin,
+          right: APPLE_BAR_METRICS.horizontalMargin,
+          bottom: bottomOffset,
+        },
       ]}
       pointerEvents="box-none"
     >
       <GestureDetector gesture={panGesture}>
-        <View style={styles.mattePillContainer}>
-          {/* Dynamic Frosted Blur Layer */}
+        <View
+          style={[
+            styles.mattePillContainer,
+            {
+              backgroundColor: colors.barBg,
+              borderColor: colors.barBorder,
+            },
+          ]}
+        >
+          {/* Frosted Backdrop Blur */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 70 : 45}
-            tint={theme.blurTint}
+            intensity={Platform.OS === 'ios' ? (isDark ? 60 : 75) : 45}
+            tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Dynamic Matte Base Surface */}
-          <View style={styles.matteBackground} />
-
           {/* Floating Transparent 3D Liquid Glass Selection Bubble */}
-          <View style={{ position: 'absolute', top: PILL_PADDING, left: PILL_PADDING + PILL_H_MARGIN }}>
+          <View style={{ position: 'absolute', top: APPLE_BAR_METRICS.innerInset, left: APPLE_BAR_METRICS.innerInset }}>
             <LiquidGlassBubble
               indicatorX={indicatorX}
               scaleX={bubbleScaleX}
               scaleY={bubbleScaleY}
               width={indicatorWidth}
-              height={TAB_BAR_HEIGHT - PILL_PADDING * 2}
-              borderRadius={(TAB_BAR_HEIGHT - PILL_PADDING * 2) / 2}
+              height={APPLE_BAR_METRICS.bubbleHeight}
+              borderRadius={APPLE_BAR_METRICS.bubbleHeight / 2}
               isDark={isDark}
             />
           </View>
 
           {/* 3 Fast Unified Tabs */}
-          <View style={styles.tabsRow}>
-            {state.routes.map((route, index) => {
-              const meta = getTabMeta(route.name);
+          <View style={[styles.tabsRow, { paddingHorizontal: APPLE_BAR_METRICS.innerInset }]}>
+            {routes.map((route: any, index: number) => {
+              const meta = TAB_METAS[route.name] || {
+                label: route.name,
+                outlineIcon: 'ellipse-outline',
+                filledIcon: 'ellipse',
+              };
 
               return (
                 <AnimatedTabItem
-                  key={route.key}
+                  key={route.key || route.name}
                   route={route}
                   index={index}
-                  isActive={state.index === index}
+                  isActive={currentIndex === index}
                   label={meta.label}
                   outlineIcon={meta.outlineIcon}
                   filledIcon={meta.filledIcon}
                   indicatorX={indicatorX}
                   tabWidth={tabWidth}
-                  onPressTab={handlePress}
+                  isDark={isDark}
+                  onPressTab={handleTabSelect}
                 />
               );
             })}
@@ -433,5 +373,60 @@ export const AppleLiquidGlassTabBar = ({
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  outerContainer: {
+    position: 'absolute',
+    height: APPLE_BAR_METRICS.barHeight,
+    zIndex: 1000,
+  },
+  mattePillContainer: {
+    flex: 1,
+    height: APPLE_BAR_METRICS.barHeight,
+    borderRadius: APPLE_BAR_METRICS.barHeight / 2,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+    height: '100%',
+  },
+  tabButton: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabItemInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2, // 2px gap per Apple spec
+  },
+  tabLabel: {
+    fontSize: APPLE_BAR_METRICS.labelSize,
+    letterSpacing: -0.2,
+  },
+});
 
 export default AppleLiquidGlassTabBar;

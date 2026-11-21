@@ -1,15 +1,10 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  Platform,
   View,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BlurView } from 'expo-blur';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 // Screens
@@ -21,41 +16,68 @@ import { AlbumDetailsScreen } from '../screens/AlbumDetailsScreen';
 import { ArtistDetailsScreen } from '../screens/ArtistDetailsScreen';
 import { SoftwareUpdateScreen } from '../screens/SoftwareUpdateScreen';
 
-import { colors } from '../theme/colors';
-
-const Tab   = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
+import { ZeroLagTabContainer } from './ZeroLagTabContainer';
+import { useAudioStore } from '../store/useAudioStore';
+
+const Stack = createNativeStackNavigator();
+
+const TAB_ROUTES = ['DashboardTab', 'MusicTab', 'ProfileTab'];
 
 // ======================================================
-// Tab Navigator (Apple Liquid Glass - Unified Tabs + Search)
+// Zero-Lag Keep-Alive Tab Container & Apple Liquid Glass
 // ======================================================
-const TabNavigator = () => {
+const TabNavigator = ({ route }: any) => {
   const { theme } = useTheme();
 
+  const initialIndex = useMemo(() => {
+    const screenName = route?.params?.screen;
+    if (screenName) {
+      const idx = TAB_ROUTES.indexOf(screenName);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  }, [route?.params?.screen]);
+
+  const [activeTab, setActiveTab] = useState(initialIndex);
+
+  // Sync if route params change externally
+  useEffect(() => {
+    const screenName = route?.params?.screen;
+    if (screenName) {
+      const idx = TAB_ROUTES.indexOf(screenName);
+      if (idx !== -1 && idx !== activeTab) {
+        setActiveTab(idx);
+      }
+    }
+  }, [route?.params?.screen, activeTab]);
+
+  const screens = useMemo(
+    () => [
+      { key: 'DashboardTab', component: DashboardScreen },
+      { key: 'MusicTab', component: MusicScreen },
+      { key: 'ProfileTab', component: ProfileScreen },
+    ],
+    []
+  );
+
+  const handleTabChange = useCallback((nextIndex: number) => {
+    const nextRoute = TAB_ROUTES[nextIndex] || 'DashboardTab';
+    useAudioStore.getState().setCurrentRouteName(nextRoute);
+    setActiveTab(nextIndex);
+  }, []);
+
   return (
-    <Tab.Navigator
-      initialRouteName="DashboardTab"
-      tabBar={(props) => <AppleLiquidGlassTabBar {...props} />}
-      detachInactiveScreens={true}
-      screenOptions={{
-        headerShown: false,
-        lazy: true,
-        freezeOnBlur: true,
-        animation: 'none',
-        sceneStyle: {
-          backgroundColor: theme.background,
-        },
-      }}
-    >
-      <Tab.Screen name="DashboardTab" component={DashboardScreen} />
-      <Tab.Screen name="MusicTab" component={MusicScreen} />
-      <Tab.Screen name="ProfileTab" component={ProfileScreen} />
-    </Tab.Navigator>
+    <View style={[styles.tabRoot, { backgroundColor: theme.background }]}>
+      <ZeroLagTabContainer screens={screens} activeIndex={activeTab} />
+      <AppleLiquidGlassTabBar
+        activeIndex={activeTab}
+        onTabChange={handleTabChange}
+      />
+    </View>
   );
 };
-
 
 // ======================================================
 // Main Stack Navigator
@@ -73,42 +95,55 @@ export const MainNavigator = () => {
           }}
         >
           <Stack.Screen name="Tabs" component={TabNavigator} />
+          <Stack.Screen name="DashboardTab">
+            {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'DashboardTab' } }} />}
+          </Stack.Screen>
+          <Stack.Screen name="MusicTab">
+            {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'MusicTab' } }} />}
+          </Stack.Screen>
+          <Stack.Screen name="ProfileTab">
+            {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'ProfileTab' } }} />}
+          </Stack.Screen>
 
-        {/* Dashboard Stack fallback */}
-        <Stack.Screen
-          name="Dashboard"
-          component={DashboardScreen}
-          options={{ animation: 'slide_from_bottom' }}
-        />
+          {/* Dashboard Stack fallback */}
+          <Stack.Screen
+            name="Dashboard"
+            component={DashboardScreen}
+            options={{ animation: 'slide_from_bottom' }}
+          />
 
-        {/* Artist & Album Detail Screens */}
-        <Stack.Screen 
-          name="ArtistDetail" 
-          component={ArtistDetailsScreen} 
-          options={{ animation: 'slide_from_right' }} 
-        />
-        <Stack.Screen 
-          name="AlbumDetails" 
-          component={AlbumDetailsScreen} 
-          options={{ animation: 'slide_from_right' }} 
-        />
-        <Stack.Screen 
-          name="Settings" 
-          component={SettingsScreen} 
-          options={{ headerShown: false, animation: 'slide_from_right' }} 
-        />
-        <Stack.Screen 
-          name="SoftwareUpdate" 
-          component={SoftwareUpdateScreen} 
-          options={{ headerShown: false, animation: 'slide_from_right' }} 
-        />
-      </Stack.Navigator>
-    </BottomSheetModalProvider>
-  </GestureHandlerRootView>
+          {/* Artist & Album Detail Screens */}
+          <Stack.Screen 
+            name="ArtistDetail" 
+            component={ArtistDetailsScreen} 
+            options={{ animation: 'slide_from_right' }} 
+          />
+          <Stack.Screen 
+            name="AlbumDetails" 
+            component={AlbumDetailsScreen} 
+            options={{ animation: 'slide_from_right' }} 
+          />
+          <Stack.Screen 
+            name="Settings" 
+            component={SettingsScreen} 
+            options={{ headerShown: false, animation: 'slide_from_right' }} 
+          />
+          <Stack.Screen 
+            name="SoftwareUpdate" 
+            component={SoftwareUpdateScreen} 
+            options={{ headerShown: false, animation: 'slide_from_right' }} 
+          />
+        </Stack.Navigator>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 };
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  tabRoot: {
+    flex: 1,
+    position: 'relative',
+  },
+});
 
 export default MainNavigator;
-

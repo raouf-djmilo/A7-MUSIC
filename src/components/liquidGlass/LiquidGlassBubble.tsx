@@ -4,8 +4,8 @@ import Animated, {
   SharedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { APPLE_LIQUID_COLORS } from '../../theme/AppleLiquidTokens';
 
 interface LiquidGlassBubbleProps {
   indicatorX: SharedValue<number>;
@@ -26,6 +26,8 @@ export const LiquidGlassBubble: React.FC<LiquidGlassBubbleProps> = ({
   borderRadius = height / 2,
   isDark = false,
 }) => {
+  const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: indicatorX.value },
@@ -49,61 +51,36 @@ export const LiquidGlassBubble: React.FC<LiquidGlassBubbleProps> = ({
       pointerEvents="none"
     >
       <View style={[styles.innerSurface, { borderRadius }]}>
-        {/* ── Layer 1: Directional Frosted Blur (Underlying bar texture refracts through) ── */}
+        {/* ── 1. Frosted Liquid Glass Substrate (Backdrop Blur) ── */}
         <BlurView
           intensity={Platform.OS === 'ios' ? (isDark ? 35 : 45) : 25}
           tint={isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
 
-        {/* ── Layer 2: Highly Translucent Glass Substrate (18% - 22% Opacity - NOT Opaque White!) ── */}
+        {/* ── 2. Official Calm Liquid Glass Layer (Zero Plastic Gloss) ── */}
         <View
           style={[
             StyleSheet.absoluteFill,
             {
-              backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.08)'
-                : 'rgba(255, 255, 255, 0.20)',
+              backgroundColor: colors.bubbleBg,
             },
           ]}
         />
 
-        {/* ── Layer 3: Specular Curved Glass Glare (Upper Refraction Arc) ── */}
-        <LinearGradient
-          colors={
-            isDark
-              ? ['rgba(255, 255, 255, 0.35)', 'rgba(255, 255, 255, 0.05)', 'transparent']
-              : ['rgba(255, 255, 255, 0.70)', 'rgba(255, 255, 255, 0.12)', 'transparent']
-          }
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 0.55 }}
-          style={[styles.glareArc, { borderRadius }]}
-        />
-
-        {/* ── Layer 4: Double Specular Rim (Ultra-thin 0.8px Beveled Highlight) ── */}
+        {/* ── 3. Ultra-Thin 0.5px Specular Upper Rim Highlight ── */}
         <View
           style={[
             StyleSheet.absoluteFill,
-            styles.beveledRim,
+            styles.specularRim,
             {
               borderRadius,
-              borderColor: isDark
-                ? 'rgba(255, 255, 255, 0.18)'
-                : 'rgba(255, 255, 255, 0.65)',
+              borderTopColor: colors.bubbleTopRim,
+              borderBottomColor: colors.bubbleBottomRim,
+              borderLeftColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.40)',
+              borderRightColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.40)',
             },
           ]}
-        />
-
-        {/* ── Layer 5: Subtle Lower Convex Refraction Shadow ── */}
-        <LinearGradient
-          colors={
-            isDark
-              ? ['transparent', 'rgba(0, 0, 0, 0.22)']
-              : ['transparent', 'rgba(0, 0, 0, 0.04)']
-          }
-          start={{ x: 0.5, y: 0.65 }}
-          end={{ x: 0.5, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius }]}
         />
       </View>
     </Animated.View>
@@ -122,24 +99,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  glareArc: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '55%',
-  },
-  beveledRim: {
-    borderWidth: 0.8,
-    borderTopWidth: 1.2,
+  specularRim: {
+    borderWidth: 0.5,
+    borderTopWidth: 0.8,
   },
   lightShadow: {
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
+        shadowOpacity: 0.08,
+        shadowRadius: 5,
       },
       android: {
         elevation: 2,
