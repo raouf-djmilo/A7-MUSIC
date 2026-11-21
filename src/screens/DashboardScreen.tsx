@@ -621,8 +621,10 @@ export const DashboardScreen: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: insets.top + 16,
-            paddingBottom: Math.max(miniBottomGap, 40),
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingTop: insets.top + 8,
+            paddingBottom: Math.max(miniBottomGap, 60),
           },
         ]}
         showsVerticalScrollIndicator={false}

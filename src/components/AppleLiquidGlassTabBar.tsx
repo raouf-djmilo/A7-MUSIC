@@ -321,12 +321,13 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
             {
               backgroundColor: colors.barBg,
               borderColor: colors.barBorder,
+              borderTopColor: colors.barBorderTop,
             },
           ]}
         >
           {/* Frosted Backdrop Blur */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? (isDark ? 60 : 75) : 45}
+            intensity={Platform.OS === 'ios' ? (isDark ? 65 : 80) : 45}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
@@ -381,6 +382,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: APPLE_BAR_METRICS.barHeight,
     zIndex: 1000,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.45,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   mattePillContainer: {
     flex: 1,
@@ -389,17 +401,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
   tabsRow: {
     flex: 1,

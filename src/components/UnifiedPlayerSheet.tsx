@@ -80,10 +80,10 @@ function formatTime(millis: number): string {
 // ── Isolated Mini Progress Bar (Zero Parent Re-render) ──
 interface MiniProgressBarProps {
   isDark: boolean;
-  accentColor: string;
+  accentColor?: string;
 }
 
-const MiniProgressBar: React.FC<MiniProgressBarProps> = React.memo(({ isDark, accentColor }) => {
+const MiniProgressBar: React.FC<MiniProgressBarProps> = React.memo(({ isDark }) => {
   const positionMillis = useAudioStore((s) => s.positionMillis);
   const durationMillis = useAudioStore((s) => s.durationMillis);
   const trackDuration = useAudioStore((s) => s.currentTrack?.duration || 180000);
@@ -91,17 +91,25 @@ const MiniProgressBar: React.FC<MiniProgressBarProps> = React.memo(({ isDark, ac
   const validDuration = durationMillis > 0 ? durationMillis : trackDuration;
   const progressPercent = Math.min(100, Math.max(0, (positionMillis / validDuration) * 100));
 
+  const progressColor = isDark ? '#FFFFFF' : '#1C1C1E';
+
   return (
-    <View style={styles.miniProgressBg} pointerEvents="none">
+    <View
+      style={[
+        styles.miniProgressBg,
+        { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)' },
+      ]}
+      pointerEvents="none"
+    >
       <View
         style={[
           styles.miniProgressFill,
           {
             width: `${progressPercent}%`,
-            backgroundColor: accentColor,
-            shadowColor: accentColor,
-            shadowOpacity: 0.65,
-            shadowRadius: 6,
+            backgroundColor: progressColor,
+            shadowColor: isDark ? '#FFFFFF' : '#000000',
+            shadowOpacity: isDark ? 0.60 : 0.20,
+            shadowRadius: 4,
           },
         ]}
       />
@@ -761,19 +769,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           {
             bottom: baseMiniBottom,
             backgroundColor: 'transparent',
-            borderColor: isDark ? tint.miniBorderTint : 'rgba(0, 0, 0, 0.10)',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)',
+            borderTopColor: isDark ? 'rgba(255, 255, 255, 0.32)' : 'rgba(255, 255, 255, 0.90)',
             shadowColor: '#000000',
-            shadowOpacity: isDark ? 0.28 : 0.12,
+            shadowOpacity: isDark ? 0.40 : 0.12,
             shadowOffset: { width: 0, height: 6 },
-            shadowRadius: 14,
+            shadowRadius: 16,
           },
           animatedMiniStyle,
         ]}
         pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
       >
-        {/* Living Ambient Artwork Backdrop (100% Reactive Cover Colors directly INSIDE the mini bar) */}
+        {/* Living Ambient Artwork Backdrop (Apple Frosted Glass Widget - Image 1 & 2) */}
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 16 }]} pointerEvents="none">
-          {/* Layer A: Full-bleed blurred cover image reacting directly inside the pill */}
+          {/* Layer A: Subtle blurred cover image hint */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
@@ -781,42 +790,42 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 StyleSheet.absoluteFill,
                 {
                   transform: [{ scale: 2.2 }],
-                  opacity: isDark ? 0.85 : 0.70,
+                  opacity: isDark ? 0.30 : 0.20,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 22 : 14}
+              blurRadius={Platform.OS === 'ios' ? 24 : 16}
               cachePolicy="memory-disk"
               transition={300}
             />
           )}
 
-          {/* Layer B: Gentle Depth Tint preserving 100% of the authentic cover art reflection */}
+          {/* Layer B: Apple Frosted Glass Translucent Substrate */}
           <LinearGradient
             colors={
               isDark
-                ? ['rgba(12, 16, 24, 0.35)', 'rgba(8, 10, 16, 0.65)']
-                : ['rgba(255, 255, 255, 0.40)', 'rgba(240, 242, 245, 0.70)']
+                ? ['rgba(22, 22, 28, 0.74)', 'rgba(14, 14, 18, 0.86)']
+                : ['rgba(255, 255, 255, 0.82)', 'rgba(242, 244, 247, 0.92)']
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Layer C: Silky Frosted Glass Diffusion (tuned intensity so colors shine through) */}
+          {/* Layer C: Silky Frosted Glass Diffusion */}
           <BlurView
-            intensity={Platform.OS === 'ios' ? 30 : 18}
+            intensity={Platform.OS === 'ios' ? 55 : 30}
             tint={isDark ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Layer D: Delicate Luminous Top Sheen for Ultra-Premium Finish */}
+          {/* Layer D: Delicate Luminous Top Sheen */}
           <View
             style={[
               StyleSheet.absoluteFill,
               {
                 borderTopWidth: 1,
-                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.60)',
+                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.65)',
                 borderRadius: 16,
               },
             ]}
@@ -2052,9 +2061,20 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   miniCover: {
-    width: 42,
-    height: 42,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.30,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   miniInfo: {
     flex: 1,

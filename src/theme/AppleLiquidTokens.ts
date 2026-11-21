@@ -2,38 +2,48 @@
 
 export const APPLE_BAR_METRICS = {
   /** الارتفاع القياسي للشريط العائم في iOS */
-  barHeight: 60,
-  /** الهوامش الجانبية لإعطاء إحساس "الجزيرة العائمة" بدلاً من الامتداد الكامل */
-  horizontalMargin: 26,
-  /** المسافة من أسفل الشاشة (فوق شريط الـ Home Indicator) */
+  barHeight: 62,
+  /** الهوامش الجانبية لإعطاء إحساس الجزيرة الزجاجية العائمة */
+  horizontalMargin: 24,
+  /** المسافة من أسفل الشاشة (فوق شريط مؤشر الصفحة الرئيسية) */
   bottomOffset: 22,
-  /** الفراغ الموحد بين حدود الشريط والفقاعة الداخلية */
-  innerInset: 4,
-  /** ارتفاع الفقاعة المحسوب تلقائياً */
-  bubbleHeight: 52, // barHeight - (innerInset * 2)
-  iconSize: 21,
-  labelSize: 10.5,
+  /** الفراغ الموحد الدقيق بين حدود الشريط والفقاعة الزجاجية */
+  innerInset: 3,
+  /** ارتفاع الفقاعة المحسوب بدقة هندسية */
+  bubbleHeight: 56, // barHeight - (innerInset * 2)
+  iconSize: 22,
+  labelSize: 11,
 };
 
 export const APPLE_LIQUID_COLORS = {
   dark: {
-    barBg: 'rgba(28, 28, 30, 0.72)',
-    barBorder: 'rgba(255, 255, 255, 0.14)',
-    /** فقاعة زجاجية هادئة بدون قوس أبيض فاقع */
-    bubbleBg: 'rgba(255, 255, 255, 0.15)',
-    bubbleTopRim: 'rgba(255, 255, 255, 0.32)',
-    bubbleBottomRim: 'rgba(255, 255, 255, 0.05)',
+    /** شريط زجاجي سبجي عميق بنفاذية ضوئية متدرجة */
+    barBg: 'rgba(14, 14, 18, 0.82)',
+    barBorder: 'rgba(255, 255, 255, 0.12)',
+    barBorderTop: 'rgba(255, 255, 255, 0.25)',
+
+    /** 🔮 عدسة Liquid Glass الكريستالية ثلاثية الأبعاد (مطابقة تماماً للصورة المرجعية) */
+    bubbleBg: 'rgba(255, 255, 255, 0.08)',
+    bubbleTopRim: 'rgba(255, 255, 255, 0.95)',
+    bubbleSideRim: 'rgba(255, 255, 255, 0.45)',
+    bubbleBottomRim: 'rgba(255, 255, 255, 0.10)',
+    bubbleInnerHighlight: 'rgba(255, 255, 255, 0.38)',
+
     activeTint: '#FFFFFF',
-    inactiveTint: 'rgba(235, 235, 245, 0.48)',
+    inactiveTint: 'rgba(255, 255, 255, 0.40)',
   },
   light: {
-    barBg: 'rgba(245, 245, 247, 0.78)',
-    barBorder: 'rgba(255, 255, 255, 0.85)',
-    /** عدسة ناعمة تسمح بمرور الضوء بدون تباين بلاستيكي */
-    bubbleBg: 'rgba(255, 255, 255, 0.78)',
-    bubbleTopRim: 'rgba(255, 255, 255, 0.98)',
-    bubbleBottomRim: 'rgba(0, 0, 0, 0.04)',
+    barBg: 'rgba(246, 246, 248, 0.85)',
+    barBorder: 'rgba(0, 0, 0, 0.08)',
+    barBorderTop: 'rgba(255, 255, 255, 0.95)',
+
+    bubbleBg: 'rgba(255, 255, 255, 0.82)',
+    bubbleTopRim: 'rgba(255, 255, 255, 1.0)',
+    bubbleSideRim: 'rgba(255, 255, 255, 0.70)',
+    bubbleBottomRim: 'rgba(0, 0, 0, 0.08)',
+    bubbleInnerHighlight: 'rgba(255, 255, 255, 0.65)',
+
     activeTint: '#000000',
-    inactiveTint: 'rgba(60, 60, 67, 0.55)',
+    inactiveTint: 'rgba(60, 60, 67, 0.50)',
   },
 };

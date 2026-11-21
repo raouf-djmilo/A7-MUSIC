@@ -472,6 +472,7 @@ export const MusicHome = ({ navigation }: any) => {
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
