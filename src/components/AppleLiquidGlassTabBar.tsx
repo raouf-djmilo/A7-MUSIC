@@ -12,13 +12,15 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
-  useAnimatedStyle,
   withSpring,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
+import { LiquidGlassBubble } from './liquidGlass/LiquidGlassBubble';
 
 const { width } = Dimensions.get('window');
 
@@ -74,19 +76,6 @@ const createStyles = (theme: ThemeTokens) =>
         Platform.OS === 'ios'
           ? (theme.mode === 'light' ? 'rgba(240, 239, 234, 0.82)' : 'rgba(18, 18, 24, 0.78)')
           : theme.androidSurfaceFallback,
-    },
-    activeIndicator: {
-      position: 'absolute',
-      top: PILL_PADDING,
-      left: PILL_PADDING + PILL_H_MARGIN,
-      height: TAB_BAR_HEIGHT - PILL_PADDING * 2,
-      borderRadius: (TAB_BAR_HEIGHT - PILL_PADDING * 2) / 2,
-      backgroundColor:
-        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.14)',
-      borderWidth: 1,
-      borderColor:
-        theme.mode === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.10)',
-      zIndex: 1,
     },
     tabsRow: {
       flex: 1,
@@ -176,7 +165,7 @@ export const AppleLiquidGlassTabBar = ({
   state,
   navigation,
 }: BottomTabBarProps) => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const bottomOffset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 12);
@@ -187,29 +176,49 @@ export const AppleLiquidGlassTabBar = ({
   const tabWidth = innerWidth / numTabs;
   const indicatorWidth = tabWidth - PILL_H_MARGIN * 2;
 
-  // 🚀 Pure GPU Worklet Shared Value for Bubble Position
+  // 🚀 Pure GPU Worklet Shared Value for Bubble Position & Fluid Stretch
   const indicatorX = useSharedValue(state.index * tabWidth);
+  const bubbleScaleX = useSharedValue(1);
+  const bubbleScaleY = useSharedValue(1);
   const targetIndexRef = useRef(state.index);
   const [activeTabIdx, setActiveTabIdx] = useState(state.index);
+
+  const animateBubbleTo = useCallback(
+    (index: number) => {
+      const distance = Math.abs(index - targetIndexRef.current);
+      targetIndexRef.current = index;
+      setActiveTabIdx(index);
+
+      // 🌊 Real Fluid Stretch & Squash Physics
+      const stretchRatio = Math.min(1 + distance * 0.15, 1.28);
+      const squashRatio = Math.max(1 - distance * 0.08, 0.88);
+
+      bubbleScaleX.value = withSequence(
+        withTiming(stretchRatio, { duration: 110 }),
+        withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
+      );
+
+      bubbleScaleY.value = withSequence(
+        withTiming(squashRatio, { duration: 110 }),
+        withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
+      );
+
+      indicatorX.value = withSpring(index * tabWidth, {
+        damping: 22,
+        stiffness: 280,
+        mass: 0.55,
+        overshootClamping: false,
+      });
+    },
+    [tabWidth, indicatorX, bubbleScaleX, bubbleScaleY]
+  );
 
   // Sync with external state changes gracefully
   useEffect(() => {
     if (targetIndexRef.current !== state.index) {
-      targetIndexRef.current = state.index;
-      setActiveTabIdx(state.index);
-      const targetX = state.index * tabWidth;
-      indicatorX.value = withSpring(targetX, {
-        damping: 26,
-        stiffness: 320,
-        mass: 0.5,
-        overshootClamping: true,
-      });
+      animateBubbleTo(state.index);
     }
-  }, [state.index, tabWidth]);
-
-  const animatedIndicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: indicatorX.value }],
-  }));
+  }, [state.index, animateBubbleTo]);
 
   const getTabMeta = (routeName: string) => {
     switch (routeName) {
@@ -248,17 +257,7 @@ export const AppleLiquidGlassTabBar = ({
     Haptics.selectionAsync().catch(() => {});
 
     if (stateIndexRef.current !== index) {
-      targetIndexRef.current = index;
-      setActiveTabIdx(index);
-
-      // 🚀 Move bubble with instant native Apple spring physics
-      const targetX = index * tabWidth;
-      indicatorX.value = withSpring(targetX, {
-        damping: 26,
-        stiffness: 320,
-        mass: 0.5,
-        overshootClamping: true,
-      });
+      animateBubbleTo(index);
 
       const event = navigation.emit({
         type: 'tabPress',
@@ -270,7 +269,7 @@ export const AppleLiquidGlassTabBar = ({
         navigation.navigate(route.name);
       }
     }
-  }, [tabWidth, navigation, indicatorX]);
+  }, [navigation, animateBubbleTo]);
 
   return (
     <View
@@ -291,14 +290,18 @@ export const AppleLiquidGlassTabBar = ({
         {/* Dynamic Matte Base Surface */}
         <View style={styles.matteBackground} />
 
-        {/* Perfectly Centered Frosted Sliding Capsule */}
-        <Animated.View
-          style={[
-            styles.activeIndicator,
-            { width: indicatorWidth },
-            animatedIndicatorStyle,
-          ]}
-        />
+        {/* Floating 3D Liquid Glass Selection Bubble with Stretch & Squash */}
+        <View style={{ position: 'absolute', top: PILL_PADDING, left: PILL_PADDING + PILL_H_MARGIN }}>
+          <LiquidGlassBubble
+            indicatorX={indicatorX}
+            scaleX={bubbleScaleX}
+            scaleY={bubbleScaleY}
+            width={indicatorWidth}
+            height={TAB_BAR_HEIGHT - PILL_PADDING * 2}
+            borderRadius={(TAB_BAR_HEIGHT - PILL_PADDING * 2) / 2}
+            isDark={isDark}
+          />
+        </View>
 
         {/* 4 Unified Tabs */}
         <View style={styles.tabsRow}>
