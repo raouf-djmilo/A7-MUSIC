@@ -16,16 +16,6 @@ export const PlaybackService = async () => {
         await useAudioStore.getState().seekTo(event.position * 1000);
       }
     });
-    TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event) => {
-      const interval = (event.interval || 10) * 1000;
-      const { positionMillis, durationMillis, seekTo } = useAudioStore.getState();
-      await seekTo(Math.min(durationMillis, positionMillis + interval));
-    });
-    TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event) => {
-      const interval = (event.interval || 10) * 1000;
-      const { positionMillis, seekTo } = useAudioStore.getState();
-      await seekTo(Math.max(0, positionMillis - interval));
-    });
     TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
       // Only pause on permanent focus loss (incoming phone call, alarm, or another audio app taking exclusive focus)
       // Ignore transient ducking or volume dips during track setup/notifications
@@ -53,40 +43,48 @@ export const SetupService = async () => {
   } catch {
     try {
       await TrackPlayer.setupPlayer();
-      if (Capability) {
-        await TrackPlayer.updateOptions({
-          android: {
-            appKilledBehavior: (TrackPlayer as any)?.AppKilledBehavior?.StopPlaybackAndRemoveNotification,
-          } as any,
-          capabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.Stop,
-            Capability.SeekTo,
-          ],
-          compactCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-          ],
-          notificationCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.SeekTo,
-          ],
-          progressUpdateEventInterval: 2,
-        });
-      }
-      setupAudioInterruptionListeners();
       isSetup = true;
     } catch (e) {
       console.log('[SetupService] TrackPlayer setup skipped');
     }
   }
+
+  // 🛡️ Guaranteed Remote Control Configuration:
+  // Must execute on EVERY boot so iOS MPRemoteCommandCenter receives Next / Previous and drops 10s jump buttons!
+  try {
+    if (Capability) {
+      await TrackPlayer.updateOptions({
+        android: {
+          appKilledBehavior: (TrackPlayer as any)?.AppKilledBehavior?.StopPlaybackAndRemoveNotification,
+        } as any,
+        capabilities: [
+          Capability.Play,
+          Capability.Pause,
+          Capability.SkipToNext,
+          Capability.SkipToPrevious,
+          Capability.Stop,
+          Capability.SeekTo,
+        ],
+        compactCapabilities: [
+          Capability.Play,
+          Capability.Pause,
+          Capability.SkipToNext,
+          Capability.SkipToPrevious,
+        ],
+        notificationCapabilities: [
+          Capability.Play,
+          Capability.Pause,
+          Capability.SkipToNext,
+          Capability.SkipToPrevious,
+          Capability.SeekTo,
+        ],
+        progressUpdateEventInterval: 2,
+      });
+    }
+    setupAudioInterruptionListeners();
+  } catch (optErr) {
+    console.warn('[SetupService] TrackPlayer updateOptions error:', optErr);
+  }
+
   return isSetup;
 };

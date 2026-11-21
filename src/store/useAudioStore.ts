@@ -90,6 +90,8 @@ export interface AudioState {
   // Background Audio and Lock Screen Settings
   backgroundAudioEnabled: boolean;
   setBackgroundAudioEnabled: (enabled: boolean) => void;
+  isUserPauseAction: boolean;
+  setIsUserPauseAction: (isUser: boolean) => void;
   pauseTrack: () => void;
   resumeTrack: () => void;
 
@@ -211,6 +213,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ backgroundAudioEnabled: enabled });
     AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => {});
   },
+  isUserPauseAction: false,
+  setIsUserPauseAction: (isUser: boolean) => set({ isUserPauseAction: isUser }),
 
   playerMediaMode: 'cover',
   setPlayerMediaMode: (mode) => {
@@ -557,6 +561,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         playRequestId: newRequestId,
         currentTrack: finalTrack,
         isPlaying: true,
+        isUserPauseAction: false,
         isLoading: false,
         loadingTrackId: null,
         isOfflinePlayback: isOffline,
@@ -997,6 +1002,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
     set({ 
       isPlaying: false,
+      isUserPauseAction: true,
       audioEngineAction: activeEngine === 'youtube' ? { type: 'pause', id: Date.now() } : null,
     });
     flushListeningSecondsToSupabase();
@@ -1018,6 +1024,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
     set({ 
       isPlaying: true,
+      isUserPauseAction: false,
       audioEngineAction: activeEngine === 'youtube' ? { type: 'resume', id: Date.now() } : null,
     });
     const state = get();

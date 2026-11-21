@@ -20,26 +20,29 @@ export const getActivePlayerBridge = (): PlayerControlsBridge | null => {
   return _activePlayerBridge;
 };
 
-// Valid 310-byte silent MP3 frame in Base64 (0ms latency, zero cellular data, works offline/airplane mode)
-const SILENT_MP3_BASE64 =
-  '//PAxAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//PAxAAM4AGkAW4AABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg';
+// Standard MPEG-1 Layer 3 silent frame in Base64 (150 bytes binary = 26.1ms)
+const SILENT_FRAME_BASE64 =
+  '//PAxAAM4AGkAW4AABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg';
 
 let _cachedSilentAudioUri: string | null = null;
 
 export const getOrGenerateSilentAudioUri = async (): Promise<string> => {
   if (_cachedSilentAudioUri) return _cachedSilentAudioUri;
   try {
-    const silentPath = `${FileSystem.documentDirectory}a7_silent_loop.mp3`;
+    const silentPath = `${FileSystem.documentDirectory}a7_silent_loop_v2.mp3`;
     const info = await FileSystem.getInfoAsync(silentPath);
-    if (!info.exists || ((info as any).size || 0) < 100) {
-      await FileSystem.writeAsStringAsync(silentPath, SILENT_MP3_BASE64, {
+    if (!info.exists || ((info as any).size || 0) < 50000) {
+      // Build a robust ~22-second silent MP3 buffer (800 valid MPEG-1 Layer 3 frames)
+      // Eliminates rapid looping and prevents iOS AVPlayer buffer underflow / freeze at 23 seconds!
+      const multiFrameBase64 = SILENT_FRAME_BASE64.repeat(800);
+      await FileSystem.writeAsStringAsync(silentPath, multiFrameBase64, {
         encoding: FileSystem.EncodingType?.Base64 || 'base64',
       });
     }
     _cachedSilentAudioUri = silentPath;
     return silentPath;
   } catch (e) {
-    return `data:audio/mp3;base64,${SILENT_MP3_BASE64}`;
+    return `data:audio/mp3;base64,${SILENT_FRAME_BASE64}`;
   }
 };
 
@@ -108,7 +111,7 @@ export const configureAudioSession = async (
         staysActiveInBackground: backgroundEnabled,
         playsInSilentModeIOS: true,
         shouldDuckAndroid: false, // 🛡️ Prevent dynamic compression & volume swings on Android
-        interruptionModeIOS: 0, // InterruptionModeIOS.MixWithOthers (0) - Allows background audio to mix cleanly without cutting
+        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix (1) - Grants exclusive primary music app priority on iOS Lock Screen
         interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix (1)
         playThroughEarpieceAndroid: false,
       });

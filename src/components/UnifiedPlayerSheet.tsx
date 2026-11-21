@@ -264,6 +264,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       const nextPlaying = !isPlaying;
       useAudioStore.setState({ 
         isPlaying: nextPlaying,
+        isUserPauseAction: !nextPlaying,
         audioEngineAction: { type: nextPlaying ? 'resume' : 'pause', id: Date.now() },
       });
       const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
@@ -1224,10 +1225,18 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                               if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
                                 return;
                               }
-                              const isStorePlaying = useAudioStore.getState().isPlaying;
-                              if (!isStorePlaying) {
-                                // 🛡️ Deliberate user pause: keep paused!
+                              const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
+                              if (isUserPauseAction || !isStorePlaying) {
+                                // 🛡️ Deliberate user pause from widget, headphones, or in-app button: keep paused!
                                 useAudioStore.setState({ isPlaying: false, isLoading: false });
+                                return;
+                              }
+                              // 🛡️ Background Audio Guard:
+                              // If app is in background or phone is locked, WebKit automatically pauses video elements.
+                              // The user NEVER asked to pause! Immediately resume so background audio continues playing!
+                              if (AppState.currentState !== 'active') {
+                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+                                activeRef?.playVideo?.();
                                 return;
                               }
                               useAudioStore.setState({ isPlaying: false });
@@ -1834,9 +1843,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         return;
                       }
                       if (!useAudioStore.getState().isPlayerModalVisible) return;
-                      const isStorePlaying = useAudioStore.getState().isPlaying;
-                      if (!isStorePlaying) {
+                      const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
+                      if (isUserPauseAction || !isStorePlaying) {
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
+                        return;
+                      }
+                      if (AppState.currentState !== 'active') {
+                        (fullscreenPlayerRef.current as any)?.playVideo?.();
                         return;
                       }
                       useAudioStore.setState({ isPlaying: false });
