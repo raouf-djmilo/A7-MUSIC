@@ -15,7 +15,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
-  withTiming,
   runOnJS,
   SharedValue,
 } from 'react-native-reanimated';
@@ -128,15 +127,15 @@ const AnimatedTabItem = React.memo(({
   const { isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  // Pure Deep Black in Light Theme, Pure Crisp White in Dark Theme (Zero Orange)
-  const activeColor = isDark ? '#FFFFFF' : '#000000';
-  const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.42)' : 'rgba(0, 0, 0, 0.42)';
+  // Strict Monochrome Apple Spec (Rule 8): Pure Obsidian Black (#0A0A0A) / Crisp White (#FFFFFF)
+  const activeColor = isDark ? '#FFFFFF' : '#0A0A0A';
+  const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(60, 60, 67, 0.55)';
 
   const handleItemPress = useCallback(() => {
     onPressTab(route, index);
   }, [onPressTab, route, index]);
 
-  // 🔍 Dynamic Optical Refraction: Magnification, Focus, and Elevation under the Glass Bubble
+  // 🔍 Dynamic Optical Refraction (Rule 7): 1.08x Magnification, Focus, and Elevation under the Glass Bubble
   const animatedLensStyle = useAnimatedStyle(() => {
     const tabCenterX = index * tabWidth;
     const distance = Math.abs(indicatorX.value - tabCenterX);
@@ -144,10 +143,10 @@ const AnimatedTabItem = React.memo(({
 
     return {
       transform: [
-        { scale: 1 + lensFocus * 0.12 },
-        { translateY: -lensFocus * 2 },
+        { scale: 1 + lensFocus * 0.08 },
+        { translateY: -lensFocus * 1.5 },
       ],
-      opacity: 0.42 + lensFocus * 0.58,
+      opacity: 0.55 + lensFocus * 0.45,
     };
   });
 
@@ -197,34 +196,34 @@ export const AppleLiquidGlassTabBar = ({
   const tabWidth = innerWidth / numTabs;
   const indicatorWidth = tabWidth - PILL_H_MARGIN * 2;
 
-  // 🚀 Pure GPU Worklet Shared Value for Bubble Position & Fluid Stretch
+  // 🚀 Pure GPU Shared Values for Bubble Position & Volume-Preserving Stretch ($S_x \times S_y \approx 1.0$)
   const indicatorX = useSharedValue(state.index * tabWidth);
   const bubbleScaleX = useSharedValue(1);
   const bubbleScaleY = useSharedValue(1);
   const targetIndexRef = useRef(state.index);
 
+  // Volume-preserving continuous spring animation (Rule 4 & 5)
   const animateBubbleTo = useCallback(
     (index: number) => {
       const distance = Math.abs(index - targetIndexRef.current);
       targetIndexRef.current = index;
 
-      // 🌊 Real Fluid Stretch & Squash Physics
-      const stretchRatio = Math.min(1 + distance * 0.12, 1.24);
-      const squashRatio = Math.max(1 - distance * 0.06, 0.90);
+      const stretchRatio = Math.min(1 + distance * 0.10, 1.20);
+      const squashRatio = 1 / stretchRatio; // Volume preserving S_x * S_y = 1.0
 
       bubbleScaleX.value = withSequence(
-        withTiming(stretchRatio, { duration: 90 }),
+        withSpring(stretchRatio, { damping: 14, stiffness: 280, mass: 0.4 }),
         withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
       );
 
       bubbleScaleY.value = withSequence(
-        withTiming(squashRatio, { duration: 90 }),
+        withSpring(squashRatio, { damping: 14, stiffness: 280, mass: 0.4 }),
         withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
       );
 
       indicatorX.value = withSpring(index * tabWidth, {
-        damping: 24,
-        stiffness: 300,
+        damping: 22,
+        stiffness: 280,
         mass: 0.5,
         overshootClamping: false,
       });
@@ -290,7 +289,7 @@ export const AppleLiquidGlassTabBar = ({
     [navigation, state.index, state.routes]
   );
 
-  // 🌊 Direct Manipulation: Dragging, Velocity Stretch, and Magnetic Snapping (0ms overhead)
+  // 🌊 Continuous Damped Spring & Volume-Preserving Physics (Rule 4, 5 & 6)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
       .activeOffsetX([-14, 14])
@@ -316,13 +315,17 @@ export const AppleLiquidGlassTabBar = ({
         }
         indicatorX.value = clampedX;
 
-        // Dynamic Velocity-Aware Liquid Deformation (Stretch & Squash)
+        // Dynamic Volume-Preserving Soft-Body Physics: S_x * S_y = 1.0 (Rule 4)
         const velocity = Math.abs(e.velocityX);
-        const stretch = Math.min(velocity / 1600, 0.28);
-        bubbleScaleX.value = 1 + stretch;
-        bubbleScaleY.value = Math.max(1 - stretch * 0.40, 0.86);
+        const stretch = Math.min(velocity / 1800, 0.24);
+        const sx = 1 + stretch;
+        const sy = 1 / sx; // Exact inverse preserving volume
 
-        // Tactile clicks on crossing without blocking JS thread
+        // Continuous spring response to touch direction changes (Rule 5)
+        bubbleScaleX.value = withSpring(sx, { damping: 18, stiffness: 280, mass: 0.4 });
+        bubbleScaleY.value = withSpring(sy, { damping: 18, stiffness: 280, mass: 0.4 });
+
+        // Magnetic Detent: tactile click when crossing midpoints without blocking JS thread (Rule 6)
         const closest = Math.max(0, Math.min(Math.round(clampedX / tabWidth), numTabs - 1));
         if (closest !== lastSnappedIdx.value) {
           lastSnappedIdx.value = closest;
@@ -346,15 +349,8 @@ export const AppleLiquidGlassTabBar = ({
           mass: 0.5,
         });
 
-        bubbleScaleX.value = withSequence(
-          withTiming(1.12, { duration: 80 }),
-          withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
-        );
-
-        bubbleScaleY.value = withSequence(
-          withTiming(0.90, { duration: 80 }),
-          withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
-        );
+        bubbleScaleX.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
+        bubbleScaleY.value = withSpring(1.0, { damping: 16, stiffness: 300, mass: 0.4 });
 
         runOnJS(onDragEndSnap)(target);
       });
@@ -363,12 +359,13 @@ export const AppleLiquidGlassTabBar = ({
   const stateIndexRef = useRef(state.index);
   stateIndexRef.current = state.index;
 
+  // Rule 3: Decoupled UI-thread First Touch (0ms Latency)
   const handlePress = useCallback(
     (route: any, index: number) => {
       if (stateIndexRef.current !== index) {
         // 📳 Instant tactile click
         Haptics.selectionAsync().catch(() => {});
-        // 🚀 Instant 0ms bubble spring
+        // 🚀 Instant 0ms bubble spring on GPU
         animateBubbleTo(index);
         // ⚡ Immediate navigation
         navigation.navigate(route.name);
