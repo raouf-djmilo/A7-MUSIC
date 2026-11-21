@@ -42,38 +42,9 @@ import { musicDnaService } from '../services/musicDnaService';
 
 const { width } = Dimensions.get('window');
 
-interface Activity {
-  id: string;
-  activity_type: 'run' | 'walk';
-  total_time: number;
-  total_distance: number;
-  total_steps: number;
-  average_pace: string;
-  average_speed: number;
-  route_coordinates: { latitude: number; longitude: number }[];
-  created_at: string;
-}
-
 interface DashboardTrack extends Track {
   id: string;
 }
-
-const formatTime = (s: number): string => {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return h > 0
-    ? `${h}:${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`
-    : `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
-};
-
-const formatDate = (iso: string): string => {
-  const d = new Date(iso);
-  return d.toLocaleDateString('ar-DZ', {
-    day: 'numeric',
-    month: 'short',
-  });
-};
 
 const cleanText = (str?: string): string => {
   if (!str) return '';
@@ -288,98 +259,6 @@ const createStyles = (theme: ThemeTokens) =>
       shadowRadius: 3,
       elevation: 3,
     },
-    latestActivityRibbon: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginHorizontal: 20,
-      marginTop: 12,
-      marginBottom: 4,
-      height: 44,
-      borderRadius: 20,
-      paddingHorizontal: 14,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-    },
-    ribbonLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    activityIndicatorDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: theme.textPrimary,
-    },
-    ribbonTitle: {
-      color: theme.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    ribbonRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    ribbonStats: {
-      color: theme.textMuted,
-      fontSize: 11,
-      fontWeight: '600',
-    },
-    pastFeedContainer: {
-      marginTop: 12,
-      paddingHorizontal: 20,
-    },
-    pastFeedHeader: {
-      marginBottom: 8,
-    },
-    pastFeedTitle: {
-      color: theme.textSecondary,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    pastItemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      height: 52,
-      borderRadius: 18,
-      paddingHorizontal: 12,
-      marginBottom: 8,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.borderSubtle,
-      backgroundColor: theme.surface,
-    },
-    pastItemIcon: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: theme.surfaceSubtle,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 10,
-    },
-    pastItemInfo: {
-      flex: 1,
-    },
-    pastItemName: {
-      color: theme.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    pastItemDate: {
-      color: theme.textMuted,
-      fontSize: 10,
-      marginTop: 1,
-    },
-    pastItemMetric: {
-      color: theme.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
   });
 
 // ── "Your Vibe" Dynamic Initial Queue Builder (Zero Hardcoded Injections) ──
@@ -507,7 +386,6 @@ export const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -704,10 +582,6 @@ export const DashboardScreen: React.FC = () => {
     [toggleLike]
   );
 
-  // ── Database activities & Profile Fetch ──
-  const totalKm = activities.reduce((s, a) => s + (a.total_distance ?? 0), 0);
-  const totalRuns = activities.filter((a) => a.activity_type === 'run').length;
-
   const fetchData = useCallback(async () => {
     if (!user) {
       setLoading(false);
@@ -715,19 +589,11 @@ export const DashboardScreen: React.FC = () => {
       return;
     }
     try {
-      const [{ data: acts }, { data: prof }] = await Promise.all([
-        supabase
-          .from('activities')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', user.id)
-          .single(),
-      ]);
-      if (acts) setActivities(acts as Activity[]);
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
       if (prof) setProfile(prof);
     } catch (err) {
       // Non-blocking: network timeout or offline boot
@@ -745,8 +611,6 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(true);
     fetchData();
   };
-
-  const latestActivity = activities.length > 0 ? activities[0] : null;
 
   return (
     <View style={styles.container}>
@@ -777,70 +641,6 @@ export const DashboardScreen: React.FC = () => {
           onTrackSelect={handleSelectCarouselTrack}
           onLoadMore={handleLoadMoreTracks}
         />
-
-        {/* ── 3. Subordinate Workout Feed Beneath the Focal Card ── */}
-        {latestActivity && (
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('Recording')}
-            style={styles.latestActivityRibbon}
-          >
-            <BlurView
-              intensity={Platform.OS === 'ios' ? 50 : 45}
-              tint={theme.blurTint}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <View style={styles.ribbonLeft}>
-              <View style={styles.activityIndicatorDot} />
-              <Text style={styles.ribbonTitle} numberOfLines={1}>
-                {latestActivity.activity_type === 'run' ? 'آخر تمرين جري' : 'آخر تمرين مشي'}
-              </Text>
-            </View>
-
-            <View style={styles.ribbonRight}>
-              <Text style={styles.ribbonStats}>
-                {latestActivity.total_distance.toFixed(1)} km • {formatTime(latestActivity.total_time)}
-              </Text>
-              <Ionicons name="chevron-forward" size={13} color={theme.textMuted} />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {activities.length > 1 && (
-          <View style={styles.pastFeedContainer}>
-            <View style={styles.pastFeedHeader}>
-              <Text style={styles.pastFeedTitle}>السجل السابق</Text>
-            </View>
-
-            {activities.slice(1, 4).map((item) => (
-              <View key={item.id} style={styles.pastItemRow}>
-                <BlurView
-                  intensity={Platform.OS === 'ios' ? 45 : 30}
-                  tint={theme.blurTint}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
-                <View style={styles.pastItemIcon}>
-                  <Ionicons
-                    name={item.activity_type === 'run' ? 'fitness' : 'walk'}
-                    size={16}
-                    color={theme.textPrimary}
-                  />
-                </View>
-                <View style={styles.pastItemInfo}>
-                  <Text style={styles.pastItemName}>
-                    {item.activity_type === 'run' ? 'Morning Run' : 'Morning Walk'}
-                  </Text>
-                  <Text style={styles.pastItemDate}>{formatDate(item.created_at)}</Text>
-                </View>
-                <Text style={styles.pastItemMetric}>
-                  {item.total_distance.toFixed(2)} KM
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         <View style={{ height: miniPlayerBottomGap }} />
       </ScrollView>

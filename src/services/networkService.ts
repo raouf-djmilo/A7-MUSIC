@@ -67,10 +67,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     // If connectivity state changed from offline -> online
     if (partial.isOnline !== undefined && partial.isOnline !== prevState.isOnline) {
       NetworkEventBus.emit(partial.isOnline);
-      if (partial.isOnline) {
-        // Automatically sync pending offline workouts
-        syncPendingOfflineActivities().catch(() => {});
-      }
     }
   },
 
@@ -191,59 +187,5 @@ export function initNetworkMonitor() {
   useNetworkStore.getState().checkSessionAndNetwork();
 }
 
-/**
- * 📦 Offline Workout Synchronization Engine
- * Automatically syncs activities created while offline once internet is restored.
- */
-export async function syncPendingOfflineActivities(): Promise<void> {
-  try {
-    const raw = await AsyncStorage.getItem(PENDING_ACTIVITIES_KEY);
-    if (!raw) return;
-
-    const pendingList: any[] = JSON.parse(raw);
-    if (!Array.isArray(pendingList) || pendingList.length === 0) return;
-
-    console.log(`[NetworkService] 🔄 Syncing ${pendingList.length} offline workout(s) to Supabase...`);
-
-    const remaining: any[] = [];
-    for (const activity of pendingList) {
-      try {
-        const { queued_at, ...cleanActivity } = activity;
-        const { error } = await supabase.from('activities').insert(cleanActivity);
-        if (error) {
-          console.warn('[NetworkService] Failed to sync activity:', error);
-          remaining.push(activity);
-        }
-      } catch (err) {
-        remaining.push(activity);
-      }
-    }
-
-    if (remaining.length === 0) {
-      await AsyncStorage.removeItem(PENDING_ACTIVITIES_KEY);
-      console.log('[NetworkService] ✅ All offline workouts successfully synced to Supabase!');
-    } else {
-      await AsyncStorage.setItem(PENDING_ACTIVITIES_KEY, JSON.stringify(remaining));
-    }
-  } catch (e) {
-    console.warn('[NetworkService] Error in syncPendingOfflineActivities:', e);
-  }
-}
-
-/**
- * 💾 Queue workout locally when offline
- */
-export async function queueOfflineActivity(activityData: any): Promise<void> {
-  try {
-    const raw = await AsyncStorage.getItem(PENDING_ACTIVITIES_KEY);
-    const existing: any[] = raw ? JSON.parse(raw) : [];
-    existing.push({
-      ...activityData,
-      queued_at: new Date().toISOString(),
-    });
-    await AsyncStorage.setItem(PENDING_ACTIVITIES_KEY, JSON.stringify(existing));
-    console.log('[NetworkService] 💾 Workout saved to local offline storage.');
-  } catch (e) {
-    console.error('[NetworkService] Failed to queue offline workout:', e);
-  }
-}
+export async function syncPendingOfflineActivities(): Promise<void> {}
+export async function queueOfflineActivity(_activityData: any): Promise<void> {}

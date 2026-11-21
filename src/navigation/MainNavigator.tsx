@@ -14,13 +14,11 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 // Screens
 import { DashboardScreen } from '../screens/DashboardScreen';
-import { RecordingScreen } from '../screens/RecordingScreen';
 import { MusicScreen } from '../screens/MusicScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { AlbumDetailsScreen } from '../screens/AlbumDetailsScreen';
 import { ArtistDetailsScreen } from '../screens/ArtistDetailsScreen';
-import { WorkoutSummaryScreen } from '../screens/WorkoutSummaryScreen';
 import { SoftwareUpdateScreen } from '../screens/SoftwareUpdateScreen';
 
 import { colors } from '../theme/colors';
@@ -29,8 +27,6 @@ const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
-
-const RecordTabPlaceholder = () => null;
 
 // ======================================================
 // Tab Navigator (Apple Liquid Glass - Unified Tabs + Search)
@@ -54,7 +50,6 @@ const TabNavigator = () => {
       }}
     >
       <Tab.Screen name="DashboardTab" component={DashboardScreen} />
-      <Tab.Screen name="RecordTab" component={RecordTabPlaceholder} />
       <Tab.Screen name="MusicTab" component={MusicScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>
@@ -78,26 +73,6 @@ export const MainNavigator = () => {
           }}
         >
           <Stack.Screen name="Tabs" component={TabNavigator} />
-        
-        {/* Full-Screen Immersive Strava Run/Walk Tracker */}
-        <Stack.Screen
-          name="Recording"
-          component={RecordingScreen}
-          options={{ 
-            animation: 'fade_from_bottom',
-            gestureEnabled: false,
-          }}
-        />
-
-        {/* 🏆 Strava-Grade Athletic Workout Summary Screen */}
-        <Stack.Screen
-          name="WorkoutSummary"
-          component={WorkoutSummaryScreen}
-          options={{
-            animation: 'slide_from_right',
-            gestureEnabled: false,
-          }}
-        />
 
         {/* Dashboard Stack fallback */}
         <Stack.Screen

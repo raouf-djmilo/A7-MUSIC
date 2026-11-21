@@ -16,14 +16,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -43,113 +38,6 @@ import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const formatActivityTime = (s: number): string => {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) {
-    return `${h}h ${m < 10 ? '0' : ''}${m}m`;
-  }
-  return `${m}:${sec < 10 ? '0' : ''}${sec}`;
-};
-
-const formatStravaDate = (iso: string): string => {
-  try {
-    const d = new Date(iso);
-    const day = d.getDate();
-    const month = d.toLocaleDateString('ar-DZ', { month: 'short' });
-    const year = d.getFullYear();
-    const hours = d.getHours().toString().padStart(2, '0');
-    const mins = d.getMinutes().toString().padStart(2, '0');
-    return `${day} ${month} ${year} في ${hours}:${mins}`;
-  } catch (e) {
-    return '';
-  }
-};
-
-// ────────────────────────────────────────────────────────
-// MEMOIZED ACTIVITY CARD (Strava-Grade 1:1)
-// ────────────────────────────────────────────────────────
-const StravaActivityCard = memo(({ item, onSelect }: { item: any; onSelect: (activity: any) => void }) => {
-  const { theme } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  const isTrail = item.activity_type === 'trail';
-  const isRun = item.activity_type === 'run' || (!isTrail && item.activity_type !== 'walk');
-  const sportColor = isTrail ? '#00D084' : (isRun ? '#FC5200' : '#007AFF');
-  const sportIcon = isTrail ? 'terrain' : (isRun ? 'run-fast' : 'walk');
-  const sportTitle = item.notes || (isTrail ? 'جري مسارات جبلية 🏔️' : (isRun ? 'Afternoon Run 🏃' : 'مشي استشفائي 🚶'));
-
-  return (
-    <GlassCard
-      style={styles.stravaCard}
-      borderRadius={20}
-      onPress={() => onSelect(item)}
-    >
-      {/* Strava Header: Sport Icon + Title + Date */}
-      <View style={styles.stravaHeader}>
-        <View style={[styles.stravaIconCircle, { backgroundColor: sportColor + '18' }]}>
-          <MaterialCommunityIcons name={sportIcon} size={22} color={sportColor} />
-        </View>
-        <View style={styles.stravaHeaderTextCol}>
-          <Text style={styles.stravaTitle} numberOfLines={1}>
-            {sportTitle}
-          </Text>
-          <Text style={styles.stravaDate}>{formatStravaDate(item.created_at)}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-      </View>
-
-      {/* Strava 4-Column Metric Grid */}
-      <View style={styles.stravaMetricsRow}>
-        {/* Distance */}
-        <View style={styles.stravaMetricItem}>
-          <Text style={styles.stravaMetricLabel}>المسافة</Text>
-          <Text style={[styles.stravaMetricValue, { color: sportColor }]}>
-            {Number(item.total_distance || 0).toFixed(2)}{' '}
-            <Text style={styles.stravaMetricUnit}>km</Text>
-          </Text>
-        </View>
-
-        {/* Pace */}
-        <View style={styles.stravaMetricItem}>
-          <Text style={styles.stravaMetricLabel}>الوتيرة</Text>
-          <Text style={styles.stravaMetricValue}>
-            {item.average_pace || '--:--'}{' '}
-            <Text style={styles.stravaMetricUnit}>/km</Text>
-          </Text>
-        </View>
-
-        {/* Moving Time */}
-        <View style={styles.stravaMetricItem}>
-          <Text style={styles.stravaMetricLabel}>الوقت</Text>
-          <Text style={styles.stravaMetricValue}>
-            {formatActivityTime(item.total_time || 0)}
-          </Text>
-        </View>
-
-        {/* Elevation / Calories */}
-        <View style={styles.stravaMetricItem}>
-          <Text style={styles.stravaMetricLabel}>
-            {item.elevation_gain ? 'الارتفاع' : 'السعرات'}
-          </Text>
-          <Text style={styles.stravaMetricValue}>
-            {item.elevation_gain
-              ? `+${Math.round(item.elevation_gain)}m`
-              : (item.calories ? `${Math.round(item.calories)}` : '--')}
-          </Text>
-        </View>
-      </View>
-
-      {/* Verified GPS Pill */}
-      <View style={styles.stravaFooterPill}>
-        <Ionicons name="shield-checkmark" size={13} color="#10B981" />
-        <Text style={styles.stravaFooterTxt}>نشاط رياضي موثق بنظام GPS</Text>
-      </View>
-    </GlassCard>
-  );
-});
 
 // ────────────────────────────────────────────────────────
 // MEMOIZED MUSIC ITEM
@@ -237,10 +125,8 @@ export const ProfileScreen = () => {
   const styles = useThemedStyles(createStyles);
 
   const [profile, setProfile] = useState<any>(null);
-  const [activities, setActivities] = useState<any[]>([]);
   const [musicLikes, setMusicLikes] = useState<any[]>([]);
   const [listeningSeconds, setListeningSeconds] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'activities' | 'music'>('activities');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -253,25 +139,6 @@ export const ProfileScreen = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const editSheetRef = useRef<DynamicBottomSheetRef>(null);
-
-  // Reanimated Tab Indicator
-  const tabOffset = useSharedValue<number>(0);
-
-  const switchTab = useCallback((tab: 'activities' | 'music') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-    tabOffset.value = withTiming(tab === 'activities' ? 0 : 1, {
-      duration: 180,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-    });
-  }, [tabOffset]);
-
-  const animatedIndicatorStyle = useAnimatedStyle(() => {
-    const tabWidth = (SCREEN_WIDTH - 24 - 8) / 2;
-    return {
-      transform: [{ translateX: tabOffset.value * tabWidth }],
-    };
-  });
 
   const fetchProfileData = useCallback(async () => {
     if (!user?.id) {
@@ -294,16 +161,7 @@ export const ProfileScreen = () => {
         setEditBio(prof.bio || '');
       }
 
-      // 2. Fetch Activities
-      const { data: acts } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (acts) setActivities(acts);
-
-      // 3. Fetch Liked Music
+      // 2. Fetch Liked Music
       const { data: likes } = await supabase
         .from('music_likes')
         .select('*')
@@ -312,7 +170,7 @@ export const ProfileScreen = () => {
 
       if (likes) setMusicLikes(likes);
 
-      // 4. Fetch Listening Time
+      // 3. Fetch Listening Time
       const seconds = await fetchTotalListeningSeconds(user.id);
       setListeningSeconds(seconds);
     } catch (err) {
@@ -339,11 +197,6 @@ export const ProfileScreen = () => {
     setRefreshing(true);
     fetchProfileData();
   };
-
-  const totalDistance = activities.reduce(
-    (acc, a) => acc + (Number(a.total_distance) || 0),
-    0
-  );
 
   const cleanUsername = (text: string) => {
     const cleaned = text.replace(/\s+/g, '_').toLowerCase();
@@ -413,11 +266,6 @@ export const ProfileScreen = () => {
       setUploadingAvatar(false);
     }
   };
-
-  const handleSelectActivity = useCallback((activity: any) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('WorkoutSummary', { workoutId: activity.id, workout: activity });
-  }, [navigation]);
 
   const displayUser = profile || user;
 
@@ -542,27 +390,13 @@ export const ProfileScreen = () => {
           <Text style={styles.sectionTitle}>مؤشرات الأداء</Text>
         </View>
 
-        <View style={styles.telemetryGrid}>
-          {/* Card 1: Distance */}
-          <GlassCard style={styles.metricCard} borderRadius={18}>
-            <View style={styles.metricTopRow}>
-              <View
-                style={[
-                  styles.metricIconWrap,
-                  { backgroundColor: 'rgba(252, 82, 0, 0.12)' },
-                ]}
-              >
-                <MaterialCommunityIcons name="run-fast" size={18} color="#FC5200" />
-              </View>
-              <Text style={styles.metricPureTitle}>المسافة</Text>
-            </View>
-            <Text style={[styles.metricMainValue, { color: '#FC5200' }]} numberOfLines={1}>
-              {totalDistance.toFixed(1)}{' '}
-              <Text style={styles.metricUnit}>km</Text>
-            </Text>
-          </GlassCard>
+        {/* ── 2. Clean Minimalist Metrics Grid (Pure Music Focus) ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>مؤشرات الاستماع</Text>
+        </View>
 
-          {/* Card 2: Music Listening Time */}
+        <View style={styles.telemetryGrid}>
+          {/* Card 1: Music Listening Time */}
           <GlassCard style={styles.metricCard} borderRadius={18}>
             <View style={styles.metricTopRow}>
               <View
@@ -580,28 +414,7 @@ export const ProfileScreen = () => {
             </Text>
           </GlassCard>
 
-          {/* Card 3: Workouts */}
-          <GlassCard style={styles.metricCard} borderRadius={18}>
-            <View style={styles.metricTopRow}>
-              <View
-                style={[
-                  styles.metricIconWrap,
-                  { backgroundColor: 'rgba(16, 185, 129, 0.12)' },
-                ]}
-              >
-                <Ionicons name="fitness" size={18} color="#10B981" />
-              </View>
-              <Text style={styles.metricPureTitle}>الأنشطة</Text>
-            </View>
-            <Text style={styles.metricMainValue} numberOfLines={1}>
-              {activities.length}{' '}
-              <Text style={styles.metricUnit}>
-                {activities.length === 1 ? 'جلسة' : 'جلسات'}
-              </Text>
-            </Text>
-          </GlassCard>
-
-          {/* Card 4: Liked Music */}
+          {/* Card 2: Liked Music */}
           <GlassCard style={styles.metricCard} borderRadius={18}>
             <View style={styles.metricTopRow}>
               <View
@@ -614,7 +427,7 @@ export const ProfileScreen = () => {
               </View>
               <Text style={styles.metricPureTitle}>المفضلة</Text>
             </View>
-            <Text style={styles.metricMainValue} numberOfLines={1}>
+            <Text style={[styles.metricMainValue, { color: '#EC4899' }]} numberOfLines={1}>
               {musicLikes.length}{' '}
               <Text style={styles.metricUnit}>مسار</Text>
             </Text>
@@ -625,7 +438,7 @@ export const ProfileScreen = () => {
         {musicLikes.length > 0 && (
           <View style={styles.carouselSection}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>المسارات المفضلة</Text>
+              <Text style={styles.sectionTitle}>أبرز المسارات</Text>
             </View>
 
             <ScrollView
@@ -688,59 +501,13 @@ export const ProfileScreen = () => {
           </View>
         )}
 
-        {/* ── 4. Instant Profile Tab Switcher (0ms Pressable + Reanimated Indicator) ── */}
-        <View style={styles.tabSwitchContainer}>
-          {/* Smooth Sliding Pill Indicator */}
-          <Animated.View style={[styles.slidingIndicator, animatedIndicatorStyle]} />
-
-          <Pressable
-            style={styles.pressableTabBtn}
-            onPress={() => switchTab('activities')}
-          >
-            <Ionicons
-              name="fitness-outline"
-              size={17}
-              color={activeTab === 'activities' ? '#FC5200' : theme.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabBtnTxt,
-                activeTab === 'activities' && { color: '#FC5200', fontWeight: '800' },
-              ]}
-            >
-              سجل التمارين ({activities.length})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.pressableTabBtn}
-            onPress={() => switchTab('music')}
-          >
-            <Ionicons
-              name="musical-notes-outline"
-              size={17}
-              color={activeTab === 'music' ? '#007AFF' : theme.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabBtnTxt,
-                activeTab === 'music' && { color: '#007AFF', fontWeight: '800' },
-              ]}
-            >
-              المفضلة ({musicLikes.length})
-            </Text>
-          </Pressable>
+        {/* ── 4. Liked Music Section Header ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>المسارات المفضلة ({musicLikes.length})</Text>
         </View>
       </View>
     );
   };
-
-  const renderActivityItem = useCallback(
-    ({ item }: { item: any }) => (
-      <StravaActivityCard item={item} onSelect={handleSelectActivity} />
-    ),
-    [handleSelectActivity]
-  );
 
   const renderMusicItem = useCallback(
     ({ item }: { item: any }) => <MemoizedMusicItem item={item} />,
@@ -776,29 +543,22 @@ export const ProfileScreen = () => {
               color={isDark ? '#F59E0B' : '#6366F1'}
             />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.topBarBtn}
-            onPress={() => navigation.navigate('Dashboard')}
-          >
-            <Ionicons name="stats-chart" size={19} color="#FC5200" />
-          </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Optimized Virtualized List (0ms latency, memoized items) ── */}
       <FlatList
-        data={activeTab === 'activities' ? activities : musicLikes}
+        data={musicLikes}
         keyExtractor={keyExtractor}
         ListHeaderComponent={renderHeader}
-        renderItem={activeTab === 'activities' ? renderActivityItem : renderMusicItem}
+        renderItem={renderMusicItem}
         contentContainerStyle={[
           styles.scrollContainer,
           { paddingBottom: miniPlayerBottomGap },
         ]}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={4}
-        maxToRenderPerBatch={4}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
         windowSize={3}
         removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
@@ -812,22 +572,16 @@ export const ProfileScreen = () => {
           !loading ? (
             <GlassCard style={styles.emptyCard} borderRadius={18}>
               <Ionicons
-                name={activeTab === 'activities' ? 'fitness-outline' : 'musical-notes-outline'}
+                name="musical-notes-outline"
                 size={44}
                 color={theme.textMuted}
               />
-              <Text style={styles.emptyTitle}>
-                {activeTab === 'activities'
-                  ? 'لا توجد أنشطة مسجلة بعد'
-                  : 'لا توجد مسارات مفضلة بعد'}
-              </Text>
+              <Text style={styles.emptyTitle}>لا توجد مسارات مفضلة بعد</Text>
               <Text style={styles.emptyDesc}>
-                {activeTab === 'activities'
-                  ? 'ابدأ أول جولة جري أو مشي وسجل إنجازاتك الرياضية!'
-                  : 'أضف أغانيك المفضلة أثناء الاستماع في تبويب الموسيقى!'}
+                أضف أغانيك المفضلة أثناء الاستماع في تبويب الموسيقى!
               </Text>
             </GlassCard>
-          ) : null
+          ) : undefined
         }
       />
 
@@ -836,7 +590,7 @@ export const ProfileScreen = () => {
         ref={editSheetRef}
         isVisible={showEdit}
         onClose={() => setShowEdit(false)}
-        title="تعديل الملف الرياضي"
+        title="تعديل الملف الشخصي"
         initialSnap={0.7}
       >
         <View style={[styles.editSheetContent, { paddingBottom: insets.bottom + 20 }]}>
@@ -846,7 +600,7 @@ export const ProfileScreen = () => {
             style={{ flex: 1 }}
           >
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>الاسم الرياضي الكامل</Text>
+              <Text style={styles.inputLabel}>الاسم الكامل</Text>
               <TextInput
                 style={styles.textInput}
                 value={editFullName}
@@ -869,7 +623,7 @@ export const ProfileScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>النبذة الرياضية (Bio)</Text>
+              <Text style={styles.inputLabel}>النبذة الشخصية (Bio)</Text>
               <TextInput
                 style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
                 value={editBio}
@@ -1270,80 +1024,6 @@ const createStyles = (theme: ThemeTokens) =>
       color: theme.textSecondary,
       fontSize: 13,
       fontWeight: '600',
-    },
-
-    // ── Strava Workout Activity Card ──
-    stravaCard: {
-      padding: 14,
-      marginBottom: 12,
-    },
-    stravaHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    stravaIconCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 10,
-    },
-    stravaHeaderTextCol: {
-      flex: 1,
-    },
-    stravaTitle: {
-      color: theme.textPrimary,
-      fontSize: 16,
-      fontWeight: '800',
-      letterSpacing: -0.3,
-    },
-    stravaDate: {
-      color: theme.textSecondary,
-      fontSize: 11,
-      marginTop: 2,
-    },
-    stravaMetricsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      backgroundColor: theme.surfaceSubtle,
-      borderRadius: 14,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-    },
-    stravaMetricItem: {
-      alignItems: 'flex-start',
-    },
-    stravaMetricLabel: {
-      color: theme.textSecondary,
-      fontSize: 11,
-      fontWeight: '600',
-      marginBottom: 2,
-    },
-    stravaMetricValue: {
-      color: theme.textPrimary,
-      fontSize: 16,
-      fontWeight: '800',
-      letterSpacing: -0.3,
-    },
-    stravaMetricUnit: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: theme.textSecondary,
-    },
-    stravaFooterPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      marginTop: 10,
-      paddingHorizontal: 2,
-    },
-    stravaFooterTxt: {
-      color: theme.textSecondary,
-      fontSize: 11,
-      fontWeight: '500',
     },
 
     // ── Music Item ──

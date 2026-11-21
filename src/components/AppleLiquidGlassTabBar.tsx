@@ -14,14 +14,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
-import { useAudioStore } from '../store/useAudioStore';
 
 const { width } = Dimensions.get('window');
 
@@ -30,7 +27,7 @@ const TAB_BAR_HEIGHT = 60;
 const HORIZONTAL_MARGIN = 16;
 const PILL_PADDING = 5;
 const PILL_H_MARGIN = 2;
-const STRAVA_ORANGE = '#FC5200';
+const ACTIVE_TINT = '#FC5200';
 
 interface TabItemProps {
   route: any;
@@ -135,7 +132,7 @@ const AnimatedTabItem = React.memo(({
   const { theme } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const activeColor = STRAVA_ORANGE;
+  const activeColor = ACTIVE_TINT;
   const inactiveColor =
     theme.mode === 'light' ? 'rgba(17, 24, 39, 0.60)' : 'rgba(255, 255, 255, 0.45)';
 
@@ -185,7 +182,7 @@ export const AppleLiquidGlassTabBar = ({
   const bottomOffset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 12);
 
   const containerWidth = width - HORIZONTAL_MARGIN * 2;
-  const numTabs = state.routes.length || 4;
+  const numTabs = state.routes.length || 3;
   const innerWidth = containerWidth - PILL_PADDING * 2;
   const tabWidth = innerWidth / numTabs;
   const indicatorWidth = tabWidth - PILL_H_MARGIN * 2;
@@ -214,34 +211,6 @@ export const AppleLiquidGlassTabBar = ({
     transform: [{ translateX: indicatorX.value }],
   }));
 
-  // 🚀 Liquid Slide Down on Recording Screen Entry
-  const currentRouteName = useAudioStore((s) => s.currentRouteName);
-  const isRecordingScreen = currentRouteName === 'Recording';
-
-  const tabBarTranslateY = useSharedValue(0);
-  const tabBarOpacity = useSharedValue(1);
-
-  useEffect(() => {
-    if (isRecordingScreen) {
-      tabBarTranslateY.value = withTiming(110, {
-        duration: 220,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-      tabBarOpacity.value = withTiming(0, { duration: 180 });
-    } else {
-      tabBarTranslateY.value = withTiming(0, {
-        duration: 200,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-      tabBarOpacity.value = withTiming(1, { duration: 200 });
-    }
-  }, [isRecordingScreen]);
-
-  const animatedTabBarStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: tabBarTranslateY.value }],
-    opacity: tabBarOpacity.value,
-  }));
-
   const getTabMeta = (routeName: string) => {
     switch (routeName) {
       case 'DashboardTab':
@@ -249,12 +218,6 @@ export const AppleLiquidGlassTabBar = ({
           label: 'الرئيسية',
           outlineIcon: 'home-outline',
           filledIcon: 'home',
-        };
-      case 'RecordTab':
-        return {
-          label: 'تسجيل',
-          outlineIcon: 'fitness-outline',
-          filledIcon: 'fitness',
         };
       case 'MusicTab':
         return {
@@ -284,16 +247,6 @@ export const AppleLiquidGlassTabBar = ({
     // 📳 Tactile selection haptics
     Haptics.selectionAsync().catch(() => {});
 
-    if (route.name === 'RecordTab') {
-      tabBarTranslateY.value = withTiming(110, {
-        duration: 180,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-      tabBarOpacity.value = withTiming(0, { duration: 150 });
-      navigation.navigate('Recording');
-      return;
-    }
-
     if (stateIndexRef.current !== index) {
       targetIndexRef.current = index;
       setActiveTabIdx(index);
@@ -317,16 +270,15 @@ export const AppleLiquidGlassTabBar = ({
         navigation.navigate(route.name);
       }
     }
-  }, [tabWidth, navigation, indicatorX, tabBarTranslateY, tabBarOpacity]);
+  }, [tabWidth, navigation, indicatorX]);
 
   return (
-    <Animated.View
+    <View
       style={[
         styles.outerContainer,
         { bottom: bottomOffset },
-        animatedTabBarStyle,
       ]}
-      pointerEvents={isRecordingScreen ? 'none' : 'box-none'}
+      pointerEvents="box-none"
     >
       <View style={styles.mattePillContainer}>
         {/* Dynamic Frosted Blur Layer */}
@@ -368,7 +320,7 @@ export const AppleLiquidGlassTabBar = ({
           })}
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 };
 

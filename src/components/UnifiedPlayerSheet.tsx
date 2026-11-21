@@ -369,7 +369,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const TAB_BAR_SCREENS = [
     'DashboardTab',
     'Dashboard',
-    'RecordTab',
     'MusicTab',
     'MusicHome',
     'MusicSearch',
@@ -379,7 +378,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     'Tabs',
   ];
   const isTabBarVisible = !currentRouteName || TAB_BAR_SCREENS.includes(currentRouteName);
-  const isWorkoutSummary = currentRouteName === 'WorkoutSummary';
 
   // ── Navigation Change Guard ──
   const prevRouteRef = React.useRef(currentRouteName);
@@ -743,7 +741,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   };
 
   const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
-  if (!currentTrack || isMiniPlayerSuppressed || isWorkoutSummary || isAuthScreen) return null;
+  if (!currentTrack || isMiniPlayerSuppressed || isAuthScreen) return null;
 
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
   const resolvedArtistAvatar = getUniversalArtistAvatar(

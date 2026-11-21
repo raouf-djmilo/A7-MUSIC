@@ -21,7 +21,6 @@ export const useMiniPlayerBottomGap = () => {
   const TAB_SCREENS = [
     'DashboardTab',
     'Dashboard',
-    'RecordTab',
     'MusicTab',
     'MusicHome',
     'MusicSearch',
@@ -31,11 +30,6 @@ export const useMiniPlayerBottomGap = () => {
     'Tabs',
   ];
   const isTabBarVisible = !currentRouteName || TAB_SCREENS.includes(currentRouteName);
-  const isWorkoutSummary = currentRouteName === 'WorkoutSummary';
-
-  if (isWorkoutSummary) {
-    return bottomInset + 16;
-  }
 
   if (currentTrack && !isMiniPlayerSuppressed) {
     if (isTabBarVisible) {
