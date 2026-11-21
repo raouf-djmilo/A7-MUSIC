@@ -38,11 +38,11 @@ const TabNavigator = () => {
     <Tab.Navigator
       initialRouteName="DashboardTab"
       tabBar={(props) => <AppleLiquidGlassTabBar {...props} />}
-      detachInactiveScreens={false}
+      detachInactiveScreens={true}
       screenOptions={{
         headerShown: false,
-        lazy: false,
-        freezeOnBlur: false,
+        lazy: true,
+        freezeOnBlur: true,
         animation: 'none',
         sceneStyle: {
           backgroundColor: theme.background,

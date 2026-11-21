@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
   Platform,
 } from 'react-native';
@@ -28,12 +28,11 @@ import { LiquidGlassBubble } from './liquidGlass/LiquidGlassBubble';
 
 const { width } = Dimensions.get('window');
 
-// ── Perfect Mathematical Geometry & Physics Constants ──
+// ── Perfect Mathematical Geometry Constants ──
 const TAB_BAR_HEIGHT = 60;
 const HORIZONTAL_MARGIN = 16;
 const PILL_PADDING = 5;
 const PILL_H_MARGIN = 2;
-const ACTIVE_TINT = '#FC5200';
 
 interface TabItemProps {
   route: any;
@@ -114,7 +113,7 @@ const createStyles = (theme: ThemeTokens) =>
     },
   });
 
-// ── Ultra-Snappy Native Tab Item with Dynamic Optical Lens Magnification ──
+// ── Ultra-Fast Native Tab Item with Dynamic Optical Lens Magnification ──
 const AnimatedTabItem = React.memo(({
   route,
   index,
@@ -126,12 +125,12 @@ const AnimatedTabItem = React.memo(({
   indicatorX,
   tabWidth,
 }: TabItemProps) => {
-  const { theme, isDark } = useTheme();
+  const { isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const activeColor = ACTIVE_TINT;
-  const inactiveColor =
-    theme.mode === 'light' ? 'rgba(17, 24, 39, 0.60)' : 'rgba(255, 255, 255, 0.45)';
+  // Pure Deep Black in Light Theme, Pure Crisp White in Dark Theme (Zero Orange)
+  const activeColor = isDark ? '#FFFFFF' : '#000000';
+  const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.42)' : 'rgba(0, 0, 0, 0.42)';
 
   const handleItemPress = useCallback(() => {
     onPressTab(route, index);
@@ -141,23 +140,22 @@ const AnimatedTabItem = React.memo(({
   const animatedLensStyle = useAnimatedStyle(() => {
     const tabCenterX = index * tabWidth;
     const distance = Math.abs(indicatorX.value - tabCenterX);
-    const lensFocus = Math.max(0, 1 - distance / tabWidth);
+    const lensFocus = Math.max(0, 1 - distance / (tabWidth * 0.85));
 
     return {
       transform: [
-        { scale: 1 + lensFocus * 0.14 },
+        { scale: 1 + lensFocus * 0.12 },
         { translateY: -lensFocus * 2 },
       ],
-      opacity: 0.45 + lensFocus * 0.55,
+      opacity: 0.42 + lensFocus * 0.58,
     };
   });
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={handleItemPress}
       style={styles.tabButton}
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
     >
       <Animated.View style={[styles.tabItemInner, animatedLensStyle]}>
         <View style={styles.iconWrapper}>
@@ -180,7 +178,7 @@ const AnimatedTabItem = React.memo(({
           {label}
         </Text>
       </Animated.View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -204,32 +202,30 @@ export const AppleLiquidGlassTabBar = ({
   const bubbleScaleX = useSharedValue(1);
   const bubbleScaleY = useSharedValue(1);
   const targetIndexRef = useRef(state.index);
-  const [activeTabIdx, setActiveTabIdx] = useState(state.index);
 
   const animateBubbleTo = useCallback(
     (index: number) => {
       const distance = Math.abs(index - targetIndexRef.current);
       targetIndexRef.current = index;
-      setActiveTabIdx(index);
 
       // 🌊 Real Fluid Stretch & Squash Physics
-      const stretchRatio = Math.min(1 + distance * 0.15, 1.28);
-      const squashRatio = Math.max(1 - distance * 0.08, 0.88);
+      const stretchRatio = Math.min(1 + distance * 0.12, 1.24);
+      const squashRatio = Math.max(1 - distance * 0.06, 0.90);
 
       bubbleScaleX.value = withSequence(
-        withTiming(stretchRatio, { duration: 110 }),
-        withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
+        withTiming(stretchRatio, { duration: 90 }),
+        withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
       );
 
       bubbleScaleY.value = withSequence(
-        withTiming(squashRatio, { duration: 110 }),
-        withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
+        withTiming(squashRatio, { duration: 90 }),
+        withSpring(1, { damping: 16, stiffness: 300, mass: 0.45 })
       );
 
       indicatorX.value = withSpring(index * tabWidth, {
-        damping: 22,
-        stiffness: 280,
-        mass: 0.55,
+        damping: 24,
+        stiffness: 300,
+        mass: 0.5,
         overshootClamping: false,
       });
     },
@@ -287,7 +283,6 @@ export const AppleLiquidGlassTabBar = ({
   const onDragEndSnap = useCallback(
     (targetIdx: number) => {
       targetIndexRef.current = targetIdx;
-      setActiveTabIdx(targetIdx);
       if (state.index !== targetIdx && state.routes[targetIdx]) {
         navigation.navigate(state.routes[targetIdx].name);
       }
@@ -295,13 +290,17 @@ export const AppleLiquidGlassTabBar = ({
     [navigation, state.index, state.routes]
   );
 
-  // 🌊 Direct Manipulation: Dragging, Velocity Stretch, and Magnetic Snapping
+  // 🌊 Direct Manipulation: Dragging, Velocity Stretch, and Magnetic Snapping (0ms overhead)
   const panGesture = useMemo(() => {
     return Gesture.Pan()
-      .activeOffsetX([-7, 7])
+      .activeOffsetX([-14, 14])
+      .failOffsetY([-12, 12])
       .onBegin(() => {
         'worklet';
         startDragX.value = indicatorX.value;
+      })
+      .onStart(() => {
+        'worklet';
         runOnJS(triggerHaptic)('light');
       })
       .onUpdate((e) => {
@@ -311,30 +310,29 @@ export const AppleLiquidGlassTabBar = ({
         // Rubber-band resistance at track boundaries
         let clampedX = rawX;
         if (clampedX < 0) {
-          clampedX = clampedX * 0.22;
+          clampedX = clampedX * 0.20;
         } else if (clampedX > maxTravel) {
-          clampedX = maxTravel + (clampedX - maxTravel) * 0.22;
+          clampedX = maxTravel + (clampedX - maxTravel) * 0.20;
         }
         indicatorX.value = clampedX;
 
         // Dynamic Velocity-Aware Liquid Deformation (Stretch & Squash)
         const velocity = Math.abs(e.velocityX);
-        const stretch = Math.min(velocity / 1500, 0.32);
+        const stretch = Math.min(velocity / 1600, 0.28);
         bubbleScaleX.value = 1 + stretch;
-        bubbleScaleY.value = Math.max(1 - stretch * 0.45, 0.85);
+        bubbleScaleY.value = Math.max(1 - stretch * 0.40, 0.86);
 
-        // Dynamic nearest tab tracking with tactile clicks
+        // Tactile clicks on crossing without blocking JS thread
         const closest = Math.max(0, Math.min(Math.round(clampedX / tabWidth), numTabs - 1));
         if (closest !== lastSnappedIdx.value) {
           lastSnappedIdx.value = closest;
           runOnJS(triggerHaptic)('selection');
-          runOnJS(setActiveTabIdx)(closest);
         }
       })
       .onEnd((e) => {
         'worklet';
         // Momentum physics prediction
-        const predictedX = indicatorX.value + e.velocityX * 0.10;
+        const predictedX = indicatorX.value + e.velocityX * 0.08;
         let target = Math.round(predictedX / tabWidth);
         target = Math.max(0, Math.min(target, numTabs - 1));
 
@@ -343,19 +341,19 @@ export const AppleLiquidGlassTabBar = ({
 
         // Magnetic Snapping with liquid spring settling
         indicatorX.value = withSpring(finalX, {
-          damping: 18,
-          stiffness: 240,
-          mass: 0.55,
+          damping: 20,
+          stiffness: 260,
+          mass: 0.5,
         });
 
         bubbleScaleX.value = withSequence(
-          withTiming(1.16, { duration: 90 }),
-          withSpring(1, { damping: 14, stiffness: 280, mass: 0.5 })
+          withTiming(1.12, { duration: 80 }),
+          withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
         );
 
         bubbleScaleY.value = withSequence(
-          withTiming(0.88, { duration: 90 }),
-          withSpring(1, { damping: 14, stiffness: 280, mass: 0.5 })
+          withTiming(0.90, { duration: 80 }),
+          withSpring(1, { damping: 15, stiffness: 280, mass: 0.5 })
         );
 
         runOnJS(onDragEndSnap)(target);
@@ -367,21 +365,13 @@ export const AppleLiquidGlassTabBar = ({
 
   const handlePress = useCallback(
     (route: any, index: number) => {
-      // 📳 Tactile selection haptics
-      Haptics.selectionAsync().catch(() => {});
-
       if (stateIndexRef.current !== index) {
+        // 📳 Instant tactile click
+        Haptics.selectionAsync().catch(() => {});
+        // 🚀 Instant 0ms bubble spring
         animateBubbleTo(index);
-
-        const event = navigation.emit({
-          type: 'tabPress',
-          target: route.key,
-          canPreventDefault: true,
-        });
-
-        if (!event.defaultPrevented) {
-          navigation.navigate(route.name);
-        }
+        // ⚡ Immediate navigation
+        navigation.navigate(route.name);
       }
     },
     [navigation, animateBubbleTo]
@@ -407,7 +397,7 @@ export const AppleLiquidGlassTabBar = ({
           {/* Dynamic Matte Base Surface */}
           <View style={styles.matteBackground} />
 
-          {/* Floating 3D Liquid Glass Selection Bubble with Stretch & Squash */}
+          {/* Floating Transparent 3D Liquid Glass Selection Bubble */}
           <View style={{ position: 'absolute', top: PILL_PADDING, left: PILL_PADDING + PILL_H_MARGIN }}>
             <LiquidGlassBubble
               indicatorX={indicatorX}
@@ -420,7 +410,7 @@ export const AppleLiquidGlassTabBar = ({
             />
           </View>
 
-          {/* 3 Unified Tabs */}
+          {/* 3 Fast Unified Tabs */}
           <View style={styles.tabsRow}>
             {state.routes.map((route, index) => {
               const meta = getTabMeta(route.name);
@@ -430,7 +420,7 @@ export const AppleLiquidGlassTabBar = ({
                   key={route.key}
                   route={route}
                   index={index}
-                  isActive={activeTabIdx === index}
+                  isActive={state.index === index}
                   label={meta.label}
                   outlineIcon={meta.outlineIcon}
                   filledIcon={meta.filledIcon}
@@ -448,4 +438,3 @@ export const AppleLiquidGlassTabBar = ({
 };
 
 export default AppleLiquidGlassTabBar;
-
