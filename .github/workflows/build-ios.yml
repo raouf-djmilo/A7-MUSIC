@@ -87,7 +87,13 @@ jobs:
           cd ../node_modules/expo-modules-jsi/apple
           chmod +x scripts/*.sh
           echo "🔨 Prebuilding ExpoModulesJSI.xcframework for iphoneos..."
-          PODS_ROOT="$PODS_DIR" PLATFORM_NAME=iphoneos ./scripts/build-xcframework.sh
+          PODS_ROOT="$PODS_DIR" PLATFORM_NAME=iphoneos ./scripts/build-xcframework.sh 2>&1 | tee prebuild_jsi.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            echo "❌ Prebuild failed! Inspecting log errors:"
+            grep -E -C 3 -i "(error:|failed:|fatal error:)" prebuild_jsi.log | head -n 150 || tail -n 100 prebuild_jsi.log
+            exit $STATUS
+          fi
 
       - name: Build iOS App (Unsigned)
         run: |
