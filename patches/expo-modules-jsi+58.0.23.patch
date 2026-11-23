@@ -35,8 +35,70 @@ index c49aa7e..cc07123 100644
 +    return Task(priority: priority ?? .high, operation: operation)
    }
  }
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
+index 2aa6bb3..d2aeecf 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
+@@ -185,10 +185,11 @@ public final class JavaScriptCallback: Sendable {
+       throws -> Void
+   ) {
+     let box = UncheckedSendableBox(values)
++    let emplacingBox = UncheckedSendableBox(emplacing)
+     @JavaScriptActor
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
+       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+-        try emplacing(box.value, buffer, runtime)
++        try emplacingBox.value(box.value, buffer, runtime)
+       }
+     }
+     do {
+@@ -215,10 +216,11 @@ public final class JavaScriptCallback: Sendable {
+       throws -> Void
+   ) throws {
+     let box = UncheckedSendableBox(values)
++    let emplacingBox = UncheckedSendableBox(emplacing)
+     @JavaScriptActor
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
+       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+-        try emplacing(box.value, buffer, runtime)
++        try emplacingBox.value(box.value, buffer, runtime)
+       }
+     }
+     if try callInline(call) {
+@@ -241,11 +243,12 @@ public final class JavaScriptCallback: Sendable {
+       throws -> Void
+   ) throws -> sending R {
+     let box = UncheckedSendableBox(values)
++    let emplacingBox = UncheckedSendableBox(emplacing)
+     @JavaScriptActor
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
+     {
+       let decoded = try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+-        try emplacing(box.value, buffer, runtime)
++        try emplacingBox.value(box.value, buffer, runtime)
+       } withResult: { result, runtime in
+         return try R.decode(result, in: runtime)
+       }
+@@ -274,13 +277,15 @@ public final class JavaScriptCallback: Sendable {
+       throws -> Void
+   ) throws -> sending R {
+     let box = UncheckedSendableBox(values)
++    let decodeBox = UncheckedSendableBox(decode)
++    let emplacingBox = UncheckedSendableBox(emplacing)
+     @JavaScriptActor
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
+     {
+       let decoded = try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+-        try emplacing(box.value, buffer, runtime)
++        try emplacingBox.value(box.value, buffer, runtime)
+       } withResult: { result, runtime in
+-        return try decode(result, runtime)
++        return try decodeBox.value(result, runtime)
+       }
+       return UncheckedSendableBox(decoded)
+     }
 diff --git a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
-index e38a4d2..3d2c667 100644
+index e38a4d2..e75436e 100644
 --- a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 +++ b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 @@ -249,7 +249,12 @@ build_slice() {
@@ -53,7 +115,13 @@ index e38a4d2..3d2c667 100644
      -disableAutomaticPackageResolution \
      -skipPackagePluginValidation \
      -skipMacroValidation \
-@@ -266,7 +271,7 @@ build_slice() {
+@@ -262,11 +267,13 @@ build_slice() {
+     STRIP_SWIFT_SYMBOLS=NO \
+     COMPILER_INDEX_STORE_ENABLE=NO \
+     SWIFT_COMPILATION_MODE=wholemodule \
++    SWIFT_STRICT_CONCURRENCY=minimal \
++    SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+     CLANG_ENABLE_CODE_COVERAGE=NO \
      CLANG_COVERAGE_MAPPING=NO \
      SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
      SWIFT_ENABLE_EXPLICIT_MODULES=NO \
