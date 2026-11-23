@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       runner:
-        description: 'macOS Runner'
+        description: 'macOS Runner (macos-15-intel starts instantly without queue, macos-latest is Apple Silicon)'
         required: false
-        default: 'macos-latest'
+        default: 'macos-15-intel'
         type: choice
         options:
+          - 'macos-15-intel'
           - 'macos-latest'
           - 'macos-15'
   push:
@@ -21,7 +22,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ inputs.runner || 'macos-latest' }}
+    runs-on: ${{ inputs.runner || 'macos-15-intel' }}
     timeout-minutes: 90
 
     steps:
