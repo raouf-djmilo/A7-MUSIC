@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-modules-jsi/apple/Package.swift b/node_modules/expo-modules-jsi/apple/Package.swift
-index 8211ef0..3c35003 100644
+index 8211ef0..aaf9689 100644
 --- a/node_modules/expo-modules-jsi/apple/Package.swift
 +++ b/node_modules/expo-modules-jsi/apple/Package.swift
 @@ -1,4 +1,4 @@
@@ -8,13 +8,7 @@ index 8211ef0..3c35003 100644
  // The swift-tools-version declares the minimum version of Swift required to build this package.
  
  import Foundation
-@@ -105,13 +105,13 @@ let package = Package(
-           "-no-verify-emitted-module-interface",
-           "-Xfrontend",
-           "-clang-header-expose-decls=has-expose-attr",
-+          "-strict-concurrency=minimal",
- 
-           // Xcode 27 reports a warning left on a SwiftCompile task as "the following command
+@@ -110,8 +110,7 @@ let package = Package(
            // failed with exit code 0 but produced no further output" and fails the host app's
            // build phase, with nothing pointing at the cause. These groups are the ones that have
            // actually bitten us, so reject them at the line that causes them.
@@ -42,10 +36,34 @@ index c49aa7e..cc07123 100644
    }
  }
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
-index 2aa6bb3..5b88d7e 100644
+index 2aa6bb3..cba6a58 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
-@@ -181,14 +181,16 @@ public final class JavaScriptCallback: Sendable {
+@@ -102,6 +102,7 @@ public final class JavaScriptCallback: Sendable {
+     let box = UncheckedSendableBox((repeat each arguments))
+     let argumentCount = Self.argumentCount(of: repeat (each A).self)
+     @JavaScriptActor
++    @Sendable
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
+       let arguments = box.value
+       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+@@ -128,6 +129,7 @@ public final class JavaScriptCallback: Sendable {
+     let box = UncheckedSendableBox((repeat each arguments))
+     let argumentCount = Self.argumentCount(of: repeat (each A).self)
+     @JavaScriptActor
++    @Sendable
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
+       let arguments = box.value
+       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
+@@ -152,6 +154,7 @@ public final class JavaScriptCallback: Sendable {
+     let box = UncheckedSendableBox((repeat each arguments))
+     let argumentCount = Self.argumentCount(of: repeat (each A).self)
+     @JavaScriptActor
++    @Sendable
+     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
+     {
+       let arguments = box.value
+@@ -181,14 +184,16 @@ public final class JavaScriptCallback: Sendable {
      _ values: Values,
      argumentCount: Int,
      emplacing:
@@ -64,7 +82,7 @@ index 2aa6bb3..5b88d7e 100644
        }
      }
      do {
-@@ -211,14 +213,16 @@ public final class JavaScriptCallback: Sendable {
+@@ -211,14 +216,16 @@ public final class JavaScriptCallback: Sendable {
      _ values: Values,
      argumentCount: Int,
      emplacing:
@@ -83,7 +101,7 @@ index 2aa6bb3..5b88d7e 100644
        }
      }
      if try callInline(call) {
-@@ -237,15 +241,17 @@ public final class JavaScriptCallback: Sendable {
+@@ -237,15 +244,17 @@ public final class JavaScriptCallback: Sendable {
      argumentCount: Int,
      returning _: R.Type,
      emplacing:
@@ -103,7 +121,7 @@ index 2aa6bb3..5b88d7e 100644
        } withResult: { result, runtime in
          return try R.decode(result, in: runtime)
        }
-@@ -268,19 +274,22 @@ public final class JavaScriptCallback: Sendable {
+@@ -268,19 +277,22 @@ public final class JavaScriptCallback: Sendable {
      _ values: Values,
      argumentCount: Int,
      decoding decode:
@@ -130,7 +148,7 @@ index 2aa6bb3..5b88d7e 100644
        }
        return UncheckedSendableBox(decoded)
      }
-@@ -415,7 +424,7 @@ public final class JavaScriptCallback: Sendable {
+@@ -415,7 +427,7 @@ public final class JavaScriptCallback: Sendable {
  
    @usableFromInline
    internal func runDetached(
@@ -139,7 +157,7 @@ index 2aa6bb3..5b88d7e 100644
    ) {
      guard scheduler.mayBeAlive else {
        print("Error in a JavaScript callback: \(RuntimeLostError())")
-@@ -434,7 +443,7 @@ public final class JavaScriptCallback: Sendable {
+@@ -434,7 +446,7 @@ public final class JavaScriptCallback: Sendable {
  
    @usableFromInline
    internal func runBlocking<R: Sendable>(
@@ -149,7 +167,7 @@ index 2aa6bb3..5b88d7e 100644
      return try scheduler.execute { runtime in
        try self.withFunction { function in
 diff --git a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
-index e38a4d2..c9e0b7b 100644
+index e38a4d2..e75436e 100644
 --- a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 +++ b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 @@ -249,7 +249,12 @@ build_slice() {
@@ -166,7 +184,7 @@ index e38a4d2..c9e0b7b 100644
      -disableAutomaticPackageResolution \
      -skipPackagePluginValidation \
      -skipMacroValidation \
-@@ -262,11 +267,14 @@ build_slice() {
+@@ -262,11 +267,13 @@ build_slice() {
      STRIP_SWIFT_SYMBOLS=NO \
      COMPILER_INDEX_STORE_ENABLE=NO \
      SWIFT_COMPILATION_MODE=wholemodule \
@@ -177,7 +195,6 @@ index e38a4d2..c9e0b7b 100644
      SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
      SWIFT_ENABLE_EXPLICIT_MODULES=NO \
 -    "OTHER_LDFLAGS=\$(inherited) -Xlinker -unexported_symbols_list -Xlinker \"${UNEXPORTED_SYMBOLS_LIST}\"" \
-+    "OTHER_SWIFT_FLAGS=\$(inherited) -strict-concurrency=minimal" \
 +    "OTHER_LDFLAGS=\$(inherited) -Xlinker -undefined -Xlinker dynamic_lookup -Xlinker -unexported_symbols_list -Xlinker \"${UNEXPORTED_SYMBOLS_LIST}\"" \
    )
  

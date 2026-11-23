@@ -94,6 +94,10 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           if [ $STATUS -ne 0 ]; then
             echo "❌ Prebuild failed! Inspecting log errors:"
+            echo "## ❌ Prebuild ExpoModulesJSI Failed (Status $STATUS)" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 120 prebuild_jsi.log >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
             grep -E -C 3 -i "(error:|failed:|fatal error:)" prebuild_jsi.log | head -n 150 || tail -n 100 prebuild_jsi.log
             exit $STATUS
           fi
@@ -168,18 +172,29 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
-          path: ios/xcodebuild.log
+          path: |
+            ios/xcodebuild.log
+            node_modules/expo-modules-jsi/apple/prebuild_jsi.log
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Print Compiler Errors
         if: failure()
         run: |
-          echo "=================== ERROR SEARCH ==================="
-          grep -n -C 3 -i "error:" ios/xcodebuild.log | head -n 200 || true
-          echo "=================== FAILED COMMANDS ==================="
-          grep -n -C 5 "The following build commands failed:" ios/xcodebuild.log || true
-          echo "=================== LAST 150 LINES ==================="
-          tail -n 150 ios/xcodebuild.log || true
+          if [ -f ios/xcodebuild.log ]; then
+            echo "=================== ERROR SEARCH ==================="
+            grep -n -C 3 -i "error:" ios/xcodebuild.log | head -n 200 || true
+            echo "=================== FAILED COMMANDS ==================="
+            grep -n -C 5 "The following build commands failed:" ios/xcodebuild.log || true
+            echo "=================== LAST 150 LINES ==================="
+            tail -n 150 ios/xcodebuild.log || true
+          fi
+          if [ -f node_modules/expo-modules-jsi/apple/prebuild_jsi.log ]; then
+            echo "=================== PREBUILD JSI ERROR SEARCH ==================="
+            grep -n -C 3 -i "error:" node_modules/expo-modules-jsi/apple/prebuild_jsi.log | head -n 200 || true
+            echo "=================== LAST 150 LINES OF PREBUILD JSI ==================="
+            tail -n 150 node_modules/expo-modules-jsi/apple/prebuild_jsi.log || true
+          fi
 
       - name: Publish Failure Log to Release
         if: failure() && startsWith(github.ref, 'refs/tags/')
