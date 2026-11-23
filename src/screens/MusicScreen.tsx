@@ -1,12 +1,14 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Platform } from 'react-native';
 import { createMaterialTopTabNavigator, MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MusicHome } from './MusicHome';
 import { MusicSearch } from './MusicSearch';
 import { MusicLibrary } from './MusicLibrary';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useAudioStore } from '../store/useAudioStore';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../theme/ThemeContext';
@@ -50,77 +52,97 @@ const CompactSegmentedTabBar: React.FC<CompactBarProps> = ({ state, navigation, 
   });
 
   return (
-    <View style={[styles.tabBarWrapper, { paddingTop: insetsTop + 4, backgroundColor: theme.background }]}>
-      <View 
+    <View
+      style={[
+        styles.tabBarWrapper,
+        {
+          paddingTop: insetsTop + 6,
+        },
+      ]}
+      pointerEvents="box-none"
+    >
+      <LiquidGlassSurface
+        glassStyle="regular"
+        isInteractive={true}
+        isDark={isDark}
+        borderRadius={22}
         style={[
-          styles.segmentedContainer,
+          styles.floatingGlassPill,
           {
-            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.surfaceSubtle,
-            borderColor: theme.border,
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.16)'
+              : 'rgba(0, 0, 0, 0.08)',
           },
         ]}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       >
-        {tabWidth > 0 && (
-          <Animated.View
-            style={[
-              styles.activeIndicator,
-              {
-                width: tabWidth,
-                backgroundColor: isDark ? '#FFFFFF' : theme.surface,
-                shadowColor: isDark ? '#000000' : theme.cardShadow.shadowColor,
-                transform: [{ translateX }],
-              },
-            ]}
-          />
-        )}
+        <View 
+          style={styles.segmentedContainer}
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        >
+          {tabWidth > 0 && (
+            <Animated.View
+              style={[
+                styles.activeIndicator,
+                {
+                  width: tabWidth,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.18)' : '#FFFFFF',
+                  shadowColor: isDark ? '#000000' : theme.cardShadow.shadowColor,
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.04)',
+                  borderWidth: StyleSheet.hairlineWidth,
+                  transform: [{ translateX }],
+                },
+              ]}
+            />
+          )}
 
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const config = TAB_CONFIG[route.name] || { label: route.name, icon: 'musical-notes-outline', activeIcon: 'musical-notes' };
+          {state.routes.map((route, index) => {
+            const isFocused = state.index === index;
+            const config = TAB_CONFIG[route.name] || { label: route.name, icon: 'musical-notes-outline', activeIcon: 'musical-notes' };
 
-          const onPress = () => {
-            Haptics.selectionAsync();
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+            const onPress = () => {
+              Haptics.selectionAsync();
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
 
-          const activeColor = isDark ? '#000000' : theme.textPrimary;
-          const inactiveColor = theme.textMuted;
+            const activeColor = isDark ? '#FFFFFF' : '#000000';
+            const inactiveColor = isDark ? 'rgba(235, 235, 245, 0.55)' : 'rgba(60, 60, 67, 0.60)';
 
-          return (
-            <TouchableOpacity
-              key={route.key}
-              activeOpacity={0.75}
-              onPress={onPress}
-              style={styles.tabItem}
-            >
-              <Ionicons 
-                name={isFocused ? config.activeIcon : config.icon} 
-                size={15} 
-                color={isFocused ? activeColor : inactiveColor} 
-                style={styles.tabIcon}
-              />
-              <Text 
-                style={[
-                  styles.tabText, 
-                  { color: isFocused ? activeColor : inactiveColor },
-                  isFocused && styles.tabTextActive,
-                ]}
+            return (
+              <TouchableOpacity
+                key={route.key}
+                activeOpacity={0.75}
+                onPress={onPress}
+                style={styles.tabItem}
               >
-                {config.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                <Ionicons 
+                  name={isFocused ? config.activeIcon : config.icon} 
+                  size={15} 
+                  color={isFocused ? activeColor : inactiveColor} 
+                  style={styles.tabIcon}
+                />
+                <Text 
+                  style={[
+                    styles.tabText, 
+                    { color: isFocused ? activeColor : inactiveColor },
+                    isFocused && styles.tabTextActive,
+                  ]}
+                >
+                  {config.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </LiquidGlassSurface>
+
       {!isOnline && (
         <View style={[styles.offlineBannerPill, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.15)', borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.4)' }]}>
           <Ionicons name="cloud-offline" size={13} color="#F59E0B" />
@@ -188,25 +210,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBarWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 6,
+    pointerEvents: 'box-none',
+  },
+  floatingGlassPill: {
+    width: '100%',
+    maxWidth: 390,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: StyleSheet.hairlineWidth,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   segmentedContainer: {
-    height: 38,
-    borderRadius: 19,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 3,
     position: 'relative',
-    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
   activeIndicator: {
     position: 'absolute',
     top: 3,
     left: 3,
     bottom: 3,
-    height: 32,
-    borderRadius: 16,
+    height: 36,
+    borderRadius: 18,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 3.5,
@@ -214,11 +259,11 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    height: 32,
+    height: 36,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 18,
     zIndex: 1,
   },
   tabIcon: {

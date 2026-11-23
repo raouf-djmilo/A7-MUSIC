@@ -18,30 +18,24 @@ export const APPLE_BAR_METRICS = {
 export const APPLE_LIQUID_COLORS = {
   dark: {
     /** شريط زجاجي سبجي عميق بنفاذية ضوئية متدرجة */
-    barBg: 'rgba(14, 14, 18, 0.82)',
-    barBorder: 'rgba(255, 255, 255, 0.12)',
-    barBorderTop: 'rgba(255, 255, 255, 0.25)',
+    barBg: 'rgba(14, 14, 18, 0.78)',
+    barBorder: 'rgba(255, 255, 255, 0.10)',
+    barBorderTop: 'rgba(255, 255, 255, 0.18)',
 
-    /** 🔮 عدسة Liquid Glass الكريستالية ثلاثية الأبعاد (مطابقة تماماً للصورة المرجعية) */
-    bubbleBg: 'rgba(255, 255, 255, 0.08)',
-    bubbleTopRim: 'rgba(255, 255, 255, 0.95)',
-    bubbleSideRim: 'rgba(255, 255, 255, 0.45)',
-    bubbleBottomRim: 'rgba(255, 255, 255, 0.10)',
-    bubbleInnerHighlight: 'rgba(255, 255, 255, 0.38)',
+    /** 🔮 كبسولة Apple Liquid Glass الأصلية (مات بلورية صافية بدون تدرج بلاستيكي) */
+    bubbleBg: 'rgba(255, 255, 255, 0.12)',
+    bubbleBorder: 'rgba(255, 255, 255, 0.18)',
 
     activeTint: '#FFFFFF',
-    inactiveTint: 'rgba(255, 255, 255, 0.40)',
+    inactiveTint: 'rgba(255, 255, 255, 0.42)',
   },
   light: {
     barBg: 'rgba(246, 246, 248, 0.85)',
-    barBorder: 'rgba(0, 0, 0, 0.08)',
-    barBorderTop: 'rgba(255, 255, 255, 0.95)',
+    barBorder: 'rgba(0, 0, 0, 0.06)',
+    barBorderTop: 'rgba(255, 255, 255, 0.90)',
 
-    bubbleBg: 'rgba(255, 255, 255, 0.82)',
-    bubbleTopRim: 'rgba(255, 255, 255, 1.0)',
-    bubbleSideRim: 'rgba(255, 255, 255, 0.70)',
-    bubbleBottomRim: 'rgba(0, 0, 0, 0.08)',
-    bubbleInnerHighlight: 'rgba(255, 255, 255, 0.65)',
+    bubbleBg: '#FFFFFF',
+    bubbleBorder: 'rgba(0, 0, 0, 0.06)',
 
     activeTint: '#000000',
     inactiveTint: 'rgba(60, 60, 67, 0.50)',

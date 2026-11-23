@@ -1,4 +1,6 @@
 import 'react-native-gesture-handler';
+import { enableScreens } from 'react-native-screens';
+enableScreens(true);
 import './src/lib/mockTrackPlayer';
 import { registerRootComponent } from 'expo';
 import TrackPlayer from 'react-native-track-player';

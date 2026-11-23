@@ -399,7 +399,21 @@ class MusicDnaEngine {
         rankedScored.length >= 3 ? rankedScored : trendingTracks.slice(0, 10);
 
       // 2. Assemble the 5 Spotify-Grade Mood Clusters (Real track covers & Spotify accent badges)
-      // Banished stock coffee cups & gym photos: using verified studio album covers
+      // Distinct cover picker to ensure 100% visual variety so no two mix cards show duplicate covers
+      const usedMixArtworks = new Set<string>();
+      const pickDistinctCover = (trackList: Track[], fallbackCuratedIdx: number): string => {
+        for (const t of trackList) {
+          const art = getUniversalStudioArtwork(t?.thumbnail, t?.title, t?.artist, t?.videoId);
+          if (art && !usedMixArtworks.has(art)) {
+            usedMixArtworks.add(art);
+            return art;
+          }
+        }
+        const fallback = CURATED_TRACKS[fallbackCuratedIdx]?.thumbnail || '';
+        usedMixArtworks.add(fallback);
+        return fallback;
+      };
+
       const clusters: MoodCluster[] = [
         {
           id: 'cluster-cadence',
@@ -407,12 +421,7 @@ class MusicDnaEngine {
           title: '160 BPM Stride',
           badgeColor: '#FF6B00', // Athletic orange
           subtitle: 'Cardio Beats, 160 BPM Cadence',
-          artwork: getUniversalStudioArtwork(
-            cadenceTracks[0]?.thumbnail,
-            cadenceTracks[0]?.title,
-            cadenceTracks[0]?.artist,
-            cadenceTracks[0]?.videoId
-          ),
+          artwork: pickDistinctCover(cadenceTracks, 0),
           tracks: cadenceTracks.slice(0, 15),
         },
         {
@@ -421,12 +430,7 @@ class MusicDnaEngine {
           title: `${signatureArtist} Mix`,
           badgeColor: '#1DB954', // Spotify vibrant green
           subtitle: `${signatureArtist}, Djalil Palermo & Soolking`,
-          artwork: getUniversalStudioArtwork(
-            signatureTracks[0]?.thumbnail,
-            signatureTracks[0]?.title,
-            signatureTracks[0]?.artist,
-            signatureTracks[0]?.videoId
-          ),
+          artwork: pickDistinctCover(signatureTracks, 1),
           tracks: signatureTracks.slice(0, 15),
         },
         {
@@ -435,12 +439,7 @@ class MusicDnaEngine {
           title: 'On Repeat',
           badgeColor: '#8E2DE2', // Neon Violet
           subtitle: 'Your most played anthems this week',
-          artwork: getUniversalStudioArtwork(
-            replayTracks[0]?.thumbnail,
-            replayTracks[0]?.title,
-            replayTracks[0]?.artist,
-            replayTracks[0]?.videoId
-          ),
+          artwork: pickDistinctCover(replayTracks, 2),
           tracks: replayTracks,
         },
         {
@@ -449,12 +448,7 @@ class MusicDnaEngine {
           title: 'Sunset Chill',
           badgeColor: '#4A90E2', // Sky Blue
           subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
-          artwork: getUniversalStudioArtwork(
-            chillTracks[0]?.thumbnail,
-            chillTracks[0]?.title,
-            chillTracks[0]?.artist,
-            chillTracks[0]?.videoId
-          ),
+          artwork: pickDistinctCover(chillTracks, 3),
           tracks: chillTracks.slice(0, 15),
         },
         {
@@ -463,12 +457,7 @@ class MusicDnaEngine {
           title: 'Energy Boost',
           badgeColor: '#FF0055', // Neon Pink / Energy
           subtitle: 'Gym Phonk, Trap & High Power Drops',
-          artwork: getUniversalStudioArtwork(
-            energyTracks[0]?.thumbnail,
-            energyTracks[0]?.title,
-            energyTracks[0]?.artist,
-            energyTracks[0]?.videoId
-          ),
+          artwork: pickDistinctCover(energyTracks, 4),
           tracks: energyTracks.slice(0, 15),
         },
       ];
@@ -513,15 +502,21 @@ class MusicDnaEngine {
         ...chillTracks,
       ];
 
+      // Normalize helper for deduplicating artists
+      const normKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+      const seenArtistKeys = new Set<string>();
+
       for (const tr of allDiscovered) {
         const genuineName = extractGenuineArtist(tr.title, tr.artist);
+        const k = genuineName ? normKey(genuineName) : '';
         if (
           genuineName &&
           genuineName.length >= 3 &&
           !isFakeArtistChannel(genuineName) &&
-          !artistMap.has(genuineName) &&
+          !seenArtistKeys.has(k) &&
           artistMap.size < 12
         ) {
+          seenArtistKeys.add(k);
           const avatar = tr.artistAvatar || getUniversalArtistAvatar(tr.artistAvatar, genuineName);
           artistMap.set(genuineName, {
             name: genuineName,
@@ -548,7 +543,9 @@ class MusicDnaEngine {
         'Dua Lipa',
       ];
       for (const name of baselineArtists) {
-        if (!artistMap.has(name) && artistMap.size < 12) {
+        const k = normKey(name);
+        if (!seenArtistKeys.has(k) && artistMap.size < 12) {
+          seenArtistKeys.add(k);
           artistMap.set(name, {
             name,
             avatar: getUniversalArtistAvatar(null, name),
@@ -654,6 +651,19 @@ class MusicDnaEngine {
     const chillTracks = CURATED_TRACKS.filter((t) => t.category === 'walking' || t.category === 'focus');
     const energyTracks = CURATED_TRACKS.filter((t) => t.category === 'cardio' || t.category === 'running');
 
+    const usedDefArt = new Set<string>();
+    const pickDefCover = (trackList: Track[], fallbackCuratedIdx: number): string => {
+      for (const t of trackList) {
+        if (t?.thumbnail && !usedDefArt.has(t.thumbnail)) {
+          usedDefArt.add(t.thumbnail);
+          return t.thumbnail;
+        }
+      }
+      const fallback = CURATED_TRACKS[fallbackCuratedIdx]?.thumbnail || '';
+      usedDefArt.add(fallback);
+      return fallback;
+    };
+
     const defaultMixes: MoodCluster[] = [
       {
         id: 'cluster-cadence',
@@ -661,7 +671,7 @@ class MusicDnaEngine {
         title: '160 BPM Stride',
         badgeColor: '#FF6B00',
         subtitle: 'Cardio Beats, 160 BPM Cadence',
-        artwork: cadenceTracks[0]?.thumbnail || CURATED_TRACKS[0]?.thumbnail || '',
+        artwork: pickDefCover(cadenceTracks, 0),
         tracks: cadenceTracks.length > 0 ? cadenceTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -670,7 +680,7 @@ class MusicDnaEngine {
         title: 'Rai DZ Mix',
         badgeColor: '#1DB954',
         subtitle: 'Djalil Palermo, Khaled & Soolking',
-        artwork: raiTracks[0]?.thumbnail || CURATED_TRACKS[1]?.thumbnail || '',
+        artwork: pickDefCover(raiTracks, 1),
         tracks: raiTracks.length > 0 ? raiTracks : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -679,7 +689,7 @@ class MusicDnaEngine {
         title: 'On Repeat',
         badgeColor: '#8E2DE2',
         subtitle: 'Your most played anthems this week',
-        artwork: history[0]?.thumbnail || CURATED_TRACKS[2]?.thumbnail || '',
+        artwork: pickDefCover(history, 2),
         tracks: history.length > 0 ? history.slice(0, 5) : CURATED_TRACKS.slice(0, 5),
       },
       {
@@ -688,7 +698,7 @@ class MusicDnaEngine {
         title: 'Sunset Chill',
         badgeColor: '#4A90E2',
         subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
-        artwork: chillTracks[0]?.thumbnail || CURATED_TRACKS[3]?.thumbnail || '',
+        artwork: pickDefCover(chillTracks, 3),
         tracks: chillTracks.length > 0 ? chillTracks : CURATED_TRACKS.slice(2, 6),
       },
       {
@@ -697,7 +707,7 @@ class MusicDnaEngine {
         title: 'Energy Boost',
         badgeColor: '#FF0055',
         subtitle: 'Gym Phonk, Trap & High Power Drops',
-        artwork: energyTracks[0]?.thumbnail || CURATED_TRACKS[4]?.thumbnail || '',
+        artwork: pickDefCover(energyTracks, 4),
         tracks: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
       },
     ];

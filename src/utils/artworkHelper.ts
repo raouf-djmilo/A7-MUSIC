@@ -214,12 +214,10 @@ export const getUniversalStudioArtworkSource = (
     pushSource(getUniversalStudioArtwork(url, title, artist, videoId));
   }
 
-  // 3. YouTube Video Thumbnails: 5-Tier Native HD Cascade (NO letterbox black bars!)
+  // 3. YouTube Video Thumbnails: Fast High-Fidelity Cascade (1080p -> 720p -> HQ)
   if (resolvedVid && resolvedVid.length >= 8) {
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`);
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
-    pushSource(`https://i.ytimg.com/vi_webp/${resolvedVid}/maxresdefault.webp`);
-    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/sddefault.jpg`);
     pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
   }
 

@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // Providers
 import { AuthProvider, useAuth } from './src/providers/AuthProvider';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { useSyncNativeAppearance } from './src/hooks/useSyncNativeAppearance';
 
 // Navigator & Components
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -26,10 +27,13 @@ import { OfflineGuardModal } from './src/components/OfflineGuardModal';
 import { inspectOfflineStorage } from './src/services/downloadService';
 
 const AppContent = () => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { session } = useAuth();
   const toastRef = useRef<any>(null);
   const authPromptRef = useRef<any>(null);
+
+  // Synchronize internal app theme preference with native UIWindow (iOS UITabBar & Android System)
+  useSyncNativeAppearance(isDark);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>

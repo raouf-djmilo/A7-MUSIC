@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Appearance, Platform } from 'react-native';
 import { useSharedValue, withTiming, Easing } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lightTheme, darkTheme } from './colors';
@@ -28,6 +28,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
   }, [resolvedMode, themeProgress]);
+
+  // Synchronize internal app theme preference with native UIWindow (iOS UITabBar & Android System)
+  useEffect(() => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Appearance.setColorScheme(resolvedMode);
+      } catch (e) {
+        // Safe fallback
+      }
+    }
+  }, [resolvedMode]);
 
   useEffect(() => {
     const loadSavedTheme = async () => {

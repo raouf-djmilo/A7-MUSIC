@@ -19,7 +19,9 @@ import { SoftwareUpdateScreen } from '../screens/SoftwareUpdateScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { AppleLiquidGlassTabBar } from '../components/AppleLiquidGlassTabBar';
 import { FastTabViewport } from './FastTabViewport';
+import { NativeLiquidBottomTabs } from './NativeLiquidBottomTabs';
 import { useAudioStore } from '../store/useAudioStore';
+import { USE_NATIVE_LIQUID_TABS } from './navigationConfig';
 
 const Stack = createNativeStackNavigator();
 
@@ -67,6 +69,17 @@ const TabNavigator = ({ route }: any) => {
     useAudioStore.getState().setCurrentRouteName(nextRoute);
     setActiveTab(nextIndex);
   }, []);
+
+  if (USE_NATIVE_LIQUID_TABS) {
+    return (
+      <View style={[styles.tabRoot, { backgroundColor: theme.background }]}>
+        <NativeLiquidBottomTabs
+          activeIndex={activeTab}
+          onTabChange={handleTabChange}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.tabRoot, { backgroundColor: theme.background }]}>

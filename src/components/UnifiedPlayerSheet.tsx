@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  useWindowDimensions,
   Platform,
   Share,
   Modal,
@@ -48,6 +49,12 @@ import {
   STUDIO_IMAGE_PROPS,
 } from '../utils/artworkHelper';
 import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
+import { USE_NATIVE_LIQUID_TABS } from '../navigation/navigationConfig';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
+import { PlayerArtworkStage } from '../features/player/components/PlayerArtworkStage';
+import { AppleTimelineScrubber } from '../features/player/components/AppleTimelineScrubber';
+import { FullscreenVideoModal } from '../features/player/components/FullscreenVideoModal';
+import { InPlaceFullscreenHud } from '../features/player/components/InPlaceFullscreenHud';
 import { ToastManager } from './InAppToast';
 import { playerModalTranslateY, PLAYER_SPRING_CONFIG, DEFAULT_HIDDEN_OFFSET } from '../utils/playerMotion';
 import { registerActivePlayerBridge } from '../services/audioSessionService';
@@ -164,15 +171,15 @@ const PlayerScrubber: React.FC<PlayerScrubberProps> = React.memo(({ isDark, them
             await seekTo(val);
           }
         }}
-        minimumTrackTintColor={accentColor}
-        maximumTrackTintColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.15)'}
-        thumbTintColor={accentColor}
+        minimumTrackTintColor={isDark ? '#FFFFFF' : '#111111'}
+        maximumTrackTintColor={isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(0, 0, 0, 0.12)'}
+        thumbTintColor={isDark ? '#FFFFFF' : '#111111'}
       />
       <View style={styles.timeRow}>
-        <Text style={[styles.timeText, { color: isDark ? 'rgba(255,255,255,0.55)' : themeMuted }]}>
+        <Text style={[styles.timeText, { color: isDark ? 'rgba(255, 255, 255, 0.65)' : themeMuted }]}>
           {formatTime(displayPosition)}
         </Text>
-        <Text style={[styles.timeText, { color: isDark ? 'rgba(255,255,255,0.55)' : themeMuted }]}>
+        <Text style={[styles.timeText, { color: isDark ? 'rgba(255, 255, 255, 0.65)' : themeMuted }]}>
           {formatTime(validDuration)}
         </Text>
       </View>
@@ -192,6 +199,18 @@ const PlayerScrubber: React.FC<PlayerScrubberProps> = React.memo(({ isDark, them
  */
 export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isDeviceLandscape = windowWidth > windowHeight;
+  const fullscreenVideoDims = isDeviceLandscape
+    ? {
+        width: windowWidth,
+        height: windowHeight,
+      }
+    : {
+        width: windowWidth,
+        height: Math.round((windowWidth * 9) / 16),
+      };
+
   const navigation = useNavigation<any>();
   const { theme, isDark } = useTheme();
   const { session } = useAuth();
@@ -223,8 +242,232 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const activeEngine = useAudioStore((s) => s.activeEngine);
   const mediaContainerRef = useRef<any>(null);
   const youtubePlayerRef = useRef<YoutubeIframeRef>(null);
-  const fullscreenPlayerRef = useRef<YoutubeIframeRef>(null);
   const isSwitchingModeRef = useRef<boolean>(false);
+  const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
+
+  const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.42, 380);
+  const cardVideoHeight = Math.round((cardWidth * 9) / 16);
+  const normalVideoLeft = Math.round((windowWidth - cardWidth) / 2);
+  const [normalStageTop, setNormalStageTop] = useState(Math.max(insets.top, 16) + 68);
+  const isVideoFullscreenSV = useSharedValue(false);
+  useEffect(() => {
+    isVideoFullscreenSV.value = isVideoFullscreen;
+  }, [isVideoFullscreen]);
+
+  // 1. تثبيت إعدادات المشغل بـ useMemo لمنع إعادة بناء WebView نهائياً عند التكبير أو الإغلاق
+  const stablePlayerParams = useMemo(
+    () => ({
+      controls: false,
+      modestbranding: true,
+      rel: false,
+      fs: false,
+      iv_load_policy: 3,
+      preventFullScreen: true,
+      showClosedCaptions: false,
+    }),
+    []
+  );
+
+  // 2. حقن CSS لإخفاء شعار وعنوان وأزرار يوتيوب بالكامل ليظهر الفيديو كأنه من مصدرنا الشخصي
+  const cleanYoutubeWebViewProps = useMemo(
+    () => ({
+      androidLayerType: 'hardware' as const,
+      allowsInlineMediaPlayback: true,
+      mediaPlaybackRequiresUserAction: false,
+      allowsPictureInPictureMediaPlayback: true,
+      allowsAirPlayForMediaPlayback: true,
+      scrollEnabled: false,
+      injectedJavaScriptForMainFrameOnly: false,
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
+      injectedJavaScriptBeforeContentLoaded: `
+        (function() {
+          if (navigator.audioSession) {
+            try { navigator.audioSession.type = 'playback'; } catch(e) {}
+          }
+          try {
+            Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+            Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+            Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+          } catch(e) {}
+          try {
+            var origAddEventListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, listener, options) {
+              if (
+                type === 'visibilitychange' || 
+                type === 'webkitvisibilitychange' || 
+                type === 'pagehide' || 
+                type === 'blur' || 
+                type === 'freeze'
+              ) {
+                return;
+              }
+              return origAddEventListener.call(this, type, listener, options);
+            };
+          } catch(e) {}
+          try {
+            Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
+            Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
+            Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
+          } catch(e) {}
+          try {
+            var origPlay = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function() {
+              this.setAttribute('playsinline', 'true');
+              this.setAttribute('webkit-playsinline', 'true');
+              return origPlay.call(this);
+            };
+          } catch(e) {}
+          var css = [
+            '.ytp-chrome-top',
+            '.ytp-chrome-bottom',
+            '.ytp-watermark',
+            '.ytp-pause-overlay',
+            '.ytp-pause-overlay-container',
+            '.ytp-gradient-top',
+            '.ytp-gradient-bottom',
+            '.ytp-show-cards-title',
+            '.ytp-youtube-button',
+            '.ytp-title',
+            '.ytp-title-link',
+            '.ytp-title-text',
+            '.ytp-title-channel',
+            '.ytp-share-button',
+            '.ytp-share-panel',
+            '.ytp-large-play-button',
+            '.ytp-contextmenu',
+            '.ytp-cued-thumbnail-overlay',
+            '.ytp-impression-link',
+            '.ytm-paused-overlay',
+            '.player-controls-content',
+            '.fullscreen-overlay',
+            '.ytp-ce-element',
+            '.ytp-paid-content-overlay',
+            '[class*="ytp-pause-overlay"]',
+            '[class*="ytp-title"]',
+            '[class*="ytp-watermark"]',
+            '[class*="ytp-chrome"]',
+            '[class*="ytp-button"]',
+            'a[href*="youtube.com"]'
+          ].join(', ') + ' { display: none !important; opacity: 0 !important; pointer-events: none !important; visibility: hidden !important; }';
+          var el = document.createElement('style');
+          el.id = 'ag-anti-chrome';
+          el.innerHTML = css;
+          (document.head || document.documentElement).appendChild(el);
+        })();
+        true;
+      `,
+      injectedJavaScript: `
+        (function() {
+          if (navigator.audioSession) {
+            try { navigator.audioSession.type = 'playback'; } catch(e) {}
+          }
+          try {
+            Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
+            Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
+            Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
+          } catch(e) {}
+          
+          // 🛡️ CSS injection: مسح شامل لجميع عناصر وواجهات يوتيوب وشعاراته
+          var css = [
+            '.ytp-chrome-top',
+            '.ytp-chrome-bottom',
+            '.ytp-watermark',
+            '.ytp-pause-overlay',
+            '.ytp-pause-overlay-container',
+            '.ytp-gradient-top',
+            '.ytp-gradient-bottom',
+            '.ytp-show-cards-title',
+            '.ytp-youtube-button',
+            '.ytp-title',
+            '.ytp-title-link',
+            '.ytp-title-text',
+            '.ytp-title-channel',
+            '.ytp-share-button',
+            '.ytp-share-panel',
+            '.ytp-large-play-button',
+            '.ytp-contextmenu',
+            '.ytp-cued-thumbnail-overlay',
+            '.ytp-impression-link',
+            '.ytm-paused-overlay',
+            '.player-controls-content',
+            '.fullscreen-overlay',
+            '.ytp-ce-element',
+            '.ytp-paid-content-overlay',
+            '[class*="ytp-pause-overlay"]',
+            '[class*="ytp-title"]',
+            '[class*="ytp-watermark"]',
+            '[class*="ytp-chrome"]',
+            '[class*="ytp-button"]',
+            'a[href*="youtube.com"]'
+          ].join(', ') + ' { display: none !important; opacity: 0 !important; pointer-events: none !important; visibility: hidden !important; }';
+
+          function applyAntiChrome() {
+            var existing = document.getElementById('ag-anti-chrome');
+            if (!existing) {
+              var el = document.createElement('style');
+              el.id = 'ag-anti-chrome';
+              el.innerHTML = css;
+              (document.head || document.documentElement).appendChild(el);
+            }
+          }
+          applyAntiChrome();
+          setInterval(applyAntiChrome, 350);
+
+          function hookVideos() {
+            var videos = document.querySelectorAll('video');
+            for (var i = 0; i < videos.length; i++) {
+              var v = videos[i];
+              if (!v._bgHooked) {
+                v._bgHooked = true;
+                v.setAttribute('playsinline', 'true');
+                v.setAttribute('webkit-playsinline', 'true');
+              }
+            }
+          }
+          hookVideos();
+          setInterval(hookVideos, 500);
+        })();
+        true;
+      `,
+    }),
+    []
+  );
+
+  // 3. حاوية الفيديو الثابتة في الشجرة (Direct Root Child - Zero Unmount)
+  const unifiedVideoWrapperStyle = isVideoFullscreen
+    ? {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#000000',
+        zIndex: 99999,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+      }
+    : playerMediaMode === 'video'
+    ? {
+        position: 'absolute' as const,
+        top: normalStageTop,
+        left: normalVideoLeft,
+        width: cardWidth,
+        height: cardVideoHeight,
+        borderRadius: 18,
+        overflow: 'hidden' as const,
+        zIndex: 20,
+      }
+    : {
+        position: 'absolute' as const,
+        left: -9999,
+        top: 0,
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: 'none' as const,
+      };
 
   const durationMillis = useAudioStore((s) => s.durationMillis);
   const seekTo = useAudioStore((s) => s.seekTo);
@@ -233,10 +476,21 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     const sec = Math.floor(millis / 1000);
     if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
-      fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(millis);
   }, [activeEngine, seekTo]);
+
+  const renderFullscreenTimeline = useCallback(
+    () => (
+      <AppleTimelineScrubber
+        onSeekCommit={handleScrubberSeek}
+        isDark={true}
+        themeMuted="rgba(255,255,255,0.6)"
+        onScrubbingStateChange={setIsScrubbingFullscreen}
+      />
+    ),
+    [handleScrubberSeek]
+  );
 
   const seekBackward10 = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -245,7 +499,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     const sec = Math.floor(target / 1000);
     if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
-      fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(target);
   }, [activeEngine, seekTo]);
@@ -258,7 +511,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     const sec = Math.floor(target / 1000);
     if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(sec, true);
-      fullscreenPlayerRef.current?.seekTo(sec, true);
     }
     await seekTo(target);
   }, [activeEngine, seekTo]);
@@ -270,12 +522,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
     if (activeEngine === 'youtube') {
       const nextPlaying = !isPlaying;
-      useAudioStore.setState({ 
+      useAudioStore.setState({
         isPlaying: nextPlaying,
         isUserPauseAction: !nextPlaying,
         audioEngineAction: { type: nextPlaying ? 'resume' : 'pause', id: Date.now() },
       });
-      const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+      const activeRef = youtubePlayerRef.current as any;
       if (activeRef) {
         if (nextPlaying) {
           activeRef.playVideo?.();
@@ -290,52 +542,48 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           } else {
             await TrackPlayer.pause();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     } else {
       await togglePlay();
     }
-  }, [activeEngine, isPlaying, isVideoFullscreen, togglePlay]);
+  }, [activeEngine, isPlaying, togglePlay]);
 
   // ── 🛡️ Direct Native Remote Control & Audio Session Bridge ──
   useEffect(() => {
     registerActivePlayerBridge({
       play: () => {
-        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-        activeRef?.playVideo?.();
+        youtubePlayerRef.current?.playVideo?.();
       },
       pause: () => {
-        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-        activeRef?.pauseVideo?.();
+        youtubePlayerRef.current?.pauseVideo?.();
       },
       seekTo: (sec: number) => {
-        const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-        activeRef?.seekTo?.(sec, true);
+        youtubePlayerRef.current?.seekTo?.(sec, true);
       },
     });
 
     return () => {
       registerActivePlayerBridge(null);
     };
-  }, [isVideoFullscreen]);
+  }, []);
 
   // ── 🛡️ Global Play / Pause Synchronization across all screens (Home, Music, Library, Mini-Bar) ──
   useEffect(() => {
     if (activeEngine !== 'youtube') return;
-    const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
+    const activeRef = youtubePlayerRef.current as any;
     if (!activeRef) return;
     if (isPlaying) {
       activeRef.playVideo?.();
     } else {
       activeRef.pauseVideo?.();
     }
-  }, [isPlaying, activeEngine, isVideoFullscreen]);
+  }, [isPlaying, activeEngine]);
 
   // ── Unified Next / Prev Handlers (Ensures Video Player restarts at 0) ──
   const handleNextPress = useCallback(async () => {
     if (activeEngine === 'youtube') {
       youtubePlayerRef.current?.seekTo(0, true);
-      fullscreenPlayerRef.current?.seekTo(0, true);
     }
     await nextTrack();
   }, [activeEngine, nextTrack]);
@@ -345,7 +593,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       const pos = useAudioStore.getState().positionMillis;
       if (pos > 3000) {
         youtubePlayerRef.current?.seekTo(0, true);
-        fullscreenPlayerRef.current?.seekTo(0, true);
       }
     }
     await prevTrack();
@@ -356,7 +603,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     if (!isPlaying || activeEngine !== 'youtube') return;
     const interval = setInterval(async () => {
       try {
-        const activeRef = isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current;
+        const activeRef = youtubePlayerRef.current;
         if (activeRef) {
           const [curSec, durSec] = await Promise.all([
             activeRef.getCurrentTime(),
@@ -368,10 +615,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             useAudioStore.getState().updateProgress(curMs, durMs);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }, 350);
     return () => clearInterval(interval);
-  }, [isPlaying, activeEngine, isVideoFullscreen, currentTrack?.duration]);
+  }, [isPlaying, activeEngine, currentTrack?.duration]);
 
   // ── Navigation-Aware Docking Guard ──
   const TAB_BAR_SCREENS = [
@@ -401,9 +648,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   // ── Precise Dynamic Geometry Offsets (Spotify & Apple Music Standard) ──
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
   const tabBarTop = Math.max(insets.bottom + 6, 22) + 60;
-  const baseMiniBottom = tabBarTop + 8; // Exactly 8px safety clearance above tab bar
+  const baseMiniBottom = USE_NATIVE_LIQUID_TABS
+    ? (Platform.OS === 'ios' ? Math.max(insets.bottom + 49 + 12, 95) : 95)
+    : tabBarTop + 8; // Exactly 8px safety clearance above tab bar
   const HIDDEN_OFFSET = DEFAULT_HIDDEN_OFFSET;
-  const cardWidth = Math.min(SCREEN_WIDTH - 48, SCREEN_HEIGHT * 0.42, 380);
 
   // ── UI-Thread Shared Values (GPU Transform Only) ──
   // playerModalTranslateY coordinates both the player sheet and the GlobalAudioBridge video in 120 FPS hardware lockstep
@@ -412,12 +660,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const dockTranslateY = useSharedValue(isTabBarVisible ? 0 : TAB_BAR_HEIGHT);
   const isScrubbingTimeline = useSharedValue(false);
 
-  // Smooth non-bouncing segmented control indicator (0 = Cover, 1 = Video)
+  // Smooth segmented control indicator with Apple spring physics (0 = Cover, 1 = Video)
   const modeTranslate = useSharedValue(playerMediaMode === 'video' ? 1 : 0);
   useEffect(() => {
-    modeTranslate.value = withTiming(playerMediaMode === 'video' ? 1 : 0, {
-      duration: 180,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    modeTranslate.value = withSpring(playerMediaMode === 'video' ? 1 : 0, {
+      stiffness: 280,
+      damping: 26,
+      mass: 0.8,
     });
   }, [playerMediaMode]);
 
@@ -437,9 +686,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       isSwitchingModeRef.current = false;
     }, 600);
 
-    modeTranslate.value = withTiming(0, {
-      duration: 180,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    modeTranslate.value = withSpring(0, {
+      stiffness: 280,
+      damping: 26,
+      mass: 0.8,
     });
 
     setPlayerMediaMode('cover');
@@ -453,9 +703,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       isSwitchingModeRef.current = false;
     }, 600);
 
-    modeTranslate.value = withTiming(1, {
-      duration: 180,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    modeTranslate.value = withSpring(1, {
+      stiffness: 280,
+      damping: 26,
+      mass: 0.8,
     });
 
     setPlayerMediaMode('video');
@@ -616,14 +867,14 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     })
     .onUpdate((event) => {
       'worklet';
-      if (isScrubbingTimeline.value) return;
+      if (isScrubbingTimeline.value || isVideoFullscreenSV.value) return;
       if (event.translationY > 0) {
         fullTranslateY.value = event.translationY;
       }
     })
     .onEnd((event) => {
       'worklet';
-      if (isScrubbingTimeline.value) {
+      if (isScrubbingTimeline.value || isVideoFullscreenSV.value) {
         fullTranslateY.value = withSpring(0, SPRING_CONFIG);
         return;
       }
@@ -746,7 +997,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         title: currentTrack.title,
         message: `Listen to "${currentTrack.title}" by ${currentTrack.artist} on Nouble Running! https://youtube.com/watch?v=${currentTrack.videoId}`,
       });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
@@ -780,9 +1031,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         ]}
         pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
       >
-        {/* Living Ambient Artwork Backdrop (Apple Frosted Glass Widget - Image 1 & 2) */}
-        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 16 }]} pointerEvents="none">
-          {/* Layer A: Subtle blurred cover image hint */}
+        {/* Apple Native Liquid Glass Surface (Metal GPU UIGlassEffect) */}
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isInteractive={true}
+          isDark={isDark}
+          borderRadius={20}
+          style={StyleSheet.absoluteFill}
+        >
+          {/* Layer A: Subtle blurred cover image reflection bloom */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
@@ -790,47 +1047,28 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 StyleSheet.absoluteFill,
                 {
                   transform: [{ scale: 2.2 }],
-                  opacity: isDark ? 0.30 : 0.20,
+                  opacity: isDark ? 0.14 : 0.08,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 24 : 16}
+              blurRadius={Platform.OS === 'ios' ? 28 : 18}
               cachePolicy="memory-disk"
               transition={300}
             />
           )}
 
-          {/* Layer B: Apple Frosted Glass Translucent Substrate */}
-          <LinearGradient
-            colors={
-              isDark
-                ? ['rgba(22, 22, 28, 0.74)', 'rgba(14, 14, 18, 0.86)']
-                : ['rgba(255, 255, 255, 0.82)', 'rgba(242, 244, 247, 0.92)']
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Layer C: Silky Frosted Glass Diffusion */}
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 55 : 30}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Layer D: Delicate Luminous Top Sheen */}
+          {/* Layer B: Delicate Luminous Top Sheen */}
           <View
             style={[
               StyleSheet.absoluteFill,
               {
                 borderTopWidth: 1,
-                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.65)',
-                borderRadius: 16,
+                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.70)',
+                borderRadius: 20,
               },
             ]}
           />
-        </View>
+        </LiquidGlassSurface>
 
         <View style={styles.miniInnerRow} pointerEvents="auto">
           {/* Left Display Area (Tap opens FullPlayer) - isolated PanGesture */}
@@ -880,7 +1118,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 e?.stopPropagation?.();
                 handlePlayPausePress();
               }}
-              style={[styles.miniPlayBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : theme.surfaceSubtle }]}
+              style={[
+                styles.miniPlayBtn,
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' },
+              ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons
@@ -897,7 +1138,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 e?.stopPropagation?.();
                 handleNextPress();
               }}
-              style={[styles.miniNextBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : theme.surfaceSubtle }]}
+              style={[
+                styles.miniNextBtn,
+                { backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.04)' },
+              ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="play-skip-forward" size={15} color={isDark ? '#FFFFFF' : theme.textPrimary} />
@@ -970,19 +1214,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             colors={
               isDark
                 ? [
-                    'rgba(0, 0, 0, 0.42)',     // Top: Protects header icons & status bar
-                    'rgba(0, 0, 0, 0.05)',     // Upper center: pure cover colors shine
-                    'rgba(0, 0, 0, 0.00)',     // Dead center: 100% pure authentic cover art colors!
-                    'rgba(6, 8, 12, 0.50)',    // Lower center: subtle cinematic transition
-                    'rgba(6, 8, 12, 0.94)',    // Bottom: solid velvet contrast for electric buttons & scrubber!
-                  ]
+                  'rgba(0, 0, 0, 0.42)',     // Top: Protects header icons & status bar
+                  'rgba(0, 0, 0, 0.05)',     // Upper center: pure cover colors shine
+                  'rgba(0, 0, 0, 0.00)',     // Dead center: 100% pure authentic cover art colors!
+                  'rgba(6, 8, 12, 0.50)',    // Lower center: subtle cinematic transition
+                  'rgba(6, 8, 12, 0.94)',    // Bottom: solid velvet contrast for electric buttons & scrubber!
+                ]
                 : [
-                    'rgba(255, 255, 255, 0.55)',
-                    'rgba(255, 255, 255, 0.10)',
-                    'rgba(255, 255, 255, 0.00)',
-                    'rgba(240, 242, 245, 0.45)',
-                    'rgba(240, 242, 245, 0.94)',
-                  ]
+                  'rgba(255, 255, 255, 0.55)',
+                  'rgba(255, 255, 255, 0.10)',
+                  'rgba(255, 255, 255, 0.00)',
+                  'rgba(240, 242, 245, 0.45)',
+                  'rgba(240, 242, 245, 0.94)',
+                ]
             }
             locations={[0, 0.22, 0.48, 0.75, 1]}
             start={{ x: 0.5, y: 0 }}
@@ -1007,7 +1251,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 paddingTop: Math.max(insets.top, 16),
                 paddingBottom: Math.max(insets.bottom, 16),
               },
+              isVideoFullscreen && { opacity: 0 },
             ]}
+            pointerEvents={isVideoFullscreen ? 'none' : 'auto'}
           >
             {/* 1. Header Row */}
             <View style={styles.fullHeaderWrap}>
@@ -1021,355 +1267,145 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 />
               </View>
 
-              <View style={styles.fullHeaderRow}>
-                <TouchableOpacity
-                  onPress={collapseToMini}
-                  style={styles.fullHeaderBtn}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="chevron-down" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
-                </TouchableOpacity>
-
-                {/* Liquid Glass Mode Switcher Pill [ Music ◄──► Video ] */}
-                <View
-                  style={[
-                    styles.audioVideoPill,
-                    {
-                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.08)',
-                    },
-                  ]}
-                >
-                  {/* Animated sliding background pill indicator (Hardware 120 FPS) */}
-                  <Animated.View
-                    style={[
-                      styles.audioVideoSlidingIndicator,
-                      {
-                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : '#FFFFFF',
-                        borderColor: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.06)',
-                        borderWidth: isDark ? 0.75 : 0.5,
-                        shadowColor: isDark ? '#000000' : 'rgba(0, 0, 0, 0.18)',
-                      },
-                      slidingIndicatorStyle,
-                    ]}
-                  />
-
+              {/* 1. Balanced 3-Slot Header: Left (44pt) | Center (flex: 1) | Right (44pt) */}
+              <View style={styles.fullHeaderThreeSlot}>
+                <View style={styles.headerSlotSide}>
                   <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.audioVideoSegment}
-                    onPress={handleSwitchToCover}
+                    onPress={collapseToMini}
+                    style={styles.fullHeaderBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
-                    <Ionicons
-                      name="musical-notes"
-                      size={14}
-                      color={
-                        playerMediaMode === 'cover'
-                          ? (isDark ? '#FFFFFF' : '#000000')
-                          : (isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)')
-                      }
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.audioVideoSegmentText,
-                        playerMediaMode === 'cover'
-                          ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
-                          : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
-                      ]}
-                    >
-                      Music
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.audioVideoSegment}
-                    onPress={handleSwitchToVideo}
-                  >
-                    <Ionicons
-                      name="videocam"
-                      size={14}
-                      color={
-                        playerMediaMode === 'video'
-                          ? (isDark ? '#FFFFFF' : '#000000')
-                          : (isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)')
-                      }
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.audioVideoSegmentText,
-                        playerMediaMode === 'video'
-                          ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
-                          : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
-                      ]}
-                    >
-                      Video
-                    </Text>
+                    <Ionicons name="chevron-down" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  onPress={handleShare}
-                  style={styles.fullHeaderBtn}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="ellipsis-vertical" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
-                </TouchableOpacity>
+                {/* Mathematically Centered Liquid Glass Mode Switcher Pill */}
+                <View style={styles.headerSlotCenter}>
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isInteractive={true}
+                    isDark={isDark}
+                    borderRadius={19}
+                    style={[
+                      styles.audioVideoPill,
+                      {
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)',
+                      },
+                    ]}
+                  >
+                    {/* Animated sliding background pill indicator (Hardware 120 FPS) */}
+                    <Animated.View
+                      style={[
+                        styles.audioVideoSlidingIndicator,
+                        {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.22)' : '#FFFFFF',
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.06)',
+                          borderWidth: isDark ? 0.75 : 0.5,
+                          shadowColor: isDark ? '#000000' : 'rgba(0, 0, 0, 0.18)',
+                        },
+                        slidingIndicatorStyle,
+                      ]}
+                    />
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.audioVideoSegment}
+                      onPress={handleSwitchToCover}
+                    >
+                      <Ionicons
+                        name="musical-notes"
+                        size={14}
+                        color={
+                          playerMediaMode === 'cover'
+                            ? (isDark ? '#FFFFFF' : '#000000')
+                            : (isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)')
+                        }
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.audioVideoSegmentText,
+                          playerMediaMode === 'cover'
+                            ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
+                            : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
+                        ]}
+                      >
+                        Music
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.audioVideoSegment}
+                      onPress={handleSwitchToVideo}
+                    >
+                      <Ionicons
+                        name="videocam"
+                        size={14}
+                        color={
+                          playerMediaMode === 'video'
+                            ? (isDark ? '#FFFFFF' : '#000000')
+                            : (isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)')
+                        }
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.audioVideoSegmentText,
+                          playerMediaMode === 'video'
+                            ? (isDark ? styles.audioVideoSegmentTextActiveDark : styles.audioVideoSegmentTextActiveLight)
+                            : (isDark ? styles.audioVideoSegmentTextInactiveDark : styles.audioVideoSegmentTextInactiveLight),
+                        ]}
+                      >
+                        Video
+                      </Text>
+                    </TouchableOpacity>
+                  </LiquidGlassSurface>
+                </View>
+
+                <View style={[styles.headerSlotSide, { alignItems: 'flex-end' }]}>
+                  <TouchableOpacity
+                    onPress={handleShare}
+                    style={styles.fullHeaderBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="ellipsis-vertical" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
-            {/* 2. Centered Media Area: 1:1 Studio Artwork OR 16:9 Synchronized Video Stage */}
+            {/* 2. Centered Media Area: Dynamic Breathing Artwork Stage OR 16:9 Synchronized Video */}
             <View
               ref={mediaContainerRef}
               style={[
                 styles.artworkCenterWrapper,
                 playerMediaMode === 'video' ? styles.videoStageWrapper : styles.coverStageWrapper,
               ]}
+              onLayout={(e) => {
+                const y = e.nativeEvent.layout.y;
+                if (y > 0 && Math.abs(y - normalStageTop) > 2) {
+                  setNormalStageTop(y);
+                }
+              }}
             >
-              {/* 2A. Cover Artwork Stage (Visible in Music/Cover mode - YouTube Music Card Style) */}
-              <View
-                style={[
-                  styles.artworkOuterContainer,
-                  {
-                    width: cardWidth,
-                    height: cardWidth,
-                  },
-                  playerMediaMode === 'video' ? { display: 'none' } : undefined,
-                ]}
-              >
-
-                {/* 1. YouTube Music Canvas Protocol: Full-Bleed Ambient Backdrop Fill (Fills 100% of card, eliminates all black bars) */}
-                <Image
-                  source={heroArtworkSources}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                  blurRadius={Platform.OS === 'ios' ? 28 : 20}
-                  priority="low"
+              {/* 2A. Dynamic Artwork Stage (Apple Music Breathing Physics + Nanoglass Rim) */}
+              {playerMediaMode === 'cover' ? (
+                <PlayerArtworkStage
+                  artworkSource={heroArtworkSources}
+                  isPlaying={isPlaying}
+                  size={cardWidth}
                 />
+              ) : (
+                /* 2B. Video Placeholder: Preserves exact layout height for controls below */
                 <View
-                  style={[
-                    StyleSheet.absoluteFill,
-                    { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.22)' : 'rgba(255, 255, 255, 0.12)' },
-                  ]}
+                  style={{
+                    width: cardWidth,
+                    height: cardVideoHeight,
+                  }}
                   pointerEvents="none"
                 />
-
-                {/* 2. Main Razor-Sharp Ultra-HD Artwork Stage (1:1 / 1080p Studio Quality) */}
-                <Image
-                  source={heroArtworkSources}
-                  style={[
-                    styles.heroArtworkImg,
-                    {
-                      width: cardWidth,
-                      height: cardWidth,
-                      transform: [{ scale: isPlaying ? 1 : 0.96 }],
-                    },
-                  ]}
-                  contentFit="cover"
-                  priority="high"
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              </View>
-
-              {/* 2B. Unified Video/Audio Stage (Persistent native YoutubePlayer engine) */}
-              <View
-                style={[
-                  styles.videoStageContainer,
-                  playerMediaMode === 'cover' ? styles.hiddenVideoInCoverMode : undefined,
-                ]}
-                pointerEvents={playerMediaMode === 'video' ? 'auto' : 'none'}
-              >
-                {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) */}
-                <View
-                  style={[
-                    styles.videoFrameContainer,
-                    {
-                      width: cardWidth,
-                      height: Math.round(cardWidth * (9 / 16)),
-                    },
-                  ]}
-                >
-                  {activeEngine === 'youtube' && currentTrack?.videoId ? (
-                    <TouchableOpacity
-                      activeOpacity={1}
-                      onPress={handlePlayPausePress}
-                      style={styles.videoPlayerInnerWrapper}
-                      disabled={playerMediaMode === 'cover'}
-                    >
-                      {!isVideoFullscreen && (
-                        <YoutubePlayer
-                          ref={youtubePlayerRef}
-                          height={Math.round(cardWidth * (9 / 16))}
-                          width={cardWidth}
-                          play={isPlaying}
-                          videoId={currentTrack.videoId}
-                          onReady={() => {
-                            if (useAudioStore.getState().isPlaying) {
-                              (youtubePlayerRef.current as any)?.playVideo?.();
-                            }
-                          }}
-                          initialPlayerParams={{
-                            controls: false,
-                            modestbranding: true,
-                            rel: false,
-                            preventFullScreen: true,
-                            iv_load_policy: 3,
-                            start: Math.max(0, Math.floor(useAudioStore.getState().positionMillis / 1000)),
-                          }}
-                          onChangeState={(state: string) => {
-                            if (state === 'ended') {
-                              useAudioStore.getState().handleTrackEnded();
-                            } else if (state === 'playing') {
-                              useAudioStore.setState({ 
-                                isPlaying: true, 
-                                isLoading: false,
-                                loadingTrackId: null,
-                              });
-                            } else if (state === 'paused') {
-                              if (isSwitchingModeRef.current) return;
-                              // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
-                              if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
-                                return;
-                              }
-                              const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
-                              if (isUserPauseAction || !isStorePlaying) {
-                                // 🛡️ Deliberate user pause from widget, headphones, or in-app button: keep paused!
-                                useAudioStore.setState({ isPlaying: false, isLoading: false });
-                                return;
-                              }
-                              // 🛡️ Background Audio Guard:
-                              // If app is in background or phone is locked, WebKit automatically pauses video elements.
-                              // The user NEVER asked to pause! Immediately resume so background audio continues playing!
-                              if (AppState.currentState !== 'active') {
-                                const activeRef = (isVideoFullscreen ? fullscreenPlayerRef.current : youtubePlayerRef.current) as any;
-                                activeRef?.playVideo?.();
-                                return;
-                              }
-                              useAudioStore.setState({ isPlaying: false });
-                            }
-                          }}
-                          webViewProps={{
-                            androidLayerType: 'hardware',
-                            allowsInlineMediaPlayback: true,
-                            mediaPlaybackRequiresUserAction: false,
-                            allowsPictureInPictureMediaPlayback: true,
-                            allowsAirPlayForMediaPlayback: true,
-                            scrollEnabled: false,
-                            injectedJavaScriptForMainFrameOnly: false,
-                            injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
-                            injectedJavaScriptBeforeContentLoaded: `
-                              (function() {
-                                if (navigator.audioSession) {
-                                  try { navigator.audioSession.type = 'playback'; } catch(e) {}
-                                }
-
-                                try {
-                                  Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-                                  Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-                                  Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-                                } catch(e) {}
-
-                                try {
-                                  var origAddEventListener = EventTarget.prototype.addEventListener;
-                                  EventTarget.prototype.addEventListener = function(type, listener, options) {
-                                    if (
-                                      type === 'visibilitychange' || 
-                                      type === 'webkitvisibilitychange' || 
-                                      type === 'pagehide' || 
-                                      type === 'blur' || 
-                                      type === 'freeze'
-                                    ) {
-                                      return;
-                                    }
-                                    return origAddEventListener.call(this, type, listener, options);
-                                  };
-                                } catch(e) {}
-
-                                try {
-                                  Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
-                                  Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
-                                  Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
-                                } catch(e) {}
-
-                                try {
-                                  var origPlay = HTMLMediaElement.prototype.play;
-                                  HTMLMediaElement.prototype.play = function() {
-                                    this.setAttribute('playsinline', 'true');
-                                    this.setAttribute('webkit-playsinline', 'true');
-                                    return origPlay.call(this);
-                                  };
-                                } catch(e) {}
-                              })();
-                              true;
-                            `,
-                            injectedJavaScript: `
-                              (function() {
-                                if (navigator.audioSession) {
-                                  try { navigator.audioSession.type = 'playback'; } catch(e) {}
-                                }
-
-                                try {
-                                  Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-                                  Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-                                  Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-                                } catch(e) {}
-
-                                function hookVideos() {
-                                  var videos = document.querySelectorAll('video');
-                                  for (var i = 0; i < videos.length; i++) {
-                                    var v = videos[i];
-                                    if (!v._bgHooked) {
-                                      v._bgHooked = true;
-                                      v.setAttribute('playsinline', 'true');
-                                      v.setAttribute('webkit-playsinline', 'true');
-                                    }
-                                  }
-                                }
-                                hookVideos();
-                                setInterval(hookVideos, 500);
-                              })();
-                              true;
-                            `,
-                          }}
-                        />
-                      )}
-
-                      {/* YouTube Style Fullscreen Expand Icon (Bottom-Right Corner Only, Video Mode Only) */}
-                      {playerMediaMode === 'video' && (
-                        <TouchableOpacity
-                          activeOpacity={0.8}
-                          onPress={(e) => {
-                            e?.stopPropagation?.();
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            isSwitchingModeRef.current = true;
-                            setVideoFullscreen(true);
-                            setTimeout(() => {
-                              isSwitchingModeRef.current = false;
-                            }, 800);
-                          }}
-                          style={styles.youtubeFullscreenBtn}
-                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        >
-                          <Ionicons name="scan-outline" size={17} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    /* Clean Minimal Fallback if offline */
-                    <View style={styles.videoNativeFallbackWrap}>
-                      <Ionicons name="musical-notes" size={32} color={tint.accent || '#1DB954'} />
-                      <TouchableOpacity
-                        style={styles.videoReturnCoverBtn}
-                        onPress={handleSwitchToCover}
-                      >
-                        <Text style={styles.videoReturnCoverBtnText}>Music</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
+              )}
             </View>
 
             {/* 3. Track Metadata (Title, Artist, Like Heart) */}
@@ -1394,7 +1430,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <Text
                     style={[
                       styles.fullArtistName,
-                      { color: isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted },
+                      { color: isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0, 0, 0, 0.65)' },
                     ]}
                     numberOfLines={1}
                   >
@@ -1444,24 +1480,23 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <Ionicons
                     name={isLiked ? 'heart' : 'heart-outline'}
                     size={26}
-                    color={isLiked ? '#1DB954' : isDark ? 'rgba(255,255,255,0.7)' : theme.textPrimary}
+                    color={isLiked ? '#FF375F' : isDark ? 'rgba(255,255,255,0.7)' : theme.textPrimary}
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* 4. High-Precision Scrubber & Timers (Isolated Component) */}
-            <PlayerScrubber
+            {/* 4. High-Precision Free Timeline Scrubber (0ms Latency, Zero Glitch) */}
+            <AppleTimelineScrubber
+              onSeekCommit={handleScrubberSeek}
               isDark={isDark}
-              themeMuted={theme.textMuted}
-              accentColor={tint.accent}
-              onSeek={handleScrubberSeek}
-              onScrubbingChange={(scrubbing) => {
+              themeMuted={isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0, 0, 0, 0.65)'}
+              onScrubbingStateChange={(scrubbing) => {
                 isScrubbingTimeline.value = scrubbing;
               }}
             />
 
-            {/* 5. Main Playback Controls */}
+            {/* 5. Main Playback Controls: 5 Apple Music buttons in 'cover', 7 in 'video' */}
             <View style={styles.controlsRow}>
               <TouchableOpacity
                 style={[styles.secondaryBtn, isShuffle && { opacity: 1 }]}
@@ -1471,22 +1506,24 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <Ionicons
                   name="shuffle"
                   size={22}
-                  color={isShuffle ? tint.accent : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
+                  color={isShuffle ? (isDark ? '#FFFFFF' : '#000000') : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.quickSeekBtn}
-                onPress={seekBackward10}
-                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name="rewind-10"
-                  size={26}
-                  color={isDark ? 'rgba(255,255,255,0.85)' : theme.textPrimary}
-                />
-              </TouchableOpacity>
+              {playerMediaMode === 'video' && (
+                <TouchableOpacity
+                  style={styles.quickSeekBtn}
+                  onPress={seekBackward10}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="rewind-10"
+                    size={26}
+                    color={isDark ? 'rgba(255,255,255,0.75)' : theme.textPrimary}
+                  />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.skipBtn}
@@ -1496,17 +1533,18 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <Ionicons name="play-skip-back" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
               </TouchableOpacity>
 
-              {/* Big Circular Green Play / Pause Button */}
+              {/* Apple Pure White Play / Pause Button */}
               <TouchableOpacity
                 onPress={handlePlayPausePress}
                 style={[
                   styles.fullPlayPauseBtn,
                   {
-                    backgroundColor: tint.accent,
-                    shadowColor: tint.accent,
-                    shadowOpacity: 0.75,
-                    shadowRadius: 20,
-                    elevation: 14,
+                    backgroundColor: isDark ? '#FFFFFF' : '#000000',
+                    shadowColor: '#000000',
+                    shadowOpacity: isDark ? 0.35 : 0.2,
+                    shadowRadius: 18,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: 12,
                   },
                 ]}
                 activeOpacity={0.85}
@@ -1515,7 +1553,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <Ionicons
                   name={isPlaying ? 'pause' : 'play'}
                   size={34}
-                  color={tint.accentContrastText}
+                  color={isDark ? '#000000' : '#FFFFFF'}
                   style={{ marginLeft: isPlaying ? 0 : 3 }}
                 />
               </TouchableOpacity>
@@ -1528,18 +1566,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <Ionicons name="play-skip-forward" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.quickSeekBtn}
-                onPress={seekForward10}
-                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name="fast-forward-10"
-                  size={26}
-                  color={isDark ? 'rgba(255,255,255,0.85)' : theme.textPrimary}
-                />
-              </TouchableOpacity>
+              {playerMediaMode === 'video' && (
+                <TouchableOpacity
+                  style={styles.quickSeekBtn}
+                  onPress={seekForward10}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="fast-forward-10"
+                    size={26}
+                    color={isDark ? 'rgba(255,255,255,0.75)' : theme.textPrimary}
+                  />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.secondaryBtn}
@@ -1550,108 +1590,293 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <Ionicons
                     name="repeat"
                     size={22}
-                    color={repeatMode !== 'off' ? tint.accent : isDark ? 'rgba(255,255,255,0.65)' : theme.textMuted}
+                    color={repeatMode !== 'off' ? (isDark ? '#FFFFFF' : '#000000') : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'}
                   />
                   {repeatMode === 'one' && (
-                    <View style={styles.repeatBadge}>
-                      <Text style={styles.repeatBadgeText}>1</Text>
+                    <View style={[styles.repeatBadge, { backgroundColor: isDark ? '#FFFFFF' : '#000000' }]}>
+                      <Text style={[styles.repeatBadgeText, { color: isDark ? '#000000' : '#FFFFFF' }]}>1</Text>
                     </View>
                   )}
                 </View>
               </TouchableOpacity>
             </View>
 
-            {/* 6. Compact Bottom Artist Card Peek (1:1 with Spotify Screenshot 3 & 4) */}
+            {/* 6. Liquid Glass Bottom Artist Card */}
             <TouchableOpacity
-              style={[
-                styles.compactArtistCard,
-                {
-                  backgroundColor: isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.65)',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                },
-              ]}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
               onPress={() => {
                 collapseToMini();
                 if (currentTrack.artist) {
                   navigation.navigate('ArtistDetail', { artistName: currentTrack.artist });
                 }
               }}
+              style={styles.compactArtistCardWrapper}
             >
-              <View style={styles.compactArtistHeader}>
-                <Text style={[styles.compactArtistHeaderTitle, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}>
-                  Artist
-                </Text>
-                <Ionicons
-                  name="expand-outline"
-                  size={16}
-                  color={isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted}
-                />
-              </View>
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isInteractive={true}
+                isDark={isDark}
+                borderRadius={18}
+                style={[
+                  styles.compactArtistCard,
+                  {
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <View style={styles.compactArtistHeader}>
+                  <Text style={[styles.compactArtistHeaderTitle, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}>
+                    Artist
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted}
+                  />
+                </View>
 
-              <View style={styles.compactArtistBody}>
-                {/* Authentic Artist Portrait (Never empty black circle) */}
-                <View style={styles.compactArtistAvatarContainer}>
-                  <View style={[styles.compactArtistFallbackBadge, { backgroundColor: isDark ? '#2e3a33' : '#e0ece4' }]}>
-                    <Text style={[styles.compactArtistFallbackText, { color: isDark ? '#FFFFFF' : '#111b15' }]}>
-                      {(currentTrack.artist || 'A').charAt(0).toUpperCase()}
+                <View style={styles.compactArtistBody}>
+                  {/* Authentic Artist Portrait */}
+                  <View style={styles.compactArtistAvatarContainer}>
+                    <View style={[styles.compactArtistFallbackBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}>
+                      <Text style={[styles.compactArtistFallbackText, { color: isDark ? '#FFFFFF' : '#111b15' }]}>
+                        {(currentTrack.artist || 'A').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    {resolvedArtistAvatar ? (
+                      <Image
+                        source={{ uri: resolvedArtistAvatar }}
+                        style={styles.compactArtistAvatar}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : null}
+                  </View>
+
+                  <View style={styles.compactArtistMeta}>
+                    <Text
+                      style={[styles.compactArtistName, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {currentTrack.artist || 'Artist'}
+                    </Text>
+                    <Text
+                      style={[styles.compactArtistSub, { color: isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      Verified Official Artist
                     </Text>
                   </View>
-                  {resolvedArtistAvatar ? (
-                    <Image
-                      source={{ uri: resolvedArtistAvatar }}
-                      style={styles.compactArtistAvatar}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                  ) : null}
-                </View>
 
-                <View style={styles.compactArtistMeta}>
-                  <Text
-                    style={[styles.compactArtistName, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {currentTrack.artist || 'Artist'}
-                  </Text>
-                  <Text
-                    style={[styles.compactArtistSub, { color: isDark ? 'rgba(255,255,255,0.55)' : theme.textMuted }]}
-                    numberOfLines={1}
-                  >
-                    Verified Official Artist
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.followingPill,
-                    currentTrack?.artist && followedArtistIds.includes(currentTrack.artist) && styles.followingPillActive,
-                  ]}
-                  activeOpacity={0.8}
-                  onPress={(e) => {
-                    e?.stopPropagation?.();
-                    if (currentTrack.artist) {
-                      toggleFollowArtist({
-                        id: currentTrack.artist,
-                        name: currentTrack.artist,
-                        avatar: resolvedArtistAvatar,
-                      });
-                    }
-                  }}
-                >
-                  <Text
+                  <TouchableOpacity
                     style={[
-                      styles.followingPillText,
-                      currentTrack?.artist && followedArtistIds.includes(currentTrack.artist) && styles.followingPillTextActive,
+                      styles.followingPill,
+                      {
+                        backgroundColor: currentTrack?.artist && followedArtistIds.includes(currentTrack.artist)
+                          ? (isDark ? 'rgba(255, 255, 255, 0.95)' : '#000000')
+                          : (isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.06)'),
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.12)',
+                      },
                     ]}
+                    activeOpacity={0.8}
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      if (currentTrack.artist) {
+                        toggleFollowArtist({
+                          id: currentTrack.artist,
+                          name: currentTrack.artist,
+                          avatar: resolvedArtistAvatar,
+                        });
+                      }
+                    }}
                   >
-                    {currentTrack?.artist && followedArtistIds.includes(currentTrack.artist) ? 'Following' : '+ Follow'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                    <Text
+                      style={[
+                        styles.followingPillText,
+                        {
+                          color: currentTrack?.artist && followedArtistIds.includes(currentTrack.artist)
+                            ? (isDark ? '#000000' : '#FFFFFF')
+                            : (isDark ? '#FFFFFF' : '#000000'),
+                        },
+                      ]}
+                    >
+                      {currentTrack?.artist && followedArtistIds.includes(currentTrack.artist) ? 'Following' : '+ Follow'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </LiquidGlassSurface>
             </TouchableOpacity>
           </View>
         </GestureDetector>
+
+        {/* ════════════════════════════════════════════════════════════════════════
+            3. UNIFIED ZERO-UNMOUNT VIDEO STAGE (Direct Root Child of fullPlayerOverlay)
+            - Cover Mode: Placed offscreen (left: -9999), audio plays with 0 interruption
+            - Normal Video Mode: Absolute positioned right above the center stage placeholder
+            - Fullscreen Video Mode: 100% viewport coverage, covers header, grabs full screen
+           ════════════════════════════════════════════════════════════════════════ */}
+        {/* 🛡️ Zero-Glitch Fullscreen Solid Black Curtain (Blocks any rotation gradient flash 100%) */}
+        {isVideoFullscreen && (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: '#000000',
+                zIndex: 99998,
+              },
+            ]}
+            pointerEvents="none"
+          />
+        )}
+
+        <View
+          style={unifiedVideoWrapperStyle}
+          pointerEvents={
+            isVideoFullscreen
+              ? 'box-none'
+              : playerMediaMode === 'video'
+              ? 'auto'
+              : 'none'
+          }
+        >
+          {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) OR Edge-to-Edge Fullscreen Frame */}
+          <View
+            style={
+              isVideoFullscreen
+                ? [
+                    styles.videoFullscreenFrame,
+                    {
+                      width: fullscreenVideoDims.width,
+                      height: fullscreenVideoDims.height,
+                    },
+                  ]
+                : [
+                    styles.videoFrameContainer,
+                    {
+                      width: cardWidth,
+                      height: cardVideoHeight,
+                    },
+                  ]
+            }
+            pointerEvents={isVideoFullscreen ? 'none' : 'auto'}
+          >
+            {activeEngine === 'youtube' && currentTrack?.videoId ? (
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={handlePlayPausePress}
+                style={[
+                  styles.videoPlayerInnerWrapper,
+                  isVideoFullscreen && { borderRadius: 0 },
+                ]}
+                disabled={playerMediaMode === 'cover' || isVideoFullscreen}
+              >
+                <YoutubePlayer
+                  ref={youtubePlayerRef}
+                  height={isVideoFullscreen ? fullscreenVideoDims.height : cardVideoHeight}
+                  width={isVideoFullscreen ? fullscreenVideoDims.width : cardWidth}
+                  play={isPlaying}
+                  videoId={currentTrack.videoId}
+                  onReady={() => {
+                    if (useAudioStore.getState().isPlaying) {
+                      (youtubePlayerRef.current as any)?.playVideo?.();
+                    }
+                  }}
+                  initialPlayerParams={stablePlayerParams}
+                  onChangeState={(state: string) => {
+                    if (state === 'ended') {
+                      useAudioStore.getState().handleTrackEnded();
+                    } else if (state === 'playing') {
+                      useAudioStore.setState({
+                        isPlaying: true,
+                        isLoading: false,
+                        loadingTrackId: null,
+                      });
+                    } else if (state === 'paused') {
+                      if (isSwitchingModeRef.current) return;
+                      // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
+                      if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
+                        return;
+                      }
+                      const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
+                      if (isUserPauseAction || !isStorePlaying) {
+                        // 🛡️ Deliberate user pause from widget, headphones, or in-app button: keep paused!
+                        useAudioStore.setState({ isPlaying: false, isLoading: false });
+                        return;
+                      }
+                      // 🛡️ Background Audio Guard:
+                      // If app is in background or phone is locked, WebKit automatically pauses video elements.
+                      // The user NEVER asked to pause! Immediately resume so background audio continues playing!
+                      if (AppState.currentState !== 'active') {
+                        (youtubePlayerRef.current as any)?.playVideo?.();
+                        return;
+                      }
+                      useAudioStore.setState({ isPlaying: false });
+                    }
+                  }}
+                  webViewProps={cleanYoutubeWebViewProps}
+                />
+
+                {/* YouTube Style Fullscreen Expand Icon (Bottom-Right Corner Only, Video Mode Only, Not in Fullscreen) */}
+                {playerMediaMode === 'video' && !isVideoFullscreen && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      isSwitchingModeRef.current = true;
+                      setVideoFullscreen(true);
+                      setTimeout(() => {
+                        isSwitchingModeRef.current = false;
+                      }, 800);
+                    }}
+                    style={styles.youtubeFullscreenBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="scan-outline" size={17} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            ) : (
+              /* Clean Minimal Fallback if offline */
+              <View style={styles.videoNativeFallbackWrap}>
+                <Ionicons name="musical-notes" size={32} color={tint.accent || '#1DB954'} />
+                <TouchableOpacity
+                  style={styles.videoReturnCoverBtn}
+                  onPress={handleSwitchToCover}
+                >
+                  <Text style={styles.videoReturnCoverBtnText}>Music</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* ── IN-PLACE FULLSCREEN HUD OVERLAY (Mounted directly above single uninterrupted YouTube player) ── */}
+          {isVideoFullscreen && (
+            <InPlaceFullscreenHud
+              visible={isVideoFullscreen}
+              screenWidth={windowWidth}
+              screenHeight={windowHeight}
+              onClose={() => {
+                isSwitchingModeRef.current = true;
+                setVideoFullscreen(false);
+                setTimeout(() => {
+                  isSwitchingModeRef.current = false;
+                }, 500);
+              }}
+              isPlaying={isPlaying}
+              onTogglePlay={handlePlayPausePress}
+              onSeekRelative={(deltaSec) => {
+                if (deltaSec < 0) {
+                  seekBackward10();
+                } else {
+                  seekForward10();
+                }
+              }}
+              isScrubbing={isScrubbingFullscreen}
+              renderTimeline={renderFullscreenTimeline}
+            />
+          )}
+        </View>
         {/* ════════════════════════════════════════════════════════════════════════
             Audio Quality Selection Modal (Auto / High 320k / Normal 128k)
            ════════════════════════════════════════════════════════════════════════ */}
@@ -1795,229 +2020,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             </View>
           </TouchableOpacity>
         </Modal>
-
-        {/* ════════════════════════════════════════════════════════════════════════
-            3. FULLSCREEN CINEMA VIDEO THEATRE (Spotify & Apple Music Level)
-           ════════════════════════════════════════════════════════════════════════ */}
-        <Modal
-          visible={isVideoFullscreen}
-          transparent={false}
-          animationType="fade"
-          statusBarTranslucent={true}
-          onRequestClose={() => {
-            isSwitchingModeRef.current = true;
-            setVideoFullscreen(false);
-            setTimeout(() => {
-              isSwitchingModeRef.current = false;
-            }, 800);
-          }}
-        >
-          <View style={styles.fullscreenBackdrop}>
-            {/* Fullscreen Video Engine */}
-            <View style={StyleSheet.absoluteFill}>
-              {currentTrack?.videoId && (
-                <YoutubePlayer
-                  ref={fullscreenPlayerRef}
-                  height={SCREEN_HEIGHT}
-                  width={SCREEN_WIDTH}
-                  play={isPlaying}
-                  videoId={currentTrack.videoId}
-                  onReady={() => {
-                    if (useAudioStore.getState().isPlaying) {
-                      (fullscreenPlayerRef.current as any)?.playVideo?.();
-                    }
-                  }}
-                  initialPlayerParams={{
-                    controls: false,
-                    modestbranding: true,
-                    rel: false,
-                    preventFullScreen: true,
-                    start: Math.max(0, Math.floor(useAudioStore.getState().positionMillis / 1000)),
-                  }}
-                  onChangeState={(state: string) => {
-                    if (isSwitchingModeRef.current) return;
-                    if (state === 'ended') {
-                      useAudioStore.getState().handleTrackEnded();
-                    } else if (state === 'playing') {
-                      useAudioStore.setState({ 
-                        isPlaying: true, 
-                        isLoading: false,
-                        audioEngineAction: { type: 'pause_bridge', id: Date.now() },
-                      });
-                    } else if (state === 'paused') {
-                      if (isSwitchingModeRef.current) return;
-                      // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
-                      if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
-                        return;
-                      }
-                      if (!useAudioStore.getState().isPlayerModalVisible) return;
-                      const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
-                      if (isUserPauseAction || !isStorePlaying) {
-                        useAudioStore.setState({ isPlaying: false, isLoading: false });
-                        return;
-                      }
-                      if (AppState.currentState !== 'active') {
-                        (fullscreenPlayerRef.current as any)?.playVideo?.();
-                        return;
-                      }
-                      useAudioStore.setState({ isPlaying: false });
-                    }
-                  }}
-                  webViewProps={{
-                    androidLayerType: 'hardware',
-                    allowsInlineMediaPlayback: true,
-                    mediaPlaybackRequiresUserAction: false,
-                    allowsPictureInPictureMediaPlayback: true,
-                    allowsAirPlayForMediaPlayback: true,
-                    scrollEnabled: false,
-                    injectedJavaScriptForMainFrameOnly: false,
-                    injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
-                    injectedJavaScriptBeforeContentLoaded: `
-                      (function() {
-                        if (navigator.audioSession) {
-                          try { navigator.audioSession.type = 'playback'; } catch(e) {}
-                        }
-
-                        try {
-                          Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-                          Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-                          Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-                        } catch(e) {}
-
-                        try {
-                          var origAddEventListener = EventTarget.prototype.addEventListener;
-                          EventTarget.prototype.addEventListener = function(type, listener, options) {
-                            if (
-                              type === 'visibilitychange' || 
-                              type === 'webkitvisibilitychange' || 
-                              type === 'pagehide' || 
-                              type === 'blur' || 
-                              type === 'freeze'
-                            ) {
-                              return;
-                            }
-                            return origAddEventListener.call(this, type, listener, options);
-                          };
-                        } catch(e) {}
-
-                        try {
-                          Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
-                          Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
-                          Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
-                        } catch(e) {}
-
-                        try {
-                          var origPlay = HTMLMediaElement.prototype.play;
-                          HTMLMediaElement.prototype.play = function() {
-                            this.setAttribute('playsinline', 'true');
-                            this.setAttribute('webkit-playsinline', 'true');
-                            return origPlay.call(this);
-                          };
-                        } catch(e) {}
-                      })();
-                      true;
-                    `,
-                    injectedJavaScript: `
-                      (function() {
-                        if (navigator.audioSession) {
-                          try { navigator.audioSession.type = 'playback'; } catch(e) {}
-                        }
-
-                        try {
-                          Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-                          Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-                          Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-                        } catch(e) {}
-
-                        function hookVideos() {
-                          var videos = document.querySelectorAll('video');
-                          for (var i = 0; i < videos.length; i++) {
-                            var v = videos[i];
-                            if (!v._bgHooked) {
-                              v._bgHooked = true;
-                              v.setAttribute('playsinline', 'true');
-                              v.setAttribute('webkit-playsinline', 'true');
-                            }
-                          }
-                        }
-                        hookVideos();
-                        setInterval(hookVideos, 500);
-                      })();
-                      true;
-                    `,
-                  }}
-                />
-              )}
-            </View>
-
-            {/* Header Controls Overlay */}
-            <View style={[styles.fullscreenHeader, { paddingTop: Math.max(insets.top, 24) }]} pointerEvents="box-none">
-              <TouchableOpacity
-                onPress={() => {
-                  isSwitchingModeRef.current = true;
-                  setVideoFullscreen(false);
-                  setTimeout(() => {
-                    isSwitchingModeRef.current = false;
-                  }, 800);
-                }}
-                style={styles.fullscreenCloseBtn}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <View style={styles.fullscreenTitleWrap}>
-                <Text style={styles.fullscreenTitleText} numberOfLines={1}>
-                  {currentTrack.title || 'Track Title'}
-                </Text>
-                <Text style={styles.fullscreenArtistText} numberOfLines={1}>
-                  {currentTrack.artist || 'Artist'}
-                </Text>
-              </View>
-
-              <View style={{ width: 40 }} />
-            </View>
-
-            {/* Center Play/Pause & Seek Controls Overlay */}
-            <View style={styles.fullscreenCenterControls} pointerEvents="box-none">
-              <TouchableOpacity
-                onPress={seekBackward10}
-                style={styles.fullscreenSeekBtn}
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              >
-                <MaterialCommunityIcons name="rewind-10" size={30} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handlePlayPausePress}
-                style={styles.fullscreenPlayPauseBtn}
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              >
-                <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#000000" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={seekForward10}
-                style={styles.fullscreenSeekBtn}
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              >
-                <MaterialCommunityIcons name="fast-forward-10" size={30} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Footer Scrubber Overlay */}
-            <View style={[styles.fullscreenFooter, { paddingBottom: Math.max(insets.bottom, 24) }]} pointerEvents="box-none">
-              <PlayerScrubber
-                isDark={true}
-                themeMuted="rgba(255,255,255,0.6)"
-                onSeek={handleScrubberSeek}
-                onScrubbingChange={(scrubbing) => {
-                  isScrubbingTimeline.value = scrubbing;
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
       </Animated.View>
     </GestureHandlerRootView>
   );
@@ -2030,19 +2032,19 @@ const styles = StyleSheet.create({
     left: MINI_MARGIN_H,
     right: MINI_MARGIN_H,
     height: MINI_PLAYER_HEIGHT,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     zIndex: 99999,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.22,
-        shadowRadius: 10,
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 10,
+        elevation: 8,
       },
     }),
   },
@@ -2162,6 +2164,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 44,
+  },
+  fullHeaderThreeSlot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: 44,
+  },
+  headerSlotSide: {
+    width: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerSlotCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullHeaderBtn: {
     width: 44,
@@ -2286,16 +2305,38 @@ const styles = StyleSheet.create({
   },
   hiddenVideoInCoverMode: {
     position: 'absolute',
+    left: -9999,
     top: 0,
-    left: 0,
-    zIndex: 1,
+    width: 1,
+    height: 1,
+    opacity: 0,
     pointerEvents: 'none',
+    overflow: 'hidden',
   },
   videoStageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     marginVertical: 4,
+  },
+  videoStageFullscreenRoot: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 99990,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoFullscreenFrame: {
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   videoFrameContainer: {
     borderRadius: 18,
@@ -2760,12 +2801,17 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // Compact Artist Peek Card (1:1 with Spotify Screenshot 3 & 4)
+  // Compact Artist Peek Card (Apple Liquid Glass Edition)
+  compactArtistCardWrapper: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 24,
+  },
   compactArtistCard: {
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    marginTop: 4,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   compactArtistHeader: {
     flexDirection: 'row',
@@ -2821,19 +2867,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    borderWidth: 1.2,
-    borderColor: '#1DB954',
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  followingPillActive: {
-    backgroundColor: '#1DB954',
-  },
+  followingPillActive: {},
   followingPillText: {
-    color: '#1DB954',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   followingPillTextActive: {
-    color: '#000000',
+    fontWeight: '700',
   },
 });
 

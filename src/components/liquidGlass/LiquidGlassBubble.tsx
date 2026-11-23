@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { APPLE_LIQUID_COLORS } from '../../theme/AppleLiquidTokens';
 
 interface LiquidGlassBubbleProps {
@@ -19,13 +18,14 @@ interface LiquidGlassBubbleProps {
 }
 
 /**
- * 🔮 Apple Liquid Glass 3D Optical Lens Bubble
- * Recreates the exact physical realism shown in Apple design specs:
- * 1. 3D sculpted specular bezel catching angled light
- * 2. Top caustic crescent highlight for authentic curved glass sheen
- * 3. Transparent crystal refraction substrate (Zero flat opaque grey)
- * 4. Concentric optical double-edge refraction ring
- * 5. Elevated floating lens drop shadow
+ * 🔮 Apple Liquid Glass 3D Optical Lens Pill
+ * Combines:
+ * 1. Rest State: Pristine frosted glass with Retina hairline border (StyleSheet.hairlineWidth)
+ * 2. Active / Drag State (Optical Lift):
+ *    - Subtle translateY elevation (-2.5pt) toward the finger
+ *    - Ambient diffuse shadow expansion (radius: 8 -> 16)
+ *    - Fluid volume-preserving stretch (scaleX * scaleY = 1.0)
+ *    - Zero skeuomorphic plastic gradient shine!
  */
 export const LiquidGlassBubble: React.FC<LiquidGlassBubbleProps> = ({
   indicatorX,
@@ -38,13 +38,23 @@ export const LiquidGlassBubble: React.FC<LiquidGlassBubbleProps> = ({
 }) => {
   const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: indicatorX.value },
-      { scaleX: scaleX.value },
-      { scaleY: scaleY.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    // Optical Lift: detect when user is interacting / stretching the bubble
+    const isInteracting = Math.abs(scaleX.value - 1) > 0.015;
+
+    return {
+      transform: [
+        { translateX: indicatorX.value },
+        { translateY: isInteracting ? -2.5 : 0 },
+        { scaleX: scaleX.value },
+        { scaleY: scaleY.value },
+      ],
+      shadowOpacity: isDark
+        ? 0.45 + (isInteracting ? 0.25 : 0)
+        : 0.12 + (isInteracting ? 0.14 : 0),
+      shadowRadius: isInteracting ? 16 : 8,
+    };
+  });
 
   return (
     <Animated.View
@@ -60,63 +70,35 @@ export const LiquidGlassBubble: React.FC<LiquidGlassBubbleProps> = ({
       ]}
       pointerEvents="none"
     >
-      <View style={[styles.innerSurface, { borderRadius }]}>
-        {/* ── 1. Frosted Liquid Glass Substrate (Backdrop Blur) ── */}
+      <View
+        style={[
+          styles.innerSurface,
+          {
+            borderRadius,
+            borderColor: colors.bubbleBorder,
+            borderWidth: StyleSheet.hairlineWidth,
+            backgroundColor: isDark ? 'transparent' : colors.bubbleBg,
+          },
+        ]}
+      >
+        {/* ── 1. Frosted Liquid Glass Substrate on Metal GPU ── */}
         <BlurView
-          intensity={Platform.OS === 'ios' ? (isDark ? 45 : 55) : 30}
+          intensity={Platform.OS === 'ios' ? (isDark ? 50 : 65) : 30}
           tint={isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
 
-        {/* ── 2. Crystal Clear Glass Core (Non-opaque, pristine refraction) ── */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: colors.bubbleBg,
-            },
-          ]}
-        />
-
-        {/* ── 3. Top Specular Caustic Crescent (Realistic Curved Glass Reflection) ── */}
-        <LinearGradient
-          colors={[colors.bubbleInnerHighlight, 'rgba(255, 255, 255, 0.0)']}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={[
-            styles.specularCausticArc,
-            {
-              borderTopLeftRadius: borderRadius,
-              borderTopRightRadius: borderRadius,
-            },
-          ]}
-        />
-
-        {/* ── 4. Inset Secondary Refraction Ring (Double-Edge Caustic Thickness) ── */}
-        <View
-          style={[
-            styles.innerCausticRing,
-            {
-              borderRadius: Math.max(0, borderRadius - 2),
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.45)',
-            },
-          ]}
-        />
-
-        {/* ── 5. 3D Refractive Bezel Ring (Angled Specular Light Reflection) ── */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            styles.specularBezel,
-            {
-              borderRadius,
-              borderTopColor: colors.bubbleTopRim,
-              borderLeftColor: colors.bubbleSideRim,
-              borderRightColor: colors.bubbleSideRim,
-              borderBottomColor: colors.bubbleBottomRim,
-            },
-          ]}
-        />
+        {/* ── 2. Pure Optical Glass Core ── */}
+        {isDark && (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: colors.bubbleBg,
+              },
+            ]}
+          />
+        )}
       </View>
     </Animated.View>
   );
@@ -134,32 +116,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  specularCausticArc: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '46%',
-  },
-  innerCausticRing: {
-    position: 'absolute',
-    top: 2,
-    bottom: 2,
-    left: 2,
-    right: 2,
-    borderWidth: 0.75,
-  },
-  specularBezel: {
-    borderWidth: 1.5,
-    borderTopWidth: 1.75,
-  },
   lightShadow: {
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.10,
-        shadowRadius: 6,
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
       },
       android: {
         elevation: 3,
@@ -170,12 +133,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.60,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.45,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 5,
+        elevation: 4,
       },
     }),
   },

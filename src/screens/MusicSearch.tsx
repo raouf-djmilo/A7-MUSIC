@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,10 @@ import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
 import { searchYouTubeMusicWithArtist, ArtistMatch } from '../services/youtubeMusicService';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import { addToSearchHistory, cleanSearchHistory } from '../features/music/engines/searchHistory.engine';
 
 const { width } = Dimensions.get('window');
 const RECENT_SEARCHES_KEY = '@nouble_recent_searches';
@@ -38,6 +40,7 @@ const GENRES = [
 ];
 
 export const MusicSearch = ({ navigation, route }: any) => {
+  const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createThemedStyles(theme, isDark), [theme, isDark]);
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
@@ -57,8 +60,19 @@ export const MusicSearch = ({ navigation, route }: any) => {
 
   useEffect(() => {
     const loadRecent = async () => {
-      const data = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
-      if (data) setRecentSearches(JSON.parse(data));
+      try {
+        const data = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
+        if (data) {
+          const parsed = JSON.parse(data);
+          const cleaned = cleanSearchHistory(parsed);
+          setRecentSearches(cleaned);
+          if (JSON.stringify(cleaned) !== data) {
+            AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(cleaned)).catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.warn('[MusicSearch] Error loading search history:', e);
+      }
     };
     loadRecent();
   }, []);
@@ -100,7 +114,6 @@ export const MusicSearch = ({ navigation, route }: any) => {
           artist: artist || null,
           tracks: formatted,
         });
-        saveRecentSearch(searchTerm);
       } else {
         const localMatches = searchCuratedMusic(searchTerm);
         const fallbackList = (localMatches.length > 0 ? localMatches : CURATED_TRACKS.slice(0, 8)).map(t => ({
@@ -119,11 +132,18 @@ export const MusicSearch = ({ navigation, route }: any) => {
     }
   };
 
-  const saveRecentSearch = async (term: string) => {
-    let updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
-    setRecentSearches(updated);
-    await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-  };
+  /**
+   * 🎯 Commit on Intent: Only save to history upon explicit user intent
+   * (e.g. keyboard Search submit, tapping a result track or artist)
+   */
+  const handleCommitSearch = useCallback((term: string) => {
+    if (!term || typeof term !== 'string') return;
+    setRecentSearches((prev) => {
+      const updated = addToSearchHistory(prev, term);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
 
   const clearHistory = async () => {
     setRecentSearches([]);
@@ -138,6 +158,9 @@ export const MusicSearch = ({ navigation, route }: any) => {
         activeOpacity={0.7}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (query.trim()) {
+            handleCommitSearch(query);
+          }
           if (isCurrent) {
             setPlayerModalVisible(true);
           } else {
@@ -190,6 +213,9 @@ export const MusicSearch = ({ navigation, route }: any) => {
           onPress={(e) => {
             e.stopPropagation();
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (query.trim()) {
+              handleCommitSearch(query);
+            }
             if (isCurrent) {
               togglePlay();
             } else {
@@ -226,7 +252,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Search Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 52 }]}>
         <View style={styles.searchBarContainer}>
           <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 15 }} />
           <TextInput
@@ -235,7 +261,15 @@ export const MusicSearch = ({ navigation, route }: any) => {
             placeholderTextColor={theme.textMuted}
             value={query}
             onChangeText={setQuery}
+            onSubmitEditing={() => {
+              if (query.trim()) {
+                handleCommitSearch(query);
+                performSearch(query.trim());
+              }
+            }}
+            returnKeyType="search"
             autoCapitalize="none"
+            autoCorrect={false}
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
@@ -287,7 +321,15 @@ export const MusicSearch = ({ navigation, route }: any) => {
           )}
           <View style={styles.historyRow}>
             {recentSearches.map((s, i) => (
-              <TouchableOpacity key={i} style={styles.historyChip} onPress={() => setQuery(s)}>
+              <TouchableOpacity
+                key={i}
+                style={styles.historyChip}
+                onPress={() => {
+                  setQuery(s);
+                  handleCommitSearch(s);
+                  performSearch(s);
+                }}
+              >
                 <Text style={styles.historyText}>{s}</Text>
               </TouchableOpacity>
             ))}
@@ -322,6 +364,9 @@ export const MusicSearch = ({ navigation, route }: any) => {
                     activeOpacity={0.85}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (query.trim()) {
+                        handleCommitSearch(query);
+                      }
                       navigation.navigate('ArtistDetail', { 
                         artistName: results.artist?.name, 
                         artist: results.artist 

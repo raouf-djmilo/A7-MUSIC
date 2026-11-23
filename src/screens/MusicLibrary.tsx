@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
@@ -85,6 +86,7 @@ const WORKOUT_PLAYLISTS = [
 ];
 
 export const MusicLibrary = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { theme, isDark } = useTheme();
@@ -705,7 +707,10 @@ export const MusicLibrary = () => {
         keyExtractor={(item: any) => item.id || item.video_id || item.videoId}
         renderItem={renderTrackItem}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={[styles.listContent, { paddingBottom: miniPlayerBottomGap }]}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: insets.top + 54, paddingBottom: miniPlayerBottomGap },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
