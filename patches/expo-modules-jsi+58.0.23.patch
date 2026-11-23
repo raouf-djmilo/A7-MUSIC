@@ -1,0 +1,45 @@
+diff --git a/node_modules/expo-modules-jsi/apple/Package.swift b/node_modules/expo-modules-jsi/apple/Package.swift
+index 8211ef0..a8db7cb 100644
+--- a/node_modules/expo-modules-jsi/apple/Package.swift
++++ b/node_modules/expo-modules-jsi/apple/Package.swift
+@@ -1,4 +1,4 @@
+-// swift-tools-version: 6.2
++// swift-tools-version: 6.0
+ // The swift-tools-version declares the minimum version of Swift required to build this package.
+ 
+ import Foundation
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
+index c49aa7e..cc07123 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
+@@ -11,11 +11,6 @@ extension Task where Failure == any Error {
+     priority: TaskPriority? = nil,
+     @_inheritActorContext @_implicitSelfCapture operation: sending @escaping @isolated(any) () async throws -> Success
+   ) -> Task<Success, any Error> {
+-    if #available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, *) {
+-      return Task.immediate(name: name, priority: priority, operation: operation)
+-    } else {
+-      // In the polyfill always use the highest priority and hope it executes earlier.
+-      return Task(name: name, priority: .high, operation: operation)
+-    }
++    return Task(priority: priority ?? .high, operation: operation)
+   }
+ }
+diff --git a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
+index e38a4d2..35a839b 100644
+--- a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
++++ b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
+@@ -249,7 +249,12 @@ build_slice() {
+     -destination "generic/platform=${destination}" \
+     -derivedDataPath "$DERIVED_DATA_PATH" \
+     -configuration "$CONFIGURATION" \
+-    -quiet \
++    CODE_SIGNING_ALLOWED=NO \
++    CODE_SIGNING_REQUIRED=NO \
++    CODE_SIGN_IDENTITY="" \
++    CODE_SIGNING_IDENTITY="" \
++    DEVELOPMENT_TEAM="" \
++    PROVISIONING_PROFILE_SPECIFIER="" \
+     -disableAutomaticPackageResolution \
+     -skipPackagePluginValidation \
+     -skipMacroValidation \
