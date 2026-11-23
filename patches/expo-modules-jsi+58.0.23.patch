@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-modules-jsi/apple/Package.swift b/node_modules/expo-modules-jsi/apple/Package.swift
-index 8211ef0..aaf9689 100644
+index 8211ef0..c1fce92 100644
 --- a/node_modules/expo-modules-jsi/apple/Package.swift
 +++ b/node_modules/expo-modules-jsi/apple/Package.swift
 @@ -1,4 +1,4 @@
@@ -8,7 +8,15 @@ index 8211ef0..aaf9689 100644
  // The swift-tools-version declares the minimum version of Swift required to build this package.
  
  import Foundation
-@@ -110,8 +110,7 @@ let package = Package(
+@@ -75,6 +75,7 @@ let package = Package(
+     .tvOS("16.4"),
+     .macOS("13.4"),
+   ],
++  swiftLanguageModes: [.v5],
+   products: [
+     .library(
+       name: "ExpoModulesJSI",
+@@ -110,8 +111,7 @@ let package = Package(
            // failed with exit code 0 but produced no further output" and fails the host app's
            // build phase, with nothing pointing at the cause. These groups are the ones that have
            // actually bitten us, so reject them at the line that causes them.
@@ -36,45 +44,15 @@ index c49aa7e..cc07123 100644
    }
  }
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
-index 2aa6bb3..cba6a58 100644
+index 2aa6bb3..d2aeecf 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptCallback.swift
-@@ -102,6 +102,7 @@ public final class JavaScriptCallback: Sendable {
-     let box = UncheckedSendableBox((repeat each arguments))
-     let argumentCount = Self.argumentCount(of: repeat (each A).self)
-     @JavaScriptActor
-+    @Sendable
-     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
-       let arguments = box.value
-       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
-@@ -128,6 +129,7 @@ public final class JavaScriptCallback: Sendable {
-     let box = UncheckedSendableBox((repeat each arguments))
-     let argumentCount = Self.argumentCount(of: repeat (each A).self)
-     @JavaScriptActor
-+    @Sendable
-     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
-       let arguments = box.value
-       try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
-@@ -152,6 +154,7 @@ public final class JavaScriptCallback: Sendable {
-     let box = UncheckedSendableBox((repeat each arguments))
-     let argumentCount = Self.argumentCount(of: repeat (each A).self)
-     @JavaScriptActor
-+    @Sendable
-     func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
-     {
-       let arguments = box.value
-@@ -181,14 +184,16 @@ public final class JavaScriptCallback: Sendable {
-     _ values: Values,
-     argumentCount: Int,
-     emplacing:
--      @escaping @JavaScriptActor (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
-+      @escaping @JavaScriptActor @Sendable (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
+@@ -185,10 +185,11 @@ public final class JavaScriptCallback: Sendable {
        throws -> Void
    ) {
      let box = UncheckedSendableBox(values)
 +    let emplacingBox = UncheckedSendableBox(emplacing)
      @JavaScriptActor
-+    @Sendable
      func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
        try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
 -        try emplacing(box.value, buffer, runtime)
@@ -82,18 +60,12 @@ index 2aa6bb3..cba6a58 100644
        }
      }
      do {
-@@ -211,14 +216,16 @@ public final class JavaScriptCallback: Sendable {
-     _ values: Values,
-     argumentCount: Int,
-     emplacing:
--      @escaping @JavaScriptActor (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
-+      @escaping @JavaScriptActor @Sendable (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
+@@ -215,10 +216,11 @@ public final class JavaScriptCallback: Sendable {
        throws -> Void
    ) throws {
      let box = UncheckedSendableBox(values)
 +    let emplacingBox = UncheckedSendableBox(emplacing)
      @JavaScriptActor
-+    @Sendable
      func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws {
        try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
 -        try emplacing(box.value, buffer, runtime)
@@ -101,18 +73,12 @@ index 2aa6bb3..cba6a58 100644
        }
      }
      if try callInline(call) {
-@@ -237,15 +244,17 @@ public final class JavaScriptCallback: Sendable {
-     argumentCount: Int,
-     returning _: R.Type,
-     emplacing:
--      @escaping @JavaScriptActor (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
-+      @escaping @JavaScriptActor @Sendable (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
+@@ -241,11 +243,12 @@ public final class JavaScriptCallback: Sendable {
        throws -> Void
    ) throws -> sending R {
      let box = UncheckedSendableBox(values)
 +    let emplacingBox = UncheckedSendableBox(emplacing)
      @JavaScriptActor
-+    @Sendable
      func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
      {
        let decoded = try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
@@ -121,22 +87,13 @@ index 2aa6bb3..cba6a58 100644
        } withResult: { result, runtime in
          return try R.decode(result, in: runtime)
        }
-@@ -268,19 +277,22 @@ public final class JavaScriptCallback: Sendable {
-     _ values: Values,
-     argumentCount: Int,
-     decoding decode:
--      @escaping @JavaScriptActor (borrowing JavaScriptUnownedValue, borrowing JavaScriptRuntime) throws -> R,
-+      @escaping @JavaScriptActor @Sendable (borrowing JavaScriptUnownedValue, borrowing JavaScriptRuntime) throws -> R,
-     emplacing:
--      @escaping @JavaScriptActor (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
-+      @escaping @JavaScriptActor @Sendable (Values, borrowing JavaScriptValuesBuffer, borrowing JavaScriptRuntime)
+@@ -274,13 +277,15 @@ public final class JavaScriptCallback: Sendable {
        throws -> Void
    ) throws -> sending R {
      let box = UncheckedSendableBox(values)
 +    let decodeBox = UncheckedSendableBox(decode)
 +    let emplacingBox = UncheckedSendableBox(emplacing)
      @JavaScriptActor
-+    @Sendable
      func call(_ function: borrowing JavaScriptFunction, _ runtime: JavaScriptRuntime) throws -> UncheckedSendableBox<R>
      {
        let decoded = try function.call(argumentCount: argumentCount, in: runtime) { buffer, runtime in
@@ -148,24 +105,6 @@ index 2aa6bb3..cba6a58 100644
        }
        return UncheckedSendableBox(decoded)
      }
-@@ -415,7 +427,7 @@ public final class JavaScriptCallback: Sendable {
- 
-   @usableFromInline
-   internal func runDetached(
--    call: @escaping @JavaScriptActor (borrowing JavaScriptFunction, JavaScriptRuntime) throws -> Void
-+    call: @escaping @JavaScriptActor @Sendable (borrowing JavaScriptFunction, JavaScriptRuntime) throws -> Void
-   ) {
-     guard scheduler.mayBeAlive else {
-       print("Error in a JavaScript callback: \(RuntimeLostError())")
-@@ -434,7 +446,7 @@ public final class JavaScriptCallback: Sendable {
- 
-   @usableFromInline
-   internal func runBlocking<R: Sendable>(
--    call: @escaping @JavaScriptActor (borrowing JavaScriptFunction, JavaScriptRuntime) throws -> R
-+    call: @escaping @JavaScriptActor @Sendable (borrowing JavaScriptFunction, JavaScriptRuntime) throws -> R
-   ) throws -> R {
-     return try scheduler.execute { runtime in
-       try self.withFunction { function in
 diff --git a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 index e38a4d2..e75436e 100644
 --- a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
