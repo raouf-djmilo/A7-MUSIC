@@ -2,6 +2,15 @@ name: Build A7-MUSIC iOS IPA (Unsigned)
 
 on:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: 'macOS Runner'
+        required: false
+        default: 'macos-14'
+        type: choice
+        options:
+          - 'macos-14'
+          - 'macos-15'
   push:
     tags:
       - 'v*'
@@ -12,37 +21,22 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-14' }}
     timeout-minutes: 90
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Select Xcode 16
         run: |
           echo "Available Xcode installations:"
           ls -ld /Applications/Xcode*.app || true
           
-          TARGET_XCODE=""
-          for XC in $(ls -d /Applications/Xcode*.app 2>/dev/null); do
-            SWIFT_BIN="$XC/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
-            if [ -x "$SWIFT_BIN" ]; then
-              SWIFT_VER=$("$SWIFT_BIN" --version 2>/dev/null | head -n 1)
-              echo "$XC -> $SWIFT_VER"
-              if echo "$SWIFT_VER" | grep -q "6\.3"; then
-                TARGET_XCODE="$XC"
-              fi
-            fi
-          done
-          
+          # Prioritize latest Xcode 16.x installed on runner (e.g. 16.2, 16.1, 16.0)
+          TARGET_XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$TARGET_XCODE" ]; then
-            for XC in /Applications/Xcode_16.3*.app /Applications/Xcode.app $(ls -d /Applications/Xcode*.app 2>/dev/null); do
-              if [ -d "$XC" ]; then
-                TARGET_XCODE="$XC"
-                break
-              fi
-            done
+            TARGET_XCODE=$(ls -d /Applications/Xcode.app 2>/dev/null | head -n 1)
           fi
           
           echo "Selecting: $TARGET_XCODE"
@@ -67,6 +61,14 @@ jobs:
 
       - name: Apply patches
         run: npx patch-package || true
+
+      - name: Cache CocoaPods download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
 
       - name: Expo Prebuild iOS
         run: |
@@ -116,6 +118,9 @@ jobs:
           fi
           echo "🔨 Building with Scheme: '$SCHEME'"
 
+          CPU_CORES=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
+          echo "🚀 Parallel compilation with $CPU_CORES CPU cores"
+
           set +e
           xcodebuild build \
             -workspace "$WORKSPACE" \
@@ -124,6 +129,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            -jobs "$CPU_CORES" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -162,6 +168,7 @@ jobs:
         with:
           name: xcodebuild-log
           path: ios/xcodebuild.log
+          retention-days: 7
 
       - name: Print Compiler Errors
         if: failure()
@@ -193,9 +200,12 @@ jobs:
             exit 1
           fi
           echo "📦 Packaging: $APP_PATH"
+          rm -rf Payload A7-MUSIC.ipa
           mkdir -p Payload
-          cp -r "$APP_PATH" Payload/
-          zip -r A7-MUSIC.ipa Payload
+          # Preserve symlinks (-P) to ensure lightweight IPA and valid framework integrity
+          cp -RP "$APP_PATH" Payload/
+          # -y preserves symlinks in zip archive; -q minimizes noisy logs
+          zip -qr -y A7-MUSIC.ipa Payload
           echo "✅ IPA created: $(du -sh A7-MUSIC.ipa | cut -f1)"
 
       - name: Upload IPA Artifact
@@ -223,3 +233,5 @@ jobs:
             4. Enjoy A7 MUSIC! 🎉
 
             > ⚠️ This is an unsigned IPA — sideloading tool required.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
