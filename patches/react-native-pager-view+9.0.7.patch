@@ -1,0 +1,42 @@
+diff --git a/node_modules/react-native-pager-view/ios/Extensions.swift b/node_modules/react-native-pager-view/ios/Extensions.swift
+index ad9987a..59ccaef 100644
+--- a/node_modules/react-native-pager-view/ios/Extensions.swift
++++ b/node_modules/react-native-pager-view/ios/Extensions.swift
+@@ -146,6 +146,17 @@ extension UIView {
+       bottomAnchor.constraint(equalTo: other.bottomAnchor)
+     ])
+   }
++
++  func reactViewController() -> UIViewController? {
++    var responder: UIResponder? = self
++    while let next = responder?.next {
++      responder = next
++      if let viewController = next as? UIViewController {
++        return viewController
++      }
++    }
++    return nil
++  }
+ }
+ 
+ extension UIHostingController {
+diff --git a/node_modules/react-native-pager-view/ios/PagerView.swift b/node_modules/react-native-pager-view/ios/PagerView.swift
+index a4a850a..aa737f1 100644
+--- a/node_modules/react-native-pager-view/ios/PagerView.swift
++++ b/node_modules/react-native-pager-view/ios/PagerView.swift
+@@ -45,15 +45,6 @@ struct PagerView: View {
+         collectionView.showsVerticalScrollIndicator = false
+         collectionView.showsHorizontalScrollIndicator = false
+ 
+-        // The vertical pager rotates this horizontal scroll view by 90 degrees.
+-        // Native edge effects would rotate with it and cover the page sideways.
+-        if isVertical, #available(iOS 26.0, *) {
+-          collectionView.topEdgeEffect.isHidden = true
+-          collectionView.bottomEdgeEffect.isHidden = true
+-          collectionView.leftEdgeEffect.isHidden = true
+-          collectionView.rightEdgeEffect.isHidden = true
+-        }
+-
+         if scrollDelegate.originalDelegate == nil {
+           scrollDelegate.originalDelegate = collectionView.delegate
+           scrollDelegate.delegate = delegate
