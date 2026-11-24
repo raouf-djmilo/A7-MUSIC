@@ -380,15 +380,10 @@ export const ProfileScreen = () => {
               activeOpacity={0.7}
             >
               <Ionicons name="create-outline" size={15} color={theme.textPrimary} />
-              <Text style={styles.editProfileBtnTxt}>تعديل الملف الرياضي</Text>
+              <Text style={styles.editProfileBtnTxt}>تعديل الملف الشخصي</Text>
             </TouchableOpacity>
           </GlassCard>
         )}
-
-        {/* ── 2. Clean Minimalist 2x2 Telemetry Grid (Strava/Apple Pure Style) ── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>مؤشرات الأداء</Text>
-        </View>
 
         {/* ── 2. Clean Minimalist Metrics Grid (Pure Music Focus) ── */}
         <View style={styles.sectionHeaderRow}>
