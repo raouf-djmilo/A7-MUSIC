@@ -57,6 +57,19 @@ index 3546cbb..8fba8df 100644
    // The getter writes its result through an out-parameter, like `HostFunctionClosure`, so the
    // Swift side can fill the caller's slot from inside its guaranteed-reference scope.
    // Both return whether the Swift side stored an error in `CppError`'s thread-local slot, so the
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/JSIUtils.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/JSIUtils.h
+index 99e8239..922bc0b 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/JSIUtils.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/JSIUtils.h
+@@ -195,7 +195,7 @@ inline const jsi::Value valueFromError(jsi::IRuntime &runtime, const jsi::JSErro
+   return jsi::Value(runtime, error.value());
+ }
+ 
+-inline jsi::JSError errorFromValue(jsi::IRuntime &runtime, jsi::Value value) {
++inline jsi::JSError errorFromValue(jsi::IRuntime &runtime, jsi::Value &value) {
+   return jsi::JSError(runtime, std::move(value));
+ }
+ 
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
 index c49aa7e..cc07123 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
@@ -168,6 +181,21 @@ index 9dec012..37c9612 100644
  }
  
  // MARK: - Errors
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptError.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptError.swift
+index 08aa9f3..12f390f 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptError.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptError.swift
+@@ -30,8 +30,9 @@ public final class JavaScriptError: Error, Sendable {
+   /// matches JavaScript semantics where any value (not only an `Error`) can be thrown.
+   public init(_ runtime: borrowing JavaScriptRuntime, value: consuming JavaScriptValue) {
+     self.runtimeHandle = runtime.handle
++    var value = value
+     // The value is consumed, so its `jsi::Value` moves straight into the error without a clone.
+-    self.pointee = expo.errorFromValue(runtime.pointee, value.pointee)
++    self.pointee = expo.errorFromValue(runtime.pointee, &value.pointee)
+   }
+ 
+   /// Creates a JavaScript error from a native error conforming to `JavaScriptThrowable`.
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
 index 148f693..ca25700 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
