@@ -28,20 +28,35 @@ index 8211ef0..2de080d 100644
  )
  
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
-index 8d5b594..01fc743 100644
+index 8d5b594..d418d98 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
 @@ -21,6 +21,10 @@ public:
  
    explicit HostFunctionClosure(Context context, Closure closure, Deallocator deallocator) : RetainedSwiftPointer(context, deallocator), _closure(closure) {};
  
-+  static HostFunctionClosure *create(Context context, Closure closure, Deallocator deallocator) noexcept {
++  static HostFunctionClosure *_Nonnull create(Context context, Closure closure, Deallocator deallocator) noexcept {
 +    return new HostFunctionClosure(context, closure, deallocator);
 +  }
 +
    virtual ~HostFunctionClosure() {
      _deallocator(_context);
    }
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
+index 3546cbb..8fba8df 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostObjectCallbacks.h
+@@ -17,6 +17,10 @@ class HostObjectCallbacks final {
+ public:
+   using Context = void *_Nonnull;
+   using PropNameIds = std::vector<facebook::jsi::PropNameID>;
++
++  inline static void pushPropNameId(PropNameIds &vector, facebook::jsi::IRuntime &runtime, const std::string &name) {
++    vector.push_back(facebook::jsi::PropNameID::forUtf8(runtime, name));
++  }
+   // The getter writes its result through an out-parameter, like `HostFunctionClosure`, so the
+   // Swift side can fill the caller's slot from inside its guaranteed-reference scope.
+   // Both return whether the Swift side stored an error in `CppError`'s thread-local slot, so the
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
 index c49aa7e..cc07123 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
@@ -122,19 +137,20 @@ index 2aa6bb3..d2aeecf 100644
        return UncheckedSendableBox(decoded)
      }
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-index 9dec012..d6f6e59 100644
+index 9dec012..37c9612 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-@@ -275,7 +275,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+@@ -274,8 +274,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+       vector.reserve(propertyNames.count)
  
        for propertyName in propertyNames {
-         let propNameId = facebook.jsi.PropNameID.forUtf8(iRuntime, std.string(propertyName))
+-        let propNameId = facebook.jsi.PropNameID.forUtf8(iRuntime, std.string(propertyName))
 -        vector.push_back(consuming: propNameId)
-+        vector.push_back(propNameId)
++        expo.HostObjectCallbacks.pushPropNameId(&vector, iRuntime, std.string(propertyName))
        }
        return vector
      }
-@@ -436,7 +436,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+@@ -436,7 +435,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
  
      // The factory gets the name as data, never as source. This check keeps the contract that a name
      // which is not a valid JS identifier throws `InvalidIdentifierError`.
@@ -143,7 +159,7 @@ index 9dec012..d6f6e59 100644
        throw InvalidIdentifierError(identifier: name)
      }
  
-@@ -1061,7 +1061,7 @@ private func createFunctionClosure(
+@@ -1061,7 +1060,7 @@ private func createFunctionClosure(
      Unmanaged<HostFunctionContext>.fromOpaque(context).release()
    }
  
