@@ -1,0 +1,18 @@
+{
+  "platform": "ios",
+  "latestNativeVersion": "1.6.5",
+  "runtimeVersion": "1.6.5",
+  "otaVersion": "1.6.5-ota.7cf6a9a",
+  "updateId": "7b3d6e2a-7166-42db-ba1a-53eed0b71b4e",
+  "publishedAt": "2026-11-24T18:14:16.207Z",
+  "title": "feat(ios): implement self-hosted GitHub Pages OTA updates via expo-updates",
+  "highlights": [
+    "feat(ios): implement self-hosted GitHub Pages OTA updates via expo-updates",
+    "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
+    "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
+  ],
+  "bundleSizeBytes": 5569583,
+  "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
+  "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
+  "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
+}
