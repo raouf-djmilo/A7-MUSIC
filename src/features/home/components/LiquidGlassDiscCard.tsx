@@ -14,11 +14,9 @@ import Animated, {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../../theme/ThemeContext';
 import { APPLE_LIQUID_COLORS } from '../../../theme/AppleLiquidTokens';
-import { LiquidGlassSurface } from '../../../components/LiquidGlassSurface';
 import { getUniversalStudioArtworkSource } from '../../../utils/artworkHelper';
 import { cleanArtistName } from '../../../services/youtubeMusicService';
 import type { LiquidGlassDiscCardProps } from '../types/home.types';
@@ -26,10 +24,10 @@ import { cleanCardText } from '../utils/homeTrackUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Larger hero card proportions matching Apple Music + Apple Liquid Glass aesthetics
-export const HERO_CARD_WIDTH = Math.min(Math.round(SCREEN_WIDTH * 0.64), 268);
+// Calibrated 3-card hero geometry: bold center card with left & right cards cleanly peeking
+export const HERO_CARD_WIDTH = Math.min(Math.round(SCREEN_WIDTH * 0.60), 248);
 export const HERO_CARD_HEIGHT = Math.round(HERO_CARD_WIDTH * 1.26);
-export const HERO_CARD_SPACING = Math.round(HERO_CARD_WIDTH * 0.56);
+export const HERO_CARD_SPACING = Math.round(HERO_CARD_WIDTH * 0.63);
 
 const CARD_PADDING = 11;
 const ARTWORK_SIZE = HERO_CARD_WIDTH - CARD_PADDING * 2;
@@ -37,8 +35,9 @@ const CARD_RADIUS = 28;
 const ARTWORK_RADIUS = 20;
 
 /**
- * Apple Liquid Glass glossy disc card for the Home Screen 3D arc carousel.
- * Shares the translucent refractive design language of AppleLiquidGlassTabBar & MusicTab.
+ * Apple Liquid Glass glossy disc card for the Home Screen circular carousel.
+ * Uses a persistent BlurView + translucent glass substrate + specular sheen
+ * so glass refraction stays rock-solid during 120fps 3D swipes without UIKit dropouts.
  */
 export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.memo(({
   track,
@@ -46,7 +45,6 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
   virtualIndex,
   onPress,
   isCenter,
-  isPlayingThisTrack,
 }) => {
   const { theme, isDark } = useTheme();
   const liquidColors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
@@ -58,54 +56,58 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
 
   const animatedStyle = useAnimatedStyle(() => {
     const p = cardVirtualPos - virtualIndex.value;
+    const absP = Math.abs(p);
 
     const scale = interpolate(
       p,
-      [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [0.64, 0.72, 0.84, 1.0, 0.84, 0.72, 0.64],
+      [-2.6, -2, -1, 0, 1, 2, 2.6],
+      [0.62, 0.68, 0.82, 1.0, 0.82, 0.68, 0.62],
       'clamp'
     );
 
     const translateX = interpolate(
       p,
-      [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [-HERO_CARD_SPACING * 2.05, -HERO_CARD_SPACING * 1.82, -HERO_CARD_SPACING, 0, HERO_CARD_SPACING, HERO_CARD_SPACING * 1.82, HERO_CARD_SPACING * 2.05],
+      [-2.6, -2, -1, 0, 1, 2, 2.6],
+      [
+        -HERO_CARD_SPACING * 1.95,
+        -HERO_CARD_SPACING * 1.65,
+        -HERO_CARD_SPACING,
+        0,
+        HERO_CARD_SPACING,
+        HERO_CARD_SPACING * 1.65,
+        HERO_CARD_SPACING * 1.95,
+      ],
       'clamp'
     );
 
+    // Subtle arc elevation without aggressive vertical drop
     const translateY = interpolate(
-      Math.abs(p),
-      [0, 1, 2, 2.5],
-      [0, 10, 22, 26],
+      absP,
+      [0, 1, 2, 2.6],
+      [0, 8, 18, 24],
       'clamp'
     );
 
+    // Gentle 3D tilt (kept shallow so adjacent cards never clip/slice through each other)
     const rotateYDeg = interpolate(
       p,
-      [-2.5, -2, -1, 0, 1, 2, 2.5],
-      [28, 22, 14, 0, -14, -22, -28],
+      [-2.6, -2, -1, 0, 1, 2, 2.6],
+      [16, 13, 8, 0, -8, -13, -16],
       'clamp'
     );
 
     const opacity = interpolate(
       p,
-      [-3, -2.35, -2, -1, 0, 1, 2, 2.35, 3],
-      [0, 0.30, 0.60, 0.86, 1.0, 0.86, 0.60, 0.30, 0],
+      [-2.75, -2.15, -1.6, -1, 0, 1, 1.6, 2.15, 2.75],
+      [0, 0.22, 0.52, 0.84, 1.0, 0.84, 0.52, 0.22, 0],
       'clamp'
     );
 
-    const zIndex = Math.round(
-      interpolate(
-        Math.abs(p),
-        [0, 0.55, 1, 1.6, 2, 3],
-        [10, 8, 5, 3, 2, 0],
-        'clamp'
-      )
-    );
+    const zIndex = Math.max(0, Math.round(500 - absP * 160));
 
     return {
       transform: [
-        { perspective: 950 },
+        { perspective: 1100 },
         { translateX },
         { translateY },
         { scale },
@@ -114,55 +116,88 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
       opacity,
       zIndex,
     };
-  });
+  }, [cardVirtualPos]);
 
-  const outerBorderColor = isCenter
-    ? (isPlayingThisTrack
-        ? (isDark ? 'rgba(90, 200, 250, 0.52)' : 'rgba(0, 122, 255, 0.40)')
-        : (isDark ? 'rgba(255, 255, 255, 0.34)' : 'rgba(0, 0, 0, 0.12)'))
-    : liquidColors.barBorder;
-
-  const topSpecularRim = isCenter
-    ? (isDark ? 'rgba(255, 255, 255, 0.48)' : 'rgba(255, 255, 255, 0.96)')
-    : liquidColors.barBorderTop;
+  // Smoothly animate specular center highlight purely on UI thread
+  const centerRimAnimatedStyle = useAnimatedStyle(() => {
+    const absP = Math.abs(cardVirtualPos - virtualIndex.value);
+    const focus = interpolate(absP, [0, 0.85], [1, 0], 'clamp');
+    return {
+      opacity: focus,
+    };
+  }, [cardVirtualPos]);
 
   return (
     <Animated.View style={[styles.cardAbsoluteWrap, animatedStyle]}>
       <TouchableOpacity
-        activeOpacity={0.93}
+        activeOpacity={0.94}
         onPress={onPress}
         style={[
           styles.cardShadowWrap,
           {
-            shadowOpacity: isCenter ? (isDark ? 0.48 : 0.16) : (isDark ? 0.24 : 0.08),
-            shadowRadius: isCenter ? 22 : 12,
+            shadowOpacity: isDark ? 0.42 : 0.14,
+            shadowRadius: isDark ? 18 : 14,
           },
         ]}
       >
-        <LiquidGlassSurface
-          glassStyle="regular"
-          isInteractive={isCenter}
-          isDark={isDark}
-          borderRadius={CARD_RADIUS}
+        <View
           style={[
             styles.glassShell,
             {
-              borderColor: outerBorderColor,
-              borderTopColor: topSpecularRim,
+              backgroundColor: isDark
+                ? 'rgba(20, 20, 26, 0.52)'
+                : 'rgba(255, 255, 255, 0.58)',
+              borderColor: liquidColors.barBorder,
+              borderTopColor: liquidColors.barBorderTop,
             },
           ]}
         >
-          {/* Glossy Apple diagonal top sheen */}
+          {/* Persistent Metal-accelerated Frosted Glass Substrate */}
+          <BlurView
+            intensity={Platform.OS === 'ios' ? (isDark ? 60 : 78) : 38}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Pure Neutral Liquid Glass Tint Core */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.06)'
+                  : 'rgba(255, 255, 255, 0.26)',
+              },
+            ]}
+            pointerEvents="none"
+          />
+
+          {/* Glossy Apple Specular Top Reflection */}
           <LinearGradient
             colors={
               isDark
-                ? ['rgba(255, 255, 255, 0.22)', 'rgba(255, 255, 255, 0.04)', 'transparent']
-                : ['rgba(255, 255, 255, 0.85)', 'rgba(255, 255, 255, 0.22)', 'transparent']
+                ? ['rgba(255, 255, 255, 0.24)', 'rgba(255, 255, 255, 0.04)', 'transparent']
+                : ['rgba(255, 255, 255, 0.90)', 'rgba(255, 255, 255, 0.24)', 'transparent']
             }
-            locations={[0, 0.35, 0.72]}
+            locations={[0, 0.34, 0.72]}
             start={{ x: 0.15, y: 0 }}
             end={{ x: 0.85, y: 0.85 }}
             style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+
+          {/* Smooth UI-thread Neutral Specular Focus Rim (Zero Blue Tint) */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.centerSpecularRim,
+              {
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.32)'
+                  : 'rgba(255, 255, 255, 0.98)',
+              },
+              centerRimAnimatedStyle,
+            ]}
             pointerEvents="none"
           />
 
@@ -171,7 +206,9 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
             style={[
               styles.artworkFrame,
               {
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.75)',
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.16)'
+                  : 'rgba(255, 255, 255, 0.78)',
               },
             ]}
           >
@@ -179,9 +216,10 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
               source={artworkSources}
               style={StyleSheet.absoluteFill}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 18 : 12}
+              blurRadius={Platform.OS === 'ios' ? 16 : 12}
               priority="low"
               cachePolicy="memory-disk"
+              recyclingKey={`bg-${track?.videoId || cardVirtualPos}`}
             />
             <Image
               source={artworkSources}
@@ -189,30 +227,18 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
               contentFit="cover"
               priority={isCenter ? 'high' : 'normal'}
               cachePolicy="memory-disk"
-              transition={180}
+              recyclingKey={`fg-${track?.videoId || cardVirtualPos}`}
+              transition={140}
             />
             <LinearGradient
-              colors={['rgba(255,255,255,0.12)', 'transparent', 'rgba(0,0,0,0.22)']}
-              locations={[0, 0.3, 1]}
+              colors={['rgba(255,255,255,0.10)', 'transparent', 'rgba(0,0,0,0.16)']}
+              locations={[0, 0.28, 1]}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-
-            {/* Compact frosted status badge when this card is actively playing */}
-            {isPlayingThisTrack && (
-              <View style={styles.nowPlayingPillWrap} pointerEvents="none">
-                <BlurView
-                  intensity={Platform.OS === 'ios' ? 45 : 30}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.nowPlayingDot} />
-                <Ionicons name="musical-notes" size={11} color="#FFFFFF" />
-              </View>
-            )}
           </View>
 
-          {/* Translucent Glass Metadata Footer (inherits true frosted LiquidGlassSurface) */}
+          {/* Translucent Frosted Metadata Footer */}
           <View style={styles.cardFooter}>
             <Text
               style={[styles.cardTitle, { color: theme.textPrimary }]}
@@ -227,7 +253,7 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
               {cleanArtistName(track?.artist)}
             </Text>
           </View>
-        </LiquidGlassSurface>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -248,10 +274,10 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 14 },
+        shadowOffset: { width: 0, height: 12 },
       },
       android: {
-        elevation: 10,
+        elevation: 8,
       },
     }),
   },
@@ -259,9 +285,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: CARD_RADIUS,
+    overflow: 'hidden',
     padding: CARD_PADDING,
     borderWidth: 1,
     justifyContent: 'space-between',
+    position: 'relative',
+  },
+  centerSpecularRim: {
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1.2,
   },
   artworkFrame: {
     width: ARTWORK_SIZE,
@@ -270,32 +302,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(18, 18, 24, 0.55)',
+    backgroundColor: 'rgba(18, 18, 24, 0.45)',
   },
   artworkImage: {
     width: '100%',
     height: '100%',
-  },
-  nowPlayingPillWrap: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    height: 24,
-    paddingHorizontal: 9,
-    borderRadius: 12,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(14, 14, 20, 0.48)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-  },
-  nowPlayingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#5AC8FA',
   },
   cardFooter: {
     flex: 1,
