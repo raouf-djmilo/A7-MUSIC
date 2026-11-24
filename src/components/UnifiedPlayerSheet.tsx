@@ -243,12 +243,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const mediaContainerRef = useRef<any>(null);
   const youtubePlayerRef = useRef<YoutubeIframeRef>(null);
   const isSwitchingModeRef = useRef<boolean>(false);
-  const lastTrackSwitchAtRef = useRef<number>(0);
+  // Tracks which videoId has actually emitted 'playing' in YoutubePlayer (avoids time-based lockouts)
+  const startedYoutubeVideoIdRef = useRef<string | null>(null);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
 
-  // Track videoId transitions so transient YouTube IFrame 'paused' events during loadVideoById never pause playback
   useEffect(() => {
-    lastTrackSwitchAtRef.current = Date.now();
+    startedYoutubeVideoIdRef.current = null;
   }, [currentTrack?.videoId]);
 
   const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.42, 380);
@@ -1792,6 +1792,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     if (state === 'ended') {
                       useAudioStore.getState().handleTrackEnded();
                     } else if (state === 'playing') {
+                      startedYoutubeVideoIdRef.current = currentTrack?.videoId || null;
                       useAudioStore.setState({
                         isPlaying: true,
                         isLoading: false,
@@ -1802,29 +1803,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                     } else if (state === 'paused') {
                       if (isSwitchingModeRef.current) return;
                       const storeState = useAudioStore.getState();
-                      // 🛡️ Loading & Track-Switch Guard:
-                      // Changing `videoId` on YoutubePlayer fires a transient 'paused' event as the old
-                      // video unloads. Ignore it for 1.8s unless the user explicitly pressed pause.
-                      const isRecentTrackSwitch = Date.now() - lastTrackSwitchAtRef.current < 1800;
-                      if (
-                        storeState.isLoading ||
-                        storeState.loadingTrackId ||
-                        (isRecentTrackSwitch && !storeState.isUserPauseAction && storeState.isPlaying)
-                      ) {
-                        if (storeState.isPlaying && !storeState.isUserPauseAction) {
-                          (youtubePlayerRef.current as any)?.playVideo?.();
-                        }
-                        return;
-                      }
-                      const { isPlaying: isStorePlaying, isUserPauseAction } = storeState;
-                      if (isUserPauseAction || !isStorePlaying) {
-                        // 🛡️ Deliberate user pause from widget, headphones, or in-app button: keep paused!
+                      // User-initiated pause (MiniPlayer, FullPlayer, LockScreen, Headphones) ALWAYS wins immediately
+                      if (storeState.isUserPauseAction || !storeState.isPlaying) {
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
                         return;
                       }
-                      // 🛡️ Background Audio Guard:
-                      // If app is in background or phone is locked, WebKit automatically pauses video elements.
-                      // The user NEVER asked to pause! Immediately resume so background audio continues playing!
+                      // Ignore only the transient 'paused' emitted while unloading the previous video
+                      // BEFORE the new videoId has started playing
+                      const hasNewVideoStarted =
+                        startedYoutubeVideoIdRef.current === currentTrack?.videoId;
+                      if (!hasNewVideoStarted) {
+                        (youtubePlayerRef.current as any)?.playVideo?.();
+                        return;
+                      }
+                      // Background Audio Guard: resume if iOS WebKit auto-paused while locked/backgrounded
                       if (AppState.currentState !== 'active') {
                         (youtubePlayerRef.current as any)?.playVideo?.();
                         return;

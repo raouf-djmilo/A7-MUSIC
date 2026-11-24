@@ -37,7 +37,6 @@ const CAROUSEL_SPRING = {
 const SLOT_OFFSETS = [-2, -1, 0, 1, 2];
 const SLOT_POOL_SIZE = SLOT_OFFSETS.length;
 const DRAG_UNIT_PX = Math.round(HERO_CARD_SPACING * 0.85);
-const PLAY_SETTLE_DEBOUNCE_MS = 50;
 // Trigger background prefetch 8 cards before the end so forward discovery never runs dry or loops
 const PREFETCH_AHEAD_THRESHOLD = 8;
 
@@ -78,18 +77,9 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
 
   const settledIndexRef = useRef(initialIndex);
   const lastSelfSelectedIdRef = useRef<string | null>(null);
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (settleTimerRef.current) {
-        clearTimeout(settleTimerRef.current);
-      }
-    };
-  }, []);
 
   const handleSettle = useCallback(
-    (targetVirtualInt: number, immediatePlay = false) => {
+    (targetVirtualInt: number) => {
       if (numTracks === 0) return;
       const clampedIdx = Math.max(0, Math.min(numTracks - 1, targetVirtualInt));
 
@@ -100,11 +90,6 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       if (!targetTrack) return;
 
       lastSelfSelectedIdRef.current = targetTrack.videoId || null;
-
-      if (settleTimerRef.current) {
-        clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = null;
-      }
 
       // Proactive lookahead prefetch so forward swipes always have fresh smart cards ready
       if (numTracks > 1 && clampedIdx >= numTracks - PREFETCH_AHEAD_THRESHOLD && onLoadMore) {
@@ -128,24 +113,16 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
         }
       }
 
-      const dispatchEffects = () => {
-        onActiveCardChange?.(targetTrack);
-        const latestState = useAudioStore.getState();
-        const isAlreadyPlayingThis =
-          latestState.currentTrack?.videoId === targetTrack.videoId &&
-          (latestState.isPlaying || latestState.loadingTrackId === targetTrack.videoId);
-        if (!isAlreadyPlayingThis) {
-          onTrackSelect?.(targetTrack);
-        }
-      };
-
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      if (immediatePlay) {
-        dispatchEffects();
-      } else {
-        // Brief debounce lets spring finish cleanly before triggering audio stream fetch
-        settleTimerRef.current = setTimeout(dispatchEffects, PLAY_SETTLE_DEBOUNCE_MS);
+      // Direct Home Tab rule: any card landing in center plays immediately without delay
+      onActiveCardChange?.(targetTrack);
+      const latestState = useAudioStore.getState();
+      const isAlreadyPlayingThis =
+        latestState.currentTrack?.videoId === targetTrack.videoId &&
+        latestState.isPlaying;
+      if (!isAlreadyPlayingThis) {
+        onTrackSelect?.(targetTrack);
       }
     },
     [numTracks, tracks, onTrackSelect, onActiveCardChange, onLoadMore]
@@ -155,7 +132,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
   handleSettleRef.current = handleSettle;
 
   const onSettleFromWorklet = useCallback((targetInt: number) => {
-    handleSettleRef.current(targetInt, false);
+    handleSettleRef.current(targetInt);
   }, []);
 
   // Ensure initial prefetch if queue starts short
@@ -262,7 +239,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       } else {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         virtualIndex.value = withSpring(clampedIdx, CAROUSEL_SPRING);
-        handleSettle(clampedIdx, true);
+        handleSettle(clampedIdx);
       }
     },
     [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks, virtualIndex]
