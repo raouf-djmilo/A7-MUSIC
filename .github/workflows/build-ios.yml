@@ -114,9 +114,7 @@ jobs:
             ${{ runner.os }}-cocoapods-
 
       - name: Expo Prebuild iOS
-        run: |
-          npx expo prebuild --platform ios --clean --no-install
-          find ios -name "AppDelegate.swift" -exec sed -i '' 's/import ReactAppDependencyProvider//g' {} + || true
+        run: npx expo prebuild --platform ios --clean --no-install
 
       - name: Install CocoaPods
         run: |
@@ -274,7 +272,7 @@ jobs:
           body: |
             ## 🎵 A7 MUSIC ${{ github.ref_name }}
 
-            **The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**
+            **Clean, lightweight Music app — 100% Free. No ads.**
 
             ### 📥 iOS Installation (Sideloading)
             1. Download `A7-MUSIC.ipa` below
