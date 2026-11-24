@@ -1,13 +1,13 @@
 {
-  "id": "7b3d6e2a-7166-42db-ba1a-53eed0b71b4e",
-  "createdAt": "2026-11-24T18:14:16.207Z",
+  "id": "88401a75-0a61-458c-8ea4-910d2ea414bf",
+  "createdAt": "2026-11-24T20:35:02.517Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "Q7B_q-b3LXycLhTYXA5L42Kaiq5O3Q282Jk_YRakyN8",
-    "key": "da31b61db7eba6128889953969142c36",
+    "hash": "HX3tTruKv-rbGA0hu8uQ6fqUd8AAU7cAgUnG268ZlPA",
+    "key": "4fb96a7df49a1778190e7bc20041ac39",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-5fb063ac82f9bcd5dd9b749988470f03.hbc"
+    "url": "./_expo/static/js/ios/index-9a66156a192b132f1a0e4bd3489af415.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.7cf6a9a",
+      "otaVersion": "1.6.5-ota.91e4d4c",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "7cf6a9a",
-      "title": "feat(ios): implement self-hosted GitHub Pages OTA updates via expo-updates",
+      "commitSha": "91e4d4c",
+      "title": "feat(home): redesign hero disc cards with Apple Liquid Glass and circular carousel",
       "highlights": [
-        "feat(ios): implement self-hosted GitHub Pages OTA updates via expo-updates",
+        "feat(home): redesign hero disc cards with Apple Liquid Glass and circular carousel",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T18:14:16.207Z",
-      "bundleSizeBytes": 5569583
+      "publishedAt": "2026-11-24T20:35:02.517Z",
+      "bundleSizeBytes": 5569298
     }
   }
 }
