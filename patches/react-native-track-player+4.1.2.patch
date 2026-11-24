@@ -33,15 +33,16 @@ index b2409a0..6a86ad4 100644
          )
      }
 diff --git a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
-index 125f7eb..663cf95 100644
+index 125f7eb..78f7c79 100644
 --- a/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
 +++ b/node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayerBridge.h
-@@ -7,6 +7,8 @@
+@@ -7,6 +7,9 @@
  //
  
  #import <Foundation/Foundation.h>
 +#import <React/RCTBridgeModule.h>
 +#import <React/RCTEventEmitter.h>
++#import <React/RCTConvert.h>
  
  @interface RNTrackPlayerBridge: NSObject
  @end
@@ -108,10 +109,10 @@ index 08c7d3c..33ec583 100644
      emitter = DeviceEventEmitter;
      progressUpdateEventInterval;
 diff --git a/node_modules/react-native-track-player/react-native-track-player.podspec b/node_modules/react-native-track-player/react-native-track-player.podspec
-index 9209aa2..4ffc17b 100644
+index 9209aa2..45f593a 100644
 --- a/node_modules/react-native-track-player/react-native-track-player.podspec
 +++ b/node_modules/react-native-track-player/react-native-track-player.podspec
-@@ -15,7 +15,12 @@ Pod::Spec.new do |s|
+@@ -15,7 +15,11 @@ Pod::Spec.new do |s|
    s.source = { :git => package["repository"]["url"], :tag => "v#{s.version}" }
    s.source_files = "ios/**/*.{h,m,swift}"
  
@@ -119,8 +120,7 @@ index 9209aa2..4ffc17b 100644
 +  s.swift_version = "5.0"
 +
 +  s.pod_target_xcconfig = {
-+    'DEFINES_MODULE' => 'YES',
-+    'SWIFT_OBJC_BRIDGING_HEADER' => '$(PODS_TARGET_SRCROOT)/ios/RNTrackPlayer/Support/RNTrackPlayer-Bridging-Header.h'
++    'DEFINES_MODULE' => 'YES'
 +  }
  
    s.dependency "React-Core"
