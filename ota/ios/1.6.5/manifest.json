@@ -1,13 +1,13 @@
 {
-  "id": "c7cdfbcb-cc11-40a1-8089-ee9520dd1ffa",
-  "createdAt": "2026-11-24T22:04:08.858Z",
+  "id": "65dac713-47d9-409c-9af6-d78e5b27e6fc",
+  "createdAt": "2026-11-24T22:11:18.479Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "WUlr1xUyrSalMVJApkizLkG5rMX2j4pXFpRAfF4FKxY",
-    "key": "bf304faa291dc007a14bc5e0e3c7bf71",
+    "hash": "6gYBG4IjM_eEgXy4VbnFJojwWdvxf4IgJLho93Ltx-Y",
+    "key": "e1a6394be7d34aba733ef9b1e57dc5b9",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-60c690c35d2bb2fe27cf7c71028449f1.hbc"
+    "url": "./_expo/static/js/ios/index-0faf7814f7951e950fbe7e7826e5af82.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.96f798a",
+      "otaVersion": "1.6.5-ota.894a7bf",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "96f798a",
-      "title": "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
+      "commitSha": "894a7bf",
+      "title": "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
       "highlights": [
-        "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
+        "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T22:04:08.858Z",
-      "bundleSizeBytes": 5579831
+      "publishedAt": "2026-11-24T22:11:18.479Z",
+      "bundleSizeBytes": 5580744
     }
   }
 }

@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.96f798a",
-  "updateId": "c7cdfbcb-cc11-40a1-8089-ee9520dd1ffa",
-  "publishedAt": "2026-11-24T22:04:08.858Z",
-  "title": "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
+  "otaVersion": "1.6.5-ota.894a7bf",
+  "updateId": "65dac713-47d9-409c-9af6-d78e5b27e6fc",
+  "publishedAt": "2026-11-24T22:11:18.479Z",
+  "title": "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
   "highlights": [
-    "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
+    "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5579831,
+  "bundleSizeBytes": 5580744,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
