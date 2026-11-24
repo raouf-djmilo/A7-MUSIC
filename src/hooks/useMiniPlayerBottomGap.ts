@@ -27,6 +27,8 @@ export const useMiniPlayerBottomGap = () => {
     'DashboardTab',
     'Dashboard',
     'MusicTab',
+    'SearchTab',
+    'LibraryTab',
     'MusicHome',
     'MusicSearch',
     'MusicLibrary',

@@ -151,7 +151,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingTop: insets.top + 54 }}
+      contentContainerStyle={{ paddingTop: insets.top + 12 }}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="automatic"
       removeClippedSubviews={true}
@@ -173,7 +173,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
         tracks={sections.quickJump}
         likedSongsCount={likedTrackIds.length}
         userId={user?.id}
-        onNavigateLibrary={() => navigation.navigate('MusicLibrary')}
+        onNavigateLibrary={() => navigation.navigate('LibraryTab')}
       />
 
       {/* ── Frame 1+: Deferred Rails (Mounts smoothly without blocking UI) ── */}

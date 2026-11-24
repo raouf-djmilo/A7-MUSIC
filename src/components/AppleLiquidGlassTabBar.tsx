@@ -52,6 +52,16 @@ const TAB_METAS: { [key: string]: { label: string; outlineIcon: string; filledIc
     outlineIcon: 'musical-notes-outline',
     filledIcon: 'musical-notes',
   },
+  SearchTab: {
+    label: 'بحث',
+    outlineIcon: 'search-outline',
+    filledIcon: 'search',
+  },
+  LibraryTab: {
+    label: 'المكتبة',
+    outlineIcon: 'library-outline',
+    filledIcon: 'library',
+  },
   ProfileTab: {
     label: 'حسابي',
     outlineIcon: 'person-outline',
@@ -62,6 +72,8 @@ const TAB_METAS: { [key: string]: { label: string; outlineIcon: string; filledIc
 const DEFAULT_ROUTES = [
   { name: 'DashboardTab', key: 'DashboardTab' },
   { name: 'MusicTab', key: 'MusicTab' },
+  { name: 'SearchTab', key: 'SearchTab' },
+  { name: 'LibraryTab', key: 'LibraryTab' },
   { name: 'ProfileTab', key: 'ProfileTab' },
 ];
 

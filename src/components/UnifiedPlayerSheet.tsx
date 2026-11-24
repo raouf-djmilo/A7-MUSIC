@@ -631,6 +631,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     'DashboardTab',
     'Dashboard',
     'MusicTab',
+    'SearchTab',
+    'LibraryTab',
     'MusicHome',
     'MusicSearch',
     'MusicLibrary',

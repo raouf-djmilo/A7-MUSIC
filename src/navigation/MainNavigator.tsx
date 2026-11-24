@@ -10,6 +10,8 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 // Screens
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MusicScreen } from '../screens/MusicScreen';
+import { MusicSearch } from '../screens/MusicSearch';
+import { MusicLibrary } from '../screens/MusicLibrary';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { AlbumDetailsScreen } from '../screens/AlbumDetailsScreen';
@@ -25,7 +27,7 @@ import { USE_NATIVE_LIQUID_TABS } from './navigationConfig';
 
 const Stack = createNativeStackNavigator();
 
-const TAB_ROUTES = ['DashboardTab', 'MusicTab', 'ProfileTab'];
+const TAB_ROUTES = ['DashboardTab', 'MusicTab', 'SearchTab', 'LibraryTab', 'ProfileTab'];
 
 // ======================================================
 // Fast Tab Viewport (display: 'none' + startTransition)
@@ -59,6 +61,8 @@ const TabNavigator = ({ route }: any) => {
     () => [
       { key: 'DashboardTab', component: DashboardScreen },
       { key: 'MusicTab', component: MusicScreen },
+      { key: 'SearchTab', component: MusicSearch },
+      { key: 'LibraryTab', component: MusicLibrary },
       { key: 'ProfileTab', component: ProfileScreen },
     ],
     []
@@ -113,6 +117,12 @@ export const MainNavigator = () => {
           </Stack.Screen>
           <Stack.Screen name="MusicTab">
             {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'MusicTab' } }} />}
+          </Stack.Screen>
+          <Stack.Screen name="SearchTab">
+            {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'SearchTab' } }} />}
+          </Stack.Screen>
+          <Stack.Screen name="LibraryTab">
+            {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'LibraryTab' } }} />}
           </Stack.Screen>
           <Stack.Screen name="ProfileTab">
             {(props) => <TabNavigator {...props} route={{ ...props.route, params: { screen: 'ProfileTab' } }} />}

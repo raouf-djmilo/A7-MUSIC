@@ -252,7 +252,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Search Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 52 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.searchBarContainer}>
           <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginLeft: 15 }} />
           <TextInput

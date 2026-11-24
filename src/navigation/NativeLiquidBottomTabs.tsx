@@ -3,6 +3,8 @@ import { StyleSheet } from 'react-native';
 import { Tabs } from 'react-native-screens';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MusicScreen } from '../screens/MusicScreen';
+import { MusicSearch } from '../screens/MusicSearch';
+import { MusicLibrary } from '../screens/MusicLibrary';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { useAudioStore } from '../store/useAudioStore';
@@ -13,7 +15,7 @@ export interface NativeLiquidBottomTabsProps {
   onTabChange: (index: number) => void;
 }
 
-const TAB_KEYS = ['DashboardTab', 'MusicTab', 'ProfileTab'] as const;
+const TAB_KEYS = ['DashboardTab', 'MusicTab', 'SearchTab', 'LibraryTab', 'ProfileTab'] as const;
 
 /**
  * 🧪 Phase 2: Apple Native Liquid BottomTabs via react-native-screens 4.30
@@ -127,6 +129,36 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
         }}
       >
         <MusicScreen />
+      </Tabs.Screen>
+
+      <Tabs.Screen
+        screenKey="SearchTab"
+        title="بحث"
+        ios={{
+          icon: {
+            type: 'sfSymbol',
+            name: 'magnifyingglass',
+          },
+          standardAppearance: screenAppearance,
+          scrollEdgeAppearance: screenAppearance,
+        }}
+      >
+        <MusicSearch />
+      </Tabs.Screen>
+
+      <Tabs.Screen
+        screenKey="LibraryTab"
+        title="المكتبة"
+        ios={{
+          icon: {
+            type: 'sfSymbol',
+            name: 'books.vertical',
+          },
+          standardAppearance: screenAppearance,
+          scrollEdgeAppearance: screenAppearance,
+        }}
+      >
+        <MusicLibrary />
       </Tabs.Screen>
 
       <Tabs.Screen

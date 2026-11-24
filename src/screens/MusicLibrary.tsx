@@ -709,7 +709,7 @@ export const MusicLibrary = () => {
         ListHeaderComponent={renderHeader}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: insets.top + 54, paddingBottom: miniPlayerBottomGap },
+          { paddingTop: insets.top + 12, paddingBottom: miniPlayerBottomGap },
         ]}
         refreshControl={
           <RefreshControl
