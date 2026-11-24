@@ -187,7 +187,7 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
                 priority={isCenter ? 'high' : 'normal'}
                 cachePolicy="memory-disk"
                 recyclingKey={`art-${track?.videoId || cardVirtualPos}`}
-                transition={100}
+                transition={80}
               />
               <LinearGradient
                 colors={['rgba(255,255,255,0.10)', 'transparent', 'rgba(0,0,0,0.14)']}

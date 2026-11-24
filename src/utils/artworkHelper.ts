@@ -82,11 +82,31 @@ export async function fetchStudioAlbumArtAsync(
 
   try {
     const q = encodeURIComponent(`${cleanA} ${cleanT}`);
-    const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=1`);
+    const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=3`);
     if (!res.ok) return null;
     const json = await res.json();
-    if (json.results && json.results.length > 0 && json.results[0].artworkUrl100) {
-      const art = json.results[0].artworkUrl100.replace('100x100bb.jpg', '1200x1200bb.jpg');
+    const results = Array.isArray(json.results) ? json.results : [];
+    const normA = cleanA.toLowerCase();
+    const normT = cleanT.toLowerCase();
+
+    // Verify artist or title overlap so we never cache a mismatched iTunes cover
+    const matched = results.find((item: any) => {
+      if (!item?.artworkUrl100) return false;
+      const rArtist = String(item.artistName || '').toLowerCase();
+      const rTrack = String(item.trackName || '').toLowerCase();
+      const artistMatch =
+        !normA ||
+        rArtist.includes(normA) ||
+        normA.split(/\s+/).some((tok) => tok.length >= 3 && rArtist.includes(tok));
+      const titleMatch =
+        !normT ||
+        rTrack.includes(normT) ||
+        normT.split(/\s+/).some((tok) => tok.length >= 3 && rTrack.includes(tok));
+      return artistMatch && titleMatch;
+    });
+
+    if (matched?.artworkUrl100) {
+      const art = matched.artworkUrl100.replace('100x100bb.jpg', '800x800bb.jpg');
       if (cacheKey) studioArtworkCache.set(cacheKey, art);
       if (videoId) studioArtworkCache.set(videoId, art);
       if (cleanA && cleanT) studioArtworkCache.set(`${cleanA.toLowerCase()}::${cleanT.toLowerCase()}`, art);
@@ -148,29 +168,31 @@ export const getUniversalStudioArtwork = (
       .replace(/=w\d+-h\d+(-[a-z0-9-]+)?/g, '=w800-h800-s-no-rj');
   }
 
-  // 3. YouTube Music Official Square Album Covers: upgrade to 1200x1200 master
+  // 3. YouTube Music Official Square Album Covers: crisp & fast 800x800 master
   if (clean.includes('googleusercontent.com') || clean.includes('ytimg.com/image/')) {
     if (/=w\d+-h\d+[^?&]*/.test(clean)) {
-      return clean.replace(/=w\d+-h\d+[^?&]*/, '=w1200-h1200-l90-rj');
+      return clean.replace(/=w\d+-h\d+[^?&]*/, '=w800-h800-l90-rj');
     }
     if (/=s\d+[^?&]*/.test(clean)) {
-      return clean.replace(/=s\d+[^?&]*/, '=s1200-c-k-c0x00ffffff-no-rj');
+      return clean.replace(/=s\d+[^?&]*/, '=s800-c-k-c0x00ffffff-no-rj');
     }
     const separator = clean.includes('?') ? '&' : '=';
-    return `${clean}${separator}w1200-h1200-l90-rj`;
+    return `${clean}${separator}w800-h800-l90-rj`;
   }
 
-  // 4. YouTube Video Thumbnails: Upgrade to maxresdefault.jpg (1280x720 HD, ZERO black bars!)
+  // 4. YouTube Video Thumbnails: Upgrade to hq720.jpg / maxresdefault.jpg
   if (clean.includes('ytimg.com/vi/') || clean.includes('/vi/')) {
     const vid = clean.split('/vi/')[1]?.split('/')[0];
     if (vid && vid.length >= 8) {
-      return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
+      return clean.includes('maxresdefault')
+        ? `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`
+        : `https://i.ytimg.com/vi/${vid}/hq720.jpg`;
     }
   }
 
-  // 5. If we have a video ID, return maxresdefault
+  // 5. If we have a video ID, return reliable hq720.jpg (maxresdefault 404s on many tracks)
   if (resolvedVid && resolvedVid.length >= 8) {
-    return `https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`;
+    return `https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`;
   }
 
   return clean;
@@ -178,9 +200,8 @@ export const getUniversalStudioArtwork = (
 
 /**
  * 🛡️ Native Resolution Cascade Engine for `expo-image`
- * Returns an array of dynamic image sources:
- * [Studio 1200x1200, YouTube Music Square 1200x1200, maxresdefault (1080p/720p HD), hq720, maxresdefault.webp, sddefault, original]
- * Guaranteed: Zero black bars, Zero pixelation, Zero fake fixed images!
+ * Prioritizes authentic YouTube Music official album art first, then reliable HD YouTube thumbnails
+ * (never leading with 404-prone maxresdefault when an official YTM cover exists).
  */
 export const getUniversalStudioArtworkSource = (
   url?: string | null,
@@ -203,27 +224,31 @@ export const getUniversalStudioArtworkSource = (
     sources.push({ uri: trimmed });
   };
 
-  // 1. Studio official square album cover from dynamic runtime cache (1200x1200bb)
+  const isOfficialYtmSquare =
+    Boolean(url && (url.includes('googleusercontent.com') || url.includes('ytimg.com/image/')));
+
+  // 1. Official YouTube Music Square Album Cover (800x800, fast & authentic)
+  if (isOfficialYtmSquare && url) {
+    pushSource(getUniversalStudioArtwork(url, title, artist, videoId));
+  }
+
+  // 2. Studio official square album cover from verified dynamic cache
   const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
   if (cacheKey && studioArtworkCache.has(cacheKey)) {
     pushSource(studioArtworkCache.get(cacheKey));
   }
 
-  // 2. YouTube Music Official Square Album Covers (Ultra-res 1200x1200)
-  if (url && (url.includes('googleusercontent.com') || url.includes('ytimg.com/image/'))) {
-    pushSource(getUniversalStudioArtwork(url, title, artist, videoId));
-  }
-
-  // 3. YouTube Video Thumbnails: Fast High-Fidelity Cascade (1080p -> 720p -> HQ)
-  if (resolvedVid && resolvedVid.length >= 8) {
-    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`);
-    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
-    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
-  }
-
-  // 4. Track's own original thumbnail URL if valid
+  // 3. Track's original thumbnail URL if valid
   if (url && typeof url === 'string' && url.startsWith('http')) {
     pushSource(url);
+  }
+
+  // 4. Reliable YouTube Video Thumbnail Cascade (hq720 -> hqdefault guaranteed never 404)
+  if (resolvedVid && resolvedVid.length >= 8) {
+    if (!isOfficialYtmSquare) {
+      pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
+    }
+    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
   }
 
   return sources;

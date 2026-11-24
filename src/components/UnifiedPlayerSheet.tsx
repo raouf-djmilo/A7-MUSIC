@@ -243,7 +243,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const mediaContainerRef = useRef<any>(null);
   const youtubePlayerRef = useRef<YoutubeIframeRef>(null);
   const isSwitchingModeRef = useRef<boolean>(false);
+  const lastTrackSwitchAtRef = useRef<number>(0);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
+
+  // Track videoId transitions so transient YouTube IFrame 'paused' events during loadVideoById never pause playback
+  useEffect(() => {
+    lastTrackSwitchAtRef.current = Date.now();
+  }, [currentTrack?.videoId]);
 
   const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.42, 380);
   const cardVideoHeight = Math.round((cardWidth * 9) / 16);
@@ -1791,13 +1797,26 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         isLoading: false,
                         loadingTrackId: null,
                       });
+                    } else if ((state === 'cued' || state === 'unstarted') && useAudioStore.getState().isPlaying) {
+                      (youtubePlayerRef.current as any)?.playVideo?.();
                     } else if (state === 'paused') {
                       if (isSwitchingModeRef.current) return;
-                      // 🛡️ Loading guard: Never override isPlaying while a new track is loading!
-                      if (useAudioStore.getState().isLoading || useAudioStore.getState().loadingTrackId) {
+                      const storeState = useAudioStore.getState();
+                      // 🛡️ Loading & Track-Switch Guard:
+                      // Changing `videoId` on YoutubePlayer fires a transient 'paused' event as the old
+                      // video unloads. Ignore it for 1.8s unless the user explicitly pressed pause.
+                      const isRecentTrackSwitch = Date.now() - lastTrackSwitchAtRef.current < 1800;
+                      if (
+                        storeState.isLoading ||
+                        storeState.loadingTrackId ||
+                        (isRecentTrackSwitch && !storeState.isUserPauseAction && storeState.isPlaying)
+                      ) {
+                        if (storeState.isPlaying && !storeState.isUserPauseAction) {
+                          (youtubePlayerRef.current as any)?.playVideo?.();
+                        }
                         return;
                       }
-                      const { isPlaying: isStorePlaying, isUserPauseAction } = useAudioStore.getState();
+                      const { isPlaying: isStorePlaying, isUserPauseAction } = storeState;
                       if (isUserPauseAction || !isStorePlaying) {
                         // 🛡️ Deliberate user pause from widget, headphones, or in-app button: keep paused!
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
