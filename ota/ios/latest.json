@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.b27f878",
-  "updateId": "c86c6259-2053-4625-b149-1608e38fd2d4",
-  "publishedAt": "2026-11-24T20:45:00.485Z",
-  "title": "fix(home): use persistent slot pool, debounce playback, and stabilize 3D glass motion",
+  "otaVersion": "1.6.5-ota.5ef3f8d",
+  "updateId": "da5e8e2c-809c-4532-94df-f6603eced37e",
+  "publishedAt": "2026-11-24T21:33:53.061Z",
+  "title": "perf(home): eliminate 3D card slicing and per-card GPU blur overhead for 120fps swiping",
   "highlights": [
-    "fix(home): use persistent slot pool, debounce playback, and stabilize 3D glass motion",
+    "perf(home): eliminate 3D card slicing and per-card GPU blur overhead for 120fps swiping",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5571294,
+  "bundleSizeBytes": 5571871,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
