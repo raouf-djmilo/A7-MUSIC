@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.8830aab",
-  "updateId": "7d844de8-1b65-4207-b618-629c8a2c82d5",
-  "publishedAt": "2026-11-24T22:34:50.212Z",
-  "title": "feat(settings,ota): add optional iOS notification permission switch and smart OTA schema migration",
+  "otaVersion": "1.6.5-ota.700927d",
+  "updateId": "87400567-7c23-4d42-89d7-3503fbc0e20a",
+  "publishedAt": "2026-11-24T22:47:18.157Z",
+  "title": "fix(home,player): direct 0ms center-card playback and remove 1.8s pause timer for instant user control",
   "highlights": [
-    "feat(settings,ota): add optional iOS notification permission switch and smart OTA schema migration",
+    "fix(home,player): direct 0ms center-card playback and remove 1.8s pause timer for instant user control",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5690186,
+  "bundleSizeBytes": 5689653,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
