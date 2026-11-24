@@ -99,6 +99,12 @@ def main():
     file_count = 0
 
     for root, dirs, files in os.walk(target_dir):
+        # Prune irrelevant directories to cut node_modules scan from ~100s to <1s
+        if os.path.basename(root) == 'node_modules':
+            dirs[:] = [d for d in dirs if d.startswith('expo') or d in ('@expo', 'react-native', '@react-native')]
+        else:
+            dirs[:] = [d for d in dirs if d not in ('.git', 'android', 'web', '__tests__', 'Tests', 'build', 'node_modules')]
+
         for f in files:
             path = os.path.join(root, f)
             if f.endswith('.tar.gz'):

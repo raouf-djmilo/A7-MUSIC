@@ -20,6 +20,11 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPO_IMAGE_DISABLE_LIBDAV1D: "1"
   USE_CCACHE: "1"
+  CCACHE_SLOPPINESS: "clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,time_macros"
+
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -122,36 +127,6 @@ jobs:
           cd ..
           python3 .github/scripts/normalize-swiftinterfaces.py ios
 
-      - name: Cache ExpoModulesJSI xcframework
-        id: cache-jsi
-        uses: actions/cache@v4
-        with:
-          path: node_modules/expo-modules-jsi/apple/Products
-          key: ${{ runner.os }}-expo-jsi-${{ hashFiles('package-lock.json', 'patches/expo-modules-jsi*') }}
-
-      - name: Prebuild ExpoModulesJSI xcframework
-        run: |
-          if [ -d "node_modules/expo-modules-jsi/apple/Products/ExpoModulesJSI.xcframework" ]; then
-            echo "✅ Using cached ExpoModulesJSI.xcframework"
-            exit 0
-          fi
-          cd ios
-          PODS_DIR="$(pwd)/Pods"
-          cd ../node_modules/expo-modules-jsi/apple
-          chmod +x scripts/*.sh
-          echo "🔨 Prebuilding ExpoModulesJSI.xcframework for iphoneos..."
-          PODS_ROOT="$PODS_DIR" PLATFORM_NAME=iphoneos ./scripts/build-xcframework.sh 2>&1 | tee prebuild_jsi.log
-          STATUS=${PIPESTATUS[0]}
-          if [ $STATUS -ne 0 ]; then
-            echo "❌ Prebuild failed! Inspecting log errors:"
-            echo "## ❌ Prebuild ExpoModulesJSI Failed (Status $STATUS)" >> $GITHUB_STEP_SUMMARY
-            echo '```text' >> $GITHUB_STEP_SUMMARY
-            tail -n 120 prebuild_jsi.log >> $GITHUB_STEP_SUMMARY || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            grep -E -C 3 -i "(error:|failed:|fatal error:)" prebuild_jsi.log | head -n 150 || tail -n 100 prebuild_jsi.log
-            exit $STATUS
-          fi
-
       - name: Build iOS App (Unsigned)
         run: |
           cd ios
@@ -195,12 +170,13 @@ jobs:
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
+            SWIFT_SUPPRESS_WARNINGS=YES \
             SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+            CLANG_ENABLE_EXPLICIT_MODULES=NO \
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \
             DEBUG_INFORMATION_FORMAT=dwarf \
             DEAD_CODE_STRIPPING=YES \
-            OTHER_SWIFT_FLAGS="-suppress-warnings" \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
             2>&1 | tee xcodebuild.log
           
