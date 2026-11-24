@@ -1,13 +1,13 @@
 {
-  "id": "88401a75-0a61-458c-8ea4-910d2ea414bf",
-  "createdAt": "2026-11-24T20:35:02.517Z",
+  "id": "c86c6259-2053-4625-b149-1608e38fd2d4",
+  "createdAt": "2026-11-24T20:45:00.485Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "HX3tTruKv-rbGA0hu8uQ6fqUd8AAU7cAgUnG268ZlPA",
-    "key": "4fb96a7df49a1778190e7bc20041ac39",
+    "hash": "H-MSv1rXRnYD79eID-xzkjH2rI3PVYV3456IMNj2hqg",
+    "key": "25d1d8ecf609554769bea39627481c00",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-9a66156a192b132f1a0e4bd3489af415.hbc"
+    "url": "./_expo/static/js/ios/index-72b3d74c608759f3694cb52506a674f3.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.91e4d4c",
+      "otaVersion": "1.6.5-ota.b27f878",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "91e4d4c",
-      "title": "feat(home): redesign hero disc cards with Apple Liquid Glass and circular carousel",
+      "commitSha": "b27f878",
+      "title": "fix(home): use persistent slot pool, debounce playback, and stabilize 3D glass motion",
       "highlights": [
-        "feat(home): redesign hero disc cards with Apple Liquid Glass and circular carousel",
+        "fix(home): use persistent slot pool, debounce playback, and stabilize 3D glass motion",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T20:35:02.517Z",
-      "bundleSizeBytes": 5569298
+      "publishedAt": "2026-11-24T20:45:00.485Z",
+      "bundleSizeBytes": 5571294
     }
   }
 }
