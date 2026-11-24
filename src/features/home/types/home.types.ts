@@ -16,7 +16,7 @@ export interface LiquidGlassDiscCardProps {
   track: Track;
   cardVirtualPos: number;
   virtualIndex: SharedValue<number>;
-  onPress: () => void;
+  onPress: (cardVirtualPos: number) => void;
   isCenter: boolean;
   isPlayingThisTrack: boolean;
 }

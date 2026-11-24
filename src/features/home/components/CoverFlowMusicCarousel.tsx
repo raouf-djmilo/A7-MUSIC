@@ -24,22 +24,24 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Critically damped Apple spring for buttery settle without harsh bounce or jitter
+// Fast, crisp Apple spring (high stiffness, light mass -> zero sluggish tail)
 const CAROUSEL_SPRING = {
-  damping: 26,
-  stiffness: 220,
-  mass: 0.7,
+  damping: 28,
+  stiffness: 360,
+  mass: 0.55,
 };
 
-const SLOT_OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
+// 5-slot persistent pool (Left-2, Left-1, Center, Right+1, Right+2) minimizes GPU draw cost
+const SLOT_OFFSETS = [-2, -1, 0, 1, 2];
 const SLOT_POOL_SIZE = SLOT_OFFSETS.length;
-const PLAY_SETTLE_DEBOUNCE_MS = 180;
+const DRAG_UNIT_PX = Math.round(HERO_CARD_SPACING * 0.85);
+const PLAY_SETTLE_DEBOUNCE_MS = 190;
 
 /**
- * 3D Apple Liquid Glass circular cover-flow disc carousel.
- * - Uses a persistent 7-slot view pool so native BlurViews never unmount/drop during fast swipes.
- * - Allows free 1:1 finger dragging with smooth velocity projection across cards.
- * - Debounces playback triggers during rapid consecutive flicks to eliminate JS bridge freezes.
+ * 120fps Apple Liquid Glass circular cover-flow carousel.
+ * - Persistent 5-slot pool guarantees zero mount/unmount frame drops.
+ * - Free 1:1 finger tracking with light responsive spring physics.
+ * - Defers ambient/audio work until settle so animations never drop frames.
  */
 export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = React.memo(({
   tracks,
@@ -65,12 +67,12 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
 
   const settledIndexRef = useRef(initialIndex);
   const isSelfTriggeredRef = useRef(false);
-  const playDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (playDebounceTimerRef.current) {
-        clearTimeout(playDebounceTimerRef.current);
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current);
       }
     };
   }, []);
@@ -88,19 +90,18 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       if (!targetTrack) return;
 
       isSelfTriggeredRef.current = true;
-      onActiveCardChange?.(targetTrack);
 
-      if (playDebounceTimerRef.current) {
-        clearTimeout(playDebounceTimerRef.current);
-        playDebounceTimerRef.current = null;
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
       }
 
-      const triggerPlay = () => {
+      const dispatchEffects = () => {
+        onActiveCardChange?.(targetTrack);
         const latestState = useAudioStore.getState();
-        if (latestState.currentTrack?.videoId === targetTrack.videoId && latestState.isPlaying) {
-          return;
+        if (!(latestState.currentTrack?.videoId === targetTrack.videoId && latestState.isPlaying)) {
+          onTrackSelect?.(targetTrack);
         }
-        onTrackSelect?.(targetTrack);
         if (numTracks > 1 && wrappedArrayIdx >= numTracks - 4 && onLoadMore) {
           onLoadMore();
         }
@@ -109,10 +110,10 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       if (immediatePlay) {
-        triggerPlay();
+        dispatchEffects();
       } else {
-        // Wait briefly for rapid consecutive swipes to stop before dispatching native audio fetch
-        playDebounceTimerRef.current = setTimeout(triggerPlay, PLAY_SETTLE_DEBOUNCE_MS);
+        // Defer ambient canvas & audio fetch briefly so spring animation finishes at locked 60/120fps
+        settleTimerRef.current = setTimeout(dispatchEffects, PLAY_SETTLE_DEBOUNCE_MS);
       }
     },
     [numTracks, tracks, onTrackSelect, onActiveCardChange, onLoadMore]
@@ -155,7 +156,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       .onUpdate((e) => {
         'worklet';
         if (numTracks <= 1) return;
-        virtualIndex.value = dragStartVirtual.value - e.translationX / HERO_CARD_SPACING;
+        virtualIndex.value = dragStartVirtual.value - e.translationX / DRAG_UNIT_PX;
       })
       .onEnd((e) => {
         'worklet';
@@ -165,23 +166,21 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
         }
 
         const startInt = Math.round(dragStartVirtual.value);
-        // Smooth free velocity projection capped to at most 3 cards per flick
-        const rawProjected = virtualIndex.value - (e.velocityX / HERO_CARD_SPACING) * 0.14;
-        const delta = Math.max(-3, Math.min(3, Math.round(rawProjected - startInt)));
+        const rawProjected = virtualIndex.value - (e.velocityX / DRAG_UNIT_PX) * 0.12;
+        const delta = Math.max(-2, Math.min(2, Math.round(rawProjected - startInt)));
         let targetInt = startInt + delta;
 
-        // Ensure quick gentle flicks still advance reliably by 1 card
         if (targetInt === startInt) {
-          if (e.translationX < -20 || e.velocityX < -160) {
+          if (e.translationX < -18 || e.velocityX < -150) {
             targetInt = startInt + 1;
-          } else if (e.translationX > 20 || e.velocityX > 160) {
+          } else if (e.translationX > 18 || e.velocityX > 150) {
             targetInt = startInt - 1;
           }
         }
 
         virtualIndex.value = withSpring(targetInt, {
           ...CAROUSEL_SPRING,
-          velocity: -e.velocityX / HERO_CARD_SPACING,
+          velocity: -e.velocityX / DRAG_UNIT_PX,
         });
         runOnJS(onSettleFromWorklet)(targetInt);
       });
@@ -213,7 +212,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
     [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks, virtualIndex]
   );
 
-  // Persistent slot descriptors sorted by pool slot ID so React NEVER unmounts/remounts BlurViews on swipe
+  // Stable callback map per slot virtual pos avoids breaking React.memo on re-render
   const pooledCards = useMemo(() => {
     if (numTracks === 0) return [];
     if (numTracks === 1) {
@@ -237,7 +236,6 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       };
     }).filter((item) => Boolean(item.track));
 
-    // Keep consistent React child order by poolKey so native views stay mounted across swipes
     items.sort((a, b) => a.poolKey.localeCompare(b.poolKey));
     return items;
   }, [numTracks, settledIndex, tracks]);
@@ -256,7 +254,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
               virtualIndex={virtualIndex}
               isCenter={item.isCenter}
               isPlayingThisTrack={false}
-              onPress={() => handleCardTap(item.cardVirtualPos)}
+              onPress={handleCardTap}
             />
           ))}
         </View>
