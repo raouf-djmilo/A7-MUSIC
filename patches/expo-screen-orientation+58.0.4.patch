@@ -1,0 +1,30 @@
+diff --git a/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift b/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
+index a49bc29..f163f4f 100644
+--- a/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
++++ b/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
+@@ -105,14 +105,22 @@ class ScreenOrientationViewController: ExpoRootViewController {
+   /// sits between this root VC and the RNSNavigationController, blocking the single-level
+   /// traversal that RNScreens' shouldAskScreensForScreenOrientation performs.
+   private func vcWithRNScreenOrientation() -> UIViewController? {
+-    guard let screenWindowTraitsClass = NSClassFromString("RNSScreenWindowTraits") else {
++    guard let screenWindowTraitsClass = NSClassFromString("RNSScreenWindowTraits") as AnyObject? else {
+       return nil
+     }
+-    if screenWindowTraitsClass.shouldAskScreensForScreenOrientation?(in: self) ?? false {
++    let sel = NSSelectorFromString("shouldAskScreensForScreenOrientationInViewController:")
++    guard screenWindowTraitsClass.responds(to: sel),
++          let methodIMP = screenWindowTraitsClass.method(for: sel) else {
++      return nil
++    }
++    typealias ShouldAskScreensFn = @convention(c) (AnyObject, Selector, UIViewController) -> Bool
++    let shouldAskScreens = unsafeBitCast(methodIMP, to: ShouldAskScreensFn.self)
++
++    if shouldAskScreens(screenWindowTraitsClass, sel, self) {
+       return self
+     }
+     for child in children {
+-      if screenWindowTraitsClass.shouldAskScreensForScreenOrientation?(in: child) ?? false {
++      if shouldAskScreens(screenWindowTraitsClass, sel, child) {
+         return child
+       }
+     }
