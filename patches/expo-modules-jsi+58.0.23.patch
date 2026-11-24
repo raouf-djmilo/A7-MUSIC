@@ -106,6 +106,48 @@ index 2aa6bb3..d2aeecf 100644
        }
        return UncheckedSendableBox(decoded)
      }
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+index 9dec012..0df77d3 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+@@ -436,7 +436,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+ 
+     // The factory gets the name as data, never as source. This check keeps the contract that a name
+     // which is not a valid JS identifier throws `InvalidIdentifierError`.
+-    if name.wholeMatch(of: /^[a-zA-Z_$][a-zA-Z0-9_$]*$/) == nil {
++    if name.wholeMatch(of: try! Regex(#"^[a-zA-Z_$][a-zA-Z_$0-9]*$"#)) == nil {
+       throw InvalidIdentifierError(identifier: name)
+     }
+ 
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
+index 148f693..ca25700 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
+@@ -56,7 +56,7 @@ public struct JavaScriptPromise: JavaScriptType, ~Copyable {
+     }
+   }
+ 
+-  private let longLivedState = LongLivedState()
++  private let longLivedState: LongLivedState
+ 
+   /// Dropping the wrapper means no native code can settle or read this promise anymore, so release
+   /// its long-lived state. The values can only be touched on the JS thread while the runtime is
+@@ -79,6 +79,7 @@ public struct JavaScriptPromise: JavaScriptType, ~Copyable {
+   @JavaScriptActor
+   public init(_ runtime: borrowing JavaScriptRuntime, _ object: consuming JavaScriptObject) throws {
+     self.scheduler = runtime.scheduler
++    self.longLivedState = LongLivedState()
+     // Reject a non-thenable here rather than at the first `await()`, which is where the `then`
+     // callbacks are actually installed (see `deferredPromiseForAwait()`).
+     _ = try object.getPropertyAsFunction(.cached(runtime, "then"))
+@@ -93,6 +94,7 @@ public struct JavaScriptPromise: JavaScriptType, ~Copyable {
+   @JavaScriptActor
+   public init(_ runtime: borrowing JavaScriptRuntime) throws {
+     self.scheduler = runtime.scheduler
++    self.longLivedState = LongLivedState()
+ 
+     // The promise and its two settle functions come from a JavaScript closure that returns all three
+     // at once, rather than from `new Promise(executor)` with a host function as the executor. The
 diff --git a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh b/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
 index e38a4d2..e75436e 100644
 --- a/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh
