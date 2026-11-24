@@ -1,13 +1,13 @@
 {
-  "id": "da5e8e2c-809c-4532-94df-f6603eced37e",
-  "createdAt": "2026-11-24T21:33:53.061Z",
+  "id": "2d87f460-2236-4cec-a5b0-111f0a6a508c",
+  "createdAt": "2026-11-24T21:56:49.788Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "qNInKMDccZl9ZTU8kmzyZ29QiFh183jo3leb-ZSPjnE",
-    "key": "27bf738fc24a14da824a3ae3113f174f",
+    "hash": "jzhrlqx4UnfsGCfh-4IDGW9m-r9GP_uFg2KBYPe2tKU",
+    "key": "63e9006779d6b8092a1ad7eecfec57bb",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-17757d0c8906e41c59306d83592bff35.hbc"
+    "url": "./_expo/static/js/ios/index-e7e939986d74d7dfab98f1ab6f85235f.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.5ef3f8d",
+      "otaVersion": "1.6.5-ota.6365bb9",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "5ef3f8d",
-      "title": "perf(home): eliminate 3D card slicing and per-card GPU blur overhead for 120fps swiping",
+      "commitSha": "6365bb9",
+      "title": "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
       "highlights": [
-        "perf(home): eliminate 3D card slicing and per-card GPU blur overhead for 120fps swiping",
+        "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T21:33:53.061Z",
-      "bundleSizeBytes": 5571871
+      "publishedAt": "2026-11-24T21:56:49.788Z",
+      "bundleSizeBytes": 5577642
     }
   }
 }
