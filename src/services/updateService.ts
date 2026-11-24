@@ -21,10 +21,39 @@ import {
 
 const UPDATE_CACHE_KEY = '@a7music_cached_ios_update_v2';
 const NOTIFIED_OTA_ID_KEY = '@a7music_last_notified_ota_id_v1';
+const NOTIFICATIONS_OPT_IN_KEY = '@a7music_notifications_opt_in';
+const SCHEMA_VERSION_KEY = '@a7music_data_schema_version';
+const CURRENT_DATA_SCHEMA_VERSION = 2;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache for silent checks
+
+/**
+ * Smart local storage migration when an OTA/native update changes data structures
+ * or fixes stale caches, without erasing user history, likes, or offline downloads.
+ */
+export async function runSmartOtaMigrationIfNeeded(): Promise<void> {
+  try {
+    const rawVer = await AsyncStorage.getItem(SCHEMA_VERSION_KEY);
+    const prevVer = rawVer ? Number(rawVer) : 1;
+    if (prevVer >= CURRENT_DATA_SCHEMA_VERSION) return;
+
+    const allKeys = await AsyncStorage.getAllKeys();
+    // Schema v2: purge legacy artwork cache that could hold mismatched iTunes covers
+    const staleArtworkKeys = allKeys.filter((k) => k.startsWith('@a7_art_'));
+    if (staleArtworkKeys.length > 0) {
+      await AsyncStorage.multiRemove(staleArtworkKeys);
+    }
+
+    await AsyncStorage.setItem(SCHEMA_VERSION_KEY, String(CURRENT_DATA_SCHEMA_VERSION));
+  } catch {
+    // Non-fatal migration guard
+  }
+}
 
 async function sendOtaSystemNotification(details: OtaUpdateDetails): Promise<void> {
   try {
+    const optIn = await AsyncStorage.getItem(NOTIFICATIONS_OPT_IN_KEY);
+    if (optIn === 'false') return;
+
     const notif = getNotifications();
     if (!notif?.scheduleNotificationAsync) return;
 
@@ -35,8 +64,7 @@ async function sendOtaSystemNotification(details: OtaUpdateDetails): Promise<voi
 
     const perms = await safeGetPermissionsAsync();
     if (!perms.granted) {
-      const req = await safeRequestPermissionsAsync();
-      if (!req.granted) return;
+      return;
     }
 
     await notif.scheduleNotificationAsync({

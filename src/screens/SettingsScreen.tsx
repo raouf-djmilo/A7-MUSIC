@@ -27,6 +27,11 @@ import { useDownloadStore, downloadService } from '../services/downloadService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { useUpdateStore } from '../services/updateService';
 import {
+  safeGetPermissionsAsync,
+  safeRequestPermissionsAsync,
+  safeSetNotificationHandler,
+} from '../services/notificationService';
+import {
   getInstalledAppVersion,
   APP_BUILD_NAME,
   APP_RELEASE_YEAR,
@@ -34,6 +39,7 @@ import {
 } from '../config/version';
 
 const STORAGE_BG_PLAYBACK_KEY = '@nouble_background_playback_pref';
+const STORAGE_NOTIFICATIONS_KEY = '@a7music_notifications_opt_in';
 
 export const SettingsScreen = () => {
   const navigation = useNavigation<any>();
@@ -54,6 +60,7 @@ export const SettingsScreen = () => {
   } = useAudioStore();
 
   const [bgPlayback, setBgPlayback] = useState(backgroundAudioEnabled);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
 
   // Initial load
@@ -69,7 +76,69 @@ export const SettingsScreen = () => {
         useAudioStore.setState({ backgroundAudioEnabled: isEnabled });
       }
     }).catch(() => {});
+
+    // Sync iOS notification permission & user opt-in preference
+    Promise.all([
+      AsyncStorage.getItem(STORAGE_NOTIFICATIONS_KEY),
+      safeGetPermissionsAsync(),
+    ])
+      .then(([savedOptIn, perms]) => {
+        const enabled = Boolean(perms.granted && savedOptIn !== 'false');
+        setNotificationsEnabled(enabled);
+      })
+      .catch(() => {});
   }, [checkUpdates, loadManifest]);
+
+  // Optional System Notifications Toggle (requests full iOS notification access)
+  const handleNotificationsToggle = async (val: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!val) {
+      setNotificationsEnabled(false);
+      await AsyncStorage.setItem(STORAGE_NOTIFICATIONS_KEY, 'false').catch(() => {});
+      ToastManager.show({
+        title: 'تم إيقاف إشعارات التحديثات',
+        subtitle: 'لن تصلك تنبيهات خارج التطبيق عند توفر تحديث جديد',
+        icon: 'notifications-off-outline',
+      });
+      return;
+    }
+
+    const currentPerms = await safeGetPermissionsAsync();
+    let granted = currentPerms.granted;
+    if (!granted) {
+      const req = await safeRequestPermissionsAsync();
+      granted = req.granted;
+    }
+
+    if (granted) {
+      safeSetNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+      setNotificationsEnabled(true);
+      await AsyncStorage.setItem(STORAGE_NOTIFICATIONS_KEY, 'true').catch(() => {});
+      ToastManager.show({
+        title: 'تم تفعيل الإشعارات بنجاح 🔔',
+        subtitle: 'ستصلك تنبيهات التحديثات باللوغو الرسمي حتى خارج التطبيق',
+        icon: 'notifications',
+      });
+    } else {
+      setNotificationsEnabled(false);
+      Alert.alert(
+        'صلاحية الإشعارات مطلوبة',
+        'لإرسال تنبيهات التحديثات خارج التطبيق وعلى شاشة القفل، يرجى السماح بالإشعارات من إعدادات الآيفون.',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'فتح إعدادات iOS', onPress: () => Linking.openSettings() },
+        ]
+      );
+    }
+  };
 
   // Audio Quality handler
   const handleQualityChange = (quality: AudioQuality) => {
@@ -526,6 +595,35 @@ export const SettingsScreen = () => {
                     </Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              <View style={styles.rowDivider} />
+
+              {/* Optional System Notifications Permission Tile */}
+              <View style={styles.insetRow}>
+                <View style={styles.rowRightInfo}>
+                  <View style={[styles.rowIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.14)' }]}>
+                    <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
+                  </View>
+                  <View style={styles.textStack}>
+                    <Text style={styles.rowTitle}>إشعارات النظام والتحديثات</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {notificationsEnabled
+                        ? 'مفعّلة • تصلك التنبيهات خارج التطبيق'
+                        : 'اختيارية • فعّلها لتصلك إشعارات التحديث'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={handleNotificationsToggle}
+                  trackColor={{
+                    false: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.16)',
+                    true: '#34C759',
+                  }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
 
               <View style={styles.rowDivider} />

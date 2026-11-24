@@ -25,7 +25,7 @@ import { useAudioStore } from './src/store/useAudioStore';
 import { initNetworkMonitor } from './src/services/networkService';
 import { OfflineGuardModal } from './src/components/OfflineGuardModal';
 import { inspectOfflineStorage } from './src/services/downloadService';
-import { useUpdateStore } from './src/services/updateService';
+import { useUpdateStore, runSmartOtaMigrationIfNeeded } from './src/services/updateService';
 import { OtaUpdateProgressModal } from './src/components/OtaUpdateProgressModal';
 import { getNotifications } from './src/services/notificationService';
 
@@ -74,6 +74,9 @@ export default function App() {
   React.useEffect(() => {
     // 🌐 Real-Time Network Hardware Monitor & Offline Guard
     initNetworkMonitor();
+
+    // 🧠 Smart Data Schema Migration (cleans stale caches across OTA updates safely)
+    runSmartOtaMigrationIfNeeded().catch(() => {});
 
     // 💾 Physical Offline Storage Inspection (deferred to ensure 0ms UI mount)
     const storageTimer = setTimeout(() => {
