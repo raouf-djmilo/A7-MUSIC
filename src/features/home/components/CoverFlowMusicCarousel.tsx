@@ -12,10 +12,12 @@ import {
   runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 
 import { useAudioStore } from '../../../store/useAudioStore';
 import type { CoverFlowMusicCarouselProps } from '../types/home.types';
 import { wrapCircularIndex } from '../utils/homeTrackUtils';
+import { getUniversalStudioArtworkSource } from '../../../utils/artworkHelper';
 import {
   LiquidGlassDiscCard,
   HERO_CARD_HEIGHT,
@@ -35,7 +37,7 @@ const CAROUSEL_SPRING = {
 const SLOT_OFFSETS = [-2, -1, 0, 1, 2];
 const SLOT_POOL_SIZE = SLOT_OFFSETS.length;
 const DRAG_UNIT_PX = Math.round(HERO_CARD_SPACING * 0.85);
-const PLAY_SETTLE_DEBOUNCE_MS = 190;
+const PLAY_SETTLE_DEBOUNCE_MS = 90;
 // Trigger background prefetch 8 cards before the end so forward discovery never runs dry or loops
 const PREFETCH_AHEAD_THRESHOLD = 8;
 
@@ -71,10 +73,11 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
 
   const virtualIndex = useSharedValue(initialIndex);
   const dragStartVirtual = useSharedValue(initialIndex);
+  const didSettleInEnd = useSharedValue(false);
   const [settledIndex, setSettledIndex] = useState(initialIndex);
 
   const settledIndexRef = useRef(initialIndex);
-  const isSelfTriggeredRef = useRef(false);
+  const lastSelfSelectedIdRef = useRef<string | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -96,7 +99,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       const targetTrack = tracks[clampedIdx];
       if (!targetTrack) return;
 
-      isSelfTriggeredRef.current = true;
+      lastSelfSelectedIdRef.current = targetTrack.videoId || null;
 
       if (settleTimerRef.current) {
         clearTimeout(settleTimerRef.current);
@@ -108,10 +111,30 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
         onLoadMore();
       }
 
+      // Pre-warm artwork for the next 3 cards ahead so rapid swipes never flash empty covers
+      for (let ahead = 1; ahead <= 3; ahead++) {
+        const nextTrack = tracks[clampedIdx + ahead];
+        if (nextTrack?.thumbnail) {
+          const sources = getUniversalStudioArtworkSource(
+            nextTrack.thumbnail,
+            nextTrack.title,
+            nextTrack.artist,
+            nextTrack.videoId
+          );
+          const firstUrl = typeof sources?.[0] === 'string' ? sources[0] : (sources?.[0] as any)?.uri;
+          if (firstUrl) {
+            Image.prefetch(firstUrl).catch(() => {});
+          }
+        }
+      }
+
       const dispatchEffects = () => {
         onActiveCardChange?.(targetTrack);
         const latestState = useAudioStore.getState();
-        if (!(latestState.currentTrack?.videoId === targetTrack.videoId && latestState.isPlaying)) {
+        const isAlreadyPlayingThis =
+          latestState.currentTrack?.videoId === targetTrack.videoId &&
+          (latestState.isPlaying || latestState.loadingTrackId === targetTrack.videoId);
+        if (!isAlreadyPlayingThis) {
           onTrackSelect?.(targetTrack);
         }
       };
@@ -121,7 +144,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       if (immediatePlay) {
         dispatchEffects();
       } else {
-        // Defer ambient canvas & audio fetch briefly so spring animation finishes at locked 60/120fps
+        // Brief debounce lets spring finish cleanly before triggering audio stream fetch
         settleTimerRef.current = setTimeout(dispatchEffects, PLAY_SETTLE_DEBOUNCE_MS);
       }
     },
@@ -142,27 +165,28 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
     }
   }, [numTracks, onLoadMore]);
 
-  // Sync smoothly to exact history/queue index when track changes externally (MusicTab / MiniPlayer)
+  // Sync smoothly to exact history/queue index when track changes externally (MusicTab / MiniPlayer / Next)
   useEffect(() => {
-    if (isSelfTriggeredRef.current) {
-      isSelfTriggeredRef.current = false;
+    if (!currentTrack?.videoId || numTracks === 0) return;
+    if (lastSelfSelectedIdRef.current === currentTrack.videoId) {
+      lastSelfSelectedIdRef.current = null;
       return;
     }
-    if (currentTrack?.videoId && numTracks > 0) {
-      const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
-      if (found !== -1 && found !== settledIndexRef.current) {
-        settledIndexRef.current = found;
-        setSettledIndex(found);
-        virtualIndex.value = withSpring(found, CAROUSEL_SPRING);
-      }
+    const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
+    if (found !== -1 && found !== settledIndexRef.current) {
+      settledIndexRef.current = found;
+      setSettledIndex(found);
+      virtualIndex.value = withSpring(found, CAROUSEL_SPRING);
     }
   }, [currentTrack?.videoId, numTracks, tracks, virtualIndex]);
 
   const panGesture = useMemo(() => {
     return Gesture.Pan()
-      .activeOffsetX([-5, 5])
+      .activeOffsetX([-6, 6])
+      .failOffsetY([-24, 24])
       .onBegin(() => {
         'worklet';
+        didSettleInEnd.value = false;
         cancelAnimation(virtualIndex);
         dragStartVirtual.value = virtualIndex.value;
       })
@@ -182,6 +206,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       })
       .onEnd((e) => {
         'worklet';
+        didSettleInEnd.value = true;
         if (numTracks <= 1) {
           virtualIndex.value = withSpring(0, CAROUSEL_SPRING);
           return;
@@ -205,8 +230,17 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
           velocity: -e.velocityX / DRAG_UNIT_PX,
         });
         runOnJS(onSettleFromWorklet)(targetInt);
+      })
+      .onFinalize(() => {
+        'worklet';
+        // Recover cleanly if iOS ScrollView or a system gesture interrupted Pan before onEnd
+        if (!didSettleInEnd.value && numTracks > 0) {
+          const fallbackInt = clampIndex(Math.round(virtualIndex.value), numTracks);
+          virtualIndex.value = withSpring(fallbackInt, CAROUSEL_SPRING);
+          runOnJS(onSettleFromWorklet)(fallbackInt);
+        }
       });
-  }, [numTracks, onSettleFromWorklet, virtualIndex, dragStartVirtual]);
+  }, [numTracks, onSettleFromWorklet, virtualIndex, dragStartVirtual, didSettleInEnd]);
 
   const handleCardTap = useCallback(
     (targetVirtualPos: number) => {
