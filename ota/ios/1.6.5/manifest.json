@@ -1,13 +1,13 @@
 {
-  "id": "2d87f460-2236-4cec-a5b0-111f0a6a508c",
-  "createdAt": "2026-11-24T21:56:49.788Z",
+  "id": "c7cdfbcb-cc11-40a1-8089-ee9520dd1ffa",
+  "createdAt": "2026-11-24T22:04:08.858Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "jzhrlqx4UnfsGCfh-4IDGW9m-r9GP_uFg2KBYPe2tKU",
-    "key": "63e9006779d6b8092a1ad7eecfec57bb",
+    "hash": "WUlr1xUyrSalMVJApkizLkG5rMX2j4pXFpRAfF4FKxY",
+    "key": "bf304faa291dc007a14bc5e0e3c7bf71",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-e7e939986d74d7dfab98f1ab6f85235f.hbc"
+    "url": "./_expo/static/js/ios/index-60c690c35d2bb2fe27cf7c71028449f1.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.6365bb9",
+      "otaVersion": "1.6.5-ota.96f798a",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "6365bb9",
-      "title": "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
+      "commitSha": "96f798a",
+      "title": "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
       "highlights": [
-        "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
+        "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T21:56:49.788Z",
-      "bundleSizeBytes": 5577642
+      "publishedAt": "2026-11-24T22:04:08.858Z",
+      "bundleSizeBytes": 5579831
     }
   }
 }

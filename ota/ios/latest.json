@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.6365bb9",
-  "updateId": "2d87f460-2236-4cec-a5b0-111f0a6a508c",
-  "publishedAt": "2026-11-24T21:56:49.788Z",
-  "title": "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
+  "otaVersion": "1.6.5-ota.96f798a",
+  "updateId": "c7cdfbcb-cc11-40a1-8089-ee9520dd1ffa",
+  "publishedAt": "2026-11-24T22:04:08.858Z",
+  "title": "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
   "highlights": [
-    "feat(home): bounded-left history, instant lookahead prefetch, and smart taste ranking",
+    "fix(home): add Pan onFinalize recovery, track-ID sync, 90ms settle, and artwork prefetch",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5577642,
+  "bundleSizeBytes": 5579831,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
