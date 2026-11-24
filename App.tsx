@@ -26,6 +26,8 @@ import { initNetworkMonitor } from './src/services/networkService';
 import { OfflineGuardModal } from './src/components/OfflineGuardModal';
 import { inspectOfflineStorage } from './src/services/downloadService';
 import { useUpdateStore } from './src/services/updateService';
+import { OtaUpdateProgressModal } from './src/components/OtaUpdateProgressModal';
+import { getNotifications } from './src/services/notificationService';
 
 const AppContent = () => {
   const { theme, isDark } = useTheme();
@@ -47,6 +49,9 @@ const AppContent = () => {
 
       {/* 🛡️ Enterprise First-Time Offline Session Guard */}
       <OfflineGuardModal />
+
+      {/* ⚡ Professional OTA Update Progress & Restart Modal */}
+      <OtaUpdateProgressModal />
 
       <InAppToast
         ref={(r) => {
@@ -80,6 +85,17 @@ export default function App() {
       useUpdateStore.getState().checkAndStageOtaInBackground().catch(() => {});
     }, 4500);
 
+    // 🔔 Open OTA Update Progress Modal when user taps the system update notification
+    const notif = getNotifications();
+    const notifSub = notif?.addNotificationResponseReceivedListener?.((response: any) => {
+      const data = response?.notification?.request?.content?.data;
+      if (data?.action === 'ota_update') {
+        useUpdateStore.getState().openOtaModal();
+      }
+    });
+
+    let lastForegroundOtaCheck = Date.now();
+
     // 🚀 Enable Background Audio & Professional Mode
     const setupAudio = async () => {
       try {
@@ -103,11 +119,17 @@ export default function App() {
         console.log('[Background Guard] App minimized with background audio OFF -> Pausing immediately');
         pauseTrack();
       }
+      // Check OTA silently when returning to foreground (throttled every 10 minutes)
+      if (nextAppState === 'active' && Date.now() - lastForegroundOtaCheck > 10 * 60 * 1000) {
+        lastForegroundOtaCheck = Date.now();
+        useUpdateStore.getState().checkAndStageOtaInBackground().catch(() => {});
+      }
     });
 
     return () => {
       clearTimeout(storageTimer);
       clearTimeout(otaTimer);
+      notifSub?.remove?.();
       appStateSubscription.remove();
     };
   }, []);

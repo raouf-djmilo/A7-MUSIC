@@ -3,6 +3,11 @@ import * as Updates from 'expo-updates';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { ToastManager } from '../components/InAppToast';
+import {
+  getNotifications,
+  safeGetPermissionsAsync,
+  safeRequestPermissionsAsync,
+} from './notificationService';
 
 import {
   getInstalledAppVersion,
@@ -15,7 +20,42 @@ import {
 } from '../config/version';
 
 const UPDATE_CACHE_KEY = '@a7music_cached_ios_update_v2';
+const NOTIFIED_OTA_ID_KEY = '@a7music_last_notified_ota_id_v1';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache for silent checks
+
+async function sendOtaSystemNotification(details: OtaUpdateDetails): Promise<void> {
+  try {
+    const notif = getNotifications();
+    if (!notif?.scheduleNotificationAsync) return;
+
+    const lastNotifiedId = await AsyncStorage.getItem(NOTIFIED_OTA_ID_KEY);
+    if (details.updateId && lastNotifiedId === details.updateId) {
+      return;
+    }
+
+    const perms = await safeGetPermissionsAsync();
+    if (!perms.granted) {
+      const req = await safeRequestPermissionsAsync();
+      if (!req.granted) return;
+    }
+
+    await notif.scheduleNotificationAsync({
+      content: {
+        title: 'A7-MUSIC • تحديث جديد متاح ✨',
+        body: `${details.title} — افتح التطبيق لتثبيت التحديث وتحسينات الأداء.`,
+        sound: 'default',
+        data: { action: 'ota_update', updateId: details.updateId },
+      },
+      trigger: null,
+    });
+
+    if (details.updateId) {
+      await AsyncStorage.setItem(NOTIFIED_OTA_ID_KEY, details.updateId);
+    }
+  } catch {
+    // Non-fatal if notifications are unavailable
+  }
+}
 
 export type OtaStatus =
   | 'idle'
@@ -312,7 +352,12 @@ interface UpdateStoreState {
   otaDetails: OtaUpdateDetails | null;
   isDownloadingOta: boolean;
   otaError: string | null;
+  otaModalVisible: boolean;
+  otaProgress: number;
+  otaStageText: string;
 
+  openOtaModal: () => void;
+  closeOtaModal: () => void;
   checkUpdates: (force?: boolean, silent?: boolean) => Promise<AppUpdateInfo>;
   installOtaUpdate: () => Promise<void>;
   checkAndStageOtaInBackground: () => Promise<void>;
@@ -327,6 +372,16 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   otaDetails: null,
   isDownloadingOta: false,
   otaError: null,
+  otaModalVisible: false,
+  otaProgress: 0,
+  otaStageText: '',
+
+  openOtaModal: () => set({ otaModalVisible: true }),
+  closeOtaModal: () => {
+    if (!get().isDownloadingOta) {
+      set({ otaModalVisible: false });
+    }
+  },
 
   checkUpdates: async (force = false, silent = false) => {
     if (!silent) {
@@ -395,22 +450,62 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
     }
 
     const { otaStatus } = get();
-    set({ otaError: null });
+    set({
+      otaError: null,
+      otaModalVisible: true,
+      isDownloadingOta: true,
+      otaStatus: 'downloading',
+      otaProgress: 18,
+      otaStageText: 'جاري التحقق من حزمة التحديث...',
+    });
 
+    let progressTicker: ReturnType<typeof setInterval> | null = null;
     try {
       if (otaStatus === 'ready') {
+        set({
+          otaProgress: 100,
+          otaStageText: 'تم تجهيز التحديث • جاري إعادة تشغيل التطبيق...',
+        });
+        await new Promise((r) => setTimeout(r, 650));
         await Updates.reloadAsync();
         return;
       }
 
-      set({ isDownloadingOta: true, otaStatus: 'downloading' });
+      progressTicker = setInterval(() => {
+        const cur = get().otaProgress;
+        if (cur < 86) {
+          set({
+            otaProgress: Math.min(86, cur + 9),
+            otaStageText: cur < 50
+              ? 'جاري تحميل ملفات التطبيق والبيانات...'
+              : 'جاري تحديث الموارد والملفات المحلية...',
+          });
+        }
+      }, 280);
+
       const fetched = await Updates.fetchUpdateAsync();
+      if (progressTicker) {
+        clearInterval(progressTicker);
+        progressTicker = null;
+      }
 
       if (fetched.isNew || fetched.manifest) {
-        set({ isDownloadingOta: false, otaStatus: 'ready' });
+        set({
+          otaStatus: 'ready',
+          otaProgress: 100,
+          otaStageText: 'اكتمل التحديث بنجاح • جاري إعادة التشغيل...',
+        });
+        await new Promise((r) => setTimeout(r, 700));
         await Updates.reloadAsync();
       } else {
-        set({ isDownloadingOta: false, otaStatus: 'up_to_date', hasUpdate: false });
+        set({
+          isDownloadingOta: false,
+          otaStatus: 'up_to_date',
+          hasUpdate: false,
+          otaModalVisible: false,
+          otaProgress: 0,
+          otaStageText: '',
+        });
         ToastManager.show({
           title: 'تطبيقك محدّث بالفعل',
           subtitle: 'أنت تستخدم أحدث نسخة حالياً.',
@@ -418,9 +513,12 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
         });
       }
     } catch (err: any) {
+      if (progressTicker) clearInterval(progressTicker);
       set({
         isDownloadingOta: false,
         otaStatus: 'available',
+        otaProgress: 0,
+        otaStageText: '',
         otaError: err?.message || 'تعذر تحميل التحديث السريع. تأكد من الاتصال بالإنترنت.',
       });
       ToastManager.show({
@@ -442,9 +540,16 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
 
       const details = parseOtaManifestDetails(check.manifest);
       set({
-        otaStatus: 'downloading',
+        otaStatus: 'available',
         otaDetails: details,
         hasUpdate: true,
+      });
+
+      // Notify the user via native iOS notification (visible on lock screen / outside app with app logo)
+      await sendOtaSystemNotification(details);
+
+      set({
+        otaStatus: 'downloading',
         isDownloadingOta: true,
       });
 
@@ -457,12 +562,12 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
         });
 
         ToastManager.show({
-          title: 'تحديث سريع جاهز التطبيق ⚡',
-          subtitle: `${details.title} • اضغط للتحديث فوراً بدون إعادة تثبيت`,
+          title: 'تحديث جديد جاهز للتثبيت ⚡',
+          subtitle: `${details.title} • اضغط لبدء التحديث وإعادة التشغيل`,
           icon: 'sparkles',
-          duration: 7000,
+          duration: 8000,
           onPress: () => {
-            Updates.reloadAsync().catch(() => {});
+            set({ otaModalVisible: true });
           },
         });
       } else {

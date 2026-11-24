@@ -37,7 +37,7 @@ const CAROUSEL_SPRING = {
 const SLOT_OFFSETS = [-2, -1, 0, 1, 2];
 const SLOT_POOL_SIZE = SLOT_OFFSETS.length;
 const DRAG_UNIT_PX = Math.round(HERO_CARD_SPACING * 0.85);
-const PLAY_SETTLE_DEBOUNCE_MS = 90;
+const PLAY_SETTLE_DEBOUNCE_MS = 50;
 // Trigger background prefetch 8 cards before the end so forward discovery never runs dry or loops
 const PREFETCH_AHEAD_THRESHOLD = 8;
 
