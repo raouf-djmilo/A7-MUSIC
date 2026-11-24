@@ -1,13 +1,13 @@
 {
-  "id": "87400567-7c23-4d42-89d7-3503fbc0e20a",
-  "createdAt": "2026-11-24T22:47:18.157Z",
+  "id": "b7a314b4-c81e-4c12-a1c2-281b325a3328",
+  "createdAt": "2026-11-24T22:56:25.892Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "O842VFykpmZha3gWq4M80bfZasUUTAfeRgu94Bb1c0A",
-    "key": "994049a20f91c17328241d9e0bed6302",
+    "hash": "uyqIYtUBddLfcXEtVx4XNr6003rbG8wmaPmSwbQKQc4",
+    "key": "866ccbe4fb5063ef76ec8f864208ea89",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-f8482275aa95c11ba7f914f8c5864ba3.hbc"
+    "url": "./_expo/static/js/ios/index-fb3fa39b3523772fbcd3d909d5049aa3.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.700927d",
+      "otaVersion": "1.6.5-ota.9b6b689",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "700927d",
-      "title": "fix(home,player): direct 0ms center-card playback and remove 1.8s pause timer for instant user control",
+      "commitSha": "9b6b689",
+      "title": "feat(nav): separate MusicSearch and MusicLibrary into 5 standalone bottom tabs",
       "highlights": [
-        "fix(home,player): direct 0ms center-card playback and remove 1.8s pause timer for instant user control",
+        "feat(nav): separate MusicSearch and MusicLibrary into 5 standalone bottom tabs",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T22:47:18.157Z",
-      "bundleSizeBytes": 5689653
+      "publishedAt": "2026-11-24T22:56:25.892Z",
+      "bundleSizeBytes": 5636310
     }
   }
 }
