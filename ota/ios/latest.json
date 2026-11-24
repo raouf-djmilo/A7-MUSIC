@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.894a7bf",
-  "updateId": "65dac713-47d9-409c-9af6-d78e5b27e6fc",
-  "publishedAt": "2026-11-24T22:11:18.479Z",
-  "title": "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
+  "otaVersion": "1.6.5-ota.9dc6876",
+  "updateId": "d7dcb455-c101-4fb5-8b9c-08f0845e167e",
+  "publishedAt": "2026-11-24T22:26:07.733Z",
+  "title": "feat(ota,home): add native iOS update notification, progress modal with clean restart, and 50ms swipe playback",
   "highlights": [
-    "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
+    "feat(ota,home): add native iOS update notification, progress modal with clean restart, and 50ms swipe playback",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5580744,
+  "bundleSizeBytes": 5684773,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

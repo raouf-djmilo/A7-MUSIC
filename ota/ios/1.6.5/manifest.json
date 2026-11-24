@@ -1,13 +1,13 @@
 {
-  "id": "65dac713-47d9-409c-9af6-d78e5b27e6fc",
-  "createdAt": "2026-11-24T22:11:18.479Z",
+  "id": "d7dcb455-c101-4fb5-8b9c-08f0845e167e",
+  "createdAt": "2026-11-24T22:26:07.733Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "6gYBG4IjM_eEgXy4VbnFJojwWdvxf4IgJLho93Ltx-Y",
-    "key": "e1a6394be7d34aba733ef9b1e57dc5b9",
+    "hash": "FDLL8FJpg8k1nbBsdD7PNZp_aTPDYMM3-i7PgKLApK8",
+    "key": "6b7a1f06e2ba901860a3103d27743a97",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-0faf7814f7951e950fbe7e7826e5af82.hbc"
+    "url": "./_expo/static/js/ios/index-88a29bca77c3540a3eb8e3436edcb422.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.894a7bf",
+      "otaVersion": "1.6.5-ota.9dc6876",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "894a7bf",
-      "title": "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
+      "commitSha": "9dc6876",
+      "title": "feat(ota,home): add native iOS update notification, progress modal with clean restart, and 50ms swipe playback",
       "highlights": [
-        "fix(player,artwork): prevent transient YouTube paused event on track switch and fix authentic HD cover resolution",
+        "feat(ota,home): add native iOS update notification, progress modal with clean restart, and 50ms swipe playback",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-24T22:11:18.479Z",
-      "bundleSizeBytes": 5580744
+      "publishedAt": "2026-11-24T22:26:07.733Z",
+      "bundleSizeBytes": 5684773
     }
   }
 }
