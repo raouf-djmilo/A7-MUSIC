@@ -250,8 +250,37 @@ jobs:
           mkdir -p Payload
           # Preserve symlinks (-P) to ensure lightweight IPA and valid framework integrity
           cp -RP "$APP_PATH" Payload/
-          # Safely strip debug/local symbols from Mach-O binaries to shrink IPA without breaking runtime symbols
-          find Payload -type f \( -perm -111 -o -name "*.dylib" \) -exec sh -c 'file "$1" | grep -q "Mach-O" && strip -S -x "$1" 2>/dev/null || true' _ {} \;
+          # Verify ExpoModulesJSI exports every Swift symbol required by prebuilt Expo frameworks (prevents DYLD launch crash)
+          python3 - <<'PY'
+          import subprocess, sys, glob, os
+          app = glob.glob("Payload/*.app")[0]
+          jsi = os.path.join(app, "Frameworks/ExpoModulesJSI.framework/ExpoModulesJSI")
+          exported = set()
+          for line in subprocess.check_output(["nm", "-gU", jsi], text=True).splitlines():
+              parts = line.split()
+              if parts:
+                  exported.add(parts[-1])
+          missing = []
+          for fw_name in ["ExpoFileSystem", "ExpoModulesCore"]:
+              fw = os.path.join(app, f"Frameworks/{fw_name}.framework/{fw_name}")
+              if not os.path.exists(fw):
+                  continue
+              for sym in subprocess.check_output(["nm", "-u", fw], text=True).splitlines():
+                  sym = sym.strip()
+                  if sym.startswith("_$s14ExpoModulesJSI") and "0aB4Core" not in sym and sym not in exported:
+                      missing.append((fw_name, sym))
+          if missing:
+              print("❌ Missing ExpoModulesJSI symbols referenced by prebuilt frameworks:")
+              for fw_name, sym in missing:
+                  print(f"  {fw_name}: {sym}")
+              sys.exit(1)
+          print(f"✅ Verified ExpoModulesJSI exports all symbols ({len(exported)} global symbols).")
+          PY
+          # Only strip debug symbols (-S) from the main app executable; never strip -x or tamper with prebuilt Frameworks
+          APP_EXEC=$(find Payload/*.app -maxdepth 1 -type f -perm -111 | head -n 1)
+          if [ -n "$APP_EXEC" ]; then
+            strip -S "$APP_EXEC" 2>/dev/null || true
+          fi
           # -9 max compression, -y preserves symlinks in zip archive; -q minimizes noisy logs
           zip -9 -qr -y A7-MUSIC.ipa Payload
           echo "✅ IPA created: $(du -sh A7-MUSIC.ipa | cut -f1)"
