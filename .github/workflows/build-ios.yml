@@ -19,6 +19,8 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   EXPO_IMAGE_DISABLE_LIBDAV1D: "1"
+  USE_CCACHE: "1"
+  CCACHE_DIR: ${{ runner.temp }}/ccache
 
 jobs:
   build:
@@ -80,6 +82,23 @@ jobs:
       - name: Normalize Expo prebuild Swift interfaces
         run: python3 .github/scripts/normalize-swiftinterfaces.py node_modules
 
+      - name: Setup ccache for fast C/C++ builds
+        run: |
+          if ! command -v ccache >/dev/null 2>&1; then
+            brew install ccache
+          fi
+          mkdir -p "$CCACHE_DIR"
+          ccache -M 2G
+          ccache -z
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('package-lock.json', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
       - name: Cache CocoaPods download cache
         uses: actions/cache@v4
         with:
@@ -90,7 +109,7 @@ jobs:
 
       - name: Expo Prebuild iOS
         run: |
-          npx expo prebuild --platform ios --clean
+          npx expo prebuild --platform ios --clean --no-install
           find ios -name "AppDelegate.swift" -exec sed -i '' 's/import ReactAppDependencyProvider//g' {} + || true
 
       - name: Install CocoaPods
@@ -102,8 +121,19 @@ jobs:
           cd ..
           python3 .github/scripts/normalize-swiftinterfaces.py ios
 
+      - name: Cache ExpoModulesJSI xcframework
+        id: cache-jsi
+        uses: actions/cache@v4
+        with:
+          path: node_modules/expo-modules-jsi/apple/Products
+          key: ${{ runner.os }}-expo-jsi-${{ hashFiles('package-lock.json', 'patches/expo-modules-jsi*') }}
+
       - name: Prebuild ExpoModulesJSI xcframework
         run: |
+          if [ -d "node_modules/expo-modules-jsi/apple/Products/ExpoModulesJSI.xcframework" ]; then
+            echo "✅ Using cached ExpoModulesJSI.xcframework"
+            exit 0
+          fi
           cd ios
           PODS_DIR="$(pwd)/Pods"
           cd ../node_modules/expo-modules-jsi/apple
@@ -164,11 +194,17 @@ jobs:
             CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
             GCC_TREAT_WARNINGS_AS_ERRORS=NO \
+            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            DEBUG_INFORMATION_FORMAT=dwarf \
+            DEAD_CODE_STRIPPING=YES \
             OTHER_SWIFT_FLAGS="-suppress-warnings" \
             ENABLE_USER_SCRIPT_SANDBOXING=NO \
             2>&1 | tee xcodebuild.log
           
           BUILD_STATUS=${PIPESTATUS[0]}
+          ccache -s || true
 
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "❌ xcodebuild failed with status $BUILD_STATUS"
@@ -239,8 +275,10 @@ jobs:
           mkdir -p Payload
           # Preserve symlinks (-P) to ensure lightweight IPA and valid framework integrity
           cp -RP "$APP_PATH" Payload/
-          # -y preserves symlinks in zip archive; -q minimizes noisy logs
-          zip -qr -y A7-MUSIC.ipa Payload
+          # Safely strip debug/local symbols from Mach-O binaries to shrink IPA without breaking runtime symbols
+          find Payload -type f \( -perm -111 -o -name "*.dylib" \) -exec sh -c 'file "$1" | grep -q "Mach-O" && strip -S -x "$1" 2>/dev/null || true' _ {} \;
+          # -9 max compression, -y preserves symlinks in zip archive; -q minimizes noisy logs
+          zip -9 -qr -y A7-MUSIC.ipa Payload
           echo "✅ IPA created: $(du -sh A7-MUSIC.ipa | cut -f1)"
 
       - name: Upload IPA Artifact
