@@ -6,6 +6,12 @@ import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/ar
 const CACHE_KEY_INFINITE_RADIO = '@a7_infinite_coverflow_radio_v2';
 const CACHE_KEY_LEARNED_TASTE = '@a7_user_learned_taste_v2';
 
+// Fast in-memory taste & warm lookahead buffer for 0ms card transitions
+let inMemoryTasteCache: UserLearnedTasteProfile | null = null;
+let warmPrefetchBuffer: Track[] = [];
+let warmPrefetchInFlight: Promise<void> | null = null;
+const sessionSeenVideoIds = new Set<string>();
+
 export type MusicVibeCategory =
   | 'algerian_rai'
   | 'rap_dz'
@@ -110,17 +116,21 @@ function normalizeKey(str?: string): string {
  * Learns and adapts continuously based on user engagement signals
  */
 export async function getLearnedTasteProfile(): Promise<UserLearnedTasteProfile> {
+  if (inMemoryTasteCache) return inMemoryTasteCache;
   try {
     const raw = await AsyncStorage.getItem(CACHE_KEY_LEARNED_TASTE);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
+      if (parsed && typeof parsed === 'object') {
+        inMemoryTasteCache = parsed;
+        return parsed;
+      }
     }
   } catch (e) {
     console.warn('[InfiniteRadio] Failed to read learned taste:', e);
   }
 
-  return {
+  const fallback: UserLearnedTasteProfile = {
     artistScores: {},
     genreScores: {
       algerian_rai: 5,
@@ -135,6 +145,8 @@ export async function getLearnedTasteProfile(): Promise<UserLearnedTasteProfile>
     skipsCount: 0,
     lastUpdated: Date.now(),
   };
+  inMemoryTasteCache = fallback;
+  return fallback;
 }
 
 export async function recordUserSignal(
@@ -164,6 +176,7 @@ export async function recordUserSignal(
     }
 
     profile.lastUpdated = Date.now();
+    inMemoryTasteCache = profile;
     await AsyncStorage.setItem(CACHE_KEY_LEARNED_TASTE, JSON.stringify(profile));
   } catch (e) {
     console.warn('[InfiniteRadio] Failed to record user signal:', e);
@@ -382,55 +395,171 @@ export async function fetchInitialInfiniteRadio(
 }
 
 /**
+ * Fast O(N) smart ranking + artist interleaving so consecutive cards feel fresh & personalized.
+ */
+function scoreAndInterleaveBatch(
+  candidates: Track[],
+  taste: UserLearnedTasteProfile
+): Track[] {
+  const scored = candidates.map((t) => {
+    const artistKey = cleanArtistName(t.artist).toLowerCase();
+    const affinityBoost = (taste.artistScores[artistKey] || 0) * 1.4;
+    const randomJitter = Math.random() * 4.5;
+    return { track: t, artistKey, score: affinityBoost + randomJitter };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Interleave so two consecutive cards are never by the same artist when alternatives exist
+  const result: Track[] = [];
+  const remaining = [...scored];
+  let lastArtist = '';
+
+  while (remaining.length > 0) {
+    let pickIdx = remaining.findIndex((item) => item.artistKey !== lastArtist);
+    if (pickIdx === -1) pickIdx = 0;
+    const [picked] = remaining.splice(pickIdx, 1);
+    result.push(picked.track);
+    lastArtist = picked.artistKey;
+  }
+
+  return result;
+}
+
+async function fillWarmPrefetchBuffer(
+  activeTrack: Track,
+  existingIds: Set<string>,
+  vibe?: MusicVibeCategory
+): Promise<void> {
+  if (warmPrefetchInFlight) {
+    return warmPrefetchInFlight;
+  }
+
+  warmPrefetchInFlight = (async () => {
+    try {
+      const taste = await getLearnedTasteProfile();
+      const analysis = analyzeUserVibe(activeTrack);
+      const effectiveVibe = vibe || analysis.vibe;
+      const artist = cleanArtistName(activeTrack?.artist) || analysis.primaryArtist;
+
+      // Pick a favorite learned artist if user has strong listens
+      const learnedArtists = Object.entries(taste.artistScores)
+        .filter(([, score]) => score >= 3)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([name]) => name);
+
+      const relatedA = pickRandom(analysis.relatedArtists);
+      const relatedB =
+        learnedArtists.length > 0
+          ? pickRandom(learnedArtists)
+          : pickRandom(analysis.relatedArtists);
+
+      // Fire 2 parallel diverse vectors so one overlapping result never causes a dry batch
+      const primaryQueries = [
+        `${artist} radio mix 2026`,
+        `${relatedA} official music`,
+        `${artist} feat`,
+      ];
+      const discoveryQueries = [
+        `${relatedB} top hits`,
+        pickRandom(VIBE_ROTATING_QUERIES[effectiveVibe]),
+        pickRandom(VIBE_ROTATING_QUERIES.algerian_rai),
+      ];
+
+      const [resA, resB] = await Promise.all([
+        searchYouTubeMusicWithArtist(pickRandom(primaryQueries)).catch(() => ({
+          artist: null,
+          tracks: [],
+        })),
+        searchYouTubeMusicWithArtist(pickRandom(discoveryQueries)).catch(() => ({
+          artist: null,
+          tracks: [],
+        })),
+      ]);
+
+      const combinedRaw: Track[] = [];
+      const localSeen = new Set<string>();
+      for (const t of [...resA.tracks, ...resB.tracks]) {
+        if (
+          !t?.videoId ||
+          existingIds.has(t.videoId) ||
+          sessionSeenVideoIds.has(t.videoId) ||
+          localSeen.has(t.videoId)
+        ) {
+          continue;
+        }
+        localSeen.add(t.videoId);
+        combinedRaw.push({
+          ...t,
+          thumbnail: getUniversalStudioArtwork(t.thumbnail, t.title, t.artist),
+          artistAvatar: t.artistAvatar || getUniversalArtistAvatar(null, t.artist),
+        });
+      }
+
+      if (combinedRaw.length > 0) {
+        const ranked = scoreAndInterleaveBatch(combinedRaw, taste);
+        for (const r of ranked) {
+          if (r.videoId) sessionSeenVideoIds.add(r.videoId);
+        }
+        warmPrefetchBuffer.push(...ranked);
+        if (warmPrefetchBuffer.length > 36) {
+          warmPrefetchBuffer = warmPrefetchBuffer.slice(0, 36);
+        }
+      }
+    } catch (err) {
+      console.warn('[InfiniteRadio] Warm prefetch error:', err);
+    } finally {
+      warmPrefetchInFlight = null;
+    }
+  })();
+
+  return warmPrefetchInFlight;
+}
+
+/**
  * 🔄 Infinite Swiping Batch Fetcher:
- * Automatically called when user approaches the end of cards in Cover Flow.
- * Appends 8–12 completely new, non-repeating tracks exploring the user's style deeply.
+ * Serves instantly from the warm lookahead buffer when ready, while silently refilling in background.
+ * Guarantees smooth, zero-drop forward discovery with personalized diversity.
  */
 export async function fetchInfiniteRadioNextBatch(
   activeTrack: Track,
   existingIds: Set<string>,
   vibe?: MusicVibeCategory
 ): Promise<Track[]> {
-  const analysis = analyzeUserVibe(activeTrack);
-  const effectiveVibe = vibe || analysis.vibe;
-  const artist = cleanArtistName(activeTrack?.artist) || analysis.primaryArtist;
-
-  // Pick related artists from affinity graph to avoid repetitive loops of the same singer
-  const relatedA = pickRandom(analysis.relatedArtists);
-  const relatedB = pickRandom(analysis.relatedArtists);
-
-  // Dynamic rotating search vectors for deep style continuation (YouTube Music Radio Protocol)
-  const queryPool = [
-    `${artist} radio mix 2026`,
-    `${artist} feat`,
-    `${relatedA} official music`,
-    `${relatedB} top tracks`,
-    pickRandom(VIBE_ROTATING_QUERIES[effectiveVibe]),
-    pickRandom(VIBE_ROTATING_QUERIES.algerian_rai),
-  ];
-
-  const selectedQuery = pickRandom(queryPool);
-  const newTracks: Track[] = [];
-
-  try {
-    const res = await searchYouTubeMusicWithArtist(selectedQuery);
-    for (const t of res.tracks) {
-      if (!t?.videoId || existingIds.has(t.videoId)) continue;
-      existingIds.add(t.videoId);
-
-      newTracks.push({
-        ...t,
-        thumbnail: getUniversalStudioArtwork(t.thumbnail, t.title, t.artist),
-        artistAvatar: t.artistAvatar || getUniversalArtistAvatar(null, t.artist),
-      });
-
-      if (newTracks.length >= 10) break;
-    }
-  } catch (err) {
-    console.warn('[InfiniteRadio] Next batch fetch error:', err);
+  for (const id of existingIds) {
+    sessionSeenVideoIds.add(id);
   }
 
-  return newTracks;
+  // Drain up to 10 unseen tracks from warm lookahead buffer in 0ms
+  const takeFromBuffer = (): Track[] => {
+    const picked: Track[] = [];
+    const remaining: Track[] = [];
+    for (const item of warmPrefetchBuffer) {
+      if (picked.length < 10 && item.videoId && !existingIds.has(item.videoId)) {
+        existingIds.add(item.videoId);
+        picked.push(item);
+      } else if (item.videoId && !existingIds.has(item.videoId)) {
+        remaining.push(item);
+      }
+    }
+    warmPrefetchBuffer = remaining;
+    return picked;
+  };
+
+  const instant = takeFromBuffer();
+  if (instant.length >= 6) {
+    // Refill lookahead silently for the next swipe burst
+    void fillWarmPrefetchBuffer(activeTrack, existingIds, vibe);
+    return instant;
+  }
+
+  await fillWarmPrefetchBuffer(activeTrack, existingIds, vibe);
+  const afterFetch = [...instant, ...takeFromBuffer()];
+  if (warmPrefetchBuffer.length < 10) {
+    void fillWarmPrefetchBuffer(activeTrack, existingIds, vibe);
+  }
+  return afterFetch;
 }
 
 /**

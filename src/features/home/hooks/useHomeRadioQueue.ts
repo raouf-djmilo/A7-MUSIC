@@ -29,6 +29,11 @@ export const useHomeRadioQueue = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const isFetchingMoreRef = useRef(false);
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
+  const lastFocusedRef = useRef<{ track: Track; focusedAt: number } | null>(null);
 
   const loadDynamicRadio = useCallback(async () => {
     try {
@@ -50,17 +55,21 @@ export const useHomeRadioQueue = () => {
         storeState.likedTrackIds
       );
       if (fresh && fresh.length > 0) {
+        // Append fresh personalized tracks while preserving any existing session history cards
         setTracks((prev) => {
           const seen = new Set<string>();
           const merged: HomeTrack[] = [];
 
-          const active = useAudioStore.getState().currentTrack;
-          if (active?.videoId) {
-            seen.add(active.videoId);
-            merged.push({ ...active, id: active.videoId });
-          } else if (prev.length > 0 && prev[0]?.videoId) {
-            seen.add(prev[0].videoId);
-            merged.push(prev[0]);
+          for (const existing of prev) {
+            if (existing?.videoId && !seen.has(existing.videoId)) {
+              seen.add(existing.videoId);
+              merged.push(existing);
+            }
+          }
+
+          if (storeState.currentTrack?.videoId && !seen.has(storeState.currentTrack.videoId)) {
+            seen.add(storeState.currentTrack.videoId);
+            merged.unshift({ ...storeState.currentTrack, id: storeState.currentTrack.videoId });
           }
 
           for (const t of fresh) {
@@ -79,13 +88,7 @@ export const useHomeRadioQueue = () => {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    if (isMounted) {
-      loadDynamicRadio();
-    }
-    return () => {
-      isMounted = false;
-    };
+    loadDynamicRadio();
   }, [loadDynamicRadio]);
 
   const handleLoadMoreTracks = useCallback(async () => {
@@ -93,10 +96,13 @@ export const useHomeRadioQueue = () => {
     isFetchingMoreRef.current = true;
 
     try {
-      const activeFocal = currentTrack || tracks[tracks.length - 1];
+      const latestTracks = tracksRef.current;
+      const activeFocal = currentTrackRef.current || latestTracks[latestTracks.length - 1];
       if (!activeFocal) return;
 
-      const existingIds = new Set(tracks.map((t) => t.videoId).filter(Boolean) as string[]);
+      const existingIds = new Set(
+        latestTracks.map((t) => t.videoId).filter(Boolean) as string[]
+      );
       const newBatch = await fetchInfiniteRadioNextBatch(activeFocal, existingIds);
 
       if (newBatch.length > 0) {
@@ -109,11 +115,7 @@ export const useHomeRadioQueue = () => {
               toAdd.push({ ...nb, id: nb.videoId });
             }
           }
-          const updated = toAdd.length > 0 ? [...prev, ...toAdd] : prev;
-          if (useAudioStore.getState().currentContextName === 'Dashboard' && toAdd.length > 0) {
-            useAudioStore.setState({ queue: updated, currentQueue: updated });
-          }
-          return updated;
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
         });
       }
     } catch (e) {
@@ -121,7 +123,14 @@ export const useHomeRadioQueue = () => {
     } finally {
       isFetchingMoreRef.current = false;
     }
-  }, [tracks, currentTrack]);
+  }, []);
+
+  // Keep Zustand Dashboard playback queue synced cleanly AFTER render (never inside setTracks updater!)
+  useEffect(() => {
+    if (currentContextName === 'Dashboard' && tracks.length > audioQueue.length) {
+      useAudioStore.setState({ queue: tracks, currentQueue: tracks });
+    }
+  }, [tracks, audioQueue.length, currentContextName]);
 
   // Sync audio store queue into Home cards when playing in Dashboard context
   useEffect(() => {
@@ -151,19 +160,30 @@ export const useHomeRadioQueue = () => {
 
   const handleActiveCardChange = useCallback((track: Track) => {
     if (!track?.videoId) return;
+    const now = Date.now();
+    const prevFocus = lastFocusedRef.current;
+    if (prevFocus && prevFocus.track.videoId !== track.videoId) {
+      const dwellMs = now - prevFocus.focusedAt;
+      // Fast swipe-past (< 3.5s) teaches the engine to explore elsewhere
+      if (dwellMs < 3500) {
+        recordUserSignal(prevFocus.track, 'skip');
+      }
+    }
+    lastFocusedRef.current = { track, focusedAt: now };
     setActiveCarouselTrack((prev) => (prev?.videoId === track.videoId ? prev : track));
   }, []);
 
   const handleSelectCarouselTrack = useCallback(
     (selected: Track) => {
       handleActiveCardChange(selected);
-      const idx = tracks.findIndex((t) => t.videoId === selected.videoId);
+      const latestTracks = tracksRef.current;
+      const idx = latestTracks.findIndex((t) => t.videoId === selected.videoId);
       const resolvedIdx = idx !== -1 ? idx : 0;
       recordUserSignal(selected, 'play');
       musicDnaService.recordListeningSignal(selected, 'play');
-      playTrack(selected, tracks, resolvedIdx, 'Dashboard');
+      playTrack(selected, latestTracks, resolvedIdx, 'Dashboard');
     },
-    [tracks, handleActiveCardChange, playTrack]
+    [handleActiveCardChange, playTrack]
   );
 
   const onRefresh = useCallback(async () => {

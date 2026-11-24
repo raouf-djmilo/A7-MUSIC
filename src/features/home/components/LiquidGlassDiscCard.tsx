@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useSharedValue,
   interpolate,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
@@ -43,6 +44,12 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
     const { theme, isDark } = useTheme();
     const liquidColors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
 
+    // Sync recycled slot position to a SharedValue so native useAnimatedStyle needs no JS dep array
+    const slotPos = useSharedValue(cardVirtualPos);
+    useEffect(() => {
+      slotPos.value = cardVirtualPos;
+    }, [cardVirtualPos, slotPos]);
+
     const handlePress = useCallback(() => {
       onPress(cardVirtualPos);
     }, [onPress, cardVirtualPos]);
@@ -59,7 +66,7 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
     );
 
     const animatedStyle = useAnimatedStyle(() => {
-      const p = cardVirtualPos - virtualIndex.value;
+      const p = slotPos.value - virtualIndex.value;
       const absP = Math.abs(p);
 
       // Smooth cubic-like Apple scale & horizontal arc without 3D plane clipping
@@ -107,21 +114,21 @@ export const LiquidGlassDiscCard: React.FC<LiquidGlassDiscCardProps> = React.mem
         opacity,
         zIndex,
       };
-    }, [cardVirtualPos]);
+    });
 
     // Gradual soft depth dimming as cards slide behind the active hero card
     const depthDimStyle = useAnimatedStyle(() => {
-      const absP = Math.abs(cardVirtualPos - virtualIndex.value);
+      const absP = Math.abs(slotPos.value - virtualIndex.value);
       const dimOpacity = interpolate(absP, [0, 0.45, 1.2], [0, 0.12, 0.34], 'clamp');
       return { opacity: dimOpacity };
-    }, [cardVirtualPos]);
+    });
 
     // Smoothly brighten center specular glass rim purely on GPU UI thread
     const centerRimStyle = useAnimatedStyle(() => {
-      const absP = Math.abs(cardVirtualPos - virtualIndex.value);
+      const absP = Math.abs(slotPos.value - virtualIndex.value);
       const focus = interpolate(absP, [0, 0.7], [1, 0], 'clamp');
       return { opacity: focus };
-    }, [cardVirtualPos]);
+    });
 
     return (
       <Animated.View style={[styles.cardAbsoluteWrap, animatedStyle]}>

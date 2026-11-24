@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useAudioStore } from '../../../store/useAudioStore';
 import type { CoverFlowMusicCarouselProps } from '../types/home.types';
-import { wrapCircularIndex, shortestCircularDelta } from '../utils/homeTrackUtils';
+import { wrapCircularIndex } from '../utils/homeTrackUtils';
 import {
   LiquidGlassDiscCard,
   HERO_CARD_HEIGHT,
@@ -36,12 +36,20 @@ const SLOT_OFFSETS = [-2, -1, 0, 1, 2];
 const SLOT_POOL_SIZE = SLOT_OFFSETS.length;
 const DRAG_UNIT_PX = Math.round(HERO_CARD_SPACING * 0.85);
 const PLAY_SETTLE_DEBOUNCE_MS = 190;
+// Trigger background prefetch 8 cards before the end so forward discovery never runs dry or loops
+const PREFETCH_AHEAD_THRESHOLD = 8;
+
+const clampIndex = (idx: number, length: number): number => {
+  'worklet';
+  if (length <= 0) return 0;
+  return Math.max(0, Math.min(length - 1, idx));
+};
 
 /**
- * 120fps Apple Liquid Glass circular cover-flow carousel.
- * - Persistent 5-slot pool guarantees zero mount/unmount frame drops.
- * - Free 1:1 finger tracking with light responsive spring physics.
- * - Defers ambient/audio work until settle so animations never drop frames.
+ * 120fps Apple Liquid Glass timeline-radio cover-flow carousel.
+ * - Bounded-left history: swipe left anytime to revisit previously heard cards.
+ * - Infinite-right discovery: proactively prefetches new smart recommendations 8 cards ahead,
+ *   never looping back to index 0 when reaching the end.
  */
 export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = React.memo(({
   tracks,
@@ -80,13 +88,12 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
   const handleSettle = useCallback(
     (targetVirtualInt: number, immediatePlay = false) => {
       if (numTracks === 0) return;
-      const normalizedTarget = numTracks === 1 ? 0 : targetVirtualInt;
-      const wrappedArrayIdx = wrapCircularIndex(normalizedTarget, numTracks);
+      const clampedIdx = Math.max(0, Math.min(numTracks - 1, targetVirtualInt));
 
-      settledIndexRef.current = normalizedTarget;
-      setSettledIndex(normalizedTarget);
+      settledIndexRef.current = clampedIdx;
+      setSettledIndex(clampedIdx);
 
-      const targetTrack = tracks[wrappedArrayIdx];
+      const targetTrack = tracks[clampedIdx];
       if (!targetTrack) return;
 
       isSelfTriggeredRef.current = true;
@@ -96,14 +103,16 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
         settleTimerRef.current = null;
       }
 
+      // Proactive lookahead prefetch so forward swipes always have fresh smart cards ready
+      if (numTracks > 1 && clampedIdx >= numTracks - PREFETCH_AHEAD_THRESHOLD && onLoadMore) {
+        onLoadMore();
+      }
+
       const dispatchEffects = () => {
         onActiveCardChange?.(targetTrack);
         const latestState = useAudioStore.getState();
         if (!(latestState.currentTrack?.videoId === targetTrack.videoId && latestState.isPlaying)) {
           onTrackSelect?.(targetTrack);
-        }
-        if (numTracks > 1 && wrappedArrayIdx >= numTracks - 4 && onLoadMore) {
-          onLoadMore();
         }
       };
 
@@ -126,7 +135,14 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
     handleSettleRef.current(targetInt, false);
   }, []);
 
-  // Sync smoothly via shortest circular path when track changes externally (MusicTab / MiniPlayer)
+  // Ensure initial prefetch if queue starts short
+  useEffect(() => {
+    if (numTracks > 0 && settledIndexRef.current >= numTracks - PREFETCH_AHEAD_THRESHOLD && onLoadMore) {
+      onLoadMore();
+    }
+  }, [numTracks, onLoadMore]);
+
+  // Sync smoothly to exact history/queue index when track changes externally (MusicTab / MiniPlayer)
   useEffect(() => {
     if (isSelfTriggeredRef.current) {
       isSelfTriggeredRef.current = false;
@@ -134,13 +150,10 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
     }
     if (currentTrack?.videoId && numTracks > 0) {
       const found = tracks.findIndex((t) => t.videoId === currentTrack.videoId);
-      const currentWrapped = wrapCircularIndex(settledIndexRef.current, numTracks);
-      if (found !== -1 && found !== currentWrapped) {
-        const delta = shortestCircularDelta(settledIndexRef.current, found, numTracks);
-        const nextVirtual = settledIndexRef.current + delta;
-        settledIndexRef.current = nextVirtual;
-        setSettledIndex(nextVirtual);
-        virtualIndex.value = withSpring(nextVirtual, CAROUSEL_SPRING);
+      if (found !== -1 && found !== settledIndexRef.current) {
+        settledIndexRef.current = found;
+        setSettledIndex(found);
+        virtualIndex.value = withSpring(found, CAROUSEL_SPRING);
       }
     }
   }, [currentTrack?.videoId, numTracks, tracks, virtualIndex]);
@@ -156,7 +169,16 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
       .onUpdate((e) => {
         'worklet';
         if (numTracks <= 1) return;
-        virtualIndex.value = dragStartVirtual.value - e.translationX / DRAG_UNIT_PX;
+        const raw = dragStartVirtual.value - e.translationX / DRAG_UNIT_PX;
+        const maxIdx = numTracks - 1;
+        // Soft Apple rubber-band resistance at index 0 (start of history) and current buffer tip
+        if (raw < 0) {
+          virtualIndex.value = raw * 0.28;
+        } else if (raw > maxIdx) {
+          virtualIndex.value = maxIdx + (raw - maxIdx) * 0.28;
+        } else {
+          virtualIndex.value = raw;
+        }
       })
       .onEnd((e) => {
         'worklet';
@@ -165,16 +187,16 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
           return;
         }
 
-        const startInt = Math.round(dragStartVirtual.value);
+        const startInt = clampIndex(Math.round(dragStartVirtual.value), numTracks);
         const rawProjected = virtualIndex.value - (e.velocityX / DRAG_UNIT_PX) * 0.12;
         const delta = Math.max(-2, Math.min(2, Math.round(rawProjected - startInt)));
-        let targetInt = startInt + delta;
+        let targetInt = clampIndex(startInt + delta, numTracks);
 
         if (targetInt === startInt) {
           if (e.translationX < -18 || e.velocityX < -150) {
-            targetInt = startInt + 1;
+            targetInt = clampIndex(startInt + 1, numTracks);
           } else if (e.translationX > 18 || e.velocityX > 150) {
-            targetInt = startInt - 1;
+            targetInt = clampIndex(startInt - 1, numTracks);
           }
         }
 
@@ -189,30 +211,30 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
   const handleCardTap = useCallback(
     (targetVirtualPos: number) => {
       if (numTracks === 0) return;
+      const clampedIdx = Math.max(0, Math.min(numTracks - 1, targetVirtualPos));
       const currentCameraInt = Math.round(virtualIndex.value);
-      const isCenter = currentCameraInt === targetVirtualPos;
-      const wrappedArrayIdx = wrapCircularIndex(targetVirtualPos, numTracks);
-      const tappedTrack = tracks[wrappedArrayIdx];
+      const isCenter = currentCameraInt === clampedIdx;
+      const tappedTrack = tracks[clampedIdx];
       if (!tappedTrack) return;
 
       if (isCenter) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (currentTrack?.videoId !== tappedTrack.videoId) {
-          playTrack(tappedTrack, tracks, wrappedArrayIdx, 'Dashboard');
+          playTrack(tappedTrack, tracks, clampedIdx, 'Dashboard');
         } else if (!useAudioStore.getState().isPlaying) {
           useAudioStore.getState().resumeTrack();
         }
         setPlayerModalVisible(true);
       } else {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        virtualIndex.value = withSpring(targetVirtualPos, CAROUSEL_SPRING);
-        handleSettle(targetVirtualPos, true);
+        virtualIndex.value = withSpring(clampedIdx, CAROUSEL_SPRING);
+        handleSettle(clampedIdx, true);
       }
     },
     [currentTrack?.videoId, handleSettle, numTracks, playTrack, setPlayerModalVisible, tracks, virtualIndex]
   );
 
-  // Stable callback map per slot virtual pos avoids breaking React.memo on re-render
+  // Persistent 5-slot pool along the timeline (never wraps past 0 or past numTracks-1)
   const pooledCards = useMemo(() => {
     if (numTracks === 0) return [];
     if (numTracks === 1) {
@@ -226,15 +248,15 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
 
     const items = SLOT_OFFSETS.map((offset) => {
       const cardVirtualPos = settledIndex + offset;
+      if (cardVirtualPos < 0 || cardVirtualPos >= numTracks) return null;
       const poolIdx = wrapCircularIndex(cardVirtualPos, SLOT_POOL_SIZE);
-      const arrayIdx = wrapCircularIndex(cardVirtualPos, numTracks);
       return {
         poolKey: `slot-pool-${poolIdx}`,
         cardVirtualPos,
-        track: tracks[arrayIdx],
+        track: tracks[cardVirtualPos],
         isCenter: offset === 0,
       };
-    }).filter((item) => Boolean(item.track));
+    }).filter((item): item is NonNullable<typeof item> => Boolean(item && item.track));
 
     items.sort((a, b) => a.poolKey.localeCompare(b.poolKey));
     return items;
