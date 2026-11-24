@@ -27,6 +27,21 @@ index 8211ef0..2de080d 100644
    cxxLanguageStandard: .cxx20
  )
  
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
+index 8d5b594..01fc743 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/HostFunctionClosure.h
+@@ -21,6 +21,10 @@ public:
+ 
+   explicit HostFunctionClosure(Context context, Closure closure, Deallocator deallocator) : RetainedSwiftPointer(context, deallocator), _closure(closure) {};
+ 
++  static HostFunctionClosure *create(Context context, Closure closure, Deallocator deallocator) noexcept {
++    return new HostFunctionClosure(context, closure, deallocator);
++  }
++
+   virtual ~HostFunctionClosure() {
+     _deallocator(_context);
+   }
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
 index c49aa7e..cc07123 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Extensions/Task+immediate.swift
@@ -107,9 +122,18 @@ index 2aa6bb3..d2aeecf 100644
        return UncheckedSendableBox(decoded)
      }
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-index 9dec012..0df77d3 100644
+index 9dec012..d6f6e59 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
 +++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
+@@ -275,7 +275,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
+ 
+       for propertyName in propertyNames {
+         let propNameId = facebook.jsi.PropNameID.forUtf8(iRuntime, std.string(propertyName))
+-        vector.push_back(consuming: propNameId)
++        vector.push_back(propNameId)
+       }
+       return vector
+     }
 @@ -436,7 +436,7 @@ open class JavaScriptRuntime: Equatable, Identifiable, @unchecked Sendable {
  
      // The factory gets the name as data, never as source. This check keeps the contract that a name
@@ -119,6 +143,15 @@ index 9dec012..0df77d3 100644
        throw InvalidIdentifierError(identifier: name)
      }
  
+@@ -1061,7 +1061,7 @@ private func createFunctionClosure(
+     Unmanaged<HostFunctionContext>.fromOpaque(context).release()
+   }
+ 
+-  return expo.HostFunctionClosure(context, call, deallocate)
++  return expo.HostFunctionClosure.create(context, call, deallocate)
+ }
+ 
+ // MARK: - Errors
 diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
 index 148f693..ca25700 100644
 --- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Runtime/Values/JavaScriptPromise.swift
