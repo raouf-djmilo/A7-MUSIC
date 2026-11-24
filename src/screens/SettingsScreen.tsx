@@ -43,7 +43,7 @@ export const SettingsScreen = () => {
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   const currentVersion = getInstalledAppVersion();
-  const { hasUpdate, updateInfo, isChecking, checkUpdates } = useUpdateStore();
+  const { hasUpdate, otaStatus, otaDetails, updateInfo, isChecking, checkUpdates } = useUpdateStore();
   const { totalStorageMB, totalTrackCount, loadManifest } = useDownloadStore();
 
   const {
@@ -546,7 +546,9 @@ export const SettingsScreen = () => {
                   <View style={styles.textStack}>
                     <Text style={styles.rowTitle}>تحديث التطبيق</Text>
                     <Text style={styles.rowSubtitle}>
-                      {hasUpdate
+                      {otaStatus === 'ready' || otaStatus === 'available'
+                        ? `تحديث فوري جاهز (${otaDetails?.otaVersion || 'OTA'})`
+                        : hasUpdate
                         ? `إصدار جديد متوفر: v${updateInfo?.latestVersion || ''}`
                         : `الإصدار الحالي v${currentVersion} • فحص وتثبيت`}
                     </Text>

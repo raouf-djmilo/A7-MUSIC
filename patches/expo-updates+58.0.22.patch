@@ -1,0 +1,90 @@
+diff --git a/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CertificateChain.swift b/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CertificateChain.swift
+index d11f72e..461caef 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CertificateChain.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CertificateChain.swift
+@@ -1,5 +1,8 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++import Foundation
++import Security
++
+ // swiftlint:disable force_unwrapping
+ // swiftlint:disable identifier_name
+ 
+diff --git a/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CodeSigningError.swift b/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CodeSigningError.swift
+index d4c5a78..0340e5f 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CodeSigningError.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/CodeSigning/CodeSigningError.swift
+@@ -2,6 +2,8 @@
+ 
+ // swiftlint:disable identifier_name
+ 
++import Foundation
++
+ public enum CodeSigningError: Error, Sendable, LocalizedError {
+   public enum CertificateChainErrorReason: Sendable {
+     case couldNotCreateSecTrust(osStatus: OSStatus)
+diff --git a/node_modules/expo-updates/ios/EXUpdates/Procedures/StateMachineSerialExecutorQueue.swift b/node_modules/expo-updates/ios/EXUpdates/Procedures/StateMachineSerialExecutorQueue.swift
+index 6d0ef2b..3116ba5 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/Procedures/StateMachineSerialExecutorQueue.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/Procedures/StateMachineSerialExecutorQueue.swift
+@@ -1,5 +1,7 @@
+ //  Copyright © 2019 650 Industries. All rights reserved.
+ 
++import Foundation
++
+ private final class MethodInvocationHolder {
+   private let updatesLogger: UpdatesLogger
+   private let procedure: StateMachineProcedure
+diff --git a/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyDevelopmentClient.swift b/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyDevelopmentClient.swift
+index 1dce9e7..afa6350 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyDevelopmentClient.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyDevelopmentClient.swift
+@@ -1,5 +1,7 @@
+ //  Copyright © 2019 650 Industries. All rights reserved.
+ 
++import Foundation
++
+ /**
+  * A ReaperSelectionPolicy which keeps a predefined maximum number of updates across all scopes,
+  * and, once that number is surpassed, selects the updates least recently accessed (and then least
+diff --git a/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyFilterAware.swift b/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyFilterAware.swift
+index 1d97809..05db253 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyFilterAware.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/SelectionPolicy/ReaperSelectionPolicyFilterAware.swift
+@@ -2,6 +2,8 @@
+ 
+ // swiftlint:disable identifier_name
+ 
++import Foundation
++
+ /**
+  * A ReaperSelectionPolicy which chooses which updates to delete taking into account manifest filters
+  * originating from the server. If older updates are available, it will choose to keep up to
+diff --git a/node_modules/expo-updates/ios/EXUpdates/Update/Update.swift b/node_modules/expo-updates/ios/EXUpdates/Update/Update.swift
+index d31260d..971b413 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/Update/Update.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/Update/Update.swift
+@@ -157,7 +157,8 @@ public class Update: NSObject {
+     config: UpdatesConfig,
+     database: UpdatesDatabase
+   ) throws -> Update {
+-    guard let protocolVersion = responseHeaderData.protocolVersion else {
++    let protocolVersion = responseHeaderData.protocolVersion ?? (withManifest["launchAsset"] != nil ? 1 : nil)
++    guard let protocolVersion else {
+       throw UpdateError.legacyManifestInstantiationInvalid
+     }
+     switch protocolVersion {
+diff --git a/node_modules/expo-updates/ios/EXUpdates/UpdatesError.swift b/node_modules/expo-updates/ios/EXUpdates/UpdatesError.swift
+index 45bd31a..966000a 100644
+--- a/node_modules/expo-updates/ios/EXUpdates/UpdatesError.swift
++++ b/node_modules/expo-updates/ios/EXUpdates/UpdatesError.swift
+@@ -3,6 +3,8 @@
+ // swiftlint:disable identifier_name
+ // swiftlint:disable line_length
+ 
++import Foundation
++
+ public enum UpdatesError: Error, Sendable, LocalizedError {
+   case fileDownloaderAssetDownloadEmptyResponse(url: URL)
+   case fileDownloaderAssetMismatchedHash(url: URL, expectedBase64URLEncodedSHA256Hash: String, actualBase64URLEncodedSHA256Hash: String)

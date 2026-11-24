@@ -3,8 +3,8 @@ import * as Application from 'expo-application';
 /**
  * 🏷️ Single Source of Truth for Application Versioning
  */
-export const APP_VERSION = '1.5.2';
-export const APP_BUILD_NAME = 'Artist Discography, Album View & Enhanced Music Service';
+export const APP_VERSION = '1.6.5';
+export const APP_BUILD_NAME = 'A7 MUSIC — Fast iOS OTA Engine';
 export const APP_RELEASE_YEAR = '2026';
 
 export const GITHUB_REPO_OWNER = 'raouf-djmilo';
@@ -12,6 +12,7 @@ export const GITHUB_REPO_NAME = 'A7-MUSIC';
 export const GITHUB_RELEASES_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/latest`;
 export const GITHUB_RELEASES_PAGE_URL = `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases`;
 export const GITHUB_RAW_VERSION_URL = `https://raw.githubusercontent.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/main/version.json`;
+export const GITHUB_PAGES_OTA_LATEST_URL = `https://${GITHUB_REPO_OWNER}.github.io/${GITHUB_REPO_NAME}/ota/ios/latest.json`;
 
 /**
  * Returns the active native application version or falls back to APP_VERSION

@@ -25,6 +25,7 @@ import { useAudioStore } from './src/store/useAudioStore';
 import { initNetworkMonitor } from './src/services/networkService';
 import { OfflineGuardModal } from './src/components/OfflineGuardModal';
 import { inspectOfflineStorage } from './src/services/downloadService';
+import { useUpdateStore } from './src/services/updateService';
 
 const AppContent = () => {
   const { theme, isDark } = useTheme();
@@ -74,6 +75,11 @@ export default function App() {
       inspectOfflineStorage();
     }, 2000);
 
+    // ⚡ Silent iOS Fast OTA Check & Background Pre-Fetch (0ms startup impact)
+    const otaTimer = setTimeout(() => {
+      useUpdateStore.getState().checkAndStageOtaInBackground().catch(() => {});
+    }, 4500);
+
     // 🚀 Enable Background Audio & Professional Mode
     const setupAudio = async () => {
       try {
@@ -101,6 +107,7 @@ export default function App() {
 
     return () => {
       clearTimeout(storageTimer);
+      clearTimeout(otaTimer);
       appStateSubscription.remove();
     };
   }, []);

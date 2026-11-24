@@ -1,0 +1,60 @@
+name: Publish iOS OTA Update (GitHub Pages)
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'عنوان التحديث الذي يظهر للمستخدمين (اختياري)'
+        required: false
+        default: ''
+      highlights:
+        description: 'قائمة الميزات مفصولة بـ | (مثال: تحسين المشغل|تصميم جديد)'
+        required: false
+        default: ''
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'App.tsx'
+      - 'index.ts'
+      - 'assets/**'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-ota:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Export iOS JS Bundle & Assets
+        run: npx expo export --platform ios --output-dir dist-ota
+
+      - name: Generate Expo Updates v1 Manifest & Metadata
+        env:
+          OTA_TITLE: ${{ github.event.inputs.title || '' }}
+          OTA_HIGHLIGHTS: ${{ github.event.inputs.highlights || '' }}
+        run: node .github/scripts/generate-ota-manifest.mjs dist-ota ota-out
+
+      - name: Deploy OTA to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./ota-out
+          keep_files: true
+          commit_message: "ota(ios): publish bundle ${{ github.sha }}"
