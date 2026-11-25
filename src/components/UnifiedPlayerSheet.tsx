@@ -245,10 +245,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const isSwitchingModeRef = useRef<boolean>(false);
   // Tracks which videoId has actually emitted 'playing' in YoutubePlayer (avoids time-based lockouts)
   const startedYoutubeVideoIdRef = useRef<string | null>(null);
+  const bgRecoveryTimerRef = useRef<any>(null);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
 
   useEffect(() => {
     startedYoutubeVideoIdRef.current = null;
+    if (bgRecoveryTimerRef.current) {
+      clearTimeout(bgRecoveryTimerRef.current);
+      bgRecoveryTimerRef.current = null;
+    }
   }, [currentTrack?.videoId]);
 
   const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.42, 380);
@@ -1787,8 +1792,16 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   initialPlayerParams={stablePlayerParams}
                   onChangeState={(state: string) => {
                     if (state === 'ended') {
+                      if (bgRecoveryTimerRef.current) {
+                        clearTimeout(bgRecoveryTimerRef.current);
+                        bgRecoveryTimerRef.current = null;
+                      }
                       useAudioStore.getState().handleTrackEnded();
                     } else if (state === 'playing') {
+                      if (bgRecoveryTimerRef.current) {
+                        clearTimeout(bgRecoveryTimerRef.current);
+                        bgRecoveryTimerRef.current = null;
+                      }
                       startedYoutubeVideoIdRef.current = currentTrack?.videoId || null;
                       useAudioStore.setState({
                         isPlaying: true,
@@ -1807,8 +1820,35 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       if (startedYoutubeVideoIdRef.current !== currentTrack?.videoId) {
                         return;
                       }
-                      // Background Audio Guard: keep store playing when iOS WebKit auto-pauses on lock
+                      // Background Audio Guard: if iOS WebKit auto-pauses on lock/background:
                       if (AppState.currentState !== 'active') {
+                        if (!storeState.backgroundAudioEnabled) {
+                          storeState.pauseTrack();
+                          return;
+                        }
+                        // Background playback is ON: nudge WebKit to resume, and if it stays stalled,
+                        // seamlessly hand over to Native AVPlayer at the exact current second.
+                        try {
+                          (youtubePlayerRef.current as any)?.playVideo?.();
+                        } catch {}
+                        if (!bgRecoveryTimerRef.current) {
+                          const resumeVid = currentTrack?.videoId;
+                          bgRecoveryTimerRef.current = setTimeout(() => {
+                            bgRecoveryTimerRef.current = null;
+                            const latest = useAudioStore.getState();
+                            if (
+                              AppState.currentState !== 'active' &&
+                              latest.backgroundAudioEnabled &&
+                              latest.isPlaying &&
+                              !latest.isUserPauseAction &&
+                              latest.activeEngine === 'youtube' &&
+                              latest.currentTrack?.videoId === resumeVid
+                            ) {
+                              const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+                              latest.handlePlaybackFallback(resumeVid, posSec);
+                            }
+                          }, 900);
+                        }
                         return;
                       }
                       useAudioStore.setState({ isPlaying: false });

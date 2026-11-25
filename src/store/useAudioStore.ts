@@ -10,11 +10,11 @@ import {
   toggleFirebaseFavoriteArtist,
 } from '../services/firebaseMusicDb';
 import { CURATED_TRACKS } from '../data/curatedMusic';
-import { 
-  trackListeningSecond, 
-  flushListeningSecondsToSupabase, 
-  startListeningHeartbeat, 
-  stopListeningHeartbeat 
+import {
+  trackListeningSecond,
+  flushListeningSecondsToSupabase,
+  startListeningHeartbeat,
+  stopListeningHeartbeat
 } from '../services/listeningTimeService';
 import { configureAudioSession, updateNowPlayingLockScreen, getOrGenerateSilentAudioUri, getActivePlayerBridge } from '../services/audioSessionService';
 import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync, resolveLockScreenSquareArtworkAsync } from '../utils/artworkHelper';
@@ -59,7 +59,7 @@ export interface AudioState {
   isLoading: boolean;
   playRequestId: number;
   isPlayerModalVisible: boolean;
-  
+
   positionMillis: number;
   durationMillis: number;
   activeUserId: string | null;
@@ -130,7 +130,7 @@ export interface AudioState {
   playDownloadedQueue: (startIndex?: number) => Promise<void>;
   updateProgress: (positionMillis: number, durationMillis: number) => void;
   handleTrackEnded: () => Promise<void>;
-  handlePlaybackFallback: (fallbackVideoId?: string) => Promise<void>;
+  handlePlaybackFallback: (fallbackVideoId?: string, startPositionSec?: number) => Promise<void>;
   playerMediaMode: 'cover' | 'video';
   setPlayerMediaMode: (mode: 'cover' | 'video') => void;
   videoAspectMode: 'fit' | 'fill';
@@ -216,7 +216,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   backgroundAudioEnabled: true,
   setBackgroundAudioEnabled: (enabled: boolean) => {
     set({ backgroundAudioEnabled: enabled });
-    AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => {});
+    AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => { });
+    configureAudioSession(enabled).catch(() => {});
+    nativeAudioService.setBackgroundEnabled(enabled);
+    if (!enabled && NativeModules.TrackPlayerModule) {
+      try {
+        TrackPlayer.pause();
+      } catch {}
+    } else if (enabled && get().isPlaying && NativeModules.TrackPlayerModule) {
+      try {
+        TrackPlayer.play();
+      } catch {}
+    }
   },
   isUserPauseAction: false,
   setIsUserPauseAction: (isUser: boolean) => set({ isUserPauseAction: isUser }),
@@ -224,7 +235,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   playerMediaMode: 'cover',
   setPlayerMediaMode: (mode) => {
     set({ playerMediaMode: mode });
-    AsyncStorage.setItem('@nouble_player_media_mode', mode).catch(() => {});
+    AsyncStorage.setItem('@nouble_player_media_mode', mode).catch(() => { });
   },
   videoAspectMode: 'fit',
   setVideoAspectMode: (mode) => set({ videoAspectMode: mode }),
@@ -238,7 +249,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       if (saved === 'cover' || saved === 'video') {
         set({ playerMediaMode: saved });
       }
-    } catch (e) {}
+    } catch (e) { }
   },
 
   followedArtistIds: [],
@@ -420,7 +431,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const isSameTrack = Boolean(
       state.currentTrack &&
       ((track.videoId && state.currentTrack.videoId === track.videoId) ||
-       ((track as any).id && (state.currentTrack as any).id === (track as any).id))
+        ((track as any).id && (state.currentTrack as any).id === (track as any).id))
     );
 
     if (isSameTrack && (!targetQueue.length || targetQueue === state.queue)) {
@@ -448,7 +459,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     try {
       const newRequestId = state.playRequestId + 1;
       lastUserToggleTimestamp = Date.now();
-      
+
       // ── Context Queue & Index Calibration ──
       if (targetQueue.length > 0) {
         const foundIdx = (targetIndex >= 0 && targetIndex < targetQueue.length)
@@ -539,7 +550,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       // If audioUrl is not specified and not a YouTube videoId, pick fallback stream
       if (!streamUrl && (!track.videoId || track.videoId.startsWith('http') || track.videoId.length < 5)) {
-        const matchingCurated = CURATED_TRACKS.find(t => 
+        const matchingCurated = CURATED_TRACKS.find(t =>
           t.videoId === track.videoId ||
           t.title.toLowerCase() === track.title?.toLowerCase()
         );
@@ -585,7 +596,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           audioEngineAction: { type: 'stop', id: Date.now() },
         });
       } else if (streamUrl || !track.videoId || track.videoId.length < 5) {
-        nativeAudioService.stop().catch(() => {});
+        nativeAudioService.stop().catch(() => { });
         set({
           playRequestId: newRequestId,
           currentTrack: finalTrack,
@@ -608,7 +619,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           },
         });
       } else {
-        nativeAudioService.stop().catch(() => {});
+        nativeAudioService.stop().catch(() => { });
       }
 
       // Background Persistence & Native Audio Mode
@@ -616,8 +627,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         const currentHistory = get().history;
         const updatedHistory = [finalTrack, ...currentHistory.filter(t => t.videoId !== finalTrack.videoId)].slice(0, 30);
         set({ history: updatedHistory });
-        AsyncStorage.setItem('@nouble_music_history', JSON.stringify(updatedHistory)).catch(() => {});
-        musicDnaService.recordListeningSignal(finalTrack, 'play').catch(() => {});
+        AsyncStorage.setItem('@nouble_music_history', JSON.stringify(updatedHistory)).catch(() => { });
+        musicDnaService.recordListeningSignal(finalTrack, 'play').catch(() => { });
 
         // Configure native audio session for background playback
         configureAudioSession(get().backgroundAudioEnabled);
@@ -628,7 +639,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         // One-time informational toast
         AsyncStorage.getItem('@nouble_bg_audio_toast_shown').then((shown) => {
           if (!shown) {
-            AsyncStorage.setItem('@nouble_bg_audio_toast_shown', 'true').catch(() => {});
+            AsyncStorage.setItem('@nouble_bg_audio_toast_shown', 'true').catch(() => { });
             setTimeout(() => {
               ToastManager.show({
                 title: '🎵 الصوت يعمل في الخلفية',
@@ -638,9 +649,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
               });
             }, 1200);
           }
-        }).catch(() => {});
+        }).catch(() => { });
 
-        if (NativeModules.TrackPlayerModule) {
+        if (NativeModules.TrackPlayerModule && get().backgroundAudioEnabled) {
           void (async () => {
             try {
               const queue = await TrackPlayer.getQueue();
@@ -658,7 +669,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 await TrackPlayer.setVolume(0);
                 await TrackPlayer.play();
               } else {
-                // Only update metadata; avoid re-calling TrackPlayer.play() on every swipe so AVAudioSession never fights WKWebView
+                // Ensure silent keeper is active if it was previously paused
                 await TrackPlayer.updateNowPlayingMetadata({
                   title: finalTitle,
                   artist: finalArtist,
@@ -666,6 +677,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                   duration: totalDurationSec,
                   elapsedTime: initialPosition,
                 });
+                await TrackPlayer.play();
               }
             } catch {
               // Native TrackPlayer fallback is non-blocking
@@ -689,7 +701,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                     artist: upgradedTrack.artist,
                     artwork: studioArt,
                     duration: Math.floor(get().durationMillis / 1000),
-                  }).catch(() => {});
+                  }).catch(() => { });
                 }
               }
             } else {
@@ -701,13 +713,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                       artist: finalTrack.artist,
                       artwork: sqArt,
                       duration: totalDurationSec,
-                    }).catch(() => {});
+                    }).catch(() => { });
                   }
                 })
-                .catch(() => {});
+                .catch(() => { });
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } catch (error: any) {
         console.warn('[AudioStore] Background Play Error:', error);
       }
@@ -724,14 +736,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   playAlbumContext: async (tracks, startIndex, contextName) => {
-    set({ 
-      queue: tracks, 
+    set({
+      queue: tracks,
       currentQueue: tracks,
-      currentIndex: startIndex, 
+      currentIndex: startIndex,
       currentContextName: contextName,
       queueContextName: contextName,
       isShuffle: false,
-      shuffledIndices: [] 
+      shuffledIndices: []
     });
     await get().playTrack(tracks[startIndex], tracks, startIndex, contextName);
   },
@@ -774,7 +786,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     // Record skip signal for Music DNA if skipped early (< 25s)
     if (currentTrack && positionMillis < 25000 && (durationMillis || 0) > 45000) {
-      musicDnaService.recordListeningSignal(currentTrack, 'skip').catch(() => {});
+      musicDnaService.recordListeningSignal(currentTrack, 'skip').catch(() => { });
     }
 
     // 1. Repeat ONE mode: replay current track from beginning
@@ -816,7 +828,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         nextIdx = currentIndex + 1;
         // 🚀 Proactive YouTube Music Endless Radio: prefetch next batch when 3 or fewer tracks remain
         if (currentIndex >= queue.length - 3) {
-          extendQueueWithContextRadio(get, set).catch(() => {});
+          extendQueueWithContextRadio(get, set).catch(() => { });
         }
       } else {
         // End of queue reached
@@ -856,7 +868,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     const { queue, currentIndex, positionMillis, isShuffle, shuffledIndices, repeatMode, currentContextName } = get();
     if (queue.length === 0) return;
-    
+
     // Spotify Standard: If played >3 seconds, restart current track from 0
     if (positionMillis > 3000) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -942,20 +954,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         ? likedTrackIds.filter((id) => id !== track.videoId)
         : [...likedTrackIds, track.videoId];
       set({ likedTrackIds: newLikedIds });
-      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => {});
+      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => { });
       return;
     }
 
     const isLiked = likedTrackIds.includes(track.videoId);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const newLikedIds = isLiked 
+    const newLikedIds = isLiked
       ? likedTrackIds.filter(id => id !== track.videoId)
       : [...likedTrackIds, track.videoId];
-    
+
     set({ likedTrackIds: newLikedIds });
 
-    musicDnaService.recordListeningSignal(track, isLiked ? 'unlike' : 'like').catch(() => {});
+    musicDnaService.recordListeningSignal(track, isLiked ? 'unlike' : 'like').catch(() => { });
 
     try {
       if (isLiked) {
@@ -979,18 +991,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     if (activeEngine === 'native') {
       if (nextIsPlaying) {
-        nativeAudioService.resume().catch(() => {});
+        nativeAudioService.resume().catch(() => { });
       } else {
-        nativeAudioService.pause().catch(() => {});
+        nativeAudioService.pause().catch(() => { });
       }
     }
 
-    set({ 
+    set({
       isPlaying: nextIsPlaying,
       isUserPauseAction: !nextIsPlaying,
-      audioEngineAction: activeEngine === 'youtube' ? { 
-        type: nextIsPlaying ? 'resume' : 'pause', 
-        id: Date.now() 
+      audioEngineAction: activeEngine === 'youtube' ? {
+        type: nextIsPlaying ? 'resume' : 'pause',
+        id: Date.now()
       } : null,
     });
 
@@ -998,14 +1010,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       flushListeningSecondsToSupabase();
     }
 
-    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
+    if (NativeModules.TrackPlayerModule) {
       try {
-        if (nextIsPlaying) {
+        if (nextIsPlaying && get().backgroundAudioEnabled) {
           await TrackPlayer.play();
         } else {
           await TrackPlayer.pause();
         }
-      } catch(e) {}
+      } catch (e) { }
     }
   },
 
@@ -1014,11 +1026,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     const { activeEngine } = get();
     if (activeEngine === 'native') {
-      nativeAudioService.pause().catch(() => {});
+      nativeAudioService.pause().catch(() => { });
     } else if (activeEngine === 'youtube') {
       getActivePlayerBridge()?.pause();
     }
-    set({ 
+    set({
       isPlaying: false,
       isUserPauseAction: true,
       audioEngineAction: activeEngine === 'youtube' ? { type: 'pause', id: Date.now() } : null,
@@ -1026,29 +1038,29 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     flushListeningSecondsToSupabase();
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
-    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
-      try { TrackPlayer.pause(); } catch(e) {}
+    if (NativeModules.TrackPlayerModule) {
+      try { TrackPlayer.pause(); } catch (e) { }
     }
   },
 
   resumeTrack: () => {
     if (get().isPlaying) return;
     lastUserToggleTimestamp = Date.now();
-    const { activeEngine } = get();
+    const { activeEngine, backgroundAudioEnabled } = get();
     if (activeEngine === 'native') {
-      nativeAudioService.resume().catch(() => {});
+      nativeAudioService.resume().catch(() => { });
     } else if (activeEngine === 'youtube') {
       getActivePlayerBridge()?.play();
     }
-    set({ 
+    set({
       isPlaying: true,
       isUserPauseAction: false,
       audioEngineAction: activeEngine === 'youtube' ? { type: 'resume', id: Date.now() } : null,
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
-    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
-      try { TrackPlayer.play(); } catch(e) {}
+    if (NativeModules.TrackPlayerModule && backgroundAudioEnabled) {
+      try { TrackPlayer.play(); } catch (e) { }
     }
   },
 
@@ -1057,18 +1069,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const validPos = Math.max(0, position);
     const { activeEngine } = get();
     if (activeEngine === 'native') {
-      nativeAudioService.seekTo(validPos).catch(() => {});
+      nativeAudioService.seekTo(validPos).catch(() => { });
     } else if (activeEngine === 'youtube') {
       getActivePlayerBridge()?.seekTo(validPos / 1000);
     }
-    set({ 
+    set({
       positionMillis: validPos,
       audioEngineAction: activeEngine === 'youtube' ? { type: 'seek', position: validPos / 1000, id: Date.now() } : null,
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, validPos, state.durationMillis, true);
     if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
-      try { await TrackPlayer.seekTo(validPos / 1000); } catch(e){}
+      try { await TrackPlayer.seekTo(validPos / 1000); } catch (e) { }
     }
   },
 
@@ -1107,14 +1119,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     flushListeningSecondsToSupabase();
     const { repeatMode, currentTrack } = get();
     if (currentTrack) {
-      musicDnaService.recordListeningSignal(currentTrack, 'complete').catch(() => {});
+      musicDnaService.recordListeningSignal(currentTrack, 'complete').catch(() => { });
     }
     if (repeatMode === 'one' && currentTrack) {
       await get().seekTo(0);
       if (get().activeEngine === 'youtube') {
         getActivePlayerBridge()?.play();
       }
-      set({ 
+      set({
         audioEngineAction: {
           type: 'play',
           videoId: currentTrack.videoId,
@@ -1130,7 +1142,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
   },
 
-  handlePlaybackFallback: async (fallbackVideoId?: string) => {
+  handlePlaybackFallback: async (fallbackVideoId?: string, startPositionSec: number = 0) => {
     const { currentTrack, isSwitchingToFallback, activeEngine } = get();
     const targetTrack = currentTrack;
     if (!targetTrack || !targetTrack.videoId) return;
@@ -1177,7 +1189,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         });
 
         // 2. Play directly via native hardware engine (expo-video / AVPlayer / ExoPlayer)
-        await nativeAudioService.play(streamUrl, 0, {
+        await nativeAudioService.play(streamUrl, startPositionSec, {
           title: targetTrack.title || 'Track',
           artist: targetTrack.artist || 'Artist',
           artwork: getUniversalStudioArtwork(targetTrack.thumbnail) || undefined,
@@ -1231,12 +1243,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     flushListeningSecondsToSupabase();
     fallbackInProgressVideoId = null;
     try {
-      nativeAudioService.stop().catch(() => {});
-    } catch (e) {}
-    set({ 
-      currentTrack: null, 
-      isPlaying: false, 
-      positionMillis: 0, 
+      nativeAudioService.stop().catch(() => { });
+    } catch (e) { }
+    set({
+      currentTrack: null,
+      isPlaying: false,
+      positionMillis: 0,
       durationMillis: 180000,
       activeEngine: 'youtube',
       isSwitchingToFallback: false,
@@ -1246,7 +1258,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       try {
         await TrackPlayer.stop();
         await TrackPlayer.reset();
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 }));

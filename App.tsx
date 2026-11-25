@@ -117,10 +117,16 @@ export default function App() {
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       const { isPlaying, backgroundAudioEnabled, pauseTrack } = useAudioStore.getState();
 
-      // If the app is transitioning to background/inactive and background playback is turned OFF:
-      if (nextAppState.match(/inactive|background/) && isPlaying && !backgroundAudioEnabled) {
-        console.log('[Background Guard] App minimized with background audio OFF -> Pausing immediately');
-        pauseTrack();
+      // When Background Playback is OFF: exiting the app or locking the phone ('background') stops playback completely.
+      if (nextAppState === 'background' && !backgroundAudioEnabled) {
+        if (isPlaying) {
+          console.log('[Background Guard] App backgrounded/locked with background audio OFF -> Stopping playback');
+          pauseTrack();
+        }
+      }
+      // When returning to foreground with background audio ON, ensure audio session stays configured
+      if (nextAppState === 'active' && backgroundAudioEnabled && isPlaying) {
+        configureAudioSession(true).catch(() => {});
       }
       // Check OTA silently when returning to foreground (throttled every 10 minutes)
       if (nextAppState === 'active' && Date.now() - lastForegroundOtaCheck > 10 * 60 * 1000) {

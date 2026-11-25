@@ -85,8 +85,9 @@ class NativeAudioService {
         };
 
         const player = expoVideo.createVideoPlayer(playerSource);
-        player.staysActiveInBackground = true;
-        player.showNowPlayingNotification = !NativeModules.TrackPlayerModule;
+        const bgEnabled = getAudioStore()?.getState()?.backgroundAudioEnabled ?? true;
+        player.staysActiveInBackground = bgEnabled;
+        player.showNowPlayingNotification = bgEnabled && !NativeModules.TrackPlayerModule;
         player.timeUpdateEventInterval = 0.35;
         player.volume = 1.0;
 
@@ -172,10 +173,11 @@ class NativeAudioService {
       const expoAv = this.getExpoAv();
       if (expoAv?.Audio?.Sound) {
         console.log('[NativeAudioService] 🚀 Initializing expo-av native engine...');
+        const bgEnabled = getAudioStore()?.getState()?.backgroundAudioEnabled ?? true;
         try {
           await expoAv.Audio.setAudioModeAsync({
             allowsRecordingIOS: false,
-            staysActiveInBackground: true,
+            staysActiveInBackground: bgEnabled,
             playsInSilentModeIOS: true,
             shouldDuckAndroid: false,
             playThroughEarpieceAndroid: false,
@@ -212,6 +214,32 @@ class NativeAudioService {
       const store = getAudioStore();
       if (store) store.setState({ isLoading: false, loadingTrackId: null });
       throw err;
+    }
+  }
+
+  /**
+   * 🔄 Dynamically update background playback capability on active native player
+   */
+  setBackgroundEnabled(enabled: boolean): void {
+    try {
+      if (this.videoPlayer) {
+        this.videoPlayer.staysActiveInBackground = enabled;
+        this.videoPlayer.showNowPlayingNotification = enabled && !NativeModules.TrackPlayerModule;
+      }
+      if (this.activeEngine === 'av') {
+        const expoAv = this.getExpoAv();
+        if (expoAv?.Audio?.setAudioModeAsync) {
+          expoAv.Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            staysActiveInBackground: enabled,
+            playsInSilentModeIOS: true,
+            shouldDuckAndroid: false,
+            playThroughEarpieceAndroid: false,
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('[NativeAudioService] setBackgroundEnabled error:', e);
     }
   }
 

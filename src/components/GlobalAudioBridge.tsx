@@ -767,6 +767,7 @@ export const GlobalAudioBridge: React.FC = () => {
         console.log('[ExpoVideoOffline] ⚡ Playing local audio with expo-video:', fileUri);
 
         const player = createPlayer({ uri: fileUri });
+        player.staysActiveInBackground = useAudioStore.getState().backgroundAudioEnabled;
         player.timeUpdateEventInterval = 0.35;
         if (typeof startPosSec === 'number' && startPosSec > 0) {
           player.currentTime = startPosSec;

@@ -57,6 +57,8 @@ export const getOrGenerateSilentAudioUri = async (): Promise<string> => {
 
 let isSessionConfigured = false;
 let lastLockScreenSyncTime = 0;
+let lastLockScreenTrackId: string | null = null;
+const resolvedArtworkCache = new Map<string, string>();
 let _cachedAudioModule: any = undefined;
 
 /**
@@ -98,10 +100,8 @@ export const configureAudioSession = async (
   isPlaying: boolean = false
 ): Promise<void> => {
   try {
-    // 🛡️ Safety Guard: Once configured on boot, NEVER re-execute setAudioModeAsync
-    // because tearing down/resetting native AVAudioSession drops active audio streams and causes glitches!
-    if (isSessionConfigured) {
-      lastConfiguredBgSetting = backgroundEnabled;
+    // Only skip if already configured with the exact same background playback setting
+    if (isSessionConfigured && lastConfiguredBgSetting === backgroundEnabled) {
       return;
     }
 
@@ -110,8 +110,8 @@ export const configureAudioSession = async (
       await audioModule.setAudioModeAsync({
         staysActiveInBackground: backgroundEnabled,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: false, // 🛡️ Prevent dynamic compression & volume swings on Android
-        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix (1) - Grants exclusive primary music app priority on iOS Lock Screen
+        shouldDuckAndroid: false, // Prevent dynamic compression & volume swings on Android
+        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix (1) - Exclusive music app priority on iOS Lock Screen
         interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix (1)
         playThroughEarpieceAndroid: false,
       });
@@ -119,11 +119,9 @@ export const configureAudioSession = async (
       lastConfiguredBgSetting = backgroundEnabled;
       console.log('[AudioSessionService] Native Audio mode configured. Background playback:', backgroundEnabled);
     } else {
-      // Expo Go fallback mode: Audio plays via GlobalAudioBridge (WebView)
-      // Background audio capability is defined in app.json for standalone builds.
       isSessionConfigured = true;
       lastConfiguredBgSetting = backgroundEnabled;
-      console.log('[AudioSessionService] ExponentAV native module not present. Running in Expo Go fallback mode.');
+      console.log('[AudioSessionService] ExponentAV native module not present. Running in fallback mode.');
     }
   } catch (err) {
     console.warn('[AudioSessionService] configureAudioSession warning:', err);
@@ -142,9 +140,11 @@ export const updateNowPlayingLockScreen = async (
   if (!track || !NativeModules.TrackPlayerModule) return;
 
   const now = Date.now();
-  // Throttle updates to prevent IPC saturation while scrubbing, unless explicitly forced
-  if (!forceUpdate && now - lastLockScreenSyncTime < 1800) return;
+  const isNewTrack = lastLockScreenTrackId !== track.videoId;
+  // Only sync on forceUpdate, track change, or periodic 10s drift correction to avoid iOS NowPlaying flicker
+  if (!forceUpdate && !isNewTrack && now - lastLockScreenSyncTime < 10000) return;
   lastLockScreenSyncTime = now;
+  lastLockScreenTrackId = track.videoId;
 
   try {
     const validDurationSec = Math.max(1, Math.floor(
@@ -152,13 +152,19 @@ export const updateNowPlayingLockScreen = async (
     ));
     const elapsedSec = Math.max(0, Math.floor(positionMillis / 1000));
 
-    // Resolve pristine 1:1 square artwork without black bars / letterbox
-    const artworkUrl = await resolveLockScreenSquareArtworkAsync(
-      track.thumbnail,
-      track.title,
-      track.artist,
-      track.videoId
-    );
+    // Resolve pristine 1:1 square artwork without black bars / letterbox (cached per videoId)
+    let artworkUrl = resolvedArtworkCache.get(track.videoId);
+    if (!artworkUrl) {
+      artworkUrl = (await resolveLockScreenSquareArtworkAsync(
+        track.thumbnail,
+        track.title,
+        track.artist,
+        track.videoId
+      )) || '';
+      if (artworkUrl) {
+        resolvedArtworkCache.set(track.videoId, artworkUrl);
+      }
+    }
 
     await TrackPlayer.updateNowPlayingMetadata({
       title: track.title,
