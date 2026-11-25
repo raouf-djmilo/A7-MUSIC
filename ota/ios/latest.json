@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.597fcc2",
-  "updateId": "05ba6399-c0ed-4d11-9efa-8f6e90a0632b",
-  "publishedAt": "2026-11-25T01:35:45.510Z",
-  "title": "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
+  "otaVersion": "1.6.5-ota.87784a5",
+  "updateId": "586e3134-1a23-4e83-8c9a-8b7685e27463",
+  "publishedAt": "2026-11-25T01:37:07.844Z",
+  "title": "fix(library): import ScrollView for Firebase user playlists rail",
   "highlights": [
-    "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
+    "fix(library): import ScrollView for Firebase user playlists rail",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6772669,
+  "bundleSizeBytes": 6772664,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

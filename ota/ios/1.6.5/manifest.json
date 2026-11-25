@@ -1,13 +1,13 @@
 {
-  "id": "05ba6399-c0ed-4d11-9efa-8f6e90a0632b",
-  "createdAt": "2026-11-25T01:35:45.510Z",
+  "id": "586e3134-1a23-4e83-8c9a-8b7685e27463",
+  "createdAt": "2026-11-25T01:37:07.844Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "Xr9GfVvJk3Oa3YYirwEOQL8BXwDCE91PT1tNepsWQdg",
-    "key": "6c1a6146207ac9e3b9f61e0e9ba18a0f",
+    "hash": "No-Ya5WbPRPBLnbG8xY3gvOR29y3JA3W32Cg4TDcKUo",
+    "key": "a5140b15231bcb1a6282764dc7aef1eb",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-caf4c0de82721a8b099e818eff60a0e3.hbc"
+    "url": "./_expo/static/js/ios/index-c1081dda59d5f929c92196b60f2808d6.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.597fcc2",
+      "otaVersion": "1.6.5-ota.87784a5",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "597fcc2",
-      "title": "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
+      "commitSha": "87784a5",
+      "title": "fix(library): import ScrollView for Firebase user playlists rail",
       "highlights": [
-        "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
+        "fix(library): import ScrollView for Firebase user playlists rail",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T01:35:45.510Z",
-      "bundleSizeBytes": 6772669
+      "publishedAt": "2026-11-25T01:37:07.844Z",
+      "bundleSizeBytes": 6772664
     }
   }
 }
