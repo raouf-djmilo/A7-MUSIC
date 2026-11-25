@@ -47,6 +47,29 @@ export interface FavoriteArtistDoc {
 const normalizeArtistKey = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'artist';
 
+// ── 0. Username Lookup (for Username + Password Login & Availability Check) ──
+export async function getEmailByUsername(username: string): Promise<string | null> {
+  const clean = username.trim().toLowerCase().replace(/^@/, '');
+  if (!clean) return null;
+  const snap = await getDoc(doc(db, 'usernames', clean));
+  if (!snap.exists()) return null;
+  return (snap.data()?.email as string) || null;
+}
+
+export async function claimFirebaseUsername(
+  username: string,
+  uid: string,
+  email: string
+): Promise<void> {
+  const clean = username.trim().toLowerCase().replace(/^@/, '');
+  if (!clean || !uid || !email) return;
+  await setDoc(doc(db, 'usernames', clean), {
+    uid,
+    email: email.trim().toLowerCase(),
+    createdAt: new Date().toISOString(),
+  });
+}
+
 // ── 1. Account Profile ──
 export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserProfile | null> {
   if (!uid) return null;

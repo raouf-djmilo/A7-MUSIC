@@ -32,6 +32,48 @@ export const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'identifier' | 'password' | null>(null);
 
+  const isAr = React.useMemo(() => {
+    try {
+      return (Intl.DateTimeFormat().resolvedOptions().locale || '').toLowerCase().startsWith('ar');
+    } catch {
+      return true;
+    }
+  }, []);
+
+  const t = isAr
+    ? {
+        guest: 'المتابعة كضيف',
+        tagline: 'استمع واكتشف الموسيقى بحرية',
+        identifierPlaceholder: 'اسم المستخدم أو البريد الإلكتروني',
+        passwordPlaceholder: 'كلمة المرور',
+        forgot: 'نسيت كلمة المرور؟',
+        forgotTitle: 'استعادة كلمة المرور',
+        forgotBody: 'يرجى مراجعة بريدك الإلكتروني المسجل لتعيين كلمة مرور جديدة.',
+        signIn: 'تسجيل الدخول',
+        missingAlertTitle: 'تنبيه',
+        missingAlertBody: 'يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور.',
+        errorTitle: 'تعذر تسجيل الدخول',
+        errorBody: 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.',
+        noAccount: 'ليس لديك حساب؟ ',
+        createAccount: 'إنشاء حساب جديد',
+      }
+    : {
+        guest: 'Continue as Guest',
+        tagline: 'Listen & discover music freely',
+        identifierPlaceholder: 'Username or Email',
+        passwordPlaceholder: 'Password',
+        forgot: 'Forgot Password?',
+        forgotTitle: 'Reset Password',
+        forgotBody: 'Check your registered email inbox to reset your password.',
+        signIn: 'Sign In',
+        missingAlertTitle: 'Notice',
+        missingAlertBody: 'Please enter your username or email and password.',
+        errorTitle: 'Sign In Failed',
+        errorBody: 'Invalid credentials, please try again.',
+        noAccount: "Don't have an account? ",
+        createAccount: 'Create Account',
+      };
+
   const handleContinueAsGuest = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -42,7 +84,7 @@ export const LoginScreen = ({ navigation }: any) => {
 
   const onLogin = async () => {
     if (!identifier.trim() || !password) {
-      Alert.alert('تنبيه', 'يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور.');
+      Alert.alert(t.missingAlertTitle, t.missingAlertBody);
       return;
     }
 
@@ -54,7 +96,7 @@ export const LoginScreen = ({ navigation }: any) => {
     setLoading(false);
 
     if (error) {
-      Alert.alert('تعذر تسجيل الدخول', error.message || 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.');
+      Alert.alert(t.errorTitle, error.message || t.errorBody);
     } else {
       handleContinueAsGuest();
     }
@@ -98,7 +140,7 @@ export const LoginScreen = ({ navigation }: any) => {
             onPress={handleContinueAsGuest}
             activeOpacity={0.7}
           >
-            <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
+            <Text style={styles.skipGuestPillText}>{t.guest}</Text>
             <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
           </TouchableOpacity>
         </View>
@@ -115,9 +157,26 @@ export const LoginScreen = ({ navigation }: any) => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ── Brand Header ── */}
+            {/* ── Brand Header (A7 Liquid Glass) ── */}
             <View style={styles.header}>
-              <View style={styles.logoBadgeContainer}>
+              <View
+                style={[
+                  styles.logoBadgeContainer,
+                  {
+                    borderWidth: 1.5,
+                    borderColor: 'rgba(255, 255, 255, 0.28)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden',
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.03)', 'transparent']}
+                  start={{ x: 0.15, y: 0 }}
+                  end={{ x: 0.85, y: 0.85 }}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
                 <Image
                   source={require('../../assets/logo.png')}
                   style={styles.logoImage}
@@ -126,8 +185,8 @@ export const LoginScreen = ({ navigation }: any) => {
                 />
               </View>
 
-              <Text style={styles.brandTitle}>A7 MUSIC</Text>
-              <Text style={styles.tagline}>استمع واكتشف الموسيقى بحرية</Text>
+              <Text style={styles.brandTitle}>A7 Liquid Glass</Text>
+              <Text style={styles.tagline}>{t.tagline}</Text>
             </View>
 
             {/* ── Liquid Glass Form Card ── */}
@@ -140,14 +199,14 @@ export const LoginScreen = ({ navigation }: any) => {
                 ]}
               >
                 <Ionicons
-                  name="mail-outline"
+                  name="person-outline"
                   size={20}
                   color={focusedField === 'identifier' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="البريد الإلكتروني أو اسم المستخدم"
+                  placeholder={t.identifierPlaceholder}
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={identifier}
                   onChangeText={setIdentifier}
@@ -173,7 +232,7 @@ export const LoginScreen = ({ navigation }: any) => {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="كلمة المرور"
+                  placeholder={t.passwordPlaceholder}
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={password}
                   onChangeText={setPassword}
@@ -199,28 +258,34 @@ export const LoginScreen = ({ navigation }: any) => {
               <TouchableOpacity
                 style={styles.forgotBtn}
                 activeOpacity={0.7}
-                onPress={() => Alert.alert('استعادة كلمة المرور', 'يرجى مراجعة بريدك الإلكتروني المسجل لتعيين كلمة مرور جديدة.')}
+                onPress={() => Alert.alert(t.forgotTitle, t.forgotBody)}
               >
-                <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
+                <Text style={styles.forgotText}>{t.forgot}</Text>
               </TouchableOpacity>
 
-              {/* Log In Button */}
+              {/* Liquid Glass Glossy Sign In Button */}
               <TouchableOpacity
-                activeOpacity={0.88}
+                activeOpacity={0.86}
                 onPress={onLogin}
                 disabled={loading}
-                style={styles.loginBtnOuter}
+                style={[
+                  styles.loginBtnOuter,
+                  {
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.32)',
+                  },
+                ]}
               >
                 <LinearGradient
-                  colors={['#007AFF', '#0052CC']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  colors={['rgba(56, 189, 248, 0.85)', 'rgba(0, 122, 255, 0.92)', 'rgba(0, 82, 204, 0.96)']}
+                  start={{ x: 0.1, y: 0 }}
+                  end={{ x: 0.9, y: 1 }}
                   style={styles.loginBtnGradient}
                 >
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.loginBtnText}>تسجيل الدخول</Text>
+                    <Text style={styles.loginBtnText}>{t.signIn}</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -228,13 +293,13 @@ export const LoginScreen = ({ navigation }: any) => {
 
             {/* ── Footer Switcher ── */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>ليس لديك حساب؟ </Text>
+              <Text style={styles.footerText}>{t.noAccount}</Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('SignUp')}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.footerLink}>إنشاء حساب جديد</Text>
+                <Text style={styles.footerLink}>{t.createAccount}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

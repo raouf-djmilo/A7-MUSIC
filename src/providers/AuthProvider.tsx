@@ -11,6 +11,8 @@ import { auth } from '../lib/firebase';
 import {
   getFirebaseUserProfile,
   upsertFirebaseUserProfile,
+  getEmailByUsername,
+  claimFirebaseUsername,
 } from '../services/firebaseMusicDb';
 import { useAudioStore } from '../store/useAudioStore';
 import { useNetworkStore } from '../services/networkService';
@@ -123,12 +125,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (loginData: { identifier: string; password: string }) => {
     try {
-      const email = loginData.identifier.trim().toLowerCase();
+      let email = loginData.identifier.trim().toLowerCase();
       if (!email.includes('@')) {
-        return {
-          data: null,
-          error: new Error('يرجى إدخال البريد الإلكتروني لتسجيل الدخول عبر Firebase.'),
-        };
+        const resolvedEmail = await getEmailByUsername(email);
+        if (!resolvedEmail) {
+          return {
+            data: null,
+            error: new Error('اسم المستخدم غير مسجل لدينا'),
+          };
+        }
+        email = resolvedEmail;
       }
 
       const cred = await signInWithEmailAndPassword(auth, email, loginData.password);
@@ -187,6 +193,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         full_name: registerData.full_name,
         phone_number: registerData.phone_number || '',
       });
+      await claimFirebaseUsername(cleanUsername, fbUser.uid, cleanEmail).catch(() => {});
 
       const token = await fbUser.getIdToken();
       const registeredUser: User = {

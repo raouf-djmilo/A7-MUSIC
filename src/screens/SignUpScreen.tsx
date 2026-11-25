@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../providers/AuthProvider';
+import { getEmailByUsername } from '../services/firebaseMusicDb';
 
 export const SignUpScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -60,9 +61,14 @@ export const SignUpScreen = ({ navigation }: any) => {
 
       setCheckingUsername(true);
       try {
-        // Basic client-side username validation (uniqueness checked cleanly on profile save)
-        setIsUsernameTaken(false);
-        setUsernameSuggestions([]);
+        const existingEmail = await getEmailByUsername(uname);
+        const isTaken = Boolean(existingEmail);
+        setIsUsernameTaken(isTaken);
+        if (isTaken) {
+          setUsernameSuggestions([`${uname}_music`, `${uname}1`, `${uname}_a7`]);
+        } else {
+          setUsernameSuggestions([]);
+        }
       } catch (e) {
         setIsUsernameTaken(null);
       } finally {
@@ -363,34 +369,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Optional Phone Number */}
-              <View
-                style={[
-                  styles.inputWrap,
-                  focusedField === 'phone' && styles.inputWrapFocused,
-                ]}
-              >
-                <Ionicons
-                  name="call-outline"
-                  size={20}
-                  color={focusedField === 'phone' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
-                />
-                <Text style={styles.phonePrefix}>+213</Text>
-                <View style={styles.phoneDivider} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="رقم الهاتف (اختياري)"
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                />
-              </View>
-
-              {/* Create Account Button (Pill CTA) */}
+              {/* Create Account Button (Liquid Glass Glossy Pill CTA) */}
               <TouchableOpacity
                 activeOpacity={0.88}
                 onPress={handleSignUp}
