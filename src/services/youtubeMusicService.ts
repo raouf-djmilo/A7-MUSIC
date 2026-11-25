@@ -156,6 +156,9 @@ export function extractGenuineArtist(title?: string | null, rawArtist?: string |
   return '';
 }
 
+const searchResponseCache = new Map<string, { data: SearchResultWithArtist; ts: number }>();
+const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
+
 /**
  * 🔍 Searches YouTube Music and extracts both official artist card and tracks
  */
@@ -163,10 +166,19 @@ export async function searchYouTubeMusicWithArtist(query: string): Promise<Searc
   if (!query || !query.trim()) return { artist: null, tracks: [] };
 
   const cleanQuery = query.trim();
+  const cacheKey = cleanQuery.toLowerCase();
+  const cached = searchResponseCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < SEARCH_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
 
   try {
     const response = await fetch('https://www.youtube.com/youtubei/v1/search', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -183,6 +195,7 @@ export async function searchYouTubeMusicWithArtist(query: string): Promise<Searc
         query: cleanQuery,
       }),
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn('[YouTubeService] HTTP error:', response.status);
@@ -320,11 +333,20 @@ export async function searchYouTubeMusicWithArtist(query: string): Promise<Searc
       };
     }
 
-    return {
+    const result: SearchResultWithArtist = {
       artist: artistMatch,
       tracks: sortedTracks,
     };
+    if (sortedTracks.length > 0) {
+      if (searchResponseCache.size > 40) {
+        const oldestKey = searchResponseCache.keys().next().value;
+        if (oldestKey) searchResponseCache.delete(oldestKey);
+      }
+      searchResponseCache.set(cacheKey, { data: result, ts: Date.now() });
+    }
+    return result;
   } catch (error: any) {
+    clearTimeout(timeoutId);
     console.warn('[YouTubeService] Search failed:', error?.message || error);
     return { artist: null, tracks: [] };
   }

@@ -1016,6 +1016,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     set({ 
       isPlaying: nextIsPlaying,
+      isUserPauseAction: !nextIsPlaying,
       audioEngineAction: activeEngine === 'youtube' ? { 
         type: nextIsPlaying ? 'resume' : 'pause', 
         id: Date.now() 
@@ -1026,7 +1027,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       flushListeningSecondsToSupabase();
     }
 
-    if (NativeModules.TrackPlayerModule) {
+    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
       try {
         if (nextIsPlaying) {
           await TrackPlayer.play();
@@ -1054,7 +1055,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     flushListeningSecondsToSupabase();
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
-    if (NativeModules.TrackPlayerModule) {
+    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
       try { TrackPlayer.pause(); } catch(e) {}
     }
   },
@@ -1075,7 +1076,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
-    if (NativeModules.TrackPlayerModule) {
+    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
       try { TrackPlayer.play(); } catch(e) {}
     }
   },
@@ -1086,6 +1087,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const { activeEngine } = get();
     if (activeEngine === 'native') {
       nativeAudioService.seekTo(validPos).catch(() => {});
+    } else if (activeEngine === 'youtube') {
+      getActivePlayerBridge()?.seekTo(validPos / 1000);
     }
     set({ 
       positionMillis: validPos,
@@ -1093,7 +1096,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, validPos, state.durationMillis, true);
-    if (NativeModules.TrackPlayerModule) {
+    if (NativeModules.TrackPlayerModule && activeEngine === 'native') {
       try { await TrackPlayer.seekTo(validPos / 1000); } catch(e){}
     }
   },
@@ -1124,16 +1127,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const currentPos = get().positionMillis;
     const totalDuration = get().durationMillis;
 
-    // 🛡️ False-Positive Track-End Guard (Anti-Ghost-Skip):
-    // If the track is in its early phase (< 15 seconds) while total duration > 30 seconds,
-    // or if the playback position hasn't reached at least 75% of total duration (when duration > 30s),
-    // this means an ad has finished in YouTube, NOT the actual song!
-    if (currentPos < 15000 && totalDuration > 30000) {
-      console.log('[AudioStore] 🛡️ Ignored premature track-end (Ad ended, song starting)...');
-      return;
-    }
-    if (totalDuration > 30000 && currentPos < totalDuration * 0.75) {
-      console.log(`[AudioStore] 🛡️ Ignored premature track-end (Incomplete playback at ${Math.round(currentPos / 1000)}s of ${Math.round(totalDuration / 1000)}s)...`);
+    // Ignore ultra-early ad-end false positives (< 5s on tracks > 30s), but allow genuine track endings
+    if (currentPos < 5000 && totalDuration > 30000) {
+      console.log('[AudioStore] 🛡️ Ignored premature track-end (< 5s)...');
       return;
     }
 
@@ -1144,6 +1140,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
     if (repeatMode === 'one' && currentTrack) {
       await get().seekTo(0);
+      if (get().activeEngine === 'youtube') {
+        getActivePlayerBridge()?.play();
+      }
       set({ 
         audioEngineAction: {
           type: 'play',
@@ -1153,13 +1152,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           id: Date.now(),
         },
         isPlaying: true,
+        isUserPauseAction: false,
       });
-      if (NativeModules.TrackPlayerModule) {
-        try {
-          await TrackPlayer.seekTo(0);
-          await TrackPlayer.play();
-        } catch (e) {}
-      }
     } else {
       await get().nextTrack();
     }

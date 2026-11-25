@@ -1814,6 +1814,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       useAudioStore.setState({ isPlaying: false });
                     }
                   }}
+                  onError={() => {
+                    // Auto-recover restricted or failed YouTube embeds via native stream fallback
+                    useAudioStore.getState().handlePlaybackFallback();
+                  }}
                   webViewProps={cleanYoutubeWebViewProps}
                 />
 
