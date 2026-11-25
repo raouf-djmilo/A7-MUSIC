@@ -1,13 +1,13 @@
 {
-  "id": "71f30d61-781e-4a96-8db0-d77d5c4cd545",
-  "createdAt": "2026-11-25T16:53:02.646Z",
+  "id": "9ce670e0-d34c-494d-8f73-c4a01896610f",
+  "createdAt": "2026-11-25T17:00:45.597Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "9LKRciNnPjzt3YZ4j5e3tsbsYZD5ElcA9k_KocfZAto",
-    "key": "4850ed812c6e83a61a79374cd41b996c",
+    "hash": "dQdqg5fdoeaMaP2jMoyT_TlMrpod68jYiWVhQI1Wo6k",
+    "key": "969b2cf537d562712c26820704c7659d",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-e1582df67a519033681970e378316d44.hbc"
+    "url": "./_expo/static/js/ios/index-c784a979d2cfab028cc7e4b6a9bef28e.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.3838ca0",
+      "otaVersion": "1.6.5-ota.7e48a6c",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "3838ca0",
-      "title": "feat(settings): redesign Settings & SoftwareUpdate with Apple Liquid Glass, AR/EN switch, clean sections, and bottom Sign Out",
+      "commitSha": "7e48a6c",
+      "title": "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
       "highlights": [
-        "feat(settings): redesign Settings & SoftwareUpdate with Apple Liquid Glass, AR/EN switch, clean sections, and bottom Sign Out",
+        "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T16:53:02.646Z",
-      "bundleSizeBytes": 6775750
+      "publishedAt": "2026-11-25T17:00:45.597Z",
+      "bundleSizeBytes": 6775805
     }
   }
 }

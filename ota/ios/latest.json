@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.3838ca0",
-  "updateId": "71f30d61-781e-4a96-8db0-d77d5c4cd545",
-  "publishedAt": "2026-11-25T16:53:02.646Z",
-  "title": "feat(settings): redesign Settings & SoftwareUpdate with Apple Liquid Glass, AR/EN switch, clean sections, and bottom Sign Out",
+  "otaVersion": "1.6.5-ota.7e48a6c",
+  "updateId": "9ce670e0-d34c-494d-8f73-c4a01896610f",
+  "publishedAt": "2026-11-25T17:00:45.597Z",
+  "title": "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
   "highlights": [
-    "feat(settings): redesign Settings & SoftwareUpdate with Apple Liquid Glass, AR/EN switch, clean sections, and bottom Sign Out",
+    "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6775750,
+  "bundleSizeBytes": 6775805,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
