@@ -7,6 +7,13 @@ rules_version = '2';
 // All user data is strictly scoped under `users/{userId}` where
 // `userId` matches `request.auth.uid`.
 //
+// Collection: usernames
+// Document ID: {username} (lowercased, trimmed username)
+// Fields:
+//   - uid: string (required, 1..128 chars, must equal request.auth.uid, immutable)
+//   - email: string (required, valid email, 3..254 chars)
+//   - createdAt: timestamp | ISO-8601 string (optional, immutable once set)
+//
 // Collection: users
 // Document ID: {userId} (Firebase Auth UID)
 // Fields:
@@ -143,6 +150,16 @@ service cloud.firestore {
     // Domain Validators (Used in BOTH create and update)
     // ===============================================================
 
+    function isValidUsernameMapping(data) {
+      return hasRequiredFields(['uid', 'email']) &&
+        hasOnlyAllowedFields(['uid', 'email', 'createdAt']) &&
+        isValidString(data.uid, 1, 128) &&
+        data.uid == request.auth.uid &&
+        isValidString(data.email, 3, 254) &&
+        isValidEmail(data.email) &&
+        isValidOptionalTimestampOrDate(data, 'createdAt');
+    }
+
     function isValidUserProfile(data) {
       return hasOnlyAllowedFields([
           'email', 'full_name', 'username', 'avatar_url',
@@ -226,6 +243,22 @@ service cloud.firestore {
            data.top_track_ids.size() <= 50 &&
            (data.top_track_ids.size() == 0 || isValidString(data.top_track_ids[0], 1, 64)))) &&
         isValidOptionalTimestampOrDate(data, 'updated_at');
+    }
+
+    // ===============================================================
+    // Username Lookup Rules (Username + Password Login & Availability)
+    // ===============================================================
+
+    match /usernames/{username} {
+      // Allow single-document lookup by exact username; block collection listing/scraping
+      allow get: if true;
+      allow list: if false;
+      allow create: if isAuthenticated() && isValidUsernameMapping(request.resource.data);
+      allow update: if isAuthenticated() &&
+        resource.data.uid == request.auth.uid &&
+        isValidUsernameMapping(request.resource.data) &&
+        isImmutableIfPresent('createdAt');
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     // ===============================================================
