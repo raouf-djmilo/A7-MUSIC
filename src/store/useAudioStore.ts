@@ -497,16 +497,50 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Instant 0ms Haptic Feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+      // Instant 0ms Optimistic Dispatch: mount/switch YoutubePlayer immediately before async disk/TrackPlayer checks
       let streamUrl: string | undefined = track.audioUrl;
-      let finalTitle = track.title || 'Unknown Title';
-      let finalArtist = track.artist || 'Unknown Artist';
+      const finalTitle = track.title || 'Unknown Title';
+      const finalArtist = track.artist || 'Unknown Artist';
       let finalArtwork = track.thumbnail;
       let totalDurationSec = track.duration ? Math.floor(track.duration / 1000) : 180;
       let isOffline = false;
 
-      // ── Hardware Download Check (0ms latency, zero cellular data, works in Airplane Mode) ──
+      if (!streamUrl && track.videoId && !track.videoId.startsWith('http') && track.videoId.length >= 5) {
+        set({
+          playRequestId: newRequestId,
+          currentTrack: {
+            ...track,
+            title: finalTitle,
+            artist: finalArtist,
+            thumbnail: finalArtwork,
+            duration: totalDurationSec * 1000,
+          },
+          isPlaying: true,
+          isUserPauseAction: false,
+          isLoading: false,
+          loadingTrackId: null,
+          isOfflinePlayback: false,
+          activeEngine: 'youtube',
+          isSwitchingToFallback: false,
+          durationMillis: totalDurationSec * 1000,
+          positionMillis: initialPosition * 1000,
+          audioEngineAction: {
+            type: 'play',
+            videoId: track.videoId,
+            url: undefined,
+            position: initialPosition,
+            isOfflinePlayback: false,
+            id: Date.now(),
+          },
+        });
+      }
+
+      // ── Hardware Download Check (non-blocking for online tracks; switches seamlessly if cached offline) ──
       try {
         const localTrack = await downloadService.getLocalTrack(track.videoId);
+        if (get().playRequestId !== newRequestId && get().currentTrack?.videoId !== track.videoId) {
+          return;
+        }
         if (localTrack && localTrack.audioLocalUri) {
           streamUrl = localTrack.audioLocalUri;
           isOffline = true;
@@ -543,7 +577,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Reset fallback lock for new track
       fallbackInProgressVideoId = null;
 
-      // If playing an offline local file, use nativeAudioService directly
+      // Only re-dispatch store state if offline or fallback URL resolved (online YouTube already started at 0ms)
       if (isOffline && streamUrl) {
         nativeAudioService.play(streamUrl, initialPosition, {
           title: finalTrack.title,
@@ -552,35 +586,46 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         }).catch((e: any) => {
           console.warn('[AudioStore] nativeAudioService play error:', e);
         });
+        set({
+          playRequestId: newRequestId,
+          currentTrack: finalTrack,
+          isPlaying: true,
+          isUserPauseAction: false,
+          isLoading: false,
+          loadingTrackId: null,
+          isOfflinePlayback: true,
+          activeEngine: 'native',
+          isSwitchingToFallback: false,
+          durationMillis: totalDurationSec * 1000,
+          positionMillis: initialPosition * 1000,
+          audioEngineAction: { type: 'stop', id: Date.now() },
+        });
+      } else if (streamUrl || !track.videoId || track.videoId.length < 5) {
+        nativeAudioService.stop().catch(() => {});
+        set({
+          playRequestId: newRequestId,
+          currentTrack: finalTrack,
+          isPlaying: true,
+          isUserPauseAction: false,
+          isLoading: false,
+          loadingTrackId: null,
+          isOfflinePlayback: false,
+          activeEngine: 'youtube',
+          isSwitchingToFallback: false,
+          durationMillis: totalDurationSec * 1000,
+          positionMillis: initialPosition * 1000,
+          audioEngineAction: {
+            type: 'play',
+            videoId: track.videoId,
+            url: streamUrl,
+            position: initialPosition,
+            isOfflinePlayback: false,
+            id: Date.now(),
+          },
+        });
       } else {
         nativeAudioService.stop().catch(() => {});
       }
-
-      // Instant 0ms Optimistic UI Update in Store
-      set({ 
-        playRequestId: newRequestId,
-        currentTrack: finalTrack,
-        isPlaying: true,
-        isUserPauseAction: false,
-        isLoading: false,
-        loadingTrackId: null,
-        isOfflinePlayback: isOffline,
-        activeEngine: isOffline ? 'native' : 'youtube',
-        isSwitchingToFallback: false,
-        durationMillis: totalDurationSec * 1000,
-        positionMillis: initialPosition * 1000,
-        // Dispatch to GlobalAudioBridge only for online YouTube audio (never send local file:// to WebView)
-        audioEngineAction: isOffline
-          ? { type: 'stop', id: Date.now() }
-          : {
-              type: 'play',
-              videoId: track.videoId,
-              url: streamUrl,
-              position: initialPosition,
-              isOfflinePlayback: false,
-              id: Date.now(),
-            },
-      });
 
       // Background Persistence & Native Audio Mode
       try {
@@ -612,35 +657,36 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         }).catch(() => {});
 
         if (NativeModules.TrackPlayerModule) {
-          try {
-            const queue = await TrackPlayer.getQueue();
-            if (!queue || queue.length === 0) {
-              const fallbackSilentUri = await getOrGenerateSilentAudioUri();
-              await TrackPlayer.add({
-                id: 'bg_audio_keeper',
-                url: fallbackSilentUri,
-                title: finalTitle,
-                artist: finalArtist,
-                artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
-                duration: totalDurationSec,
-              });
-              await TrackPlayer.setRepeatMode(1);
-            } else {
-              // 🛡️ CRITICAL: NEVER call TrackPlayer.reset()! Resetting tears down AVAudioSession and kills WebView playback!
-              // Instead, seamlessly update metadata on the active session
-              await TrackPlayer.updateNowPlayingMetadata({
-                title: finalTitle,
-                artist: finalArtist,
-                artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
-                duration: totalDurationSec,
-                elapsedTime: initialPosition,
-              });
+          void (async () => {
+            try {
+              const queue = await TrackPlayer.getQueue();
+              if (!queue || queue.length === 0) {
+                const fallbackSilentUri = await getOrGenerateSilentAudioUri();
+                await TrackPlayer.add({
+                  id: 'bg_audio_keeper',
+                  url: fallbackSilentUri,
+                  title: finalTitle,
+                  artist: finalArtist,
+                  artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
+                  duration: totalDurationSec,
+                });
+                await TrackPlayer.setRepeatMode(1);
+                await TrackPlayer.setVolume(0);
+                await TrackPlayer.play();
+              } else {
+                // Only update metadata; avoid re-calling TrackPlayer.play() on every swipe so AVAudioSession never fights WKWebView
+                await TrackPlayer.updateNowPlayingMetadata({
+                  title: finalTitle,
+                  artist: finalArtist,
+                  artwork: getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined,
+                  duration: totalDurationSec,
+                  elapsedTime: initialPosition,
+                });
+              }
+            } catch {
+              // Native TrackPlayer fallback is non-blocking
             }
-            await TrackPlayer.setVolume(0);
-            await TrackPlayer.play();
-          } catch (tpErr) {
-            // Native TrackPlayer fallback is non-blocking
-          }
+          })();
         }
 
         // 🎨 Asynchronous Ultra-HD Studio Artwork Auto-Discovery (Apple Music / YouTube Music Protocol)

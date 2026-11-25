@@ -604,7 +604,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     await prevTrack();
   }, [activeEngine, prevTrack]);
 
-  // ── Sync Scrubber & Time during YouTube Playback (350ms high-precision polling) ──
+  // ── Sync Scrubber & Time during YouTube Playback (500ms low-overhead polling) ──
   useEffect(() => {
     if (!isPlaying || activeEngine !== 'youtube') return;
     const interval = setInterval(async () => {
@@ -622,7 +622,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           }
         }
       } catch (e) { }
-    }, 350);
+    }, 500);
     return () => clearInterval(interval);
   }, [isPlaying, activeEngine, currentTrack?.duration]);
 
@@ -1784,11 +1784,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   width={isVideoFullscreen ? fullscreenVideoDims.width : cardWidth}
                   play={isPlaying}
                   videoId={currentTrack.videoId}
-                  onReady={() => {
-                    if (useAudioStore.getState().isPlaying) {
-                      (youtubePlayerRef.current as any)?.playVideo?.();
-                    }
-                  }}
                   initialPlayerParams={stablePlayerParams}
                   onChangeState={(state: string) => {
                     if (state === 'ended') {
@@ -1800,8 +1795,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         isLoading: false,
                         loadingTrackId: null,
                       });
-                    } else if ((state === 'cued' || state === 'unstarted') && useAudioStore.getState().isPlaying) {
-                      (youtubePlayerRef.current as any)?.playVideo?.();
                     } else if (state === 'paused') {
                       if (isSwitchingModeRef.current) return;
                       const storeState = useAudioStore.getState();
@@ -1810,17 +1803,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
                         return;
                       }
-                      // Ignore only the transient 'paused' emitted while unloading the previous video
-                      // BEFORE the new videoId has started playing
-                      const hasNewVideoStarted =
-                        startedYoutubeVideoIdRef.current === currentTrack?.videoId;
-                      if (!hasNewVideoStarted) {
-                        (youtubePlayerRef.current as any)?.playVideo?.();
+                      // Ignore transient 'paused' emitted while unloading previous video before new videoId starts
+                      if (startedYoutubeVideoIdRef.current !== currentTrack?.videoId) {
                         return;
                       }
-                      // Background Audio Guard: resume if iOS WebKit auto-paused while locked/backgrounded
+                      // Background Audio Guard: keep store playing when iOS WebKit auto-pauses on lock
                       if (AppState.currentState !== 'active') {
-                        (youtubePlayerRef.current as any)?.playVideo?.();
                         return;
                       }
                       useAudioStore.setState({ isPlaying: false });

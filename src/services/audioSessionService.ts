@@ -199,19 +199,9 @@ export const setupAudioInterruptionListeners = (onInterrupt?: () => void): void 
             store.getState().pauseTrack();
           } catch (e) {}
         }
-      } else if (event.paused) {
-        // Transient interruption (incoming phone call, navigation instruction, voice note)
-        console.log('[AudioSessionService] Transient audio interruption (paused).');
-        try {
-          store.getState().pauseTrack();
-        } catch (e) {}
-      } else {
-        // Focus regained! (call ended, navigation finished)
-        console.log('[AudioSessionService] Audio focus regained. Auto-resuming playback.');
-        try {
-          store.getState().resumeTrack();
-        } catch (e) {}
       }
+      // Do NOT bounce pauseTrack/resumeTrack on transient ducks (event.paused),
+      // which causes rapid stop-start loops between TrackPlayer and WKWebView on iOS.
     });
   } catch (e) {
     // Handled safely
