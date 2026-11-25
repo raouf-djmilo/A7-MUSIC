@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.9a1377a",
-  "updateId": "b88390b1-8dda-4746-8c3a-427bec3f3621",
-  "publishedAt": "2026-11-25T00:19:11.177Z",
-  "title": "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
+  "otaVersion": "1.6.5-ota.f66ec6b",
+  "updateId": "8634d933-e50b-46eb-9b44-6c46cb596b14",
+  "publishedAt": "2026-11-25T00:32:12.649Z",
+  "title": "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
   "highlights": [
-    "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
+    "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5636697,
+  "bundleSizeBytes": 5647671,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

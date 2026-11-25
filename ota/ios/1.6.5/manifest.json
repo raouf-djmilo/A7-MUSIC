@@ -1,13 +1,13 @@
 {
-  "id": "b88390b1-8dda-4746-8c3a-427bec3f3621",
-  "createdAt": "2026-11-25T00:19:11.177Z",
+  "id": "8634d933-e50b-46eb-9b44-6c46cb596b14",
+  "createdAt": "2026-11-25T00:32:12.649Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "mKsf5sVt3u-khN1X2iHuob0wfF5hwBcftNXeAJzbqKs",
-    "key": "5fc547aac736141e4a37a5f453361fbd",
+    "hash": "enPDFpeHqeNo4xQ2xiFLT7ywdt3GwF3MrU6zjbxcWnU",
+    "key": "8a298132f6dd224b4d4b71c46c77512f",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-0b3bff425d42ecba2b07440bf70f851f.hbc"
+    "url": "./_expo/static/js/ios/index-257d065845644fae84fccc7f4b6e640e.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.9a1377a",
+      "otaVersion": "1.6.5-ota.f66ec6b",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "9a1377a",
-      "title": "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
+      "commitSha": "f66ec6b",
+      "title": "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
       "highlights": [
-        "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
+        "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T00:19:11.177Z",
-      "bundleSizeBytes": 5636697
+      "publishedAt": "2026-11-25T00:32:12.649Z",
+      "bundleSizeBytes": 5647671
     }
   }
 }
