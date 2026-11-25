@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MoodCluster } from '../../../services/musicDnaService';
 import { useTheme } from '../../../theme/ThemeContext';
 import { createMusicThemedStyles } from '../styles/musicThemedStyles';
@@ -28,13 +29,29 @@ export const TopMixesRailSection: React.FC<TopMixesRailSectionProps> = memo(
             activeOpacity={0.85}
             onPress={() => AudioBridgeEngine.playMix(item)}
           >
-            <View style={styles.mixArtworkWrap}>
+            <View
+              style={[
+                styles.mixArtworkWrap,
+                {
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.85)',
+                },
+              ]}
+            >
               <CachedArtwork
                 source={artworkCascade}
                 uri={item.artwork}
                 style={styles.mixArtwork}
-                borderRadius={10}
+                borderRadius={14}
                 recyclingKey={item.id}
+              />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.20)', 'transparent']}
+                start={{ x: 0.15, y: 0 }}
+                end={{ x: 0.85, y: 0.55 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
               />
 
               {/* Minimal Frosted Glass Play Badge on Bottom-Right */}

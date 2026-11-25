@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMiniPlayerBottomGap } from '../../hooks/useMiniPlayerBottomGap';
 import { ToastManager } from '../../components/InAppToast';
 import { DynamicHomeSections, musicDnaService } from '../../services/musicDnaService';
+import { promptForRegionAccessIfNeeded } from '../../services/regionService';
 
 import { MusicDataEngine, TimeContextInfo } from './engines/musicData.engine';
 import { createMusicThemedStyles } from './styles/musicThemedStyles';
@@ -107,7 +108,9 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   useEffect(() => {
     if (!isInitialFetchDone.current) {
       isInitialFetchDone.current = true;
-      loadDynamicFeeds(activeFilter);
+      promptForRegionAccessIfNeeded()
+        .then(() => loadDynamicFeeds(activeFilter))
+        .catch(() => loadDynamicFeeds(activeFilter));
     }
   }, [loadDynamicFeeds, activeFilter]);
 

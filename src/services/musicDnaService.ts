@@ -9,37 +9,34 @@ import {
 } from './youtubeMusicService';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 import { CURATED_TRACKS } from '../data/curatedMusic';
+import { getRegionProfile, getRegionSeedQueries } from './regionService';
 
-// ── Dynamic Rotating Seed Pools to Break Repetition ──
+// ── Dynamic Rotating Seed Pools (Zero Fixed Artists!) ──
 const SEED_POOLS = {
   cadence: [
     'running cadence 160 bpm',
     '160 bpm running cardio workout music',
-    'running workout motivation 2026',
+    'running workout motivation',
     'electronic cardio beats 160 bpm',
     'high cadence stride workout',
   ],
   chill: [
-    'soolking acoustic chill official',
-    'babylone zina acoustic rai',
-    'the weeknd acoustic lofi beats',
-    'algerian acoustic guitar chill',
-    'cheb khaled acoustic guitar',
+    'acoustic chill sessions official',
+    'lofi chill beats study focus',
+    'acoustic guitar chill vibes',
+    'late night chill R&B',
   ],
   energy: [
-    'gym phonk kordhell interworld',
-    'didine canon 16 workout motivation',
-    'gym phonk aggressive bass boost',
-    'drill workout bass boosted hits',
-    'brazilian phonk workout gym aggressive',
+    'high energy workout bass boost',
+    'drill & hip hop workout beats',
+    'afro house workout energy',
+    'cardio motivation beats',
   ],
   trending: [
-    'djalil palermo nouveaux titres',
-    'soolking official hits',
-    'top rai algerien 2026',
-    'cheb mami cheb hasni rai classics',
-    'cheb khaled best anthems',
-    'cheb bilal top chansons',
+    'top music trending official',
+    'new music releases official',
+    'popular charts hits mix',
+    'viral music official audio',
   ],
 };
 
@@ -282,11 +279,11 @@ class MusicDnaEngine {
   }
 
   /**
-   * Detect Top Signature Artist from scored telemetry
+   * Detect Top Signature Artist dynamically from user's real listening telemetry (returns null if none yet)
    */
-  public getTopSignatureArtist(): string {
+  public getTopSignatureArtist(): string | null {
     const ranked = this.getRankedTelemetryTracks();
-    if (ranked.length === 0) return 'Djalil Palermo';
+    if (ranked.length === 0) return null;
 
     const artistScores: Record<string, number> = {};
     for (const t of ranked) {
@@ -296,7 +293,7 @@ class MusicDnaEngine {
       }
     }
 
-    let topArtist = 'Djalil Palermo';
+    let topArtist: string | null = null;
     let maxScore = 0;
     for (const [artist, score] of Object.entries(artistScores)) {
       if (score > maxScore) {
@@ -309,7 +306,7 @@ class MusicDnaEngine {
 
   /**
    * 🌟 Live Discovery Ingestion Pipeline
-   * Generates dynamic queries based on live listening taste and fetches fresh music from YouTube Music
+   * Generates 100% dynamic queries based on region/location + live listening taste (ZERO hardcoded artists!)
    */
   public async discoverLiveFeeds(
     activeFilter: string = 'All',
@@ -330,17 +327,18 @@ class MusicDnaEngine {
     this.isDiscovering = true;
 
     try {
+      const region = await getRegionProfile();
+      const regionSeeds = getRegionSeedQueries(region);
       const signatureArtist = this.getTopSignatureArtist();
 
-      // Dynamic rotating seed queries from diverse pools (prevents fixed 5-song loop)
-      const cadenceQuery = pickRandomSeed(SEED_POOLS.cadence);
-      const signatureQuery =
-        Math.random() > 0.5
-          ? `${signatureArtist} popular official songs`
-          : `${signatureArtist} best hits album`;
-      const chillQuery = pickRandomSeed(SEED_POOLS.chill);
-      const energyQuery = pickRandomSeed(SEED_POOLS.energy);
-      const trendingQuery = pickRandomSeed(SEED_POOLS.trending);
+      // Build 100% dynamic queries from user taste OR regional/auto-random charts
+      const cadenceQuery = pickRandomSeed(regionSeeds.energy.length > 0 ? regionSeeds.energy : SEED_POOLS.cadence);
+      const signatureQuery = signatureArtist
+        ? `${signatureArtist} ${Math.random() > 0.5 ? 'popular official songs' : 'radio mix'}`
+        : pickRandomSeed(regionSeeds.stations);
+      const chillQuery = pickRandomSeed(regionSeeds.chill.length > 0 ? regionSeeds.chill : SEED_POOLS.chill);
+      const energyQuery = pickRandomSeed(SEED_POOLS.cadence);
+      const trendingQuery = pickRandomSeed(regionSeeds.trending.length > 0 ? regionSeeds.trending : SEED_POOLS.trending);
 
       // Safe query runner to isolate failures and avoid whole batch rejection
       const safeSearch = async (query: string): Promise<Track[]> => {
@@ -414,24 +412,32 @@ class MusicDnaEngine {
         return fallback;
       };
 
+      const dynamicMixArtists = Array.from(
+        new Set(
+          [...signatureTracks, ...trendingTracks]
+            .map((t) => cleanArtistName(t.artist))
+            .filter((a) => a && a !== 'Artist')
+        )
+      ).slice(0, 3);
+
       const clusters: MoodCluster[] = [
         {
           id: 'cluster-cadence',
           key: 'cadence',
-          title: '160 BPM Stride',
+          title: 'Energy Radio',
           badgeColor: '#FF6B00', // Athletic orange
-          subtitle: 'Cardio Beats, 160 BPM Cadence',
+          subtitle: 'High Energy & Rhythm',
           artwork: pickDistinctCover(cadenceTracks, 0),
-          tracks: cadenceTracks.slice(0, 15),
+          tracks: shuffleArray(cadenceTracks).slice(0, 15),
         },
         {
           id: 'cluster-signature',
           key: 'signature',
-          title: `${signatureArtist} Mix`,
-          badgeColor: '#1DB954', // Spotify vibrant green
-          subtitle: `${signatureArtist}, Djalil Palermo & Soolking`,
+          title: signatureArtist ? `${signatureArtist} Mix` : 'Regional Top Mix',
+          badgeColor: '#1DB954',
+          subtitle: dynamicMixArtists.length > 0 ? dynamicMixArtists.join(', ') : 'Trending Near You',
           artwork: pickDistinctCover(signatureTracks, 1),
-          tracks: signatureTracks.slice(0, 15),
+          tracks: shuffleArray(signatureTracks).slice(0, 15),
         },
         {
           id: 'cluster-replay',
@@ -526,35 +532,8 @@ class MusicDnaEngine {
         }
       }
 
-      // Ensure verified Algerian icons and global superstars are always populated with real portraits
-      const baselineArtists = [
-        'Djalil Palermo',
-        'Soolking',
-        'Cheb Khaled',
-        'Didine Canon 16',
-        'Cheb Mami',
-        'Cheb Hasni',
-        'The Weeknd',
-        'Eminem',
-        'Cheb Bilal',
-        'ElGrandeToto',
-        'Mouh Milano',
-        'Billie Eilish',
-        'Dua Lipa',
-      ];
-      for (const name of baselineArtists) {
-        const k = normKey(name);
-        if (!seenArtistKeys.has(k) && artistMap.size < 12) {
-          seenArtistKeys.add(k);
-          artistMap.set(name, {
-            name,
-            avatar: getUniversalArtistAvatar(null, name),
-            isOfficial: true,
-          });
-        }
-      }
-
-      const favouriteArtists = Array.from(artistMap.values());
+      // Shuffle discovered artists so the rail feels fresh and never fixed
+      const favouriteArtists = shuffleArray(Array.from(artistMap.values()));
 
       const fullSections: DynamicHomeSections = {
         quickJump: quickJumpTracks,
@@ -677,9 +656,9 @@ class MusicDnaEngine {
       {
         id: 'cluster-signature',
         key: 'signature',
-        title: 'Rai DZ Mix',
+        title: 'Recommended Mix',
         badgeColor: '#1DB954',
-        subtitle: 'Djalil Palermo, Khaled & Soolking',
+        subtitle: 'Tailored to your listening taste',
         artwork: pickDefCover(raiTracks, 1),
         tracks: raiTracks.length > 0 ? raiTracks : CURATED_TRACKS.slice(0, 5),
       },

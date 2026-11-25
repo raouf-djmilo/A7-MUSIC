@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../theme/ThemeContext';
 import { createMusicThemedStyles } from '../styles/musicThemedStyles';
 import { CachedArtwork } from '../components/CachedArtwork';
@@ -25,7 +26,7 @@ export const FavoriteArtistsRailSection: React.FC<FavoriteArtistsRailSectionProp
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Your favourite artists</Text>
+          <Text style={styles.sectionTitle}>Popular artists</Text>
         </View>
 
         <ScrollView
@@ -43,7 +44,16 @@ export const FavoriteArtistsRailSection: React.FC<FavoriteArtistsRailSectionProp
                 activeOpacity={0.85}
                 onPress={() => onNavigateArtist?.(artist.name, artist.channelId || artist.id)}
               >
-                <View style={styles.artistAvatarWrapper}>
+                <View
+                  style={[
+                    styles.artistAvatarWrapper,
+                    {
+                      borderWidth: 1.5,
+                      borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.9)',
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
                   <CachedArtwork
                     uri={avatarUri}
                     style={styles.artistAvatar}
@@ -51,6 +61,13 @@ export const FavoriteArtistsRailSection: React.FC<FavoriteArtistsRailSectionProp
                     fallbackIcon="person"
                     fallbackIconSize={26}
                     recyclingKey={`artist-${artist.name}`}
+                  />
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.28)', 'transparent']}
+                    start={{ x: 0.2, y: 0 }}
+                    end={{ x: 0.8, y: 0.6 }}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
                   />
                 </View>
 
