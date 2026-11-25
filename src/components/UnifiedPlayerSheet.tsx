@@ -14,7 +14,8 @@ import {
   AppState,
   NativeModules,
 } from 'react-native';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer, { State } from 'react-native-track-player';
+import { getCachedDirectAudioStream, prefetchDirectAudioStream } from '../services/youtubeStreamService';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -203,13 +204,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const isDeviceLandscape = windowWidth > windowHeight;
   const fullscreenVideoDims = isDeviceLandscape
     ? {
-        width: windowWidth,
-        height: windowHeight,
-      }
+      width: windowWidth,
+      height: windowHeight,
+    }
     : {
-        width: windowWidth,
-        height: Math.round((windowWidth * 9) / 16),
-      };
+      width: windowWidth,
+      height: Math.round((windowWidth * 9) / 16),
+    };
 
   const navigation = useNavigation<any>();
   const { theme, isDark } = useTheme();
@@ -246,6 +247,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   // Tracks which videoId has actually emitted 'playing' in YoutubePlayer (avoids time-based lockouts)
   const startedYoutubeVideoIdRef = useRef<string | null>(null);
   const bgRecoveryTimerRef = useRef<any>(null);
+  const pendingYoutubeSeekSecRef = useRef<number | null>(null);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
 
   useEffect(() => {
@@ -447,20 +449,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   // 3. حاوية الفيديو الثابتة في الشجرة (Direct Root Child - Zero Unmount)
   const unifiedVideoWrapperStyle = isVideoFullscreen
     ? {
-        position: 'absolute' as const,
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#000000',
-        zIndex: 99999,
-        alignItems: 'center' as const,
-        justifyContent: 'center' as const,
-      }
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#000000',
+      zIndex: 99999,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    }
     : playerMediaMode === 'video'
-    ? {
+      ? {
         position: 'absolute' as const,
         top: normalStageTop,
         left: normalVideoLeft,
@@ -470,7 +472,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         overflow: 'hidden' as const,
         zIndex: 20,
       }
-    : {
+      : {
         position: 'absolute' as const,
         left: -9999,
         top: 0,
@@ -526,48 +528,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     await seekTo(target);
   }, [activeEngine, seekTo]);
 
-  // ── Unified Play / Pause Action (Clean direct toggle with atomic sync across Music & Video) ──
+  // ── Unified Play / Pause Action (Single Source of Truth in useAudioStore) ──
   const handlePlayPausePress = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLastUserToggleTimestamp(Date.now());
-
-    if (activeEngine === 'youtube') {
-      const nextPlaying = !isPlaying;
-      useAudioStore.setState({
-        isPlaying: nextPlaying,
-        isUserPauseAction: !nextPlaying,
-        audioEngineAction: { type: nextPlaying ? 'resume' : 'pause', id: Date.now() },
-      });
-      const activeRef = youtubePlayerRef.current as any;
-      if (activeRef) {
-        if (nextPlaying) {
-          activeRef.playVideo?.();
-        } else {
-          activeRef.pauseVideo?.();
-        }
-      }
-      if (NativeModules?.TrackPlayerModule) {
-        try {
-          if (nextPlaying) {
-            await TrackPlayer.play();
-          } else {
-            await TrackPlayer.pause();
-          }
-        } catch (e) { }
-      }
-    } else {
-      await togglePlay();
-    }
-  }, [activeEngine, isPlaying, togglePlay]);
+    await togglePlay();
+  }, [togglePlay]);
 
   // ── 🛡️ Direct Native Remote Control & Audio Session Bridge ──
   useEffect(() => {
     registerActivePlayerBridge({
       play: () => {
-        youtubePlayerRef.current?.playVideo?.();
+        (youtubePlayerRef.current as any)?.playVideo?.();
       },
       pause: () => {
-        youtubePlayerRef.current?.pauseVideo?.();
+        (youtubePlayerRef.current as any)?.pauseVideo?.();
       },
       seekTo: (sec: number) => {
         youtubePlayerRef.current?.seekTo?.(sec, true);
@@ -579,35 +552,108 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     };
   }, []);
 
-  // ── 🛡️ Global Play / Pause Synchronization across all screens (Home, Music, Library, Mini-Bar) ──
+  // ── 🛡️ Guarantee YouTube WebView stays silent whenever Native Engine owns playback ──
   useEffect(() => {
-    if (activeEngine !== 'youtube') return;
-    const activeRef = youtubePlayerRef.current as any;
-    if (!activeRef) return;
-    if (isPlaying) {
-      activeRef.playVideo?.();
-    } else {
-      activeRef.pauseVideo?.();
+    if (activeEngine !== 'youtube') {
+      (youtubePlayerRef.current as any)?.pauseVideo?.();
     }
-  }, [isPlaying, activeEngine]);
+  }, [activeEngine]);
 
-  // ── Unified Next / Prev Handlers (Ensures Video Player restarts at 0) ──
+  // ── 🛡️ Startup Watchdog: auto-recover if YoutubePlayer fails/stalls silently on unstarted/cued ──
+  useEffect(() => {
+    if (activeEngine !== 'youtube' || !isPlaying || !currentTrack?.videoId) return;
+    const targetVid = currentTrack.videoId;
+
+    const nudgeTimer = setTimeout(() => {
+      const latest = useAudioStore.getState();
+      if (
+        startedYoutubeVideoIdRef.current !== targetVid &&
+        latest.activeEngine === 'youtube' &&
+        latest.isPlaying &&
+        !latest.isUserPauseAction &&
+        latest.currentTrack?.videoId === targetVid
+      ) {
+        (youtubePlayerRef.current as any)?.playVideo?.();
+      }
+    }, 2200);
+
+    const failoverTimer = setTimeout(() => {
+      const latest = useAudioStore.getState();
+      if (
+        startedYoutubeVideoIdRef.current !== targetVid &&
+        latest.activeEngine === 'youtube' &&
+        latest.isPlaying &&
+        !latest.isUserPauseAction &&
+        latest.currentTrack?.videoId === targetVid
+      ) {
+        const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+        latest.handlePlaybackFallback(targetVid, posSec);
+      }
+    }, 4500);
+
+    return () => {
+      clearTimeout(nudgeTimer);
+      clearTimeout(failoverTimer);
+    };
+  }, [activeEngine, isPlaying, currentTrack?.videoId]);
+
+  // ── 📱 AppState Lifecycle: 0ms Background Handoff & Instant Foreground State Re-Sync ──
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const latest = useAudioStore.getState();
+      if (nextState === 'background') {
+        if (
+          latest.backgroundAudioEnabled &&
+          latest.isPlaying &&
+          !latest.isUserPauseAction &&
+          latest.activeEngine === 'youtube' &&
+          latest.currentTrack?.videoId
+        ) {
+          const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+          latest.handlePlaybackFallback(latest.currentTrack.videoId, posSec);
+        }
+      } else if (nextState === 'active') {
+        if (NativeModules?.TrackPlayerModule && latest.activeEngine === 'native' && latest.currentTrack) {
+          Promise.all([
+            TrackPlayer.getProgress().catch(() => null),
+            TrackPlayer.getPlaybackState().catch(() => null),
+          ])
+            .then(([prog, pb]) => {
+              const cur = useAudioStore.getState();
+              if (cur.activeEngine !== 'native') return;
+              if (prog && typeof prog.position === 'number' && prog.position >= 0) {
+                const durMs =
+                  typeof prog.duration === 'number' && prog.duration > 2
+                    ? Math.round(prog.duration * 1000)
+                    : cur.durationMillis;
+                useAudioStore.setState({
+                  positionMillis: Math.round(prog.position * 1000),
+                  durationMillis: durMs,
+                });
+              }
+              if (pb?.state === State.Playing) {
+                useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
+              } else if (pb?.state === State.Paused || pb?.state === State.Stopped) {
+                if (!cur.isLoading) {
+                  useAudioStore.setState({ isPlaying: false });
+                }
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // ── Unified Next / Prev Handlers (Avoids async seekTo collision before track switch) ──
   const handleNextPress = useCallback(async () => {
-    if (activeEngine === 'youtube') {
-      youtubePlayerRef.current?.seekTo(0, true);
-    }
     await nextTrack();
-  }, [activeEngine, nextTrack]);
+  }, [nextTrack]);
 
   const handlePrevPress = useCallback(async () => {
-    if (activeEngine === 'youtube') {
-      const pos = useAudioStore.getState().positionMillis;
-      if (pos > 3000) {
-        youtubePlayerRef.current?.seekTo(0, true);
-      }
-    }
     await prevTrack();
-  }, [activeEngine, prevTrack]);
+  }, [prevTrack]);
 
   // ── Sync Scrubber & Time during YouTube Playback (500ms low-overhead polling) ──
   useEffect(() => {
@@ -706,6 +752,21 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     });
 
     setPlayerMediaMode('cover');
+
+    const latest = useAudioStore.getState();
+    if (
+      NativeModules?.TrackPlayerModule &&
+      latest.activeEngine === 'youtube' &&
+      latest.currentTrack?.videoId &&
+      latest.isPlaying &&
+      !latest.isUserPauseAction
+    ) {
+      const cached = getCachedDirectAudioStream(latest.currentTrack.videoId);
+      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+      if (cached?.url) {
+        latest.upgradeTrackToNativeStream(cached.url, posSec, latest.currentTrack.videoId).catch(() => {});
+      }
+    }
   }, [setPlayerMediaMode]);
 
   const handleSwitchToVideo = useCallback(() => {
@@ -721,6 +782,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       damping: 26,
       mass: 0.8,
     });
+
+    const latest = useAudioStore.getState();
+    if (latest.currentTrack?.videoId) {
+      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+      pendingYoutubeSeekSecRef.current = posSec;
+      prefetchDirectAudioStream(latest.currentTrack.videoId, latest.preferredQuality);
+      if (latest.activeEngine === 'native') {
+        if (NativeModules?.TrackPlayerModule) {
+          TrackPlayer.pause().catch(() => {});
+        }
+        useAudioStore.setState({ activeEngine: 'youtube' });
+      }
+    }
 
     setPlayerMediaMode('video');
   }, [setPlayerMediaMode]);
@@ -1748,8 +1822,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             isVideoFullscreen
               ? 'box-none'
               : playerMediaMode === 'video'
-              ? 'auto'
-              : 'none'
+                ? 'auto'
+                : 'none'
           }
         >
           {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) OR Edge-to-Edge Fullscreen Frame */}
@@ -1757,19 +1831,19 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             style={
               isVideoFullscreen
                 ? [
-                    styles.videoFullscreenFrame,
-                    {
-                      width: fullscreenVideoDims.width,
-                      height: fullscreenVideoDims.height,
-                    },
-                  ]
+                  styles.videoFullscreenFrame,
+                  {
+                    width: fullscreenVideoDims.width,
+                    height: fullscreenVideoDims.height,
+                  },
+                ]
                 : [
-                    styles.videoFrameContainer,
-                    {
-                      width: cardWidth,
-                      height: cardVideoHeight,
-                    },
-                  ]
+                  styles.videoFrameContainer,
+                  {
+                    width: cardWidth,
+                    height: cardVideoHeight,
+                  },
+                ]
             }
             pointerEvents={isVideoFullscreen ? 'none' : 'auto'}
           >
@@ -1787,9 +1861,20 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   ref={youtubePlayerRef}
                   height={isVideoFullscreen ? fullscreenVideoDims.height : cardVideoHeight}
                   width={isVideoFullscreen ? fullscreenVideoDims.width : cardWidth}
-                  play={isPlaying}
+                  play={activeEngine === 'youtube' && isPlaying}
                   videoId={currentTrack.videoId}
                   initialPlayerParams={stablePlayerParams}
+                  onReady={() => {
+                    const seekSec = pendingYoutubeSeekSecRef.current;
+                    if (typeof seekSec === 'number' && seekSec > 0) {
+                      pendingYoutubeSeekSecRef.current = null;
+                      youtubePlayerRef.current?.seekTo?.(seekSec, true);
+                    }
+                    const latest = useAudioStore.getState();
+                    if (latest.activeEngine === 'youtube' && latest.isPlaying && !latest.isUserPauseAction) {
+                      (youtubePlayerRef.current as any)?.playVideo?.();
+                    }
+                  }}
                   onChangeState={(state: string) => {
                     if (state === 'ended') {
                       if (bgRecoveryTimerRef.current) {
@@ -1801,6 +1886,11 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       if (bgRecoveryTimerRef.current) {
                         clearTimeout(bgRecoveryTimerRef.current);
                         bgRecoveryTimerRef.current = null;
+                      }
+                      if (typeof pendingYoutubeSeekSecRef.current === 'number' && pendingYoutubeSeekSecRef.current > 0) {
+                        const seekSec = pendingYoutubeSeekSecRef.current;
+                        pendingYoutubeSeekSecRef.current = null;
+                        youtubePlayerRef.current?.seekTo?.(seekSec, true);
                       }
                       startedYoutubeVideoIdRef.current = currentTrack?.videoId || null;
                       useAudioStore.setState({
@@ -1830,7 +1920,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         // seamlessly hand over to Native AVPlayer at the exact current second.
                         try {
                           (youtubePlayerRef.current as any)?.playVideo?.();
-                        } catch {}
+                        } catch { }
                         if (!bgRecoveryTimerRef.current) {
                           const resumeVid = currentTrack?.videoId;
                           bgRecoveryTimerRef.current = setTimeout(() => {

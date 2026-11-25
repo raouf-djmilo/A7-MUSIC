@@ -1,90 +1,261 @@
-import { NativeModules } from 'react-native';
-import TrackPlayer, { Capability, Event } from 'react-native-track-player';
-import { useAudioStore } from '../store/useAudioStore';
-import { setupAudioInterruptionListeners } from '../services/audioSessionService';
+import { NativeModules, Platform } from 'react-native';
+import TrackPlayer, {
+  AppKilledPlaybackBehavior,
+  Capability,
+  Event,
+  IOSCategory,
+  IOSCategoryMode,
+  State,
+} from 'react-native-track-player';
+import { getLastUserToggleTimestamp, useAudioStore } from '../store/useAudioStore';
+import {
+  endTrackPlayerTransition,
+  isTrackPlayerTransitioning,
+  markTrackEndHandled,
+  setupAudioInterruptionListeners,
+} from '../services/audioSessionService';
+import { invalidateCachedAudioStream } from '../services/youtubeStreamService';
+
+let isPlaybackServiceRegistered = false;
+let isSetupComplete = false;
+let setupInFlightPromise: Promise<void> | null = null;
+let wasPausedByDuck = false;
 
 export const PlaybackService = async () => {
   if (!NativeModules.TrackPlayerModule) return;
+  if (isPlaybackServiceRegistered) return;
+  isPlaybackServiceRegistered = true;
+
   try {
-    TrackPlayer.addEventListener(Event.RemotePlay, () => useAudioStore.getState().resumeTrack());
-    TrackPlayer.addEventListener(Event.RemotePause, () => useAudioStore.getState().pauseTrack());
-    TrackPlayer.addEventListener(Event.RemoteNext, () => useAudioStore.getState().nextTrack());
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => useAudioStore.getState().prevTrack());
-    TrackPlayer.addEventListener(Event.RemoteStop, () => useAudioStore.getState().stopTrack());
-    TrackPlayer.addEventListener(Event.RemoteSeek, async (event) => {
-      if (typeof event.position === 'number') {
-        await useAudioStore.getState().seekTo(event.position * 1000);
+    TrackPlayer.addEventListener(Event.RemotePlay, async () => {
+      await useAudioStore.getState().resumeTrack();
+    });
+
+    TrackPlayer.addEventListener(Event.RemotePause, () => {
+      useAudioStore.getState().pauseTrack();
+    });
+
+    TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+      await useAudioStore.getState().nextTrack();
+    });
+
+    TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+      await useAudioStore.getState().prevTrack();
+    });
+
+    TrackPlayer.addEventListener(Event.RemoteStop, async () => {
+      await useAudioStore.getState().stopTrack();
+    });
+
+    TrackPlayer.addEventListener(Event.RemoteSeek, async (event: any) => {
+      if (typeof event?.position === 'number' && isFinite(event.position)) {
+        await useAudioStore.getState().seekTo(Math.max(0, event.position * 1000));
       }
     });
-    TrackPlayer.addEventListener(Event.RemoteDuck, (event) => {
-      // Only pause on permanent focus loss (incoming phone call, alarm, or another audio app taking exclusive focus)
-      // Ignore transient ducking or volume dips during track setup/notifications
-      if (event.permanent) {
-        useAudioStore.getState().pauseTrack();
+
+    TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event: any) => {
+      const store = useAudioStore.getState();
+      const intervalSec = typeof event?.interval === 'number' && event.interval > 0 ? event.interval : 10;
+      const validDuration = store.durationMillis > 0 ? store.durationMillis : (store.currentTrack?.duration || 180000);
+      const targetMs = Math.min(validDuration, store.positionMillis + intervalSec * 1000);
+      await store.seekTo(targetMs);
+    });
+
+    TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event: any) => {
+      const store = useAudioStore.getState();
+      const intervalSec = typeof event?.interval === 'number' && event.interval > 0 ? event.interval : 10;
+      const targetMs = Math.max(0, store.positionMillis - intervalSec * 1000);
+      await store.seekTo(targetMs);
+    });
+
+    TrackPlayer.addEventListener(Event.RemoteDuck, async (event: any) => {
+      const store = useAudioStore.getState();
+      if (event?.permanent) {
+        wasPausedByDuck = false;
+        store.pauseTrack();
+        return;
+      }
+      if (event?.paused === true) {
+        if (store.isPlaying && !store.isUserPauseAction) {
+          wasPausedByDuck = true;
+          store.pauseTrack();
+        }
+      } else if (event?.paused === false) {
+        if (wasPausedByDuck && store.currentTrack && store.backgroundAudioEnabled) {
+          wasPausedByDuck = false;
+          await store.resumeTrack();
+        }
       }
     });
-    // Note: TrackPlayer serves as the silent anchor and remote control bridge.
-    // Actual playback progress and track completion are handled with precision by
-    // nativeAudioService (expo-video) and GlobalAudioBridge (YouTube engine).
-  } catch (e) {
-    // Ignored in Expo Go
+
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event: any) => {
+      const store = useAudioStore.getState();
+      if (store.activeEngine !== 'native' || isTrackPlayerTransitioning()) return;
+      if (typeof event?.position !== 'number' || !isFinite(event.position) || event.position < 0) return;
+
+      const posMs = Math.round(event.position * 1000);
+      const rawDurSec = typeof event?.duration === 'number' && isFinite(event.duration) ? event.duration : 0;
+      const durMs = rawDurSec > 2 ? Math.round(rawDurSec * 1000) : store.durationMillis;
+      store.updateProgress(posMs, durMs);
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackState, (event: any) => {
+      const store = useAudioStore.getState();
+      if (store.activeEngine !== 'native') return;
+
+      const timeSinceToggle = Date.now() - getLastUserToggleTimestamp();
+
+      if (event?.state === State.Playing) {
+        endTrackPlayerTransition();
+        if (store.isLoading || store.loadingTrackId) {
+          useAudioStore.setState({ isLoading: false, loadingTrackId: null });
+        }
+        if (!store.isPlaying && !store.isUserPauseAction && timeSinceToggle > 500) {
+          useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
+        }
+      } else if (event?.state === State.Paused) {
+        if (
+          !isTrackPlayerTransitioning() &&
+          !store.isLoading &&
+          store.isPlaying &&
+          timeSinceToggle > 1100
+        ) {
+          useAudioStore.setState({ isPlaying: false });
+        }
+      } else if (event?.state === State.Error) {
+        if (store.currentTrack?.videoId) {
+          invalidateCachedAudioStream(store.currentTrack.videoId);
+        }
+        if (!isTrackPlayerTransitioning() && typeof store.recoverFromNativeError === 'function') {
+          store.recoverFromNativeError();
+        }
+      }
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (event: any) => {
+      const store = useAudioStore.getState();
+      if (
+        store.activeEngine !== 'native' ||
+        isTrackPlayerTransitioning() ||
+        store.isLoading ||
+        !store.currentTrack ||
+        store.isUserPauseAction
+      ) {
+        return;
+      }
+
+      const posMs =
+        typeof event?.position === 'number' && isFinite(event.position) && event.position > 0
+          ? event.position * 1000
+          : store.positionMillis;
+      const durMs = store.durationMillis || store.currentTrack?.duration || 0;
+
+      // Ignore false-positive ended fires at 0s during source replacement
+      if (durMs > 15000 && posMs < Math.max(4000, durMs * 0.5)) {
+        return;
+      }
+
+      const trackKey = `${store.currentTrack.videoId || 'track'}_${store.playRequestId}`;
+      if (!markTrackEndHandled(trackKey)) return;
+
+      await store.handleTrackEnded();
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackError, () => {
+      const store = useAudioStore.getState();
+      if (store.activeEngine !== 'native' || isTrackPlayerTransitioning()) return;
+      if (store.currentTrack?.videoId) {
+        invalidateCachedAudioStream(store.currentTrack.videoId);
+      }
+      if (typeof store.recoverFromNativeError === 'function') {
+        store.recoverFromNativeError();
+      }
+    });
+
+    setupAudioInterruptionListeners(() => {
+      useAudioStore.getState().pauseTrack();
+    });
+  } catch (err) {
+    console.warn('[PlaybackService] Error registering listeners:', err);
   }
 };
 
 export const SetupService = async () => {
-  if (!NativeModules.TrackPlayerModule) {
-    // Expo Go fallback mode: HTML5 GlobalAudioBridge is active
-    return true;
-  }
-  let isSetup = false;
-  try {
-    await TrackPlayer.getCurrentTrack();
-    isSetup = true;
-  } catch {
+  if (!NativeModules.TrackPlayerModule) return;
+  if (isSetupComplete) return;
+  if (setupInFlightPromise) return setupInFlightPromise;
+
+  setupInFlightPromise = (async () => {
     try {
-      await TrackPlayer.setupPlayer();
-      isSetup = true;
-    } catch (e) {
-      console.log('[SetupService] TrackPlayer setup skipped');
-    }
-  }
+      let alreadySetup = false;
+      try {
+        const currentTrack = await TrackPlayer.getActiveTrackIndex();
+        if (currentTrack !== undefined) alreadySetup = true;
+      } catch {}
 
-  // 🛡️ Guaranteed Remote Control Configuration:
-  // Must execute on EVERY boot so iOS MPRemoteCommandCenter receives Next / Previous and drops 10s jump buttons!
-  try {
-    if (Capability) {
-      await TrackPlayer.updateOptions({
-        android: {
-          appKilledBehavior: (TrackPlayer as any)?.AppKilledBehavior?.StopPlaybackAndRemoveNotification,
-        } as any,
-        capabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-          Capability.Stop,
-          Capability.SeekTo,
-        ],
-        compactCapabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-        ],
-        notificationCapabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-          Capability.SeekTo,
-        ],
-        progressUpdateEventInterval: 2,
-      });
-    }
-    setupAudioInterruptionListeners();
-  } catch (optErr) {
-    console.warn('[SetupService] TrackPlayer updateOptions error:', optErr);
-  }
+      if (!alreadySetup) {
+        try {
+          await TrackPlayer.setupPlayer({
+            autoHandleInterruptions: true,
+            autoUpdateMetadata: true,
+            waitForBuffer: true,
+            iosCategory: IOSCategory.Playback,
+            iosCategoryMode: IOSCategoryMode.Default,
+          });
+        } catch (setupErr: any) {
+          const msg = String(setupErr?.message || '');
+          if (!msg.includes('already') && !msg.includes('initialized')) {
+            console.log('[SetupService] TrackPlayer setup skipped:', msg);
+            return;
+          }
+        }
+      }
 
-  return isSetup;
+      try {
+        const capabilities =
+          Platform.OS === 'ios'
+            ? [
+                Capability.Play,
+                Capability.Pause,
+                Capability.SkipToNext,
+                Capability.SkipToPrevious,
+                Capability.Stop,
+                Capability.SeekTo,
+              ]
+            : [
+                Capability.Play,
+                Capability.Pause,
+                Capability.SkipToNext,
+                Capability.SkipToPrevious,
+                Capability.JumpForward,
+                Capability.JumpBackward,
+                Capability.Stop,
+                Capability.SeekTo,
+              ];
+
+        await TrackPlayer.updateOptions({
+          progressUpdateEventInterval: 0.5,
+          forwardJumpInterval: 10,
+          backwardJumpInterval: 10,
+          capabilities,
+          compactCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+          ],
+          android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback,
+          },
+        });
+        isSetupComplete = true;
+      } catch (optErr) {
+        console.warn('[SetupService] TrackPlayer updateOptions error:', optErr);
+      }
+    } finally {
+      setupInFlightPromise = null;
+    }
+  })();
+
+  return setupInFlightPromise;
 };

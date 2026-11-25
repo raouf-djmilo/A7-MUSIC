@@ -27,7 +27,12 @@ import { OfflineGuardModal } from './src/components/OfflineGuardModal';
 import { inspectOfflineStorage } from './src/services/downloadService';
 import { useUpdateStore, runSmartOtaMigrationIfNeeded } from './src/services/updateService';
 import { OtaUpdateProgressModal } from './src/components/OtaUpdateProgressModal';
-import { getNotifications } from './src/services/notificationService';
+import {
+  getNotifications,
+  safeGetPermissionsAsync,
+  safeRequestPermissionsAsync,
+  safeSetNotificationHandler,
+} from './src/services/notificationService';
 
 const AppContent = () => {
   const { theme, isDark } = useTheme();
@@ -99,19 +104,47 @@ export default function App() {
 
     let lastForegroundOtaCheck = Date.now();
 
-    // 🚀 Enable Background Audio & Professional Mode
+    // 🚀 Enable Background Audio & Professional Mode (SetupService first so TrackPlayer is 100% ready at 0ms)
     const setupAudio = async () => {
       try {
         const savedBg = await AsyncStorage.getItem('@nouble_background_playback_pref');
         const bgEnabled = savedBg !== null ? savedBg === 'true' : true;
+        await SetupService();
         useAudioStore.getState().setBackgroundAudioEnabled(bgEnabled);
         await configureAudioSession(bgEnabled);
-        await SetupService();
       } catch (e) {
         console.warn('Audio Setup Error:', e);
       }
     };
     setupAudio();
+
+    // 🔔 Request System Media/Notification Permission cleanly once on initial app entry
+    const permissionTimer = setTimeout(async () => {
+      try {
+        const alreadyPrompted = await AsyncStorage.getItem('@a7music_initial_notif_prompt_v1');
+        if (alreadyPrompted) return;
+        await AsyncStorage.setItem('@a7music_initial_notif_prompt_v1', 'true');
+
+        const perms = await safeGetPermissionsAsync();
+        let granted = perms.granted;
+        if (!granted && perms.canAskAgain) {
+          const req = await safeRequestPermissionsAsync();
+          granted = req.granted;
+        }
+        if (granted) {
+          safeSetNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+              shouldShowBanner: true,
+              shouldShowList: true,
+            }),
+          });
+          await AsyncStorage.setItem('@a7music_notifications_opt_in', 'true');
+        }
+      } catch {}
+    }, 1400);
 
     // 📱 Deterministic AppState Background Audio Guard
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
@@ -138,6 +171,7 @@ export default function App() {
     return () => {
       clearTimeout(storageTimer);
       clearTimeout(otaTimer);
+      clearTimeout(permissionTimer);
       notifSub?.remove?.();
       appStateSubscription.remove();
     };

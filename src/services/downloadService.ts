@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Track } from '../store/useAudioStore';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { resolveDirectAudioStreamFast } from './youtubeStreamService';
 
 // ── Directory & Storage Constants ──
 const DOWNLOAD_BASE_DIR = `${FileSystem.documentDirectory}a7flow_download_music/`;
@@ -94,14 +95,14 @@ const PIPED_INSTANCES = [
 ];
 
 /**
- * ⚡ Fast Direct Stream Resolver via Piped API (0% Ads, Studio Direct googlevideo stream)
+ * ⚡ Fast Direct Stream Resolver via Piped API (Parallel race — zero sequential dead-instance stalls)
  */
 export async function extractPipedDirectAudioStream(videoId: string): Promise<string | null> {
   const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-  for (const instance of PIPED_INSTANCES) {
+  const tasks = PIPED_INSTANCES.map(async (instance) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
       const res = await fetch(`${instance}/streams/${cleanId}`, {
         signal: controller.signal,
         headers: {
@@ -109,30 +110,33 @@ export async function extractPipedDirectAudioStream(videoId: string): Promise<st
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const data = await res.json();
-        const audioStreams = data.audioStreams || [];
-        const m4aStream = audioStreams.find(
-          (s: any) => s.format === 'M4A' || s.mimeType?.includes('audio/mp4') || s.mimeType?.includes('m4a')
-        );
-        const chosen = m4aStream || audioStreams[0];
-        if (chosen?.url) {
-          console.log(`[PipedAPI] ⚡ Found direct ad-free audio stream from ${instance}`);
-          return chosen.url;
-        }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const audioStreams = data.audioStreams || [];
+      const m4aStream = audioStreams.find(
+        (s: any) => s.format === 'M4A' || s.mimeType?.includes('audio/mp4') || s.mimeType?.includes('m4a')
+      );
+      const chosen = m4aStream || audioStreams[0];
+      if (chosen?.url) {
+        console.log(`[PipedAPI] ⚡ Found direct ad-free audio stream from ${instance}`);
+        return chosen.url as string;
       }
-    } catch {
-      // Fast fallback to next instance
+      throw new Error('No audio streams');
+    } finally {
+      clearTimeout(timeout);
     }
+  });
+
+  try {
+    return await Promise.any(tasks);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /**
  * 🎵 Extract Genuine YouTube Audio Stream (100% Real Song from YouTube)
- * Zero placeholder songs. Connects to primary & mirror conversion APIs,
- * tracks conversion progress, and returns the direct authentic MP3 stream URL.
+ * Zero placeholder songs. Connects to InnerTube direct AAC, Piped parallel race, and mirror conversion APIs.
  */
 export async function extractRealYouTubeAudioStream(
   videoId: string,
@@ -141,7 +145,16 @@ export async function extractRealYouTubeAudioStream(
 ): Promise<string> {
   const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
 
-  // 1. ⚡ Fast Direct Stream Attempt (Piped API — 0% Ads, instant <200ms latency)
+  // 1. ⚡ Fastest Native Direct AAC Stream (iOS InnerTube ~400-700ms, pure mp4a downloadable/streamable)
+  try {
+    const directFast = await resolveDirectAudioStreamFast(cleanId, quality, 4000);
+    if (directFast?.url && !directFast.url.includes('.m3u8')) {
+      if (onProgress) onProgress(1.0, 'تم جلب تدفق الصوت النقي المباشر');
+      return directFast.url;
+    }
+  } catch {}
+
+  // 2. ⚡ Parallel Piped API Race (0% Ads)
   try {
     const directPipedUrl = await extractPipedDirectAudioStream(cleanId);
     if (directPipedUrl) {

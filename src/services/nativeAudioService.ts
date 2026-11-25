@@ -124,7 +124,7 @@ class NativeAudioService {
         // Natural track completion
         const endSub = player.addListener('playToEnd', () => {
           console.log('[NativeAudioService] 🏁 Track completed naturally via expo-video. Auto-advancing...');
-          this.stop().catch(() => {});
+          this.stop().catch(() => { });
           const store = getAudioStore();
           if (store) {
             store.getState().handleTrackEnded();
@@ -139,8 +139,8 @@ class NativeAudioService {
             if (uri && uri.includes('temp_stream_')) {
               try {
                 const FileSystem = require('expo-file-system/legacy');
-                FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
-              } catch {}
+                FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => { });
+              } catch { }
             }
             const store = getAudioStore();
             if (store) store.setState({ isLoading: false, loadingTrackId: null });
@@ -154,7 +154,7 @@ class NativeAudioService {
         this.listeners = subs.map((sub) => () => {
           try {
             if (typeof sub?.remove === 'function') sub.remove();
-          } catch {}
+          } catch { }
         });
 
         player.play();
@@ -182,7 +182,7 @@ class NativeAudioService {
             shouldDuckAndroid: false,
             playThroughEarpieceAndroid: false,
           });
-        } catch {}
+        } catch { }
 
         const { sound } = await expoAv.Audio.Sound.createAsync(
           { uri },
@@ -235,7 +235,7 @@ class NativeAudioService {
             playsInSilentModeIOS: true,
             shouldDuckAndroid: false,
             playThroughEarpieceAndroid: false,
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     } catch (e) {
@@ -252,7 +252,7 @@ class NativeAudioService {
         this.videoPlayer.pause();
       }
       if (this.sound) {
-        await this.sound.pauseAsync().catch(() => {});
+        await this.sound.pauseAsync().catch(() => { });
       }
       const store = getAudioStore();
       if (store) store.setState({ isPlaying: false });
@@ -270,7 +270,7 @@ class NativeAudioService {
         this.videoPlayer.play();
       }
       if (this.sound) {
-        await this.sound.playAsync().catch(() => {});
+        await this.sound.playAsync().catch(() => { });
       }
       const store = getAudioStore();
       if (store) store.setState({ isPlaying: true });
@@ -289,7 +289,7 @@ class NativeAudioService {
         this.videoPlayer.currentTime = seconds;
       }
       if (this.sound) {
-        await this.sound.setPositionAsync(Math.max(0, positionMillis)).catch(() => {});
+        await this.sound.setPositionAsync(Math.max(0, positionMillis)).catch(() => { });
       }
     } catch (e) {
       console.warn('[NativeAudioService] seekTo error:', e);
@@ -301,6 +301,10 @@ class NativeAudioService {
    */
   async stop(): Promise<void> {
     try {
+      // Fast-path no-op: do not invoke expo-video / NowPlayingManager cleanup when unused
+      if (!this.videoPlayer && !this.sound && this.listeners.length === 0 && this.activeEngine === 'none') {
+        return;
+      }
       for (const cleanup of this.listeners) {
         cleanup();
       }
@@ -316,16 +320,16 @@ class NativeAudioService {
           if (typeof player.release === 'function') {
             player.release();
           }
-        } catch {}
+        } catch { }
       }
 
       if (this.sound) {
         const soundToUnload = this.sound;
         this.sound = null;
         try {
-          await soundToUnload.stopAsync().catch(() => {});
-          await soundToUnload.unloadAsync().catch(() => {});
-        } catch {}
+          await soundToUnload.stopAsync().catch(() => { });
+          await soundToUnload.unloadAsync().catch(() => { });
+        } catch { }
       }
 
       this.currentUri = null;
@@ -367,7 +371,7 @@ class NativeAudioService {
 
     if (didJustFinish) {
       console.log('[NativeAudioService] 🏁 Track completed naturally via expo-av. Auto-advancing...');
-      this.stop().catch(() => {});
+      this.stop().catch(() => { });
       const store = getAudioStore();
       if (store) {
         store.getState().handleTrackEnded();

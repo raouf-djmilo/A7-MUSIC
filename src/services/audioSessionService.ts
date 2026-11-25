@@ -203,7 +203,7 @@ export const setupAudioInterruptionListeners = (onInterrupt?: () => void): void 
         } else {
           try {
             store.getState().pauseTrack();
-          } catch (e) {}
+          } catch (e) { }
         }
       }
       // Do NOT bounce pauseTrack/resumeTrack on transient ducks (event.paused),
@@ -212,4 +212,39 @@ export const setupAudioInterruptionListeners = (onInterrupt?: () => void): void 
   } catch (e) {
     // Handled safely
   }
+};
+
+// ── TrackPlayer Transition & Ownership Guard (Prevents spurious end/pause events during track load/reset) ──
+let _isTrackPlayerTransitioning = false;
+let _transitionClearTimer: any = null;
+let _lastTrackEndHandledId: string | null = null;
+let _lastTrackEndTimestamp = 0;
+
+export const beginTrackPlayerTransition = (durationMs: number = 1400): void => {
+  _isTrackPlayerTransitioning = true;
+  if (_transitionClearTimer) clearTimeout(_transitionClearTimer);
+  _transitionClearTimer = setTimeout(() => {
+    _isTrackPlayerTransitioning = false;
+    _transitionClearTimer = null;
+  }, durationMs);
+};
+
+export const endTrackPlayerTransition = (): void => {
+  _isTrackPlayerTransitioning = false;
+  if (_transitionClearTimer) {
+    clearTimeout(_transitionClearTimer);
+    _transitionClearTimer = null;
+  }
+};
+
+export const isTrackPlayerTransitioning = (): boolean => _isTrackPlayerTransitioning;
+
+export const markTrackEndHandled = (trackKey: string): boolean => {
+  const now = Date.now();
+  if (_lastTrackEndHandledId === trackKey && now - _lastTrackEndTimestamp < 2500) {
+    return false;
+  }
+  _lastTrackEndHandledId = trackKey;
+  _lastTrackEndTimestamp = now;
+  return true;
 };
