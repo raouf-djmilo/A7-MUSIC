@@ -1,13 +1,13 @@
 {
-  "id": "907e38ab-4e22-4b3d-8235-3f4200675095",
-  "createdAt": "2026-11-25T17:13:03.058Z",
+  "id": "0fc3313c-90c6-4c08-bc13-e1c9fc3427f4",
+  "createdAt": "2026-11-25T17:28:03.604Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "EDxRmt2bK38pf-aNjlkyYpOoy6XGu1V4U4DK9AqMMLU",
-    "key": "248b29db4078ae04b432593e2788cb40",
+    "hash": "X1CJ-Xy6PRWl549gjgtg8wLxRsacx9TpQyZvdcryOMU",
+    "key": "e30841c323123490f41a97dc8f457e76",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-b16b2a8e2d60125b49b901cd02098693.hbc"
+    "url": "./_expo/static/js/ios/index-7ed7e1cc634a353b5aa9d23a539b8c00.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.dcbb16b",
+      "otaVersion": "1.6.5-ota.e76b6da",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "dcbb16b",
-      "title": "feat(library,i18n): redesign MusicLibrary with Apple Liquid Glass carousels, View All & custom playlists; sync TabBar & Profile language",
+      "commitSha": "e76b6da",
+      "title": "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
       "highlights": [
-        "feat(library,i18n): redesign MusicLibrary with Apple Liquid Glass carousels, View All & custom playlists; sync TabBar & Profile language",
+        "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:13:03.058Z",
-      "bundleSizeBytes": 6789925
+      "publishedAt": "2026-11-25T17:28:03.604Z",
+      "bundleSizeBytes": 6825941
     }
   }
 }
