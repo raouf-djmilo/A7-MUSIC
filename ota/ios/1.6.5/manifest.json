@@ -1,13 +1,13 @@
 {
-  "id": "586e3134-1a23-4e83-8c9a-8b7685e27463",
-  "createdAt": "2026-11-25T01:37:07.844Z",
+  "id": "46791efd-fae3-43b8-91f7-f470434e10e2",
+  "createdAt": "2026-11-25T01:49:51.718Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "No-Ya5WbPRPBLnbG8xY3gvOR29y3JA3W32Cg4TDcKUo",
-    "key": "a5140b15231bcb1a6282764dc7aef1eb",
+    "hash": "x448C3YHXu-h78q8nM4Q_GcA4PES1mwRuWOP48RVH6M",
+    "key": "7aa8ed54231e8f266628fb4efa02a588",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-c1081dda59d5f929c92196b60f2808d6.hbc"
+    "url": "./_expo/static/js/ios/index-4dd986a5cb84d47ac0b7c96c0ad9d4cd.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.87784a5",
+      "otaVersion": "1.6.5-ota.4ccb8cf",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "87784a5",
-      "title": "fix(library): import ScrollView for Firebase user playlists rail",
+      "commitSha": "4ccb8cf",
+      "title": "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
       "highlights": [
-        "fix(library): import ScrollView for Firebase user playlists rail",
+        "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T01:37:07.844Z",
-      "bundleSizeBytes": 6772664
+      "publishedAt": "2026-11-25T01:49:51.718Z",
+      "bundleSizeBytes": 6780652
     }
   }
 }

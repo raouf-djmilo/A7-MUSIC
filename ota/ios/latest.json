@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.87784a5",
-  "updateId": "586e3134-1a23-4e83-8c9a-8b7685e27463",
-  "publishedAt": "2026-11-25T01:37:07.844Z",
-  "title": "fix(library): import ScrollView for Firebase user playlists rail",
+  "otaVersion": "1.6.5-ota.4ccb8cf",
+  "updateId": "46791efd-fae3-43b8-91f7-f470434e10e2",
+  "publishedAt": "2026-11-25T01:49:51.718Z",
+  "title": "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
   "highlights": [
-    "fix(library): import ScrollView for Firebase user playlists rail",
+    "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6772664,
+  "bundleSizeBytes": 6780652,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
