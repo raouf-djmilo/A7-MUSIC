@@ -16,9 +16,11 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { GlassCard } from '../components/GlassCard';
 import { ToastManager } from '../components/InAppToast';
 import {
@@ -36,7 +38,7 @@ import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 
 export const SoftwareUpdateScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
@@ -147,35 +149,64 @@ export const SoftwareUpdateScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LinearGradient
+          colors={
+            isDark
+              ? ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.05)', 'transparent']
+              : ['rgba(0, 122, 255, 0.14)', 'rgba(56, 189, 248, 0.05)', 'transparent']
+          }
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.85, y: 0.7 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <BlurView intensity={25} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      </View>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.backBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.goBack();
             }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.75}
           >
-            <Ionicons name="chevron-back" size={26} color={theme.textPrimary} />
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              borderRadius={20}
+              style={styles.backBtn}
+            >
+              <Ionicons name="chevron-back" size={22} color={theme.textPrimary} />
+            </LiquidGlassSurface>
           </TouchableOpacity>
 
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>تحديث التطبيق</Text>
-            <Text style={styles.headerSubtitle}>iOS Fast OTA • GitHub Pages</Text>
+            <Text style={styles.headerSubtitle}>A7 Music OTA</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.refreshBtn}
             onPress={handleManualCheck}
             disabled={initialLoading || isChecking || isDownloadingOta}
+            activeOpacity={0.75}
           >
-            {isChecking ? (
-              <ActivityIndicator size="small" color="#007AFF" />
-            ) : (
-              <Ionicons name="refresh" size={22} color={theme.textPrimary} />
-            )}
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              borderRadius={20}
+              style={styles.refreshBtn}
+            >
+              {isChecking ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <Ionicons name="refresh" size={20} color={theme.textPrimary} />
+              )}
+            </LiquidGlassSurface>
           </TouchableOpacity>
         </View>
 
