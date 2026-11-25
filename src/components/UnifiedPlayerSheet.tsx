@@ -15,7 +15,7 @@ import {
   NativeModules,
 } from 'react-native';
 import TrackPlayer, { State } from 'react-native-track-player';
-import { getCachedDirectAudioStream, prefetchDirectAudioStream } from '../services/youtubeStreamService';
+import { startSilentBackgroundKeepAlive, pauseSilentBackgroundKeepAlive } from '../services/audioSessionService';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -248,10 +248,16 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const startedYoutubeVideoIdRef = useRef<string | null>(null);
   const bgRecoveryTimerRef = useRef<any>(null);
   const pendingYoutubeSeekSecRef = useRef<number | null>(null);
+  const enteredBackgroundAtRef = useRef<number>(0);
+  const bgAutoNudgeCountRef = useRef<number>(0);
+  const retriedVideoIdRef = useRef<string | null>(null);
+  const [youtubeRemountKey, setYoutubeRemountKey] = useState(0);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
 
   useEffect(() => {
     startedYoutubeVideoIdRef.current = null;
+    retriedVideoIdRef.current = null;
+    bgAutoNudgeCountRef.current = 0;
     if (bgRecoveryTimerRef.current) {
       clearTimeout(bgRecoveryTimerRef.current);
       bgRecoveryTimerRef.current = null;
@@ -442,6 +448,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         })();
         true;
       `,
+      onContentProcessDidTerminate: () => {
+        const s = useAudioStore.getState();
+        const curSec = Math.max(0, Math.floor(s.positionMillis / 1000));
+        if (curSec > 0) pendingYoutubeSeekSecRef.current = curSec;
+        setYoutubeRemountKey((k) => k + 1);
+      },
     }),
     []
   );
@@ -575,9 +587,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       ) {
         (youtubePlayerRef.current as any)?.playVideo?.();
       }
-    }, 2200);
+    }, 2000);
 
-    const failoverTimer = setTimeout(() => {
+    const remountTimer = setTimeout(() => {
       const latest = useAudioStore.getState();
       if (
         startedYoutubeVideoIdRef.current !== targetVid &&
@@ -586,22 +598,34 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         !latest.isUserPauseAction &&
         latest.currentTrack?.videoId === targetVid
       ) {
-        const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
-        latest.handlePlaybackFallback(targetVid, posSec);
+        if (retriedVideoIdRef.current !== targetVid) {
+          retriedVideoIdRef.current = targetVid;
+          setYoutubeRemountKey((k) => k + 1);
+        }
       }
-    }, 4500);
+    }, 4800);
 
     return () => {
       clearTimeout(nudgeTimer);
-      clearTimeout(failoverTimer);
+      clearTimeout(remountTimer);
     };
   }, [activeEngine, isPlaying, currentTrack?.videoId]);
 
-  // ── 📱 AppState Lifecycle: 0ms Background Handoff & Instant Foreground State Re-Sync ──
+  // ── 📱 AppState Lifecycle: Background Keep-Alive + Non-Glitching Control Center + Instant Foreground Sync ──
   useEffect(() => {
+    const nudgeTimers: any[] = [];
+    const clearNudges = () => {
+      while (nudgeTimers.length > 0) {
+        clearTimeout(nudgeTimers.pop());
+      }
+    };
+
     const sub = AppState.addEventListener('change', (nextState) => {
       const latest = useAudioStore.getState();
       if (nextState === 'background') {
+        enteredBackgroundAtRef.current = Date.now();
+        bgAutoNudgeCountRef.current = 0;
+
         if (
           latest.backgroundAudioEnabled &&
           latest.isPlaying &&
@@ -609,11 +633,50 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           latest.activeEngine === 'youtube' &&
           latest.currentTrack?.videoId
         ) {
-          const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
-          latest.handlePlaybackFallback(latest.currentTrack.videoId, posSec);
+          startSilentBackgroundKeepAlive().catch(() => {});
+          // Counteract UIKit/WebKit's single automatic pause at background transition without stealing Control Center
+          clearNudges();
+          nudgeTimers.push(
+            setTimeout(() => {
+              const s = useAudioStore.getState();
+              if (s.backgroundAudioEnabled && s.isPlaying && !s.isUserPauseAction && s.activeEngine === 'youtube') {
+                (youtubePlayerRef.current as any)?.playVideo?.();
+              }
+            }, 160),
+            setTimeout(() => {
+              const s = useAudioStore.getState();
+              if (s.backgroundAudioEnabled && s.isPlaying && !s.isUserPauseAction && s.activeEngine === 'youtube') {
+                (youtubePlayerRef.current as any)?.playVideo?.();
+              }
+            }, 480)
+          );
         }
       } else if (nextState === 'active') {
-        if (NativeModules?.TrackPlayerModule && latest.activeEngine === 'native' && latest.currentTrack) {
+        clearNudges();
+        enteredBackgroundAtRef.current = 0;
+        bgAutoNudgeCountRef.current = 0;
+
+        if (latest.activeEngine === 'youtube' && latest.currentTrack?.videoId) {
+          const yt = youtubePlayerRef.current as any;
+          if (yt) {
+            Promise.all([yt.getCurrentTime?.(), yt.getDuration?.()])
+              .then(([curSec, durSec]: any[]) => {
+                if (typeof curSec === 'number' && !isNaN(curSec) && curSec >= 0) {
+                  const curMs = Math.round(curSec * 1000);
+                  const durMs =
+                    typeof durSec === 'number' && durSec > 0
+                      ? Math.round(durSec * 1000)
+                      : latest.durationMillis;
+                  useAudioStore.getState().updateProgress(curMs, durMs);
+                }
+              })
+              .catch(() => {});
+
+            if (latest.isPlaying && !latest.isUserPauseAction) {
+              yt.playVideo?.();
+            }
+          }
+        } else if (NativeModules?.TrackPlayerModule && latest.activeEngine === 'native' && latest.currentTrack) {
           Promise.all([
             TrackPlayer.getProgress().catch(() => null),
             TrackPlayer.getPlaybackState().catch(() => null),
@@ -639,11 +702,14 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 }
               }
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       }
     });
-    return () => sub.remove();
+    return () => {
+      clearNudges();
+      sub.remove();
+    };
   }, []);
 
   // ── Unified Next / Prev Handlers (Avoids async seekTo collision before track switch) ──
@@ -752,21 +818,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     });
 
     setPlayerMediaMode('cover');
-
-    const latest = useAudioStore.getState();
-    if (
-      NativeModules?.TrackPlayerModule &&
-      latest.activeEngine === 'youtube' &&
-      latest.currentTrack?.videoId &&
-      latest.isPlaying &&
-      !latest.isUserPauseAction
-    ) {
-      const cached = getCachedDirectAudioStream(latest.currentTrack.videoId);
-      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
-      if (cached?.url) {
-        latest.upgradeTrackToNativeStream(cached.url, posSec, latest.currentTrack.videoId).catch(() => {});
-      }
-    }
   }, [setPlayerMediaMode]);
 
   const handleSwitchToVideo = useCallback(() => {
@@ -784,16 +835,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     });
 
     const latest = useAudioStore.getState();
-    if (latest.currentTrack?.videoId) {
+    if (latest.currentTrack?.videoId && latest.activeEngine === 'native') {
       const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
       pendingYoutubeSeekSecRef.current = posSec;
-      prefetchDirectAudioStream(latest.currentTrack.videoId, latest.preferredQuality);
-      if (latest.activeEngine === 'native') {
-        if (NativeModules?.TrackPlayerModule) {
-          TrackPlayer.pause().catch(() => {});
-        }
-        useAudioStore.setState({ activeEngine: 'youtube' });
+      if (NativeModules?.TrackPlayerModule) {
+        TrackPlayer.pause().catch(() => {});
       }
+      useAudioStore.setState({ activeEngine: 'youtube' });
     }
 
     setPlayerMediaMode('video');
@@ -1858,6 +1906,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 disabled={playerMediaMode === 'cover' || isVideoFullscreen}
               >
                 <YoutubePlayer
+                  key={youtubeRemountKey}
                   ref={youtubePlayerRef}
                   height={isVideoFullscreen ? fullscreenVideoDims.height : cardVideoHeight}
                   width={isVideoFullscreen ? fullscreenVideoDims.width : cardWidth}
@@ -1883,6 +1932,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       }
                       useAudioStore.getState().handleTrackEnded();
                     } else if (state === 'playing') {
+                      bgAutoNudgeCountRef.current = 0;
                       if (bgRecoveryTimerRef.current) {
                         clearTimeout(bgRecoveryTimerRef.current);
                         bgRecoveryTimerRef.current = null;
@@ -1893,16 +1943,21 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         youtubePlayerRef.current?.seekTo?.(seekSec, true);
                       }
                       startedYoutubeVideoIdRef.current = currentTrack?.videoId || null;
+                      const storeState = useAudioStore.getState();
+                      if (storeState.backgroundAudioEnabled) {
+                        startSilentBackgroundKeepAlive().catch(() => {});
+                      }
                       useAudioStore.setState({
                         isPlaying: true,
+                        isUserPauseAction: false,
                         isLoading: false,
                         loadingTrackId: null,
                       });
                     } else if (state === 'paused') {
                       if (isSwitchingModeRef.current) return;
                       const storeState = useAudioStore.getState();
-                      // User-initiated pause (MiniPlayer, FullPlayer, LockScreen, Headphones) ALWAYS wins immediately
                       if (storeState.isUserPauseAction || !storeState.isPlaying) {
+                        pauseSilentBackgroundKeepAlive();
                         useAudioStore.setState({ isPlaying: false, isLoading: false });
                         return;
                       }
@@ -1910,43 +1965,39 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       if (startedYoutubeVideoIdRef.current !== currentTrack?.videoId) {
                         return;
                       }
-                      // Background Audio Guard: if iOS WebKit auto-pauses on lock/background:
-                      if (AppState.currentState !== 'active') {
+
+                      // Background Audio Guard: ONLY fight WebKit's automatic background suspension during the initial 1800ms
+                      // right after AppState === 'background'. In 'inactive' (Control Center white badge) or after 1800ms (Lock Screen pause),
+                      // ALWAYS respect the user's Pause command cleanly without bounce-back glitching!
+                      if (AppState.currentState === 'background') {
                         if (!storeState.backgroundAudioEnabled) {
                           storeState.pauseTrack();
                           return;
                         }
-                        // Background playback is ON: nudge WebKit to resume, and if it stays stalled,
-                        // seamlessly hand over to Native AVPlayer at the exact current second.
-                        try {
-                          (youtubePlayerRef.current as any)?.playVideo?.();
-                        } catch { }
-                        if (!bgRecoveryTimerRef.current) {
-                          const resumeVid = currentTrack?.videoId;
-                          bgRecoveryTimerRef.current = setTimeout(() => {
-                            bgRecoveryTimerRef.current = null;
-                            const latest = useAudioStore.getState();
-                            if (
-                              AppState.currentState !== 'active' &&
-                              latest.backgroundAudioEnabled &&
-                              latest.isPlaying &&
-                              !latest.isUserPauseAction &&
-                              latest.activeEngine === 'youtube' &&
-                              latest.currentTrack?.videoId === resumeVid
-                            ) {
-                              const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
-                              latest.handlePlaybackFallback(resumeVid, posSec);
-                            }
-                          }, 900);
+                        const inBgTransitionWindow =
+                          enteredBackgroundAtRef.current > 0 &&
+                          Date.now() - enteredBackgroundAtRef.current < 1800;
+
+                        if (inBgTransitionWindow && bgAutoNudgeCountRef.current < 3) {
+                          bgAutoNudgeCountRef.current += 1;
+                          startSilentBackgroundKeepAlive().catch(() => {});
+                          try {
+                            (youtubePlayerRef.current as any)?.playVideo?.();
+                          } catch {}
+                          return;
                         }
-                        return;
                       }
-                      useAudioStore.setState({ isPlaying: false });
+
+                      // User tapped Pause in Control Center ('inactive'), Lock Screen, or App
+                      pauseSilentBackgroundKeepAlive();
+                      useAudioStore.setState({ isPlaying: false, isUserPauseAction: true, isLoading: false });
                     }
                   }}
-                  onError={() => {
-                    // Auto-recover restricted or failed YouTube embeds via native stream fallback
-                    useAudioStore.getState().handlePlaybackFallback();
+                  onError={(err: string) => {
+                    // Only trigger native embed fallback on fatal embed copyright blocks (101/150/embed_not_allowed)
+                    if (err === 'embed_not_allowed' || err === 'video_not_found') {
+                      useAudioStore.getState().handlePlaybackFallback();
+                    }
                   }}
                   webViewProps={cleanYoutubeWebViewProps}
                 />

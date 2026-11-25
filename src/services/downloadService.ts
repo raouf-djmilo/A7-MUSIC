@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Track } from '../store/useAudioStore';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
-import { resolveDirectAudioStreamFast } from './youtubeStreamService';
 
 // ── Directory & Storage Constants ──
 const DOWNLOAD_BASE_DIR = `${FileSystem.documentDirectory}a7flow_download_music/`;
@@ -136,7 +135,7 @@ export async function extractPipedDirectAudioStream(videoId: string): Promise<st
 
 /**
  * 🎵 Extract Genuine YouTube Audio Stream (100% Real Song from YouTube)
- * Zero placeholder songs. Connects to InnerTube direct AAC, Piped parallel race, and mirror conversion APIs.
+ * Zero placeholder songs. Connects to Piped parallel race and mirror conversion APIs.
  */
 export async function extractRealYouTubeAudioStream(
   videoId: string,
@@ -145,16 +144,7 @@ export async function extractRealYouTubeAudioStream(
 ): Promise<string> {
   const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
 
-  // 1. ⚡ Fastest Native Direct AAC Stream (iOS InnerTube ~400-700ms, pure mp4a downloadable/streamable)
-  try {
-    const directFast = await resolveDirectAudioStreamFast(cleanId, quality, 4000);
-    if (directFast?.url && !directFast.url.includes('.m3u8')) {
-      if (onProgress) onProgress(1.0, 'تم جلب تدفق الصوت النقي المباشر');
-      return directFast.url;
-    }
-  } catch {}
-
-  // 2. ⚡ Parallel Piped API Race (0% Ads)
+  // 1. ⚡ Parallel Piped API Race (0% Ads)
   try {
     const directPipedUrl = await extractPipedDirectAudioStream(cleanId);
     if (directPipedUrl) {

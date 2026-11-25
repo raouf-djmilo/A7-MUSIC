@@ -21,6 +21,9 @@ import {
   configureAudioSession,
   updateNowPlayingLockScreen,
   getActivePlayerBridge,
+  startSilentBackgroundKeepAlive,
+  pauseSilentBackgroundKeepAlive,
+  stopSilentBackgroundKeepAlive,
 } from '../services/audioSessionService';
 import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync, resolveLockScreenSquareArtworkAsync } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
@@ -28,12 +31,6 @@ import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
 import { nativeAudioService } from '../services/nativeAudioService';
 import { fetchContextAwareNextBatch } from '../services/infiniteRecommendationEngine';
-import {
-  getCachedDirectAudioStream,
-  invalidateCachedAudioStream,
-  prefetchDirectAudioStream,
-  resolveDirectAudioStreamFast,
-} from '../services/youtubeStreamService';
 
 
 export interface Track {
@@ -220,15 +217,10 @@ async function startNativeEnginePlayback(
 }
 
 /**
- * Fire-and-forget queue prefetcher so the next song plays in 0ms natively (even while screen is locked)
+ * No-op prefetcher placeholder (online tracks stream natively inside WKWebView with YouTube BotGuard/PO-Token protection).
  */
-function prefetchUpcomingQueueTrack(queue: Track[], currentIndex: number, quality: string) {
-  if (!Array.isArray(queue) || queue.length === 0) return;
-  const nextIdx = currentIndex + 1 < queue.length ? currentIndex + 1 : 0;
-  const upcoming = queue[nextIdx];
-  if (upcoming?.videoId && upcoming.videoId !== queue[currentIndex]?.videoId) {
-    prefetchDirectAudioStream(upcoming.videoId, quality);
-  }
+function prefetchUpcomingQueueTrack(_queue: Track[], _currentIndex: number, _quality: string) {
+  // Intentional no-op: avoids unauthenticated googlevideo HTTP 403 requests
 }
 
 export const getLastUserToggleTimestamp = () => lastUserToggleTimestamp;
@@ -299,6 +291,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     AsyncStorage.setItem('@nouble_background_playback_pref', String(enabled)).catch(() => { });
     configureAudioSession(enabled).catch(() => { });
     nativeAudioService.setBackgroundEnabled(enabled);
+    if (!enabled) {
+      pauseSilentBackgroundKeepAlive();
+    } else if (get().isPlaying && get().activeEngine === 'youtube') {
+      startSilentBackgroundKeepAlive().catch(() => { });
+    }
   },
   isUserPauseAction: false,
   setIsUserPauseAction: (isUser: boolean) => set({ isUserPauseAction: isUser }),
@@ -587,11 +584,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         duration: totalDurationSec * 1000,
       };
 
-      // If Video mode with valid videoId (or Expo Go without TrackPlayer), start YoutubePlayer right at 0ms
-      if (!streamUrl && hasValidYtId && (isVideoMode || !hasTrackPlayer)) {
-        if (hasTrackPlayer) {
-          TrackPlayer.pause().catch(() => {});
-        }
+      // If valid YouTube track without explicit URL, start YoutubePlayer immediately at 0ms
+      if (!streamUrl && hasValidYtId) {
         nativeAudioService.stop().catch(() => {});
         set({
           playRequestId: newRequestId,
@@ -615,7 +609,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           },
         });
       } else {
-        // Native-first cover/offline dispatch: keep UI responsive while resolving direct stream (<700ms)
+        // Offline / direct audio URL dispatch
+        pauseSilentBackgroundKeepAlive();
         set({
           playRequestId: newRequestId,
           currentTrack: optimisticTrack,
@@ -672,8 +667,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       const lockArtwork = getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined;
 
-      // ── Step C: Play Offline File or Explicit HTTP URL directly on Native Engine ──
+      // ── Step C: Play Offline File or Explicit Non-YouTube HTTP URL directly on Native Engine ──
       if ((isOffline && streamUrl) || (!hasValidYtId && streamUrl) || (streamUrl && streamUrl.startsWith('file://'))) {
+        pauseSilentBackgroundKeepAlive();
         set({
           playRequestId: newRequestId,
           currentTrack: finalTrack,
@@ -693,104 +689,49 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         if (get().playRequestId !== newRequestId) return;
         set({ isLoading: false, loadingTrackId: null });
       } else if (hasValidYtId) {
-        // ── Step D: Online YouTube Track — Fast Direct Native AAC Engine in Cover Mode ──
-        const cachedDirect = !isVideoMode && hasTrackPlayer ? getCachedDirectAudioStream(track.videoId) : null;
-        if (cachedDirect?.url && !isVideoMode && hasTrackPlayer) {
-          const resolvedDur = cachedDirect.durationSec || totalDurationSec;
-          const upgraded: Track = { ...finalTrack, duration: resolvedDur * 1000 };
+        // ── Step D: Online YouTube Track — Always Play Cleanly in WKWebView YoutubePlayer (Zero 403) ──
+        // Never feed unauthenticated googlevideo URLs into AVPlayer (which triggers CoreMedia HTTP 403).
+        if (hasTrackPlayer) {
+          TrackPlayer.getActiveTrackIndex()
+            .then((idx) => {
+              if (idx !== null && idx !== undefined) {
+                beginTrackPlayerTransition(800);
+                TrackPlayer.reset().catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+        nativeAudioService.stop().catch(() => {});
+
+        if (get().backgroundAudioEnabled) {
+          startSilentBackgroundKeepAlive().catch(() => {});
+        } else {
+          pauseSilentBackgroundKeepAlive();
+        }
+
+        // Only re-dispatch if optimistic step above went to 'native' while checking local downloads
+        if (get().activeEngine !== 'youtube' || get().currentTrack?.videoId !== finalTrack.videoId) {
           set({
             playRequestId: newRequestId,
-            currentTrack: upgraded,
+            currentTrack: finalTrack,
             isPlaying: true,
             isUserPauseAction: false,
-            isLoading: true,
-            loadingTrackId: upgraded.videoId,
+            isLoading: false,
+            loadingTrackId: null,
             isOfflinePlayback: false,
-            activeEngine: 'native',
+            activeEngine: 'youtube',
             isSwitchingToFallback: false,
-            durationMillis: resolvedDur * 1000,
+            durationMillis: totalDurationSec * 1000,
             positionMillis: initialPosition * 1000,
+            audioEngineAction: {
+              type: 'play',
+              videoId: track.videoId,
+              url: undefined,
+              position: initialPosition,
+              isOfflinePlayback: false,
+              id: Date.now(),
+            },
           });
-          await startNativeEnginePlayback(upgraded, cachedDirect.url, initialPosition, lockArtwork, resolvedDur);
-          if (get().playRequestId !== newRequestId) return;
-          set({ isLoading: false, loadingTrackId: null });
-        } else if (!isVideoMode && hasTrackPlayer) {
-          const quality = get().preferredQuality;
-          const resolvePromise = resolveDirectAudioStreamFast(track.videoId, quality, 4500);
-          const raceResult = await Promise.race([
-            resolvePromise.then((res) => ({ kind: 'resolved' as const, res })),
-            delay(750).then(() => ({ kind: 'timeout' as const, res: null })),
-          ]);
-
-          if (get().playRequestId !== newRequestId) return;
-          const latestState = get();
-          if (!latestState.isPlaying || latestState.isUserPauseAction) return;
-
-          if (raceResult.kind === 'resolved' && raceResult.res?.url) {
-            const resolved = raceResult.res;
-            const resolvedDur = resolved.durationSec || totalDurationSec;
-            const upgraded: Track = { ...finalTrack, duration: resolvedDur * 1000 };
-            set({
-              playRequestId: newRequestId,
-              currentTrack: upgraded,
-              isPlaying: true,
-              isUserPauseAction: false,
-              isLoading: true,
-              loadingTrackId: upgraded.videoId,
-              isOfflinePlayback: false,
-              activeEngine: 'native',
-              isSwitchingToFallback: false,
-              durationMillis: resolvedDur * 1000,
-              positionMillis: initialPosition * 1000,
-            });
-            await startNativeEnginePlayback(upgraded, resolved.url, initialPosition, lockArtwork, resolvedDur);
-            if (get().playRequestId !== newRequestId) return;
-            set({ isLoading: false, loadingTrackId: null });
-          } else {
-            // Fast timeout >750ms or resolver miss -> start YoutubePlayer immediately & seamlessly upgrade when resolved
-            set({
-              playRequestId: newRequestId,
-              currentTrack: finalTrack,
-              isPlaying: true,
-              isUserPauseAction: false,
-              isLoading: false,
-              loadingTrackId: null,
-              isOfflinePlayback: false,
-              activeEngine: 'youtube',
-              isSwitchingToFallback: false,
-              durationMillis: totalDurationSec * 1000,
-              positionMillis: initialPosition * 1000,
-              audioEngineAction: {
-                type: 'play',
-                videoId: track.videoId,
-                url: undefined,
-                position: initialPosition,
-                isOfflinePlayback: false,
-                id: Date.now(),
-              },
-            });
-
-            resolvePromise
-              .then((lateResolved) => {
-                if (!lateResolved?.url) return;
-                const s = get();
-                if (
-                  s.playRequestId === newRequestId &&
-                  s.currentTrack?.videoId === track.videoId &&
-                  s.playerMediaMode === 'cover' &&
-                  s.activeEngine === 'youtube' &&
-                  s.isPlaying &&
-                  !s.isUserPauseAction
-                ) {
-                  const posSec = Math.max(0, Math.floor(s.positionMillis / 1000));
-                  s.upgradeTrackToNativeStream(lateResolved.url, posSec, track.videoId).catch(() => {});
-                }
-              })
-              .catch(() => {});
-          }
-        } else {
-          // Video mode OR Expo Go fallback: pre-warm direct audio URL in background for instant screen-lock handoff
-          prefetchDirectAudioStream(track.videoId, get().preferredQuality);
         }
       }
 
@@ -1119,6 +1060,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   pauseTrack: () => {
     lastUserToggleTimestamp = Date.now();
     const { activeEngine } = get();
+    pauseSilentBackgroundKeepAlive();
     if (activeEngine === 'native') {
       if (NativeModules.TrackPlayerModule) {
         try {
@@ -1143,8 +1085,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   resumeTrack: async () => {
     lastUserToggleTimestamp = Date.now();
-    const { activeEngine, currentTrack, positionMillis } = get();
+    const { activeEngine, currentTrack, positionMillis, backgroundAudioEnabled } = get();
     if (!currentTrack) return;
+
+    const hasValidYtId = Boolean(currentTrack.videoId && !currentTrack.videoId.startsWith('http') && currentTrack.videoId.length >= 5);
 
     if (activeEngine === 'native') {
       if (NativeModules.TrackPlayerModule) {
@@ -1155,14 +1099,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             const local = currentTrack.videoId
               ? await downloadService.getLocalTrack(currentTrack.videoId).catch(() => null)
               : null;
-            const cached = currentTrack.videoId ? getCachedDirectAudioStream(currentTrack.videoId) : null;
-            const urlToLoad = local?.audioLocalUri || cached?.url || currentTrack.audioUrl;
+            const urlToLoad = local?.audioLocalUri || (!hasValidYtId ? currentTrack.audioUrl : undefined);
             if (urlToLoad) {
               const lockArt = getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist, currentTrack.videoId) || undefined;
               await startNativeEnginePlayback(currentTrack, urlToLoad, posSec, lockArt, Math.floor((currentTrack.duration || 180000) / 1000));
-            } else if (currentTrack.videoId) {
-              set({ isPlaying: true, isUserPauseAction: false });
-              await get().handlePlaybackFallback(currentTrack.videoId, posSec);
+            } else if (hasValidYtId) {
+              if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => {});
+              set({
+                activeEngine: 'youtube',
+                isOfflinePlayback: false,
+                isPlaying: true,
+                isUserPauseAction: false,
+                isLoading: false,
+                loadingTrackId: null,
+                audioEngineAction: { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
+              });
               return;
             }
           } else {
@@ -1175,9 +1126,27 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           } catch {}
         }
       } else {
+        // Expo Go: if nativeAudioService lost its player (e.g. previous 403/stop), self-heal back to YoutubePlayer
+        if (nativeAudioService && hasValidYtId && !currentTrack.audioUrl?.startsWith('file://')) {
+          const posSec = Math.max(0, Math.floor(positionMillis / 1000));
+          if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => {});
+          set({
+            activeEngine: 'youtube',
+            isOfflinePlayback: false,
+            isPlaying: true,
+            isUserPauseAction: false,
+            isLoading: false,
+            loadingTrackId: null,
+            audioEngineAction: { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
+          });
+          return;
+        }
         nativeAudioService.resume().catch(() => {});
       }
     } else if (activeEngine === 'youtube') {
+      if (backgroundAudioEnabled) {
+        startSilentBackgroundKeepAlive().catch(() => {});
+      }
       getActivePlayerBridge()?.play?.();
     }
 
@@ -1324,17 +1293,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
 
     try {
-      getActivePlayerBridge()?.pause?.();
-      set({ audioEngineAction: { type: 'stop', id: Date.now() } });
-
-      // 1. Try 0ms cache / ultra-fast InnerTube AAC resolver first (< 700ms)
-      let resolvedUrl = getCachedDirectAudioStream(currentVid)?.url || null;
-      if (!resolvedUrl) {
-        const fast = await resolveDirectAudioStreamFast(currentVid, get().preferredQuality, 3500);
-        resolvedUrl = fast?.url || null;
-      }
-
-      // 2. Legacy parallel Piped / loader probe ONLY if fast Innertube failed
+      // Only probe non-403 sources (local downloads / Piped parallel / converter) on fatal YouTube embed restriction
+      const local = await downloadService.getLocalTrack(currentVid).catch(() => null);
+      let resolvedUrl = local?.audioLocalUri || null;
       if (!resolvedUrl) {
         const { streamUrl } = await downloadService.probeAudioStream(targetTrack);
         resolvedUrl = streamUrl;
@@ -1345,6 +1306,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
 
       if (resolvedUrl) {
+        getActivePlayerBridge()?.pause?.();
+        pauseSilentBackgroundKeepAlive();
         const lockArtwork = getUniversalStudioArtwork(targetTrack.thumbnail, targetTrack.title, targetTrack.artist, currentVid) || undefined;
         const durSec = get().durationMillis > 1000 ? Math.floor(get().durationMillis / 1000) : Math.floor((targetTrack.duration || 180000) / 1000);
         await startNativeEnginePlayback(targetTrack, resolvedUrl, startPositionSec, lockArtwork, durSec);
@@ -1358,12 +1321,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isOfflinePlayback: resolvedUrl.startsWith('file://'),
           activeEngine: 'native',
           isSwitchingToFallback: false,
+          audioEngineAction: { type: 'stop', id: Date.now() },
         });
         return;
       }
       throw new Error('No stream URL extracted');
     } catch (fallbackErr: any) {
-      console.warn('[AudioStore] Direct stream fallback failed:', fallbackErr?.message);
+      console.warn('[AudioStore] Embed fallback unavailable:', fallbackErr?.message);
       set({ isLoading: false, loadingTrackId: null, isSwitchingToFallback: false });
       ToastManager.show({
         title: 'تخطي مسار غير متاح',
@@ -1386,23 +1350,38 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     const recoveryKey = `${track.videoId || 't'}_${state.playRequestId}`;
     if (lastNativeErrorRecoveryKey === recoveryKey) {
-      // Already retried this exact playRequestId cleanly -> advance to next track instead of looping
+      // Already attempted recovery on this request -> advance smoothly without freezing
       await state.nextTrack();
       return;
     }
     lastNativeErrorRecoveryKey = recoveryKey;
 
-    if (track.videoId && !track.videoId.startsWith('http') && track.videoId.length >= 5) {
-      invalidateCachedAudioStream(track.videoId);
+    const hasValidYtId = Boolean(track.videoId && !track.videoId.startsWith('http') && track.videoId.length >= 5);
+    if (hasValidYtId) {
       const posSec = Math.max(0, Math.floor(state.positionMillis / 1000));
-      const fresh = await resolveDirectAudioStreamFast(track.videoId, state.preferredQuality, 3500);
-      if (fresh?.url && get().playRequestId === state.playRequestId) {
-        const lockArtwork = getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, track.videoId) || undefined;
-        await startNativeEnginePlayback(track, fresh.url, posSec, lockArtwork, fresh.durationSec || 180);
-        return;
+      if (state.backgroundAudioEnabled) {
+        startSilentBackgroundKeepAlive().catch(() => {});
       }
+      set({
+        activeEngine: 'youtube',
+        isOfflinePlayback: false,
+        isPlaying: true,
+        isUserPauseAction: false,
+        isLoading: false,
+        loadingTrackId: null,
+        isSwitchingToFallback: false,
+        audioEngineAction: {
+          type: 'play',
+          videoId: track.videoId,
+          position: posSec,
+          isOfflinePlayback: false,
+          id: Date.now(),
+        },
+      });
+      return;
     }
 
+    set({ isPlaying: false, isLoading: false, loadingTrackId: null });
     await state.nextTrack();
   },
 
@@ -1411,6 +1390,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     fallbackInProgressVideoId = null;
     lastNativeErrorRecoveryKey = null;
     beginTrackPlayerTransition(1000);
+    stopSilentBackgroundKeepAlive();
     getActivePlayerBridge()?.pause?.();
     try {
       nativeAudioService.stop().catch(() => { });

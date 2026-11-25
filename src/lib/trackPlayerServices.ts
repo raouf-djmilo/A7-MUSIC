@@ -14,7 +14,6 @@ import {
   markTrackEndHandled,
   setupAudioInterruptionListeners,
 } from '../services/audioSessionService';
-import { invalidateCachedAudioStream } from '../services/youtubeStreamService';
 
 let isPlaybackServiceRegistered = false;
 let isSetupComplete = false;
@@ -123,9 +122,6 @@ export const PlaybackService = async () => {
           useAudioStore.setState({ isPlaying: false });
         }
       } else if (event?.state === State.Error) {
-        if (store.currentTrack?.videoId) {
-          invalidateCachedAudioStream(store.currentTrack.videoId);
-        }
         if (!isTrackPlayerTransitioning() && typeof store.recoverFromNativeError === 'function') {
           store.recoverFromNativeError();
         }
@@ -164,9 +160,6 @@ export const PlaybackService = async () => {
     TrackPlayer.addEventListener(Event.PlaybackError, () => {
       const store = useAudioStore.getState();
       if (store.activeEngine !== 'native' || isTrackPlayerTransitioning()) return;
-      if (store.currentTrack?.videoId) {
-        invalidateCachedAudioStream(store.currentTrack.videoId);
-      }
       if (typeof store.recoverFromNativeError === 'function') {
         store.recoverFromNativeError();
       }

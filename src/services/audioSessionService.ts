@@ -248,3 +248,60 @@ export const markTrackEndHandled = (trackKey: string): boolean => {
   _lastTrackEndTimestamp = now;
   return true;
 };
+
+// ── Silent Native Background Keep-Alive (expo-video mixWithOthers + NO NowPlaying takeover) ──
+let _silentAnchorPlayer: any = null;
+let _isStartingAnchor = false;
+
+export const startSilentBackgroundKeepAlive = async (): Promise<void> => {
+  if (_isStartingAnchor) return;
+  try {
+    if (_silentAnchorPlayer) {
+      _silentAnchorPlayer.staysActiveInBackground = true;
+      _silentAnchorPlayer.showNowPlayingNotification = false;
+      _silentAnchorPlayer.audioMixingMode = 'mixWithOthers';
+      _silentAnchorPlayer.isMuted = false;
+      _silentAnchorPlayer.volume = 0.0;
+      _silentAnchorPlayer.play();
+      return;
+    }
+    _isStartingAnchor = true;
+    const expoVideo = require('expo-video');
+    if (typeof expoVideo?.createVideoPlayer !== 'function') return;
+    const silentUri = await getOrGenerateSilentAudioUri();
+    const anchor = expoVideo.createVideoPlayer({ uri: silentUri });
+    anchor.loop = true;
+    anchor.volume = 0.0;
+    anchor.isMuted = false;
+    anchor.staysActiveInBackground = true;
+    anchor.showNowPlayingNotification = false;
+    anchor.audioMixingMode = 'mixWithOthers';
+    anchor.play();
+    _silentAnchorPlayer = anchor;
+  } catch {
+    // Non-fatal fallback
+  } finally {
+    _isStartingAnchor = false;
+  }
+};
+
+export const pauseSilentBackgroundKeepAlive = (): void => {
+  try {
+    if (_silentAnchorPlayer) {
+      _silentAnchorPlayer.pause();
+    }
+  } catch {}
+};
+
+export const stopSilentBackgroundKeepAlive = (): void => {
+  try {
+    if (_silentAnchorPlayer) {
+      const p = _silentAnchorPlayer;
+      _silentAnchorPlayer = null;
+      p.pause();
+      if (typeof p.release === 'function') {
+        p.release();
+      }
+    }
+  } catch {}
+};

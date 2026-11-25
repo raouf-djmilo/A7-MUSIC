@@ -88,6 +88,7 @@ class NativeAudioService {
         const bgEnabled = getAudioStore()?.getState()?.backgroundAudioEnabled ?? true;
         player.staysActiveInBackground = bgEnabled;
         player.showNowPlayingNotification = bgEnabled && !NativeModules.TrackPlayerModule;
+        player.audioMixingMode = 'doNotMix';
         player.timeUpdateEventInterval = 0.35;
         player.volume = 1.0;
 
@@ -142,8 +143,16 @@ class NativeAudioService {
                 FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => { });
               } catch { }
             }
+            // Clear dead native player immediately so UI & controls never freeze on a failed item
+            this.stop().catch(() => { });
             const store = getAudioStore();
-            if (store) store.setState({ isLoading: false, loadingTrackId: null });
+            if (store) {
+              store.setState({ isLoading: false, loadingTrackId: null });
+              const curState = store.getState();
+              if (curState.activeEngine === 'native' && typeof curState.recoverFromNativeError === 'function') {
+                curState.recoverFromNativeError().catch(() => { });
+              }
+            }
           } else if (event?.status === 'readyToPlay') {
             const store = getAudioStore();
             if (store) store.setState({ isLoading: false, loadingTrackId: null });
