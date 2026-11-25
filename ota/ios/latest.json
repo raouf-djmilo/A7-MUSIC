@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.bf2ce26",
-  "updateId": "724476f2-8415-46f1-ad51-e1fd3b6ce21e",
-  "publishedAt": "2026-11-25T00:59:05.257Z",
-  "title": "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
+  "otaVersion": "1.6.5-ota.8d53497",
+  "updateId": "5302f30b-6ca8-4e07-bc69-a2e41068a567",
+  "publishedAt": "2026-11-25T01:17:34.023Z",
+  "title": "fix(music): clean duplicate getFallbackSections block in musicDnaService",
   "highlights": [
-    "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
+    "fix(music): clean duplicate getFallbackSections block in musicDnaService",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5654409,
+  "bundleSizeBytes": 5656339,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

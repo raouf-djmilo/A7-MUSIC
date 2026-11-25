@@ -1,13 +1,13 @@
 {
-  "id": "724476f2-8415-46f1-ad51-e1fd3b6ce21e",
-  "createdAt": "2026-11-25T00:59:05.257Z",
+  "id": "5302f30b-6ca8-4e07-bc69-a2e41068a567",
+  "createdAt": "2026-11-25T01:17:34.023Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "81d6c2B9hqZHt7ZULpjCNNpzf-2CnDUHpJfIqZoFT1U",
-    "key": "ea2b9763b02fc9301feb6281f9a00b5a",
+    "hash": "90moRfzIesT_cuA5_ndtdAv7howJGg234TFALiJcJ-s",
+    "key": "0aff385733f0abc9f6db926283f93de6",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-72f8fb50cd9347a8464072e51464e196.hbc"
+    "url": "./_expo/static/js/ios/index-db1cd1eae26c4a4067762470127d7317.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.bf2ce26",
+      "otaVersion": "1.6.5-ota.8d53497",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "bf2ce26",
-      "title": "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
+      "commitSha": "8d53497",
+      "title": "fix(music): clean duplicate getFallbackSections block in musicDnaService",
       "highlights": [
-        "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
+        "fix(music): clean duplicate getFallbackSections block in musicDnaService",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T00:59:05.257Z",
-      "bundleSizeBytes": 5654409
+      "publishedAt": "2026-11-25T01:17:34.023Z",
+      "bundleSizeBytes": 5656339
     }
   }
 }
