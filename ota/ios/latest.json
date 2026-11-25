@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.f66ec6b",
-  "updateId": "8634d933-e50b-46eb-9b44-6c46cb596b14",
-  "publishedAt": "2026-11-25T00:32:12.649Z",
-  "title": "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
+  "otaVersion": "1.6.5-ota.e71ee09",
+  "updateId": "fdfdd0ce-8893-45fb-bea6-d8ed35a13979",
+  "publishedAt": "2026-11-25T00:40:49.616Z",
+  "title": "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
   "highlights": [
-    "feat(music): location-aware dynamic discovery (zero hardcoded artists) and Liquid Glass glossy cards",
+    "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5647671,
+  "bundleSizeBytes": 5648831,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
