@@ -2,12 +2,12 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.1759d7b",
-  "updateId": "d3a18ef7-2fe4-431e-85c6-ee555c0879cf",
-  "publishedAt": "2026-11-25T17:37:45.165Z",
-  "title": "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
+  "otaVersion": "1.6.5-ota.5d38f85",
+  "updateId": "e94df8c4-917c-4864-a02a-1eadb832f615",
+  "publishedAt": "2026-11-25T17:40:40.073Z",
+  "title": "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
   "highlights": [
-    "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
+    "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],

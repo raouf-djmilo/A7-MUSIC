@@ -1,13 +1,13 @@
 {
-  "id": "d3a18ef7-2fe4-431e-85c6-ee555c0879cf",
-  "createdAt": "2026-11-25T17:37:45.165Z",
+  "id": "e94df8c4-917c-4864-a02a-1eadb832f615",
+  "createdAt": "2026-11-25T17:40:40.073Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "EQLsgrpIieyLolZs8Jeyuxu7FOPXbg4T1S9f7Bcb5Vo",
-    "key": "3f5c89f3c28498bbc6f663d601450fec",
+    "hash": "EM5xDAKVydKLGoFH0Ck6wWtW2eSi8a-v1kEJKBoB4qY",
+    "key": "3da8d932809bce1f3b04d80645ae39ca",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-1f3e13e6f985c8d291b403baa72f8677.hbc"
+    "url": "./_expo/static/js/ios/index-a2d25072b09d7b702cf1d8dd9163e03e.hbc"
   },
   "assets": [
     {
@@ -364,17 +364,17 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.1759d7b",
+      "otaVersion": "1.6.5-ota.5d38f85",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "1759d7b",
-      "title": "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
+      "commitSha": "5d38f85",
+      "title": "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
       "highlights": [
-        "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
+        "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:37:45.165Z",
+      "publishedAt": "2026-11-25T17:40:40.073Z",
       "bundleSizeBytes": 6831487
     }
   }
