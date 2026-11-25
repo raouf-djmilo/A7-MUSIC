@@ -1,13 +1,13 @@
 {
-  "id": "fdfdd0ce-8893-45fb-bea6-d8ed35a13979",
-  "createdAt": "2026-11-25T00:40:49.616Z",
+  "id": "a1745657-1013-450f-8315-ee10b73085fa",
+  "createdAt": "2026-11-25T00:50:45.237Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "SUKam5-MsWSoP3zLDETrpoWlgh-s0LbOPpgPbG2wwL8",
-    "key": "83e43745b318c1af02c0a7cd793f0ca5",
+    "hash": "G1uLtt7lL6oHSkwSVK09tUvUPAJskPnyeWIIwE8aK98",
+    "key": "14dac2f10e29e8ef5efbcc848ec560af",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-cfaa68d297a358c6d02e428c96685895.hbc"
+    "url": "./_expo/static/js/ios/index-dd487e2920bcfb18f7b4fbd194cab050.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.e71ee09",
+      "otaVersion": "1.6.5-ota.6b88b62",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "e71ee09",
-      "title": "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
+      "commitSha": "6b88b62",
+      "title": "fix(music): remove duplicate seenArtistKeys declaration",
       "highlights": [
-        "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
+        "fix(music): remove duplicate seenArtistKeys declaration",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T00:40:49.616Z",
-      "bundleSizeBytes": 5648831
+      "publishedAt": "2026-11-25T00:50:45.237Z",
+      "bundleSizeBytes": 5655407
     }
   }
 }

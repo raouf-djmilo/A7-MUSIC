@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.e71ee09",
-  "updateId": "fdfdd0ce-8893-45fb-bea6-d8ed35a13979",
-  "publishedAt": "2026-11-25T00:40:49.616Z",
-  "title": "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
+  "otaVersion": "1.6.5-ota.6b88b62",
+  "updateId": "a1745657-1013-450f-8315-ee10b73085fa",
+  "publishedAt": "2026-11-25T00:50:45.237Z",
+  "title": "fix(music): remove duplicate seenArtistKeys declaration",
   "highlights": [
-    "feat(music): remove sport/workout bias, fix Liked Songs list nav, and add Recommended for Today multi-card carousel",
+    "fix(music): remove duplicate seenArtistKeys declaration",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5648831,
+  "bundleSizeBytes": 5655407,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
