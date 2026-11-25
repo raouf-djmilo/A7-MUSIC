@@ -522,7 +522,6 @@ class MusicDnaEngine {
 
       // Official Artists ONLY (exclude generic/fan/random YouTube uploader channels)
       const artistTracksMap = new Map<string, { name: string; avatar: string; isOfficial: boolean; tracks: Track[] }>();
-      const seenArtistKeys = new Set<string>();
 
       for (const tr of allDiscovered) {
         if (!tr.isOfficial) continue;
