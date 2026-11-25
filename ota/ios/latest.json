@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.4ccb8cf",
-  "updateId": "46791efd-fae3-43b8-91f7-f470434e10e2",
-  "publishedAt": "2026-11-25T01:49:51.718Z",
-  "title": "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
+  "otaVersion": "1.6.5-ota.1dd2790",
+  "updateId": "cbc7b77f-8672-4333-a491-e62dc6c1fb40",
+  "publishedAt": "2026-11-25T02:08:29.891Z",
+  "title": "fix(auth): resolve Firestore profile permissions, add success toast & home redirect, unify Liquid Glass UI",
   "highlights": [
-    "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
+    "fix(auth): resolve Firestore profile permissions, add success toast & home redirect, unify Liquid Glass UI",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6780652,
+  "bundleSizeBytes": 6777979,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

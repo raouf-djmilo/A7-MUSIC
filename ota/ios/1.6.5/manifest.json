@@ -1,13 +1,13 @@
 {
-  "id": "46791efd-fae3-43b8-91f7-f470434e10e2",
-  "createdAt": "2026-11-25T01:49:51.718Z",
+  "id": "cbc7b77f-8672-4333-a491-e62dc6c1fb40",
+  "createdAt": "2026-11-25T02:08:29.891Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "x448C3YHXu-h78q8nM4Q_GcA4PES1mwRuWOP48RVH6M",
-    "key": "7aa8ed54231e8f266628fb4efa02a588",
+    "hash": "iOcCAS-Bv4QE1udVNKf-ux0pxGsGg99-3w2RYrDwbLk",
+    "key": "9622af5f88206a6232b7a243af5c5a0f",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-4dd986a5cb84d47ac0b7c96c0ad9d4cd.hbc"
+    "url": "./_expo/static/js/ios/index-79106b5de519df21e45c4433efcdfefe.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.4ccb8cf",
+      "otaVersion": "1.6.5-ota.1dd2790",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "4ccb8cf",
-      "title": "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
+      "commitSha": "1dd2790",
+      "title": "fix(auth): resolve Firestore profile permissions, add success toast & home redirect, unify Liquid Glass UI",
       "highlights": [
-        "fix(metro,auth): resolve @firebase/firestore bundling cleanly, add username login/signup, and Liquid Glass auth UI",
+        "fix(auth): resolve Firestore profile permissions, add success toast & home redirect, unify Liquid Glass UI",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T01:49:51.718Z",
-      "bundleSizeBytes": 6780652
+      "publishedAt": "2026-11-25T02:08:29.891Z",
+      "bundleSizeBytes": 6777979
     }
   }
 }
