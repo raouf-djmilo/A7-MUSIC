@@ -1,13 +1,13 @@
 {
-  "id": "7cb31056-5e15-4860-b8cd-826ce14c2bd8",
-  "createdAt": "2026-11-25T18:15:57.679Z",
+  "id": "838d2f0f-627b-4c84-aaa2-68a47d2e9a83",
+  "createdAt": "2026-11-25T18:47:55.498Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "J4ymh6JvmgjK-f1zS_eat5-WIZqAPvAriQOil0EX8tA",
-    "key": "4a12fd6827b3e78c8faa7ee070b994ea",
+    "hash": "FvACefvSo3n3G2xY3RQpfcG94u1Zy5KAP8orBW0VJp4",
+    "key": "ec6904e298631f04d7cb6f9e7d26c0f5",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-b8bd11a502c45ede669eaed63cb5147c.hbc"
+    "url": "./_expo/static/js/ios/index-f9c30e3b00a7bd047aee2c6cfb864a9f.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.6cdbe5d",
+      "otaVersion": "1.6.5-ota.39451b3",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "6cdbe5d",
-      "title": "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
+      "commitSha": "39451b3",
+      "title": "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
       "highlights": [
-        "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
+        "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T18:15:57.679Z",
-      "bundleSizeBytes": 6851031
+      "publishedAt": "2026-11-25T18:47:55.498Z",
+      "bundleSizeBytes": 6841883
     }
   }
 }
