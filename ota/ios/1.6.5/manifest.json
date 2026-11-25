@@ -1,13 +1,13 @@
 {
-  "id": "a1745657-1013-450f-8315-ee10b73085fa",
-  "createdAt": "2026-11-25T00:50:45.237Z",
+  "id": "724476f2-8415-46f1-ad51-e1fd3b6ce21e",
+  "createdAt": "2026-11-25T00:59:05.257Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "G1uLtt7lL6oHSkwSVK09tUvUPAJskPnyeWIIwE8aK98",
-    "key": "14dac2f10e29e8ef5efbcc848ec560af",
+    "hash": "81d6c2B9hqZHt7ZULpjCNNpzf-2CnDUHpJfIqZoFT1U",
+    "key": "ea2b9763b02fc9301feb6281f9a00b5a",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-dd487e2920bcfb18f7b4fbd194cab050.hbc"
+    "url": "./_expo/static/js/ios/index-72f8fb50cd9347a8464072e51464e196.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.6b88b62",
+      "otaVersion": "1.6.5-ota.bf2ce26",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "6b88b62",
-      "title": "fix(music): remove duplicate seenArtistKeys declaration",
+      "commitSha": "bf2ce26",
+      "title": "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
       "highlights": [
-        "fix(music): remove duplicate seenArtistKeys declaration",
+        "feat(algo): purge legacy v4/curated fallbacks and add Top-20 self-feeding learning engine",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T00:50:45.237Z",
-      "bundleSizeBytes": 5655407
+      "publishedAt": "2026-11-25T00:59:05.257Z",
+      "bundleSizeBytes": 5654409
     }
   }
 }
