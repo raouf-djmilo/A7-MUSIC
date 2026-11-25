@@ -82,19 +82,22 @@ export async function upsertFirebaseUserProfile(
   data: Partial<FirebaseUserProfile>
 ): Promise<void> {
   if (!uid) return;
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
   const ref = doc(db, 'users', uid);
   const existing = await getDoc(ref);
   const now = new Date().toISOString();
   if (existing.exists()) {
-    await updateDoc(ref, { ...data, updated_at: now });
+    await updateDoc(ref, { ...cleanData, updated_at: now });
   } else {
     await setDoc(ref, {
       id: uid,
-      email: data.email || '',
+      email: (cleanData.email as string) || '',
       created_at: now,
       updated_at: now,
       total_listening_seconds: 0,
-      ...data,
+      ...cleanData,
     });
   }
 }

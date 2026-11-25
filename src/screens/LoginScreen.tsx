@@ -18,6 +18,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../providers/AuthProvider';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
+import { ToastManager } from '../components/InAppToast';
 
 export const LoginScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -32,13 +34,7 @@ export const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'identifier' | 'password' | null>(null);
 
-  const isAr = React.useMemo(() => {
-    try {
-      return (Intl.DateTimeFormat().resolvedOptions().locale || '').toLowerCase().startsWith('ar');
-    } catch {
-      return true;
-    }
-  }, []);
+  const isAr = true;
 
   const t = isAr
     ? {
@@ -74,11 +70,19 @@ export const LoginScreen = ({ navigation }: any) => {
         createAccount: 'Create Account',
       };
 
+  const navigateToHome = () => {
+    const rootNav = navigation.getParent?.() || navigation;
+    rootNav.navigate('MainTabs', {
+      screen: 'Tabs',
+      params: { screen: 'DashboardTab' },
+    });
+  };
+
   const handleContinueAsGuest = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('MainTabs');
+      navigateToHome();
     }
   };
 
@@ -98,7 +102,12 @@ export const LoginScreen = ({ navigation }: any) => {
     if (error) {
       Alert.alert(t.errorTitle, error.message || t.errorBody);
     } else {
-      handleContinueAsGuest();
+      ToastManager.show({
+        title: 'تم تسجيل الدخول بنجاح ✨',
+        subtitle: 'مرحباً بك في A7 MUSIC',
+        icon: 'checkmark-circle',
+      });
+      navigateToHome();
     }
   };
 
@@ -128,20 +137,35 @@ export const LoginScreen = ({ navigation }: any) => {
         {/* ── Top Bar: Close / Skip as Guest ── */}
         <View style={styles.topGuestBar}>
           <TouchableOpacity
-            style={styles.closeBtn}
             onPress={handleContinueAsGuest}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.75}
           >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive
+              borderRadius={19}
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </LiquidGlassSurface>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.skipGuestPill}
             onPress={handleContinueAsGuest}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
-            <Text style={styles.skipGuestPillText}>{t.guest}</Text>
-            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive
+              borderRadius={20}
+              style={styles.skipGuestPill}
+            >
+              <Text style={styles.skipGuestPillText}>{t.guest}</Text>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.85)" />
+            </LiquidGlassSurface>
           </TouchableOpacity>
         </View>
 
@@ -159,19 +183,15 @@ export const LoginScreen = ({ navigation }: any) => {
           >
             {/* ── Brand Header (A7 Liquid Glass) ── */}
             <View style={styles.header}>
-              <View
-                style={[
-                  styles.logoBadgeContainer,
-                  {
-                    borderWidth: 1.5,
-                    borderColor: 'rgba(255, 255, 255, 0.28)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    overflow: 'hidden',
-                  },
-                ]}
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive={false}
+                borderRadius={28}
+                style={styles.logoBadgeContainer}
               >
                 <LinearGradient
-                  colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.03)', 'transparent']}
+                  colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.04)', 'transparent']}
                   start={{ x: 0.15, y: 0 }}
                   end={{ x: 0.85, y: 0.85 }}
                   style={StyleSheet.absoluteFill}
@@ -180,17 +200,23 @@ export const LoginScreen = ({ navigation }: any) => {
                 <Image
                   source={require('../../assets/logo.png')}
                   style={styles.logoImage}
-                  contentFit="contain"
+                  contentFit="cover"
                   priority="high"
                 />
-              </View>
+              </LiquidGlassSurface>
 
-              <Text style={styles.brandTitle}>A7 Liquid Glass</Text>
+              <Text style={styles.brandTitle}>A7 MUSIC</Text>
               <Text style={styles.tagline}>{t.tagline}</Text>
             </View>
 
             {/* ── Liquid Glass Form Card ── */}
-            <View style={styles.glassCard}>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive={false}
+              borderRadius={28}
+              style={styles.glassCard}
+            >
               {/* Identifier Input */}
               <View
                 style={[
@@ -268,28 +294,31 @@ export const LoginScreen = ({ navigation }: any) => {
                 activeOpacity={0.86}
                 onPress={onLogin}
                 disabled={loading}
-                style={[
-                  styles.loginBtnOuter,
-                  {
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.32)',
-                  },
-                ]}
+                style={styles.loginBtnOuter}
               >
-                <LinearGradient
-                  colors={['rgba(56, 189, 248, 0.85)', 'rgba(0, 122, 255, 0.92)', 'rgba(0, 82, 204, 0.96)']}
-                  start={{ x: 0.1, y: 0 }}
-                  end={{ x: 0.9, y: 1 }}
-                  style={styles.loginBtnGradient}
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark
+                  isInteractive
+                  tintColor="rgba(0, 122, 255, 0.38)"
+                  borderRadius={27}
+                  style={styles.loginBtnGlass}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.loginBtnText}>{t.signIn}</Text>
-                  )}
-                </LinearGradient>
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.26)', 'rgba(56, 189, 248, 0.18)', 'rgba(0, 122, 255, 0.34)']}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={styles.loginBtnGradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.loginBtnText}>{t.signIn}</Text>
+                    )}
+                  </LinearGradient>
+                </LiquidGlassSurface>
               </TouchableOpacity>
-            </View>
+            </LiquidGlassSurface>
 
             {/* ── Footer Switcher ── */}
             <View style={styles.footer}>
@@ -350,20 +379,22 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   skipGuestPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     gap: 4,
+    overflow: 'hidden',
   },
   skipGuestPillText: {
     color: '#FFFFFF',
@@ -383,17 +414,21 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   logoBadgeContainer: {
-    width: 104,
-    height: 90,
+    width: 96,
+    height: 96,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.45,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 22,
       },
       android: {
         elevation: 10,
@@ -401,8 +436,9 @@ const styles = StyleSheet.create({
     }),
   },
   logoImage: {
-    width: '100%',
-    height: '100%',
+    width: 82,
+    height: 82,
+    borderRadius: 22,
   },
   brandTitle: {
     fontSize: 32,
@@ -418,12 +454,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   glassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     padding: 20,
     marginBottom: 24,
+    overflow: 'hidden',
   },
   inputWrap: {
     flexDirection: 'row',
@@ -470,14 +506,20 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.42,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 6,
+        elevation: 8,
       },
     }),
+  },
+  loginBtnGlass: {
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.34)',
+    overflow: 'hidden',
   },
   loginBtnGradient: {
     height: 54,

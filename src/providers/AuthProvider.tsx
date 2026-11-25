@@ -123,15 +123,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  const mapAuthError = (err: any, fallback: string): Error => {
+    const code = err?.code || '';
+    switch (code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return new Error('اسم المستخدم أو كلمة المرور غير صحيحة.');
+      case 'auth/invalid-email':
+        return new Error('صيغة البريد الإلكتروني غير صحيحة.');
+      case 'auth/email-already-in-use':
+        return new Error('هذا البريد الإلكتروني مسجل بالفعل.');
+      case 'auth/weak-password':
+        return new Error('كلمة المرور ضعيفة جداً، استخدم 6 أحرف على الأقل.');
+      case 'auth/too-many-requests':
+        return new Error('محاولات كثيرة متتالية، يرجى الانتظار قليلاً ثم المحاولة.');
+      case 'auth/network-request-failed':
+        return new Error('تعذر الاتصال بالشبكة، يرجى التحقق من الإنترنت.');
+      default:
+        return new Error(err?.message || fallback);
+    }
+  };
+
   const login = async (loginData: { identifier: string; password: string }) => {
     try {
-      let email = loginData.identifier.trim().toLowerCase();
+      let email = loginData.identifier.trim().toLowerCase().replace(/^@/, '');
       if (!email.includes('@')) {
         const resolvedEmail = await getEmailByUsername(email);
         if (!resolvedEmail) {
           return {
             data: null,
-            error: new Error('اسم المستخدم غير مسجل لدينا'),
+            error: new Error('اسم المستخدم غير مسجل لدينا.'),
           };
         }
         email = resolvedEmail;
@@ -160,7 +182,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { data: { token, user: loggedInUser }, error: null };
     } catch (e: any) {
-      return { data: null, error: e };
+      return { data: null, error: mapAuthError(e, 'تعذر تسجيل الدخول، يرجى المحاولة ثانية.') };
     }
   };
 
@@ -173,7 +195,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }) => {
     try {
       const cleanEmail = registerData.email.trim().toLowerCase();
-      const cleanUsername = registerData.username.trim().toLowerCase();
+      const cleanUsername = registerData.username.trim().toLowerCase().replace(/^@/, '');
 
       const cred = await createUserWithEmailAndPassword(
         auth,
@@ -193,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         full_name: registerData.full_name,
         phone_number: registerData.phone_number || '',
       });
-      await claimFirebaseUsername(cleanUsername, fbUser.uid, cleanEmail).catch(() => {});
+      await claimFirebaseUsername(cleanUsername, fbUser.uid, cleanEmail);
 
       const token = await fbUser.getIdToken();
       const registeredUser: User = {
@@ -212,7 +234,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return { data: { token, user: registeredUser }, error: null };
     } catch (e: any) {
-      return { data: null, error: e };
+      return { data: null, error: mapAuthError(e, 'تعذر إنشاء الحساب، يرجى المحاولة ثانية.') };
     }
   };
 

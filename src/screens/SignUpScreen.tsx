@@ -18,6 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../providers/AuthProvider';
 import { getEmailByUsername } from '../services/firebaseMusicDb';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
+import { ToastManager } from '../components/InAppToast';
 
 export const SignUpScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -83,11 +85,19 @@ export const SignUpScreen = ({ navigation }: any) => {
     return () => clearTimeout(delayTimer);
   }, [username]);
 
+  const navigateToHome = () => {
+    const rootNav = navigation.getParent?.() || navigation;
+    rootNav.navigate('MainTabs', {
+      screen: 'Tabs',
+      params: { screen: 'DashboardTab' },
+    });
+  };
+
   const handleContinueAsGuest = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('MainTabs');
+      navigateToHome();
     }
   };
 
@@ -137,7 +147,12 @@ export const SignUpScreen = ({ navigation }: any) => {
     if (error) {
       setErrorMsg(error.message || 'تعذر إنشاء الحساب، يرجى التأكد من البيانات والمحاولة ثانية.');
     } else {
-      handleContinueAsGuest();
+      ToastManager.show({
+        title: 'تم إنشاء الحساب بنجاح ✨',
+        subtitle: 'مرحباً بك في A7 MUSIC',
+        icon: 'checkmark-circle',
+      });
+      navigateToHome();
     }
   };
 
@@ -170,20 +185,35 @@ export const SignUpScreen = ({ navigation }: any) => {
           {/* ── Top Navigation Bar: Close & Skip ── */}
           <View style={styles.topGuestBar}>
             <TouchableOpacity
-              activeOpacity={0.7}
+              activeOpacity={0.75}
               onPress={handleContinueAsGuest}
-              style={styles.closeBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive
+                borderRadius={19}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={22} color="#FFFFFF" />
+              </LiquidGlassSurface>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.skipGuestPill}
               onPress={handleContinueAsGuest}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
-              <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
-              <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive
+                borderRadius={20}
+                style={styles.skipGuestPill}
+              >
+                <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
+                <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.85)" />
+              </LiquidGlassSurface>
             </TouchableOpacity>
           </View>
 
@@ -210,7 +240,13 @@ export const SignUpScreen = ({ navigation }: any) => {
             )}
 
             {/* ── Liquid Glass Form Card ── */}
-            <View style={styles.glassCard}>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive={false}
+              borderRadius={28}
+              style={styles.glassCard}
+            >
               {/* Full Name */}
               <View
                 style={[
@@ -379,20 +415,29 @@ export const SignUpScreen = ({ navigation }: any) => {
                   (loading || isUsernameTaken === true) && { opacity: 0.7 },
                 ]}
               >
-                <LinearGradient
-                  colors={['#007AFF', '#0052CC']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.signUpBtnGradient}
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark
+                  isInteractive
+                  tintColor="rgba(0, 122, 255, 0.38)"
+                  borderRadius={27}
+                  style={styles.signUpBtnGlass}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.signUpBtnText}>إنشاء حساب مجاني</Text>
-                  )}
-                </LinearGradient>
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.26)', 'rgba(56, 189, 248, 0.18)', 'rgba(0, 122, 255, 0.34)']}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={styles.signUpBtnGradient}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.signUpBtnText}>إنشاء حساب مجاني</Text>
+                    )}
+                  </LinearGradient>
+                </LiquidGlassSurface>
               </TouchableOpacity>
-            </View>
+            </LiquidGlassSurface>
 
             {/* ── Footer Switcher ── */}
             <View style={styles.footer}>
@@ -456,20 +501,22 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   skipGuestPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     gap: 4,
+    overflow: 'hidden',
   },
   skipGuestPillText: {
     color: '#FFFFFF',
@@ -526,12 +573,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   glassCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     padding: 20,
     marginBottom: 20,
+    overflow: 'hidden',
   },
   inputWrap: {
     flexDirection: 'row',
@@ -618,14 +665,20 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.42,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 6,
+        elevation: 8,
       },
     }),
+  },
+  signUpBtnGlass: {
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.34)',
+    overflow: 'hidden',
   },
   signUpBtnGradient: {
     height: 54,

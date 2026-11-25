@@ -17,9 +17,12 @@ rules_version = '2';
 // Collection: users
 // Document ID: {userId} (Firebase Auth UID)
 // Fields:
-//   - email: string (optional, valid email, <= 320 chars)
+//   - id: string (optional, 1..128 chars, must equal request.auth.uid)
+//   - email: string (optional, valid email or empty '', <= 320 chars)
 //   - full_name: string (optional, 0..100 chars)
 //   - username: string (optional, 0..50 chars)
+//   - bio: string (optional, 0..500 chars)
+//   - phone_number: string (optional, 0..30 chars)
 //   - avatar_url: string (optional, valid http/https URL or empty, <= 2048 chars)
 //   - total_listening_seconds: number (optional, >= 0, <= 1000000000)
 //   - created_at: timestamp | ISO-8601 string (optional, immutable once set)
@@ -162,12 +165,15 @@ service cloud.firestore {
 
     function isValidUserProfile(data) {
       return hasOnlyAllowedFields([
-          'email', 'full_name', 'username', 'avatar_url',
-          'total_listening_seconds', 'created_at', 'updated_at'
+          'id', 'email', 'full_name', 'username', 'bio', 'phone_number',
+          'avatar_url', 'total_listening_seconds', 'created_at', 'updated_at'
         ]) &&
-        (!('email' in data) || isValidEmail(data.email)) &&
+        (!('id' in data) || (isValidString(data.id, 1, 128) && data.id == request.auth.uid)) &&
+        (!('email' in data) || data.email == '' || isValidEmail(data.email)) &&
         isValidOptionalString(data, 'full_name', 0, 100) &&
         isValidOptionalString(data, 'username', 0, 50) &&
+        isValidOptionalString(data, 'bio', 0, 500) &&
+        isValidOptionalString(data, 'phone_number', 0, 30) &&
         isValidOptionalUrl(data, 'avatar_url') &&
         (!('total_listening_seconds' in data) ||
           (data.total_listening_seconds is number &&
