@@ -24,8 +24,9 @@ export const RootNavigator = () => {
         name="Auth" 
         component={AuthNavigator} 
         options={{
-          presentation: 'fullScreenModal',
-          animation: 'slide_from_bottom',
+          presentation: 'card',
+          animation: 'slide_from_right',
+          gestureEnabled: true,
         }}
       />
     </Stack.Navigator>

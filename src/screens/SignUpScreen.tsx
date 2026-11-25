@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../providers/AuthProvider';
 import { getEmailByUsername } from '../services/firebaseMusicDb';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
@@ -87,15 +88,26 @@ export const SignUpScreen = ({ navigation }: any) => {
 
   const navigateToHome = () => {
     const rootNav = navigation.getParent?.() || navigation;
-    rootNav.navigate('MainTabs', {
-      screen: 'Tabs',
-      params: { screen: 'DashboardTab' },
-    });
+    rootNav.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainTabs',
+            params: {
+              screen: 'Tabs',
+              params: { screen: 'DashboardTab' },
+            },
+          },
+        ],
+      })
+    );
   };
 
   const handleContinueAsGuest = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+    const rootNav = navigation.getParent?.() || navigation;
+    if (rootNav.canGoBack()) {
+      rootNav.goBack();
     } else {
       navigateToHome();
     }
@@ -573,20 +585,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   glassCard: {
+    backgroundColor: 'rgba(18, 22, 30, 0.48)',
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderTopColor: 'rgba(255, 255, 255, 0.34)',
     padding: 20,
     marginBottom: 20,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.42,
+        shadowRadius: 28,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     height: 54,
     paddingHorizontal: 16,
     marginBottom: 13,

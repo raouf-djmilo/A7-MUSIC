@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../providers/AuthProvider';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ToastManager } from '../components/InAppToast';
@@ -72,15 +73,26 @@ export const LoginScreen = ({ navigation }: any) => {
 
   const navigateToHome = () => {
     const rootNav = navigation.getParent?.() || navigation;
-    rootNav.navigate('MainTabs', {
-      screen: 'Tabs',
-      params: { screen: 'DashboardTab' },
-    });
+    rootNav.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainTabs',
+            params: {
+              screen: 'Tabs',
+              params: { screen: 'DashboardTab' },
+            },
+          },
+        ],
+      })
+    );
   };
 
   const handleContinueAsGuest = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+    const rootNav = navigation.getParent?.() || navigation;
+    if (rootNav.canGoBack()) {
+      rootNav.goBack();
     } else {
       navigateToHome();
     }
@@ -345,23 +357,23 @@ const styles = StyleSheet.create({
   },
   darkBase: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#05070D',
+    backgroundColor: '#070A12',
   },
   ambientTop: {
     position: 'absolute',
-    top: -80,
-    left: -40,
-    width: 380,
-    height: 380,
-    borderRadius: 190,
-  },
-  ambientBottom: {
-    position: 'absolute',
-    bottom: -100,
-    right: -60,
+    top: -60,
+    left: -50,
     width: 420,
     height: 420,
     borderRadius: 210,
+  },
+  ambientBottom: {
+    position: 'absolute',
+    bottom: -90,
+    right: -60,
+    width: 450,
+    height: 450,
+    borderRadius: 225,
   },
   mainWrapper: {
     flex: 1,
@@ -454,20 +466,34 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   glassCard: {
+    backgroundColor: 'rgba(18, 22, 30, 0.48)',
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderTopColor: 'rgba(255, 255, 255, 0.34)',
     padding: 20,
     marginBottom: 24,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.42,
+        shadowRadius: 28,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     height: 54,
     paddingHorizontal: 16,
     marginBottom: 14,
