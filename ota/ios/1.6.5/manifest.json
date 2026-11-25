@@ -1,13 +1,13 @@
 {
-  "id": "ce2021c4-ec15-4a1b-8df6-3fb6fc684cc5",
-  "createdAt": "2026-11-25T17:47:41.325Z",
+  "id": "125d51ba-835f-4695-ac29-5b4c0176d950",
+  "createdAt": "2026-11-25T17:59:50.207Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "KbR9mgTYgVxzuPFT0uGo6h-T86SXC-eHLXuGhJnvB_Y",
-    "key": "f97a2a90b44d46688f4f8d5b6d111c03",
+    "hash": "5NjehM41pg2yjsyAI5axSNxB_p6GX4seOBBWME7EESE",
+    "key": "d03c3b40b367000b15e2ee9e1d0e9011",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-f92e19edf78cbb9030c4b277b6379805.hbc"
+    "url": "./_expo/static/js/ios/index-1140c1253739c9db5085b6ee883950a2.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.b15a18d",
+      "otaVersion": "1.6.5-ota.a130101",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "b15a18d",
-      "title": "feat(shorts): fix mute/volume control, preload next video for instant swipe, add pause/play & replay, polish Liquid Glass cards",
+      "commitSha": "a130101",
+      "title": "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
       "highlights": [
-        "feat(shorts): fix mute/volume control, preload next video for instant swipe, add pause/play & replay, polish Liquid Glass cards",
+        "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:47:41.325Z",
-      "bundleSizeBytes": 6833077
+      "publishedAt": "2026-11-25T17:59:50.207Z",
+      "bundleSizeBytes": 6842636
     }
   }
 }
