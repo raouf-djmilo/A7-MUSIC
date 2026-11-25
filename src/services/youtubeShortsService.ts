@@ -21,8 +21,8 @@ export interface ArtistMusicShort {
   durationMs: number;
 }
 
-const SHORTS_CACHE_KEY = '@a7music_artist_shorts_v1';
-const SHORTS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const SHORTS_CACHE_KEY_PREFIX = '@a7music_artist_shorts_v2_';
+const SHORTS_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
 const NON_MUSIC_SPAM_KEYWORDS = [
   'podcast',
@@ -51,7 +51,7 @@ const NON_MUSIC_SPAM_KEYWORDS = [
   'movie clip',
 ];
 
-let memoryShortsCache: { ts: number; items: ArtistMusicShort[] } | null = null;
+const memoryCacheMap = new Map<string, { ts: number; items: ArtistMusicShort[] }>();
 
 function isSpamTitleOrChannel(title: string, channel: string): boolean {
   const combined = `${title} ${channel}`.toLowerCase();
@@ -91,34 +91,21 @@ function cleanShortTitle(rawTitle: string): string {
 }
 
 /**
- * Checks whether the YouTube renderer represents an authentic Music Artist channel
- * (Official Artist badge, Verified music channel, VEVO, or Topic) rather than a random uploader.
+ * Verifies that a YouTube video belongs to an authentic Music Artist channel
+ * (Official Artist badge, Verified music channel, VEVO, or Topic).
  */
 function verifyArtistChannel(ownerName: string, ownerBadges: any[] = []): boolean {
-  if (!ownerName || isFakeArtistChannel(ownerName)) {
-    // Allow explicit Official Artist Badge or "- Topic" / "VEVO" even if a word matched cautiously
-    const hasArtistBadge = ownerBadges.some((b: any) => {
-      const style = String(b?.metadataBadgeRenderer?.style || '').toUpperCase();
-      const tooltip = String(b?.metadataBadgeRenderer?.tooltip || '').toLowerCase();
-      return (
-        style.includes('OFFICIAL_ARTIST') ||
-        style.includes('MUSIC') ||
-        tooltip.includes('official artist')
-      );
-    });
-    if (!hasArtistBadge && !/vevo$/i.test(ownerName) && !/-\s*topic$/i.test(ownerName)) {
-      return false;
-    }
-  }
+  if (!ownerName) return false;
 
-  const hasVerifiedOrArtistBadge = ownerBadges.some((b: any) => {
+  const hasArtistBadge = ownerBadges.some((b: any) => {
     const style = String(b?.metadataBadgeRenderer?.style || '').toUpperCase();
     const tooltip = String(b?.metadataBadgeRenderer?.tooltip || '').toLowerCase();
     return (
-      style.includes('VERIFIED') ||
       style.includes('OFFICIAL_ARTIST') ||
-      tooltip.includes('verified') ||
-      tooltip.includes('artist')
+      style.includes('VERIFIED') ||
+      style.includes('MUSIC') ||
+      tooltip.includes('official artist') ||
+      tooltip.includes('verified')
     );
   });
 
@@ -127,8 +114,81 @@ function verifyArtistChannel(ownerName: string, ownerBadges: any[] = []): boolea
     /-\s*topic$/i.test(ownerName) ||
     /official/i.test(ownerName);
 
-  // Accept verified/official artist channels, or clean artist channels with short music clips
-  return hasVerifiedOrArtistBadge || looksOfficialName || !isFakeArtistChannel(ownerName);
+  if (isFakeArtistChannel(ownerName)) {
+    return hasArtistBadge || /vevo$/i.test(ownerName) || /-\s*topic$/i.test(ownerName);
+  }
+
+  return hasArtistBadge || looksOfficialName || !isFakeArtistChannel(ownerName);
+}
+
+/**
+ * Reads user's live Music DNA telemetry & cached DNA feed to tailor Shorts discovery
+ * toward the artists, moods, and styles the user actually listens to.
+ */
+async function extractUserDnaSeeds(userId: string): Promise<{
+  dnaArtists: string[];
+  dnaMoodQueries: string[];
+}> {
+  const dnaArtists: string[] = [];
+  const dnaMoodQueries: string[] = [];
+  const uid = userId || 'guest';
+
+  try {
+    const rawTelemetry = await AsyncStorage.getItem(`@nouble_telemetry_${uid}`);
+    if (rawTelemetry) {
+      const entries = JSON.parse(rawTelemetry);
+      if (Array.isArray(entries)) {
+        const artistScores = new Map<string, number>();
+        for (const entry of entries) {
+          const t = Array.isArray(entry) ? entry[1] : entry;
+          if (!t?.artist || isFakeArtistChannel(t.artist)) continue;
+          const clean = cleanArtistName(t.artist);
+          const score =
+            (t.plays || 0) * 2 +
+            (t.completions || 0) * 3 +
+            (t.isLiked ? 6 : 0) -
+            (t.skips || 0) * 1.5;
+          artistScores.set(clean, (artistScores.get(clean) || 0) + Math.max(1, score));
+        }
+        const sorted = Array.from(artistScores.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([name]) => name);
+        dnaArtists.push(...sorted.slice(0, 8));
+      }
+    }
+  } catch {
+    // Ignore telemetry parse error
+  }
+
+  try {
+    const rawFeed = await AsyncStorage.getItem(`@nouble_dna_feed_v5_${uid}`);
+    if (rawFeed) {
+      const parsed = JSON.parse(rawFeed);
+      const favArtists = parsed?.data?.favouriteArtists;
+      if (Array.isArray(favArtists)) {
+        for (const art of favArtists) {
+          if (art?.name && !dnaArtists.includes(art.name)) {
+            dnaArtists.push(art.name);
+          }
+        }
+      }
+      const topMixes = parsed?.data?.topMixes;
+      if (Array.isArray(topMixes)) {
+        for (const mix of topMixes) {
+          if (mix?.subtitle) {
+            dnaMoodQueries.push(String(mix.subtitle));
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore feed cache parse error
+  }
+
+  return {
+    dnaArtists: dnaArtists.slice(0, 10),
+    dnaMoodQueries: dnaMoodQueries.slice(0, 4),
+  };
 }
 
 async function queryYouTubeArtistShorts(
@@ -157,7 +217,6 @@ async function queryYouTubeArtistShorts(
           },
         },
         query: searchQuery,
-        // EgIYAQ%3D%3D => Short duration (< 4 min) to prioritize Shorts & music teasers
         params: 'EgIYAQ%3D%3D',
       }),
     });
@@ -173,7 +232,7 @@ async function queryYouTubeArtistShorts(
     const collected: ArtistMusicShort[] = [];
 
     for (const item of items) {
-      // A. Reel Shelf (true vertical YouTube Shorts shelf)
+      // A. Reel Shelf (native YouTube Shorts shelf)
       if (item.reelShelfRenderer?.items && Array.isArray(item.reelShelfRenderer.items)) {
         for (const r of item.reelShelfRenderer.items) {
           const reel = r.reelItemRenderer;
@@ -182,32 +241,38 @@ async function queryYouTubeArtistShorts(
             reel.headline?.simpleText ||
             reel.headline?.runs?.map((x: any) => x.text).join('') ||
             'Music Short';
-          const rawOwner =
+          const header =
             reel.navigationEndpoint?.reelWatchEndpoint?.overlay?.reelPlayerOverlayRenderer
-              ?.reelPlayerHeaderSupportedRenderers?.reelPlayerHeaderRenderer?.channelTitleText
-              ?.runs?.[0]?.text || '';
+              ?.reelPlayerHeaderSupportedRenderers?.reelPlayerHeaderRenderer;
+          const rawOwner = header?.channelTitleText?.runs?.[0]?.text || '';
+          const channelBrowseId =
+            header?.channelNavigationEndpoint?.browseEndpoint?.browseId || undefined;
+
           if (isSpamTitleOrChannel(rawTitle, rawOwner)) continue;
-          const artist = rawOwner ? cleanArtistName(rawOwner) : cleanArtistName(searchQuery.split('#')[0]);
           if (rawOwner && !verifyArtistChannel(rawOwner, [])) continue;
+          const artist = rawOwner ? cleanArtistName(rawOwner) : cleanArtistName(searchQuery.split('#')[0]);
           const thumbs = reel.thumbnail?.thumbnails || [];
           const thumb =
             thumbs[thumbs.length - 1]?.url ||
             `https://i.ytimg.com/vi/${reel.videoId}/oar2.jpg`;
+          const tag = extractHashtag(rawTitle, fallbackTag);
+
           collected.push({
             videoId: reel.videoId,
             title: cleanShortTitle(rawTitle),
             artist,
+            artistId: channelBrowseId,
             artistAvatar: getUniversalArtistAvatar('', artist) || thumb,
             isOfficialArtist: true,
             thumbnail: thumb,
-            hashtag: extractHashtag(rawTitle, fallbackTag),
-            tags: [extractHashtag(rawTitle, fallbackTag), '#official artist'],
+            hashtag: tag,
+            tags: [tag, '#official artist'],
             durationMs: 45000,
           });
         }
       }
 
-      // B. Standard short videoRenderer (< 90s or Shorts endpoint)
+      // B. Short music videoRenderer (<= 90s or /shorts/)
       const v = item.videoRenderer;
       if (!v?.videoId) continue;
       const rawTitle = v.title?.runs?.map((r: any) => r.text).join('') || '';
@@ -224,7 +289,6 @@ async function queryYouTubeArtistShorts(
           v.navigationEndpoint?.commandMetadata?.webCommandMetadata?.url?.includes('/shorts/')
       );
 
-      // Keep strict vertical Shorts or short official music clips (<= 90s)
       if (!isShortsNav && durationMs > 90000) continue;
 
       const channelThumbs =
@@ -259,109 +323,162 @@ async function queryYouTubeArtistShorts(
   }
 }
 
+const DISCOVERY_ROTATION_POOLS = [
+  { q: 'new music releases official artist #shorts', tag: '#new release' },
+  { q: 'trending rap hip hop official channel #shorts', tag: '#hip hop' },
+  { q: 'rai algerien moroccan rap official #shorts', tag: '#rai' },
+  { q: 'live studio session acoustic official #shorts', tag: '#acoustic' },
+  { q: 'top pop r&b official music video #shorts', tag: '#pop' },
+  { q: 'afrobeats urban hit official artist #shorts', tag: '#afrobeats' },
+  { q: 'chill vibes lofi official artist #shorts', tag: '#chill' },
+  { q: 'electronic dance festival official artist #shorts', tag: '#electronic' },
+];
+
 /**
- * Fetches curated Official Artist Music Shorts tailored dynamically to user's
- * followed artists, cached taste DNA, and local region — zero hardcoded artists.
+ * Fetches initial batch of ~12 Official Artist Music Shorts for Search carousel
+ * (SearchScreen displays cleanly 10 cards from this batch and passes full list to infinite Reels).
  */
 export async function fetchOfficialArtistShorts(
   followedArtistNames: string[] = [],
+  userId = 'guest',
   forceRefresh = false
 ): Promise<ArtistMusicShort[]> {
-  if (!forceRefresh && memoryShortsCache && Date.now() - memoryShortsCache.ts < SHORTS_CACHE_TTL_MS) {
-    return memoryShortsCache.items;
+  const uid = userId || 'guest';
+  const mem = memoryCacheMap.get(uid);
+  if (!forceRefresh && mem && Date.now() - mem.ts < SHORTS_CACHE_TTL_MS) {
+    return mem.items;
   }
 
   if (!forceRefresh) {
     try {
-      const storedRaw = await AsyncStorage.getItem(SHORTS_CACHE_KEY);
+      const storedRaw = await AsyncStorage.getItem(`${SHORTS_CACHE_KEY_PREFIX}${uid}`);
       if (storedRaw) {
         const parsed = JSON.parse(storedRaw);
         if (
           parsed?.ts &&
           Date.now() - parsed.ts < SHORTS_CACHE_TTL_MS &&
           Array.isArray(parsed.items) &&
-          parsed.items.length >= 4
+          parsed.items.length >= 6
         ) {
-          memoryShortsCache = parsed;
+          memoryCacheMap.set(uid, parsed);
           return parsed.items;
         }
       }
     } catch {
-      // Continue to network fetch
+      // Fallback to fetch
     }
   }
 
-  // Build dynamic seed queries from followed artists + region seeds (no fixed artists)
-  const region = await getRegionProfile().catch(() => ({
-    mode: 'auto_random' as const,
-    countryCode: 'GLOBAL',
-    countryName: 'Global',
-    updatedAt: 0,
-  }));
+  const batch = await fetchMoreArtistShortsBatch(0, [], followedArtistNames, uid);
+  if (batch.length > 0) {
+    const payload = { ts: Date.now(), items: batch };
+    memoryCacheMap.set(uid, payload);
+    AsyncStorage.setItem(`${SHORTS_CACHE_KEY_PREFIX}${uid}`, JSON.stringify(payload)).catch(() => {});
+  }
+  return batch;
+}
+
+/**
+ * Infinite DNA-driven Shorts Batch Loader:
+ * Called both on initial load (page 0) and seamlessly as the user swipes vertically
+ * down the TikTok/Reels feed (page 1, 2, 3, ... unlimited).
+ */
+export async function fetchMoreArtistShortsBatch(
+  pageIndex: number,
+  excludeVideoIds: string[],
+  followedArtistNames: string[] = [],
+  userId = 'guest'
+): Promise<ArtistMusicShort[]> {
+  const uid = userId || 'guest';
+  const excludeSet = new Set(excludeVideoIds);
+
+  const [{ dnaArtists, dnaMoodQueries }, region] = await Promise.all([
+    extractUserDnaSeeds(uid),
+    getRegionProfile().catch(() => ({
+      mode: 'auto_random' as const,
+      countryCode: 'GLOBAL',
+      countryName: 'Global',
+      updatedAt: 0,
+    })),
+  ]);
+
   const seedPool = getRegionSeedQueries(region);
   const regionSeeds: string[] = [
     ...(seedPool.trending || []),
     ...(seedPool.stations || []),
-  ].slice(0, 3);
+    ...(seedPool.chill || []),
+    ...(seedPool.energy || []),
+  ];
+
+  // Combine Followed Artists + Music DNA Artists cleanly with zero duplicates
+  const combinedArtists = Array.from(
+    new Set([...followedArtistNames, ...dnaArtists].filter(Boolean))
+  );
 
   const querySpecs: Array<{ q: string; tag: string }> = [];
 
-  // Prioritize followed artists first (up to 3)
-  followedArtistNames
-    .filter(Boolean)
-    .slice(0, 3)
-    .forEach((name) => {
-      querySpecs.push({
-        q: `${name} official #shorts music`,
-        tag: deriveTagFromQuery('', name),
-      });
-    });
-
-  // Add regional & genre official music shorts queries
-  regionSeeds.forEach((seed) => {
+  // Rotate through user's DNA/Followed artists + similar music queries per pageIndex
+  if (combinedArtists.length > 0) {
+    const a1 = combinedArtists[pageIndex % combinedArtists.length];
+    const a2 = combinedArtists[(pageIndex + 2) % combinedArtists.length];
     querySpecs.push({
-      q: `${seed} official music #shorts`,
-      tag: deriveTagFromQuery(seed, ''),
+      q: `${a1} ${pageIndex > 0 ? 'similar artists new music' : 'official music'} #shorts`,
+      tag: deriveTagFromQuery('', a1),
     });
-  });
-
-  if (querySpecs.length < 4) {
-    querySpecs.push(
-      { q: 'official music video teaser #shorts artist', tag: '#new release' },
-      { q: 'trending pop rap official channel #shorts', tag: '#trending' },
-      { q: 'arabic rap rai official artist #shorts', tag: '#arabic hip hop' }
-    );
+    if (a2 && a2 !== a1) {
+      querySpecs.push({
+        q: `${a2} official #shorts music`,
+        tag: deriveTagFromQuery('', a2),
+      });
+    }
   }
+
+  // Rotate DNA mood cluster query
+  if (dnaMoodQueries.length > 0) {
+    const mood = dnaMoodQueries[pageIndex % dnaMoodQueries.length];
+    querySpecs.push({
+      q: `${mood} official music #shorts`,
+      tag: deriveTagFromQuery(mood, ''),
+    });
+  }
+
+  // Rotate region discovery seed
+  if (regionSeeds.length > 0) {
+    const rSeed = regionSeeds[pageIndex % regionSeeds.length];
+    querySpecs.push({
+      q: `${rSeed} official #shorts`,
+      tag: deriveTagFromQuery(rSeed, ''),
+    });
+  }
+
+  // Always include 2 diverse rotating global discovery queries so unlimited scroll never stalls
+  const rotA = DISCOVERY_ROTATION_POOLS[pageIndex % DISCOVERY_ROTATION_POOLS.length];
+  const rotB = DISCOVERY_ROTATION_POOLS[(pageIndex + 3) % DISCOVERY_ROTATION_POOLS.length];
+  querySpecs.push(rotA, rotB);
 
   const batchResults = await Promise.all(
     querySpecs.slice(0, 5).map((spec) => queryYouTubeArtistShorts(spec.q, spec.tag))
   );
 
-  // Interleave & deduplicate by videoId and cap max 2 shorts per artist for diversity
-  const seenIds = new Set<string>();
   const artistCounts = new Map<string, number>();
-  const finalShorts: ArtistMusicShort[] = [];
+  const freshShorts: ArtistMusicShort[] = [];
 
-  for (const list of batchResults) {
-    for (const item of list) {
-      if (seenIds.has(item.videoId)) continue;
+  // Interleave across queries so artists & genres stay varied
+  const maxLen = Math.max(0, ...batchResults.map((arr) => arr.length));
+  for (let row = 0; row < maxLen; row++) {
+    for (const arr of batchResults) {
+      const item = arr[row];
+      if (!item || excludeSet.has(item.videoId)) continue;
       const artKey = item.artist.toLowerCase();
       const count = artistCounts.get(artKey) || 0;
       if (count >= 2) continue;
 
-      seenIds.add(item.videoId);
+      excludeSet.add(item.videoId);
       artistCounts.set(artKey, count + 1);
-      finalShorts.push(item);
-      if (finalShorts.length >= 16) break;
+      freshShorts.push(item);
+      if (freshShorts.length >= 12) return freshShorts;
     }
-    if (finalShorts.length >= 16) break;
   }
 
-  if (finalShorts.length > 0) {
-    const payload = { ts: Date.now(), items: finalShorts };
-    memoryShortsCache = payload;
-    AsyncStorage.setItem(SHORTS_CACHE_KEY, JSON.stringify(payload)).catch(() => {});
-  }
-
-  return finalShorts;
+  return freshShorts;
 }

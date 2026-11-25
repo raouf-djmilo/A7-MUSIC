@@ -20,6 +20,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../providers/AuthProvider';
 import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useTheme } from '../theme/ThemeContext';
@@ -64,6 +65,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
   const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,6 +77,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
   const [shorts, setShorts] = useState<ArtistMusicShort[]>([]);
   const [loadingShorts, setLoadingShorts] = useState(true);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [settledCarouselIndex, setSettledCarouselIndex] = useState(0);
   const [carouselMuted, setCarouselMuted] = useState(true);
   const [endedCarouselVideoId, setEndedCarouselVideoId] = useState<string | null>(null);
 
@@ -178,16 +181,20 @@ export const MusicSearch = ({ navigation, route }: any) => {
   }, []);
 
   // Fetch Official Artist Shorts tailored to user's followed artists & region
-  const followedNamesKey = useMemo(
-    () => (followedArtists || []).map((a) => a.name).slice(0, 4).join('|'),
+  const followedNamesList = useMemo(
+    () => (followedArtists || []).map((a) => a.name).filter(Boolean),
     [followedArtists]
+  );
+  const followedNamesKey = useMemo(
+    () => followedNamesList.slice(0, 4).join('|'),
+    [followedNamesList]
   );
 
   useEffect(() => {
     let active = true;
     setLoadingShorts(true);
     const names = followedNamesKey ? followedNamesKey.split('|').filter(Boolean) : [];
-    fetchOfficialArtistShorts(names)
+    fetchOfficialArtistShorts(names, user?.id || 'guest')
       .then((list) => {
         if (active) {
           setShorts(list);
@@ -200,7 +207,15 @@ export const MusicSearch = ({ navigation, route }: any) => {
     return () => {
       active = false;
     };
-  }, [followedNamesKey]);
+  }, [followedNamesKey, user?.id]);
+
+  // 120ms debounce before mounting carousel WebView so horizontal scrolling stays 120fps
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSettledCarouselIndex(activeCarouselIndex);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [activeCarouselIndex]);
 
   // Consume initialQuery from navigation params if any
   useEffect(() => {
@@ -315,7 +330,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
       isSearchTabActive &&
       !query.trim() &&
       !reelsOpen &&
-      index === activeCarouselIndex &&
+      index === settledCarouselIndex &&
       endedCarouselVideoId !== item.videoId;
 
     // 16:9 YouTube embed scaled to cover 9:16 card smoothly
@@ -693,7 +708,7 @@ export const MusicSearch = ({ navigation, route }: any) => {
             </View>
           ) : (
             <FlatList
-              data={shorts}
+              data={shorts.slice(0, 10)}
               horizontal
               showsHorizontalScrollIndicator={false}
               keyExtractor={(item, idx) => `short-card-${item.videoId}-${idx}`}
@@ -820,14 +835,26 @@ export const MusicSearch = ({ navigation, route }: any) => {
         />
       ) : null}
 
-      {/* ── Fullscreen TikTok/Reels-Style Official Artist Shorts Modal ── */}
+      {/* ── Fullscreen TikTok/Reels-Style Unlimited Official Artist Shorts Modal ── */}
       <ShortsReelsModal
         visible={reelsOpen}
         shorts={shorts}
         initialIndex={reelsInitialIndex}
+        userId={user?.id || 'guest'}
+        followedArtistNames={followedNamesList}
+        onFeedGrow={(updatedFeed) => setShorts(updatedFeed)}
         onClose={() => setReelsOpen(false)}
-        onSelectArtist={(artistName, artistId) => {
-          navigation.navigate('ArtistDetail', { artistName, artistId });
+        onSelectArtist={(artistObj) => {
+          navigation.navigate('ArtistDetail', {
+            artistName: artistObj.name,
+            artistId: artistObj.id,
+            artist: {
+              name: artistObj.name,
+              avatar: artistObj.avatar,
+              channelId: artistObj.id,
+              isOfficial: artistObj.isOfficial,
+            },
+          });
         }}
       />
     </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Dimensions,
   Animated,
   Share,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -17,7 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 
-import { ArtistMusicShort } from '../services/youtubeShortsService';
+import {
+  ArtistMusicShort,
+  fetchMoreArtistShortsBatch,
+} from '../services/youtubeShortsService';
 import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
@@ -29,8 +34,11 @@ interface ShortsReelsModalProps {
   visible: boolean;
   shorts: ArtistMusicShort[];
   initialIndex: number;
+  userId?: string;
+  followedArtistNames?: string[];
+  onFeedGrow?: (updatedFeed: ArtistMusicShort[]) => void;
   onClose: () => void;
-  onSelectArtist?: (artistName: string, artistId?: string) => void;
+  onSelectArtist?: (artist: { name: string; id?: string; avatar?: string; isOfficial?: boolean }) => void;
 }
 
 const SHORT_PLAYER_PARAMS = {
@@ -44,66 +52,315 @@ const SHORT_PLAYER_PARAMS = {
   loop: true,
 };
 
+const VIDEO_PLAYER_WIDTH = Math.ceil(SCREEN_HEIGHT * (16 / 9));
+
+interface ReelPageItemProps {
+  item: ArtistMusicShort;
+  isSettledActive: boolean;
+  muted: boolean;
+  ended: boolean;
+  isAr: boolean;
+  isFollowing: boolean;
+  isLiked: boolean;
+  bottomInset: number;
+  onOpenChannel: (item: ArtistMusicShort) => void;
+  onToggleFollow: (item: ArtistMusicShort) => void;
+  onShare: (item: ArtistMusicShort) => void;
+  onPlayFullSong: (item: ArtistMusicShort) => void;
+  onToggleLike: (item: ArtistMusicShort) => void;
+  onVideoEnded: (videoId: string) => void;
+}
+
+const ReelPageItem = memo(
+  ({
+    item,
+    isSettledActive,
+    muted,
+    ended,
+    isAr,
+    isFollowing,
+    isLiked,
+    bottomInset,
+    onOpenChannel,
+    onToggleFollow,
+    onShare,
+    onPlayFullSong,
+    onToggleLike,
+    onVideoEnded,
+  }: ReelPageItemProps) => {
+    const rowDirection = isAr ? 'row-reverse' : 'row';
+    const textAlign = isAr ? 'right' : 'left';
+    const writingDirection = isAr ? 'rtl' : 'ltr';
+
+    return (
+      <View style={styles.reelPage}>
+        <Image
+          source={{ uri: item.thumbnail }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={item.videoId}
+        />
+
+        {/* Single Debounced Active WebView (Zero WKWebView thrashing on fast swipes) */}
+        {isSettledActive && (
+          <View style={styles.videoClipBox} pointerEvents="none">
+            <YoutubePlayer
+              height={SCREEN_HEIGHT}
+              width={VIDEO_PLAYER_WIDTH}
+              play={!ended}
+              mute={muted}
+              videoId={item.videoId}
+              initialPlayerParams={SHORT_PLAYER_PARAMS}
+              onChangeState={(state: string) => {
+                if (state === 'ended') {
+                  onVideoEnded(item.videoId);
+                }
+              }}
+            />
+          </View>
+        )}
+
+        <LinearGradient
+          colors={['rgba(0,0,0,0.62)', 'transparent', 'transparent', 'rgba(0,0,0,0.88)']}
+          locations={[0, 0.22, 0.56, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+
+        {/* ── Bottom Artist Channel & Track Liquid Glass Overlay ── */}
+        <View
+          style={[
+            styles.bottomHud,
+            { paddingBottom: Math.max(bottomInset + 14, 28) },
+          ]}
+        >
+          {/* Artist Channel Row (Tap opens full Artist Channel with Music & Videos) */}
+          <View style={[styles.artistRow, { flexDirection: rowDirection }]}>
+            <TouchableOpacity
+              style={[styles.artistTapArea, { flexDirection: rowDirection }]}
+              activeOpacity={0.82}
+              onPress={() => onOpenChannel(item)}
+            >
+              <Image
+                source={{ uri: item.artistAvatar || item.thumbnail }}
+                style={styles.artistAvatar}
+                contentFit="cover"
+              />
+              <View style={{ alignItems: isAr ? 'flex-end' : 'flex-start', flexShrink: 1 }}>
+                <View style={[styles.artistNameRow, { flexDirection: rowDirection }]}>
+                  <Text style={[styles.artistName, { writingDirection }]} numberOfLines={1}>
+                    {item.artist}
+                  </Text>
+                  {item.isOfficialArtist && (
+                    <Ionicons name="checkmark-circle" size={15} color="#38BDF8" />
+                  )}
+                </View>
+                <View style={[styles.viewChannelSubRow, { flexDirection: rowDirection }]}>
+                  <Text style={[styles.viewChannelSub, { writingDirection }]}>
+                    {isAr ? 'دخول القناة والموسيقى' : 'Open Artist Channel'}
+                  </Text>
+                  <Ionicons
+                    name={isAr ? 'chevron-back' : 'chevron-forward'}
+                    size={12}
+                    color="rgba(255,255,255,0.72)"
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => onToggleFollow(item)} activeOpacity={0.8}>
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive
+                tintColor={isFollowing ? 'rgba(52, 199, 89, 0.3)' : undefined}
+                borderRadius={18}
+                style={[styles.followBtn, isFollowing && styles.followBtnActive]}
+              >
+                <Text style={[styles.followBtnTxt, { writingDirection }]}>
+                  {isFollowing ? (isAr ? 'متابع ✓' : 'Following') : isAr ? 'متابعة' : 'Follow'}
+                </Text>
+              </LiquidGlassSurface>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => onShare(item)}
+              style={styles.shareBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="share-outline" size={21} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.hashtagsLine, { textAlign, writingDirection }]} numberOfLines={1}>
+            {item.tags.join('  ')}
+          </Text>
+
+          {/* Bottom Liquid Glass Track Pill */}
+          <TouchableOpacity activeOpacity={0.88} onPress={() => onPlayFullSong(item)}>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive
+              borderRadius={18}
+              style={[styles.trackPill, { flexDirection: rowDirection }]}
+            >
+              <Image
+                source={{ uri: item.thumbnail }}
+                style={styles.trackThumb}
+                contentFit="cover"
+              />
+              <View style={styles.trackTexts}>
+                <Text style={[styles.trackTitle, { textAlign, writingDirection }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text
+                  style={[styles.trackArtist, { textAlign, writingDirection }]}
+                  numberOfLines={1}
+                >
+                  {item.artist}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onToggleLike(item);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={isLiked ? 'checkmark-circle' : 'add-circle-outline'}
+                  size={26}
+                  color={isLiked ? '#34C759' : '#FFFFFF'}
+                />
+              </TouchableOpacity>
+            </LiquidGlassSurface>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+);
+
 export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   visible,
   shorts,
   initialIndex,
+  userId = 'guest',
+  followedArtistNames = [],
+  onFeedGrow,
   onClose,
   onSelectArtist,
 }) => {
   const insets = useSafeAreaInsets();
   const language = useLanguageStore((s) => s.language);
   const isAr = language === 'ar';
-  const rowDirection = isAr ? 'row-reverse' : 'row';
-  const textAlign = isAr ? 'right' : 'left';
-  const writingDirection = isAr ? 'rtl' : 'ltr';
 
   const followedArtistIds = useAudioStore((s) => s.followedArtistIds);
   const toggleFollowArtist = useAudioStore((s) => s.toggleFollowArtist);
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
   const toggleLike = useAudioStore((s) => s.toggleLike);
   const playTrack = useAudioStore((s) => s.playTrack);
-  const pauseAudioIfNeeded = useAudioStore((s) => s.isPlaying);
+  const isMainAudioPlaying = useAudioStore((s) => s.isPlaying);
   const toggleMainPlay = useAudioStore((s) => s.togglePlay);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
 
+  const [feed, setFeed] = useState<ArtistMusicShort[]>(shorts);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [settledIndex, setSettledIndex] = useState(initialIndex);
   const [muted, setMuted] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const [endedVideoId, setEndedVideoId] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const swipeAnimY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList>(null);
+  const pageRef = useRef(1);
+  const isFetchingMoreRef = useRef(false);
+  const feedRef = useRef<ArtistMusicShort[]>(shorts);
+  feedRef.current = feed;
 
-  // Sync activeIndex when opened at a tapped card index
+  // Keep feed synced with initial shorts on open
   useEffect(() => {
     if (visible) {
+      setFeed((prev) => (prev.length >= shorts.length ? prev : shorts));
       setActiveIndex(initialIndex);
+      setSettledIndex(initialIndex);
       setEndedVideoId(null);
-      if (pauseAudioIfNeeded) {
+      if (isMainAudioPlaying) {
         toggleMainPlay();
       }
       setTimeout(() => {
-        if (flatListRef.current && initialIndex > 0 && initialIndex < shorts.length) {
+        if (flatListRef.current && initialIndex > 0) {
           flatListRef.current.scrollToIndex({ index: initialIndex, animated: false });
         }
       }, 60);
     }
-  }, [visible, initialIndex, shorts.length]);
+  }, [visible, initialIndex, shorts]);
 
-  // Smooth vertical bounce animation for "Swipe up to see more" guide
+  // 120ms debounce before mounting WebView so rapid multi-card flicking never drops frames
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(() => {
+      setSettledIndex(activeIndex);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [activeIndex, visible]);
+
+  // Infinite prefetch whenever user nears end of current Shorts batch
+  const loadMoreShorts = useCallback(async () => {
+    if (isFetchingMoreRef.current) return;
+    isFetchingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      const excludeIds = feedRef.current.map((s) => s.videoId);
+      const nextBatch = await fetchMoreArtistShortsBatch(
+        pageRef.current,
+        excludeIds,
+        followedArtistNames,
+        userId
+      );
+      pageRef.current += 1;
+
+      if (nextBatch.length > 0) {
+        setFeed((prev) => {
+          const existing = new Set(prev.map((x) => x.videoId));
+          const unique = nextBatch.filter((x) => !existing.has(x.videoId));
+          if (unique.length === 0) return prev;
+          const merged = [...prev, ...unique];
+          onFeedGrow?.(merged);
+          return merged;
+        });
+      }
+    } catch {
+      // Fail gracefully without interrupting playback
+    } finally {
+      isFetchingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [followedArtistNames, userId, onFeedGrow]);
+
+  useEffect(() => {
+    if (visible && feed.length > 0 && activeIndex >= feed.length - 4) {
+      loadMoreShorts();
+    }
+  }, [visible, activeIndex, feed.length, loadMoreShorts]);
+
+  // Animated "Swipe up to see more" indicator
   useEffect(() => {
     if (!visible || !showSwipeHint) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(swipeAnimY, {
-          toValue: -26,
-          duration: 750,
+          toValue: -24,
+          duration: 720,
           useNativeDriver: true,
         }),
         Animated.timing(swipeAnimY, {
           toValue: 0,
-          duration: 750,
+          duration: 720,
           useNativeDriver: true,
         }),
       ])
@@ -130,6 +387,20 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 70,
   }).current;
+
+  const handleOpenChannel = useCallback(
+    (item: ArtistMusicShort) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onClose();
+      onSelectArtist?.({
+        name: item.artist,
+        id: item.artistId,
+        avatar: item.artistAvatar,
+        isOfficial: item.isOfficialArtist,
+      });
+    },
+    [onClose, onSelectArtist]
+  );
 
   const handleShare = useCallback(async (item: ArtistMusicShort) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -161,9 +432,8 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   const handleToggleFollow = useCallback(
     async (item: ArtistMusicShort) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const artistId = item.artistId || item.artist.toLowerCase().replace(/[^a-z0-9]/g, '_');
       await toggleFollowArtist({
-        id: artistId,
+        id: item.artist,
         name: item.artist,
         avatar: item.artistAvatar,
       });
@@ -171,7 +441,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
     [toggleFollowArtist]
   );
 
-  const handleToggleSaveTrack = useCallback(
+  const handleToggleLike = useCallback(
     async (item: ArtistMusicShort) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await toggleLike({
@@ -182,7 +452,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
         duration: item.durationMs || 180000,
       });
       ToastManager.show({
-        title: isAr ? 'تم التحديث في مكتبتك' : 'Updated in your Library',
+        title: isAr ? 'تم الحفظ في مكتبتك' : 'Saved to your Library',
         subtitle: item.title,
         icon: 'heart',
         duration: 1800,
@@ -191,166 +461,72 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
     [toggleLike, isAr]
   );
 
-  // Full 9:16 cover aspect width for 16:9 YouTube player
-  const videoPlayerWidth = Math.ceil(SCREEN_HEIGHT * (16 / 9));
+  const handleVideoEnded = useCallback((videoId: string) => {
+    setEndedVideoId(videoId);
+  }, []);
 
-  const renderShortItem = ({ item, index }: { item: ArtistMusicShort; index: number }) => {
-    const isActive = visible && index === activeIndex;
-    const isPlayingNow = isActive && endedVideoId !== item.videoId;
-    const artistKey = item.artistId || item.artist.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const isFollowing = followedArtistIds.includes(artistKey) || followedArtistIds.includes(item.artist);
-    const isLiked = likedTrackIds.includes(item.videoId);
+  const renderItem = useCallback(
+    ({ item, index }: { item: ArtistMusicShort; index: number }) => {
+      const isSettledActive = visible && index === settledIndex;
+      const isFollowing = followedArtistIds.includes(item.artist);
+      const isLiked = likedTrackIds.includes(item.videoId);
 
-    return (
-      <View style={styles.reelPage}>
-        {/* Poster Fallback Background */}
-        <Image source={{ uri: item.thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
-
-        {/* Active YouTube Short Video Layer (only 1 mounted at a time for smooth 60/120fps) */}
-        {isActive && (
-          <View style={styles.videoClipBox} pointerEvents="none">
-            <YoutubePlayer
-              height={SCREEN_HEIGHT}
-              width={videoPlayerWidth}
-              play={isPlayingNow}
-              mute={muted}
-              videoId={item.videoId}
-              initialPlayerParams={SHORT_PLAYER_PARAMS}
-              onChangeState={(state: string) => {
-                if (state === 'ended') {
-                  setEndedVideoId(item.videoId);
-                }
-              }}
-            />
-          </View>
-        )}
-
-        {/* Top & Bottom Vignette Gradients */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.65)', 'transparent', 'transparent', 'rgba(0,0,0,0.88)']}
-          locations={[0, 0.22, 0.58, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
+      return (
+        <ReelPageItem
+          item={item}
+          isSettledActive={isSettledActive}
+          muted={muted}
+          ended={endedVideoId === item.videoId}
+          isAr={isAr}
+          isFollowing={isFollowing}
+          isLiked={isLiked}
+          bottomInset={insets.bottom}
+          onOpenChannel={handleOpenChannel}
+          onToggleFollow={handleToggleFollow}
+          onShare={handleShare}
+          onPlayFullSong={handlePlayFullSong}
+          onToggleLike={handleToggleLike}
+          onVideoEnded={handleVideoEnded}
         />
+      );
+    },
+    [
+      visible,
+      settledIndex,
+      muted,
+      endedVideoId,
+      isAr,
+      followedArtistIds,
+      likedTrackIds,
+      insets.bottom,
+      handleOpenChannel,
+      handleToggleFollow,
+      handleShare,
+      handlePlayFullSong,
+      handleToggleLike,
+      handleVideoEnded,
+    ]
+  );
 
-        {/* ── Bottom Artist & Track Glass Overlay ── */}
-        <View
-          style={[
-            styles.bottomHud,
-            { paddingBottom: Math.max(insets.bottom + 14, 28) },
-          ]}
-        >
-          {/* Artist Row + Follow + Share */}
-          <View style={[styles.artistRow, { flexDirection: rowDirection }]}>
-            <TouchableOpacity
-              style={[styles.artistTapArea, { flexDirection: rowDirection }]}
-              activeOpacity={0.85}
-              onPress={() => {
-                onClose();
-                onSelectArtist?.(item.artist, item.artistId);
-              }}
-            >
-              <Image
-                source={{ uri: item.artistAvatar || item.thumbnail }}
-                style={styles.artistAvatar}
-                contentFit="cover"
-              />
-              <View style={{ alignItems: isAr ? 'flex-end' : 'flex-start', flexShrink: 1 }}>
-                <View style={[styles.artistNameRow, { flexDirection: rowDirection }]}>
-                  <Text style={[styles.artistName, { writingDirection }]} numberOfLines={1}>
-                    {item.artist}
-                  </Text>
-                  {item.isOfficialArtist && (
-                    <Ionicons name="checkmark-circle" size={15} color="#38BDF8" />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => handleToggleFollow(item)} activeOpacity={0.8}>
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark
-                isInteractive
-                tintColor={isFollowing ? 'rgba(52, 199, 89, 0.3)' : undefined}
-                borderRadius={18}
-                style={[styles.followBtn, isFollowing && styles.followBtnActive]}
-              >
-                <Text style={[styles.followBtnTxt, { writingDirection }]}>
-                  {isFollowing
-                    ? isAr
-                      ? 'متابع ✓'
-                      : 'Following'
-                    : isAr
-                    ? 'متابعة'
-                    : 'Follow'}
-                </Text>
-              </LiquidGlassSurface>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => handleShare(item)} style={styles.shareBtn} activeOpacity={0.8}>
-              <Ionicons name="share-outline" size={21} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Genre Hashtags */}
-          <Text style={[styles.hashtagsLine, { textAlign, writingDirection }]} numberOfLines={1}>
-            {item.tags.join('  ')}
-          </Text>
-
-          {/* Bottom Liquid Glass Track Pill */}
-          <TouchableOpacity activeOpacity={0.88} onPress={() => handlePlayFullSong(item)}>
-            <LiquidGlassSurface
-              glassStyle="regular"
-              isDark
-              isInteractive
-              borderRadius={18}
-              style={[styles.trackPill, { flexDirection: rowDirection }]}
-            >
-              <Image source={{ uri: item.thumbnail }} style={styles.trackThumb} contentFit="cover" />
-              <View style={styles.trackTexts}>
-                <Text style={[styles.trackTitle, { textAlign, writingDirection }]} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={[styles.trackArtist, { textAlign, writingDirection }]} numberOfLines={1}>
-                  {item.artist}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleToggleSaveTrack(item);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name={isLiked ? 'checkmark-circle' : 'add-circle-outline'}
-                  size={26}
-                  color={isLiked ? '#34C759' : '#FFFFFF'}
-                />
-              </TouchableOpacity>
-            </LiquidGlassSurface>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  const activeShort = shorts[activeIndex];
+  const activeShort = feed[activeIndex];
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <View style={styles.modalContainer}>
         <FlatList
           ref={flatListRef}
-          data={shorts}
+          data={feed}
           keyExtractor={(item, idx) => `${item.videoId}-${idx}`}
-          renderItem={renderShortItem}
+          renderItem={renderItem}
           pagingEnabled
           snapToInterval={SCREEN_HEIGHT}
           snapToAlignment="start"
           decelerationRate="fast"
           showsVerticalScrollIndicator={false}
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           getItemLayout={(_, index) => ({
             length: SCREEN_HEIGHT,
             offset: SCREEN_HEIGHT * index,
@@ -358,22 +534,33 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
           })}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          onEndReached={loadMoreShorts}
+          onEndReachedThreshold={0.8}
           onScrollBeginDrag={() => {
             if (showSwipeHint) setShowSwipeHint(false);
           }}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="large" color="#38BDF8" />
+                <Text style={styles.footerLoaderText}>
+                  {isAr ? 'جاري جلب المزيد من المقاطع...' : 'Loading more artist shorts...'}
+                </Text>
+              </View>
+            ) : undefined
+          }
         />
 
-        {/* ── Top Story Indicators & Controls Overlay ── */}
-        <View style={[styles.topOverlay, { paddingTop: Math.max(insets.top + 8, 22) }]} pointerEvents="box-none">
-          {/* Progress Dots */}
+        {/* ── Top Progress & Controls ── */}
+        <View
+          style={[styles.topOverlay, { paddingTop: Math.max(insets.top + 8, 22) }]}
+          pointerEvents="box-none"
+        >
           <View style={styles.storyDotsRow}>
-            {shorts.slice(0, 8).map((s, idx) => (
+            {Array.from({ length: 6 }).map((_, idx) => (
               <View
-                key={`dot-${s.videoId}-${idx}`}
-                style={[
-                  styles.storyDot,
-                  idx === activeIndex % Math.min(shorts.length, 8) && styles.storyDotActive,
-                ]}
+                key={`dot-${idx}`}
+                style={[styles.storyDot, idx === activeIndex % 6 && styles.storyDotActive]}
               />
             ))}
           </View>
@@ -391,9 +578,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
               </LiquidGlassSurface>
             </TouchableOpacity>
 
-            <Text style={styles.topHashtag}>
-              {activeShort?.hashtag || '#music'}
-            </Text>
+            <Text style={styles.topHashtag}>{activeShort?.hashtag || '#music'}</Text>
 
             <TouchableOpacity
               onPress={() => {
@@ -415,14 +600,16 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
           </View>
         </View>
 
-        {/* ── "Swipe up to see more" Guide (Disappears on first vertical swipe) ── */}
+        {/* ── Animated Swipe Up Guide (Disappears on first vertical swipe) ── */}
         {showSwipeHint && (
           <View style={styles.swipeHintOverlay} pointerEvents="none">
-            <Animated.View style={[styles.swipeHandWrap, { transform: [{ translateY: swipeAnimY }] }]}>
+            <Animated.View
+              style={[styles.swipeHandWrap, { transform: [{ translateY: swipeAnimY }] }]}
+            >
               <View style={styles.swipeTrackTrail} />
               <Ionicons name="hand-left-outline" size={34} color="#FFFFFF" />
             </Animated.View>
-            <Text style={[styles.swipeHintText, { writingDirection }]}>
+            <Text style={[styles.swipeHintText, { writingDirection: isAr ? 'rtl' : 'ltr' }]}>
               {isAr ? 'اسحب للأعلى لمشاهدة المزيد' : 'Swipe up to see more'}
             </Text>
           </View>
@@ -470,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.35)',
   },
   storyDotActive: {
-    width: 20,
+    width: 22,
     backgroundColor: '#FFFFFF',
   },
   topActionsRow: {
@@ -537,11 +724,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   artistAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   artistNameRow: {
     alignItems: 'center',
@@ -552,6 +739,16 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     fontWeight: '800',
     flexShrink: 1,
+  },
+  viewChannelSubRow: {
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 1,
+  },
+  viewChannelSub: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   followBtn: {
     paddingHorizontal: 14,
@@ -610,6 +807,17 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '500',
     marginTop: 2,
+  },
+  footerLoader: {
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerLoaderText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 
