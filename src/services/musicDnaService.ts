@@ -57,7 +57,6 @@ const LAMBDA_DECAY = 0.05; // Half-life ~ 13.86 days
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6-Hour Time-To-Live
 const CACHE_KEY_PREFIX = '@nouble_dna_';
 const TELEMETRY_KEY_PREFIX = '@nouble_telemetry_';
-const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_v4_';
 const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_v5_';
 
 export interface CachedDnaFeedPayload {
