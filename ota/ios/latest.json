@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.2f8ccb5",
-  "updateId": "278cdfd5-0fa2-4738-8f31-62dacd375546",
-  "publishedAt": "2026-11-25T02:20:46.475Z",
-  "title": "chore(release): push latest audio, player, and app updates to OTA",
+  "otaVersion": "1.6.5-ota.85d7b3a",
+  "updateId": "9e174684-6b23-4146-8ba4-534265310b75",
+  "publishedAt": "2026-11-25T16:21:19.138Z",
+  "title": "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
   "highlights": [
-    "chore(release): push latest audio, player, and app updates to OTA",
+    "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6780616,
+  "bundleSizeBytes": 6781597,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

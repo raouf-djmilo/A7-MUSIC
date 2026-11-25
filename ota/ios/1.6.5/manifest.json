@@ -1,13 +1,13 @@
 {
-  "id": "278cdfd5-0fa2-4738-8f31-62dacd375546",
-  "createdAt": "2026-11-25T02:20:46.475Z",
+  "id": "9e174684-6b23-4146-8ba4-534265310b75",
+  "createdAt": "2026-11-25T16:21:19.138Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "eUIndA6CQr7rotoxJCKIfw5qDCrCF4bRbYiLI6sYNU4",
-    "key": "c8813dcd143d968ec318086d9cc4b9df",
+    "hash": "WfImyB33wVxeMKlDiAtkz59TWmUkaI1JudHM19nu2cw",
+    "key": "b20ce9312dd6960c552a1db24961e9ef",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-ec637cdd72341048e2a16eb375fb8de6.hbc"
+    "url": "./_expo/static/js/ios/index-bef62d4a514d3b317d4f26382215f63a.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.2f8ccb5",
+      "otaVersion": "1.6.5-ota.85d7b3a",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "2f8ccb5",
-      "title": "chore(release): push latest audio, player, and app updates to OTA",
+      "commitSha": "85d7b3a",
+      "title": "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
       "highlights": [
-        "chore(release): push latest audio, player, and app updates to OTA",
+        "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T02:20:46.475Z",
-      "bundleSizeBytes": 6780616
+      "publishedAt": "2026-11-25T16:21:19.138Z",
+      "bundleSizeBytes": 6781597
     }
   }
 }
