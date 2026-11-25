@@ -1,13 +1,13 @@
 {
-  "id": "9e174684-6b23-4146-8ba4-534265310b75",
-  "createdAt": "2026-11-25T16:21:19.138Z",
+  "id": "b5a993ec-8797-410a-b07d-d21519273405",
+  "createdAt": "2026-11-25T16:34:53.776Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "WfImyB33wVxeMKlDiAtkz59TWmUkaI1JudHM19nu2cw",
-    "key": "b20ce9312dd6960c552a1db24961e9ef",
+    "hash": "lhETmI3t4wMeZ8Y1psQN3XCfvYEH3qcRnTAt1ROE2H8",
+    "key": "497deffafccc80d611957a551a09475b",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-bef62d4a514d3b317d4f26382215f63a.hbc"
+    "url": "./_expo/static/js/ios/index-e1ad039bf9e4772ce121bcf6a2db7ef5.hbc"
   },
   "assets": [
     {
@@ -254,13 +254,6 @@
       "contentType": "image/png",
       "fileExtension": ".png",
       "url": "./assets/d62ddc38b69aff346c20a28774933d6a"
-    },
-    {
-      "hash": "O8zkqf4ot5xq9-ExECaq71EFYWcXk3OfOw20VGogn9Q",
-      "key": "951d1e15284b6f808df5d94f8a3713ae",
-      "contentType": "image/png",
-      "fileExtension": ".png",
-      "url": "./assets/951d1e15284b6f808df5d94f8a3713ae"
     }
   ],
   "metadata": {},
@@ -371,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.85d7b3a",
+      "otaVersion": "1.6.5-ota.2191cbf",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "85d7b3a",
-      "title": "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
+      "commitSha": "2191cbf",
+      "title": "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
       "highlights": [
-        "fix(nav,ui): replace Auth modal sheet with full-screen card + CommonActions.reset and refine Apple Liquid Glass material",
+        "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T16:21:19.138Z",
-      "bundleSizeBytes": 6781597
+      "publishedAt": "2026-11-25T16:34:53.776Z",
+      "bundleSizeBytes": 6786266
     }
   }
 }
