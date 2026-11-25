@@ -43,15 +43,9 @@ const SHORT_CARD_WIDTH = 152;
 const SHORT_CARD_HEIGHT = 248;
 const SHORT_CARD_GAP = 12;
 
-const CAROUSEL_PLAYER_PARAMS = {
-  controls: false,
-  modestbranding: true,
-  rel: false,
-  fs: false,
-  iv_load_policy: 3,
-  preventFullScreen: true,
-  showClosedCaptions: false,
-  loop: false,
+const CAROUSEL_WEBVIEW_PROPS = {
+  allowsInlineMediaPlayback: true,
+  mediaPlaybackRequiresUserAction: false,
 };
 
 export const MusicSearch = ({ route }: any) => {
@@ -326,15 +320,31 @@ export const MusicSearch = ({ route }: any) => {
     });
   };
 
+  const CAROUSEL_PLAYER_PARAMS = {
+    controls: false,
+    modestbranding: true,
+    rel: false,
+    fs: false,
+    iv_load_policy: 3,
+    preventFullScreen: true,
+    showClosedCaptions: false,
+    loop: false,
+  };
+
   const renderShortCard = ({ item, index }: { item: ArtistMusicShort; index: number }) => {
-    const isCardActive =
+    const isActive =
       isSearchTabActive &&
       !query.trim() &&
       !reelsOpen &&
-      index === settledCarouselIndex &&
-      endedCarouselVideoId !== item.videoId;
+      index === settledCarouselIndex;
+    const isPreloadNext =
+      isSearchTabActive &&
+      !query.trim() &&
+      !reelsOpen &&
+      index === settledCarouselIndex + 1;
+    const isEnded = endedCarouselVideoId === item.videoId;
+    const isCardPlaying = isActive && !isEnded;
 
-    // 16:9 YouTube embed scaled to cover 9:16 card smoothly
     const embedWidth = Math.ceil(SHORT_CARD_HEIGHT * (16 / 9));
 
     return (
@@ -350,12 +360,12 @@ export const MusicSearch = ({ route }: any) => {
           glassStyle="regular"
           isDark={isDark}
           isInteractive
-          borderRadius={20}
+          borderRadius={22}
           style={[
             styles.shortCard,
             {
-              borderColor: isCardActive ? '#38BDF8' : palette.cardBorder,
-              borderTopColor: palette.cardTopBorder,
+              borderColor: isActive ? '#38BDF8' : palette.cardBorder,
+              borderTopColor: 'rgba(255, 255, 255, 0.42)',
             },
           ]}
         >
@@ -364,20 +374,23 @@ export const MusicSearch = ({ route }: any) => {
             source={{ uri: item.thumbnail }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
+            cachePolicy="memory-disk"
           />
 
-          {/* Active Video Player (strictly ONE mounted at a time on scroll) */}
-          {isCardActive && (
+          {/* Active OR Preloaded Next Video (Instant transition on scroll) */}
+          {(isActive || isPreloadNext) && (
             <View style={styles.shortVideoClip} pointerEvents="none">
               <YoutubePlayer
                 height={SHORT_CARD_HEIGHT}
                 width={embedWidth}
-                play={isCardActive}
-                mute={carouselMuted}
+                play={isCardPlaying}
+                mute={isActive ? carouselMuted : true}
+                volume={isActive && !carouselMuted ? 100 : 0}
                 videoId={item.videoId}
                 initialPlayerParams={CAROUSEL_PLAYER_PARAMS}
+                webViewProps={CAROUSEL_WEBVIEW_PROPS}
                 onChangeState={(state: string) => {
-                  if (state === 'ended') {
+                  if (state === 'ended' && isActive) {
                     setEndedCarouselVideoId(item.videoId);
                   }
                 }}
@@ -385,42 +398,44 @@ export const MusicSearch = ({ route }: any) => {
             </View>
           )}
 
-          {/* Subtle Glass Bottom Gradient Overlay */}
+          {/* Glossy Liquid Glass Sheen & Vignette */}
           <LinearGradient
-            colors={['rgba(0,0,0,0.2)', 'transparent', 'rgba(0,0,0,0.85)']}
-            locations={[0, 0.45, 1]}
+            colors={['rgba(255,255,255,0.14)', 'transparent', 'rgba(0,0,0,0.84)']}
+            locations={[0, 0.42, 1]}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
 
-          {/* Top Artist Verified Indicator & Sound Toggle on Active Card */}
+          {/* Top-Right Working Sound Mute/Unmute Button ONLY (No top-left badge) */}
           <View style={styles.shortCardTop}>
-            <View style={styles.artistTinyPill}>
-              <Ionicons name="checkmark-circle" size={12} color="#38BDF8" />
-              <Text style={styles.artistTinyName} numberOfLines={1}>
-                {item.artist}
-              </Text>
-            </View>
-
+            <View />
             {index === activeCarouselIndex && !query.trim() && (
               <TouchableOpacity
                 onPress={(e) => {
                   e.stopPropagation();
                   handleToggleCarouselSound();
                 }}
-                style={styles.cardMuteBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.8}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons
-                  name={carouselMuted ? 'volume-mute' : 'volume-high'}
-                  size={14}
-                  color="#FFFFFF"
-                />
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark
+                  isInteractive
+                  borderRadius={15}
+                  style={styles.cardMuteBtn}
+                >
+                  <Ionicons
+                    name={carouselMuted ? 'volume-mute' : 'volume-high'}
+                    size={15}
+                    color="#FFFFFF"
+                  />
+                </LiquidGlassSurface>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Bottom Hashtag Overlay */}
+          {/* Bottom Hashtag & Title Overlay */}
           <View style={styles.shortCardBottom}>
             <Text style={styles.shortHashtag} numberOfLines={1}>
               {item.hashtag}
@@ -1026,12 +1041,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   cardMuteBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.34)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   shortCardBottom: {
     padding: 10,

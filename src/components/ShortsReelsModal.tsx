@@ -6,6 +6,7 @@ import {
   Modal,
   FlatList,
   TouchableOpacity,
+  Pressable,
   Dimensions,
   Animated,
   Share,
@@ -16,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import YoutubePlayer from 'react-native-youtube-iframe';
+import YoutubePlayer, { YoutubeIframeRef } from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 
 import {
@@ -49,20 +50,29 @@ const SHORT_PLAYER_PARAMS = {
   iv_load_policy: 3,
   preventFullScreen: true,
   showClosedCaptions: false,
-  loop: true,
+  loop: false,
+};
+
+const WEBVIEW_PROPS = {
+  allowsInlineMediaPlayback: true,
+  mediaPlaybackRequiresUserAction: false,
 };
 
 const VIDEO_PLAYER_WIDTH = Math.ceil(SCREEN_HEIGHT * (16 / 9));
 
 interface ReelPageItemProps {
   item: ArtistMusicShort;
-  isSettledActive: boolean;
+  isActive: boolean;
+  shouldPreload: boolean;
   muted: boolean;
+  paused: boolean;
   ended: boolean;
   isAr: boolean;
   isFollowing: boolean;
   isLiked: boolean;
   bottomInset: number;
+  onTogglePlayPause: () => void;
+  onReplay: (videoId: string) => void;
   onOpenChannel: (item: ArtistMusicShort) => void;
   onToggleFollow: (item: ArtistMusicShort) => void;
   onShare: (item: ArtistMusicShort) => void;
@@ -74,13 +84,17 @@ interface ReelPageItemProps {
 const ReelPageItem = memo(
   ({
     item,
-    isSettledActive,
+    isActive,
+    shouldPreload,
     muted,
+    paused,
     ended,
     isAr,
     isFollowing,
     isLiked,
     bottomInset,
+    onTogglePlayPause,
+    onReplay,
     onOpenChannel,
     onToggleFollow,
     onShare,
@@ -88,9 +102,32 @@ const ReelPageItem = memo(
     onToggleLike,
     onVideoEnded,
   }: ReelPageItemProps) => {
+    const playerRef = useRef<YoutubeIframeRef>(null);
+    const [playerReady, setPlayerReady] = useState(false);
+
     const rowDirection = isAr ? 'row-reverse' : 'row';
     const textAlign = isAr ? 'right' : 'left';
     const writingDirection = isAr ? 'rtl' : 'ltr';
+
+    const isMounted = isActive || shouldPreload;
+    const isPlayingNow = isActive && !paused && !ended;
+
+    // Enforce mute/unmute directly on playerReady and when muted changes
+    useEffect(() => {
+      if (!playerReady || !isActive) return;
+      if (isPlayingNow) {
+        (playerRef.current as any)?.playVideo?.();
+      } else {
+        (playerRef.current as any)?.pauseVideo?.();
+      }
+    }, [playerReady, isActive, isPlayingNow]);
+
+    const handleReplayPress = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      playerRef.current?.seekTo(0, true);
+      (playerRef.current as any)?.playVideo?.();
+      onReplay(item.videoId);
+    };
 
     return (
       <View style={styles.reelPage}>
@@ -102,18 +139,22 @@ const ReelPageItem = memo(
           recyclingKey={item.videoId}
         />
 
-        {/* Single Debounced Active WebView (Zero WKWebView thrashing on fast swipes) */}
-        {isSettledActive && (
+        {/* Active or Preloaded Next Video (Instant 150ms switch on swipe) */}
+        {isMounted && (
           <View style={styles.videoClipBox} pointerEvents="none">
             <YoutubePlayer
+              ref={playerRef}
               height={SCREEN_HEIGHT}
               width={VIDEO_PLAYER_WIDTH}
-              play={!ended}
-              mute={muted}
+              play={isPlayingNow}
+              mute={isActive ? muted : true}
+              volume={isActive && !muted ? 100 : 0}
               videoId={item.videoId}
               initialPlayerParams={SHORT_PLAYER_PARAMS}
+              webViewProps={WEBVIEW_PROPS}
+              onReady={() => setPlayerReady(true)}
               onChangeState={(state: string) => {
-                if (state === 'ended') {
+                if (state === 'ended' && isActive) {
                   onVideoEnded(item.videoId);
                 }
               }}
@@ -128,6 +169,36 @@ const ReelPageItem = memo(
           pointerEvents="none"
         />
 
+        {/* Center Tap Area for Play/Pause + Center Restart / Pause Overlay */}
+        <Pressable style={styles.centerTapZone} onPress={ended ? handleReplayPress : onTogglePlayPause}>
+          {ended ? (
+            <TouchableOpacity onPress={handleReplayPress} activeOpacity={0.85}>
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive
+                borderRadius={36}
+                style={styles.centerActionPill}
+              >
+                <Ionicons name="refresh" size={32} color="#FFFFFF" />
+                <Text style={[styles.centerActionTxt, { writingDirection }]}>
+                  {isAr ? 'إعادة التشغيل' : 'Replay'}
+                </Text>
+              </LiquidGlassSurface>
+            </TouchableOpacity>
+          ) : paused ? (
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark
+              isInteractive={false}
+              borderRadius={34}
+              style={styles.centerPauseOrb}
+            >
+              <Ionicons name="play" size={32} color="#FFFFFF" style={{ marginLeft: 3 }} />
+            </LiquidGlassSurface>
+          ) : null}
+        </Pressable>
+
         {/* ── Bottom Artist Channel & Track Liquid Glass Overlay ── */}
         <View
           style={[
@@ -135,7 +206,7 @@ const ReelPageItem = memo(
             { paddingBottom: Math.max(bottomInset + 14, 28) },
           ]}
         >
-          {/* Artist Channel Row (Tap opens full Artist Channel with Music & Videos) */}
+          {/* Artist Channel Row */}
           <View style={[styles.artistRow, { flexDirection: rowDirection }]}>
             <TouchableOpacity
               style={[styles.artistTapArea, { flexDirection: rowDirection }]}
@@ -268,8 +339,8 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
 
   const [feed, setFeed] = useState<ArtistMusicShort[]>(shorts);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [settledIndex, setSettledIndex] = useState(initialIndex);
   const [muted, setMuted] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const [endedVideoId, setEndedVideoId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -281,13 +352,12 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   const feedRef = useRef<ArtistMusicShort[]>(shorts);
   feedRef.current = feed;
 
-  // Keep feed synced with initial shorts on open
   useEffect(() => {
     if (visible) {
       setFeed((prev) => (prev.length >= shorts.length ? prev : shorts));
       setActiveIndex(initialIndex);
-      setSettledIndex(initialIndex);
       setEndedVideoId(null);
+      setUserPaused(false);
       if (isMainAudioPlaying) {
         toggleMainPlay();
       }
@@ -299,16 +369,6 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
     }
   }, [visible, initialIndex, shorts]);
 
-  // 120ms debounce before mounting WebView so rapid multi-card flicking never drops frames
-  useEffect(() => {
-    if (!visible) return;
-    const timer = setTimeout(() => {
-      setSettledIndex(activeIndex);
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [activeIndex, visible]);
-
-  // Infinite prefetch whenever user nears end of current Shorts batch
   const loadMoreShorts = useCallback(async () => {
     if (isFetchingMoreRef.current) return;
     isFetchingMoreRef.current = true;
@@ -335,7 +395,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
         }
       }
     } catch {
-      // Fail gracefully without interrupting playback
+      // Fail gracefully
     } finally {
       isFetchingMoreRef.current = false;
       setLoadingMore(false);
@@ -348,7 +408,6 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
     }
   }, [visible, activeIndex, feed.length, loadMoreShorts]);
 
-  // Animated "Swipe up to see more" indicator
   useEffect(() => {
     if (!visible || !showSwipeHint) return;
     const loop = Animated.loop(
@@ -377,6 +436,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
           if (prev !== nextIdx) {
             setShowSwipeHint(false);
             setEndedVideoId(null);
+            setUserPaused(false);
           }
           return nextIdx;
         });
@@ -387,6 +447,16 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 70,
   }).current;
+
+  const handleTogglePlayPause = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUserPaused((prev) => !prev);
+  }, []);
+
+  const handleReplay = useCallback(() => {
+    setEndedVideoId(null);
+    setUserPaused(false);
+  }, []);
 
   const handleOpenChannel = useCallback(
     (item: ArtistMusicShort) => {
@@ -467,20 +537,25 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
 
   const renderItem = useCallback(
     ({ item, index }: { item: ArtistMusicShort; index: number }) => {
-      const isSettledActive = visible && index === settledIndex;
+      const isActive = visible && index === activeIndex;
+      const shouldPreload = visible && index === activeIndex + 1;
       const isFollowing = followedArtistIds.includes(item.artist);
       const isLiked = likedTrackIds.includes(item.videoId);
 
       return (
         <ReelPageItem
           item={item}
-          isSettledActive={isSettledActive}
+          isActive={isActive}
+          shouldPreload={shouldPreload}
           muted={muted}
+          paused={userPaused}
           ended={endedVideoId === item.videoId}
           isAr={isAr}
           isFollowing={isFollowing}
           isLiked={isLiked}
           bottomInset={insets.bottom}
+          onTogglePlayPause={handleTogglePlayPause}
+          onReplay={handleReplay}
           onOpenChannel={handleOpenChannel}
           onToggleFollow={handleToggleFollow}
           onShare={handleShare}
@@ -492,13 +567,16 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
     },
     [
       visible,
-      settledIndex,
+      activeIndex,
       muted,
+      userPaused,
       endedVideoId,
       isAr,
       followedArtistIds,
       likedTrackIds,
       insets.bottom,
+      handleTogglePlayPause,
+      handleReplay,
       handleOpenChannel,
       handleToggleFollow,
       handleShare,
@@ -509,6 +587,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   );
 
   const activeShort = feed[activeIndex];
+  const isActiveEnded = activeShort ? endedVideoId === activeShort.videoId : false;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
@@ -551,7 +630,7 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
           }
         />
 
-        {/* ── Top Progress & Controls ── */}
+        {/* ── Top Progress & Controls (Back, Hashtag, Play/Pause, Mute) ── */}
         <View
           style={[styles.topOverlay, { paddingTop: Math.max(insets.top + 8, 22) }]}
           pointerEvents="box-none"
@@ -580,23 +659,48 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
 
             <Text style={styles.topHashtag}>{activeShort?.hashtag || '#music'}</Text>
 
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMuted((prev) => !prev);
-              }}
-              activeOpacity={0.8}
-            >
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark
-                isInteractive
-                borderRadius={20}
-                style={styles.topCircleBtn}
+            <View style={styles.topRightBtns}>
+              <TouchableOpacity
+                onPress={isActiveEnded ? handleReplay : handleTogglePlayPause}
+                activeOpacity={0.8}
               >
-                <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#FFFFFF" />
-              </LiquidGlassSurface>
-            </TouchableOpacity>
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark
+                  isInteractive
+                  borderRadius={20}
+                  style={styles.topCircleBtn}
+                >
+                  <Ionicons
+                    name={isActiveEnded ? 'refresh' : userPaused ? 'play' : 'pause'}
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setMuted((prev) => !prev);
+                }}
+                activeOpacity={0.8}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark
+                  isInteractive
+                  borderRadius={20}
+                  style={styles.topCircleBtn}
+                >
+                  <Ionicons
+                    name={muted ? 'volume-mute' : 'volume-high'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -635,6 +739,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  centerTapZone: {
+    position: 'absolute',
+    top: 120,
+    left: 0,
+    right: 0,
+    bottom: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 12,
+  },
+  centerPauseOrb: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  centerActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.38)',
+    overflow: 'hidden',
+  },
+  centerActionTxt: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   topOverlay: {
     position: 'absolute',
     top: 0,
@@ -664,6 +804,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  topRightBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   topCircleBtn: {
     width: 40,
