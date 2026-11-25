@@ -1,6 +1,8 @@
 import React, { memo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { MoodCluster } from '../../../services/musicDnaService';
 import { useTheme } from '../../../theme/ThemeContext';
 import { createMusicThemedStyles } from '../styles/musicThemedStyles';
@@ -15,27 +17,47 @@ interface TopMixesRailSectionProps {
 
 export const TopMixesRailSection: React.FC<TopMixesRailSectionProps> = memo(
   ({ topMixes }) => {
+    const navigation = useNavigation<any>();
     const { theme, isDark } = useTheme();
     const styles = createMusicThemedStyles(theme, isDark);
+
+    const handleOpenMix = useCallback(
+      (item: MoodCluster) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate('AlbumDetails', {
+          albumTitle: item.title,
+          artistName: item.subtitle,
+          cover: item.artwork || '',
+          type: 'playlist',
+          album: {
+            title: item.title,
+            artist: item.subtitle,
+            thumbnail: item.artwork || '',
+            tracks: item.tracks || [],
+          },
+        });
+      },
+      [navigation]
+    );
 
     const renderItem = useCallback(
       ({ item }: { item: MoodCluster }) => {
         const artworkCascade = getUniversalStudioArtworkSource(item.artwork, item.title);
         const mixContextId = item.title || item.id;
+        const accentColor = item.badgeColor || '#9BF0B8';
 
         return (
           <TouchableOpacity
             style={styles.mixCardContainer}
-            activeOpacity={0.85}
-            onPress={() => AudioBridgeEngine.playMix(item)}
+            activeOpacity={0.86}
+            onPress={() => handleOpenMix(item)}
           >
             <View
               style={[
                 styles.mixArtworkWrap,
+                localStyles.mixFrame,
                 {
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.85)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.85)',
                 },
               ]}
             >
@@ -43,39 +65,44 @@ export const TopMixesRailSection: React.FC<TopMixesRailSectionProps> = memo(
                 source={artworkCascade}
                 uri={item.artwork}
                 style={styles.mixArtwork}
-                borderRadius={14}
+                borderRadius={12}
                 recyclingKey={item.id}
               />
-              <LinearGradient
-                colors={['rgba(255,255,255,0.20)', 'transparent']}
-                start={{ x: 0.15, y: 0 }}
-                end={{ x: 0.85, y: 0.55 }}
-                style={StyleSheet.absoluteFill}
-                pointerEvents="none"
-              />
 
-              {/* Minimal Frosted Glass Play Badge on Bottom-Right */}
-              <View style={styles.mixFloatingPlayBtn}>
+              {/* Top-left colored A7 badge (Spotify-style mix mark) */}
+              <View style={[localStyles.topBadge, { backgroundColor: accentColor }]}>
+                <Ionicons name="musical-notes" size={11} color="#0B0D12" />
+              </View>
+
+              {/* Floating Frosted Play Button */}
+              <View style={localStyles.playBtnPos}>
                 <TrackPlayButton
                   contextId={mixContextId}
                   onPressAction={() => AudioBridgeEngine.playMix(item)}
-                  size={34}
-                  iconSize={16}
+                  size={30}
+                  iconSize={14}
                   variant="frosted"
                 />
               </View>
+
+              {/* Bottom Spotify-style colored stripe + pastel title bar */}
+              <View style={localStyles.bottomBandWrap}>
+                <View style={[localStyles.leftAccentBar, { backgroundColor: accentColor }]} />
+                <View style={[localStyles.titlePill, { backgroundColor: accentColor }]}>
+                  <Text style={localStyles.bandTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <Text style={styles.mixTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={styles.mixSubtitle} numberOfLines={1}>
+            <Text style={styles.mixSubtitle} numberOfLines={2}>
               {item.subtitle}
             </Text>
           </TouchableOpacity>
         );
       },
-      [styles]
+      [styles, isDark, handleOpenMix]
     );
 
     if (!topMixes || topMixes.length === 0) return null;
@@ -103,5 +130,54 @@ export const TopMixesRailSection: React.FC<TopMixesRailSectionProps> = memo(
   },
   (prev, next) => prev.topMixes === next.topMixes
 );
+
+const localStyles = StyleSheet.create({
+  mixFrame: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  topBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playBtnPos: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  bottomBandWrap: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 26,
+  },
+  leftAccentBar: {
+    width: 5,
+    height: '100%',
+    marginRight: 4,
+  },
+  titlePill: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  bandTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0B0D12',
+    letterSpacing: -0.3,
+  },
+});
 
 export default TopMixesRailSection;

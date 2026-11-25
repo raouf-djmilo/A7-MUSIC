@@ -57,6 +57,7 @@ const LAMBDA_DECAY = 0.05; // Half-life ~ 13.86 days
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6-Hour Time-To-Live
 const CACHE_KEY_PREFIX = '@nouble_dna_';
 const TELEMETRY_KEY_PREFIX = '@nouble_telemetry_';
+const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_v4_';
 const FEED_CACHE_KEY_PREFIX = '@nouble_dna_feed_v5_';
 
 export interface CachedDnaFeedPayload {
@@ -287,23 +288,37 @@ class MusicDnaEngine {
   }
 
   /**
+   * Detect Top Signature Artist dynamically from user's real listening telemetry (returns null if none yet)
    * Top-20 Ranked Artists learned from on-device telemetry (identical for Guests & Signed-In Users)
    */
+  public getTopSignatureArtist(): string | null {
   public getTopRankedArtists(limit: number = 20): { name: string; score: number }[] {
     const ranked = this.getRankedTelemetryTracks();
+    if (ranked.length === 0) return null;
+
     const artistScores: Record<string, number> = {};
     for (const t of ranked) {
       const a = cleanArtistName(t.artist);
-      if (a && a !== 'Artist' && !isFakeArtistChannel(a)) {
-        artistScores[a] = (artistScores[a] || 0) + this.calculateTrackScore(t);
+      if (a && a !== 'Artist') {
+        if (a && a !== 'Artist' && !isFakeArtistChannel(a)) {
+          artistScores[a] = (artistScores[a] || 0) + this.calculateTrackScore(t);
+        }
+      }
+      return Object.entries(artistScores)
+        .map(([name, score]) => ({ name, score }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+    }
+
+    let topArtist: string | null = null;
+    let maxScore = 0;
+    for (const [artist, score] of Object.entries(artistScores)) {
+      if (score > maxScore) {
+        maxScore = score;
+        topArtist = artist;
       }
     }
-    return Object.entries(artistScores)
-      .map(([name, score]) => ({ name, score }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-  }
-
+    return topArtist;
   /**
    * Pick a weighted random artist from user's Top-20 learned artists (returns null if no history yet)
    */
@@ -431,51 +446,67 @@ class MusicDnaEngine {
         )
       ).slice(0, 3);
 
+      const buildMixSubtitle = (trackList: Track[], fallbackLabel: string): string => {
+        const names = Array.from(
+          new Set(
+            trackList
+              .map((t) => cleanArtistName(t.artist))
+              .filter((a) => a && a !== 'Artist' && !isFakeArtistChannel(a))
+          )
+        );
+        if (names.length === 0) return fallbackLabel;
+        if (names.length <= 2) return names.join(' and ');
+        return `${names[0]}, ${names[1]}, ${names[2]} and more`;
+      };
+
+      const top20Artists = this.getTopRankedArtists(20);
+      const secondArtist = top20Artists.length > 1 ? top20Artists[1].name : null;
+
       const clusters: MoodCluster[] = [
-        {
-          id: 'cluster-cadence',
-          key: 'cadence',
-          title: 'Recommended Radio',
-          badgeColor: '#3B82F6',
-          subtitle: 'Fresh stations matched to you',
-          artwork: pickDistinctCover(cadenceTracks, 0),
-          tracks: shuffleArray(cadenceTracks).slice(0, 15),
-        },
         {
           id: 'cluster-signature',
           key: 'signature',
-          title: signatureArtist ? `${signatureArtist} Mix` : 'Regional Top Mix',
-          badgeColor: '#1DB954',
-          subtitle: dynamicMixArtists.length > 0 ? dynamicMixArtists.join(', ') : 'Trending Near You',
-          artwork: pickDistinctCover(signatureTracks, 1),
-          tracks: shuffleArray(signatureTracks).slice(0, 15),
+          title: signatureArtist ? `${signatureArtist} Mix` : 'Top Mix',
+          badgeColor: '#FFD6E0',
+          subtitle: buildMixSubtitle(signatureTracks, 'Tailored to your taste'),
+          artwork: pickDistinctCover(signatureTracks, 0),
+          tracks: shuffleArray(signatureTracks).slice(0, 12),
         },
         {
-          id: 'cluster-replay',
-          key: 'replay',
-          title: 'On Repeat',
-          badgeColor: '#8E2DE2', // Neon Violet
-          subtitle: 'Your most played anthems this week',
-          artwork: pickDistinctCover(replayTracks, 2),
-          tracks: replayTracks,
+          id: 'cluster-cadence',
+          key: 'cadence',
+          title: secondArtist ? `${secondArtist} Mix` : 'Hip Hop Mix',
+          badgeColor: '#D8E2FF',
+          subtitle: buildMixSubtitle(cadenceTracks, 'Fresh channels & beats'),
+          artwork: pickDistinctCover(cadenceTracks, 1),
+          tracks: shuffleArray(cadenceTracks).slice(0, 12),
         },
         {
           id: 'cluster-chill',
           key: 'chill',
-          title: 'Sunset Chill',
-          badgeColor: '#4A90E2', // Sky Blue
-          subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
-          artwork: pickDistinctCover(chillTracks, 3),
-          tracks: chillTracks.slice(0, 15),
+          title: 'Chill Mix',
+          badgeColor: '#5EA8FF',
+          subtitle: buildMixSubtitle(chillTracks, 'Acoustic & mellow sessions'),
+          artwork: pickDistinctCover(chillTracks, 2),
+          tracks: shuffleArray(chillTracks).slice(0, 12),
         },
         {
           id: 'cluster-energy',
           key: 'energy',
-          title: 'Energy Boost',
-          badgeColor: '#FF0055', // Neon Pink / Energy
-          subtitle: 'Gym Phonk, Trap & High Power Drops',
-          artwork: pickDistinctCover(energyTracks, 4),
-          tracks: energyTracks.slice(0, 15),
+          title: 'Upbeat Mix',
+          badgeColor: '#D9FF66',
+          subtitle: buildMixSubtitle(energyTracks, 'Upbeat rhythm & flow'),
+          artwork: pickDistinctCover(energyTracks, 3),
+          tracks: shuffleArray(energyTracks).slice(0, 12),
+        },
+        {
+          id: 'cluster-replay',
+          key: 'replay',
+          title: 'Pop Mix',
+          badgeColor: '#FF9CE3',
+          subtitle: buildMixSubtitle(replayTracks, 'Your most played anthems'),
+          artwork: pickDistinctCover(replayTracks, 4),
+          tracks: replayTracks.slice(0, 12),
         },
       ];
 
@@ -705,27 +736,91 @@ class MusicDnaEngine {
   }
 
   /**
+   * Clean Initial State before first live network fetch resolves
    * Clean Initial State before first live network fetch resolves (ZERO hardcoded artists or sport clusters!)
    */
   private getFallbackSections(activeFilter: string = 'All', history: Track[] = []): DynamicHomeSections {
+    const cadenceTracks = CURATED_TRACKS.filter((t) => t.category === 'cardio' || t.category === 'running');
+    const raiTracks = CURATED_TRACKS.filter((t) => t.category === 'rai');
+    const chillTracks = CURATED_TRACKS.filter((t) => t.category === 'walking' || t.category === 'focus');
+    const energyTracks = CURATED_TRACKS.filter((t) => t.category === 'cardio' || t.category === 'running');
     const historyTracks = history.slice(0, 12);
     const firstCover = historyTracks[0]?.thumbnail || '';
 
+    const usedDefArt = new Set<string>();
+    const pickDefCover = (trackList: Track[], fallbackCuratedIdx: number): string => {
+      for (const t of trackList) {
+        if (t?.thumbnail && !usedDefArt.has(t.thumbnail)) {
+          usedDefArt.add(t.thumbnail);
+          return t.thumbnail;
+        }
+      }
+      const fallback = CURATED_TRACKS[fallbackCuratedIdx]?.thumbnail || '';
+      usedDefArt.add(fallback);
+      return fallback;
+    };
     const defaultMixes: MoodCluster[] =
       historyTracks.length > 0
         ? [
-            {
-              id: 'cluster-replay',
-              key: 'replay',
-              title: 'On Repeat',
-              badgeColor: '#8E2DE2',
-              subtitle: 'Your most played tracks',
-              artwork: firstCover,
-              tracks: historyTracks,
-            },
-          ]
+          {
+            id: 'cluster-replay',
+            key: 'replay',
+            title: 'On Repeat',
+            badgeColor: '#8E2DE2',
+            subtitle: 'Your most played tracks',
+            artwork: firstCover,
+            tracks: historyTracks,
+          },
+        ]
         : [];
 
+    const defaultMixes: MoodCluster[] = [
+      {
+        id: 'cluster-cadence',
+        key: 'cadence',
+        title: '160 BPM Stride',
+        badgeColor: '#FF6B00',
+        subtitle: 'Cardio Beats, 160 BPM Cadence',
+        artwork: pickDefCover(cadenceTracks, 0),
+        tracks: cadenceTracks.length > 0 ? cadenceTracks : CURATED_TRACKS.slice(0, 5),
+      },
+      {
+        id: 'cluster-signature',
+        key: 'signature',
+        title: 'Recommended Mix',
+        badgeColor: '#1DB954',
+        subtitle: 'Tailored to your listening taste',
+        artwork: pickDefCover(raiTracks, 1),
+        tracks: raiTracks.length > 0 ? raiTracks : CURATED_TRACKS.slice(0, 5),
+      },
+      {
+        id: 'cluster-replay',
+        key: 'replay',
+        title: 'On Repeat',
+        badgeColor: '#8E2DE2',
+        subtitle: 'Your most played anthems this week',
+        artwork: pickDefCover(history, 2),
+        tracks: history.length > 0 ? history.slice(0, 5) : CURATED_TRACKS.slice(0, 5),
+      },
+      {
+        id: 'cluster-chill',
+        key: 'chill',
+        title: 'Sunset Chill',
+        badgeColor: '#4A90E2',
+        subtitle: 'Acoustic, Lofi & Post-Workout Cool Down',
+        artwork: pickDefCover(chillTracks, 3),
+        tracks: chillTracks.length > 0 ? chillTracks : CURATED_TRACKS.slice(2, 6),
+      },
+      {
+        id: 'cluster-energy',
+        key: 'energy',
+        title: 'Energy Boost',
+        badgeColor: '#FF0055',
+        subtitle: 'Gym Phonk, Trap & High Power Drops',
+        artwork: pickDefCover(energyTracks, 4),
+        tracks: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
+      },
+    ];
     const fallbackArtists = Array.from(
       new Set(
         historyTracks
@@ -740,9 +835,23 @@ class MusicDnaEngine {
         isOfficial: true,
       }));
 
+    const favouriteArtists = [
+      { name: 'Djalil Palermo', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('djalil'))?.thumbnail || '', isOfficial: true },
+      { name: 'Soolking', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('soolking'))?.thumbnail || '', isOfficial: true },
+      { name: 'Cheb Khaled', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('khaled'))?.thumbnail || '', isOfficial: true },
+      { name: 'Didine Canon 16', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('didine'))?.thumbnail || '', isOfficial: true },
+      { name: 'Cheb Mami', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('mami'))?.thumbnail || '', isOfficial: true },
+      { name: 'The Weeknd', avatar: CURATED_TRACKS.find(t => t.artist?.toLowerCase().includes('weeknd'))?.thumbnail || '', isOfficial: true },
+    ];
+
     return {
+      quickJump: history.length > 0 ? history.slice(0, 6) : CURATED_TRACKS.slice(0, 6),
       quickJump: historyTracks.slice(0, 6),
       topMixes: defaultMixes,
+      pickedForYou: null,
+      favouriteArtists,
+      recentlyPlayed: history.length > 0 ? history.slice(0, 10) : CURATED_TRACKS.slice(0, 4),
+      energyWorkout: energyTracks.length > 0 ? energyTracks : CURATED_TRACKS.slice(0, 5),
       pickedForYou: historyTracks[0] || null,
       favouriteArtists: fallbackArtists,
       artistRadios: [],
