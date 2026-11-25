@@ -26,6 +26,7 @@ import {
 } from '../services/firebaseMusicDb';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../theme/ThemeContext';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { useAudioStore } from '../store/useAudioStore';
 import {
   fetchTotalListeningSeconds,
@@ -46,11 +47,11 @@ const APPLE_AVATAR_PRESETS: Array<{ emoji: string; colors: readonly [string, str
   { emoji: '🌊', colors: ['#22D3EE', '#2563EB'] },
 ];
 
-const formatMinutesAndSeconds = (totalSeconds: number): string => {
+const formatMinutesAndSeconds = (totalSeconds: number, isAr: boolean): string => {
   const safe = Math.max(0, Math.floor(totalSeconds || 0));
   const mins = Math.floor(safe / 60);
   const secs = safe % 60;
-  return `${mins} د ${secs} ث`;
+  return isAr ? `${mins} د ${secs} ث` : `${mins}m ${secs}s`;
 };
 
 const hashSeed = (seed: string): number => {
@@ -68,6 +69,61 @@ export const ProfileScreen = () => {
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
   const { isDark, toggleTheme } = useTheme();
+  const language = useLanguageStore((s) => s.language);
+  const isAr = language === 'ar';
+  const rowDirection = isAr ? 'row-reverse' : 'row';
+  const textAlign = isAr ? 'right' : 'left';
+  const writingDirection = isAr ? 'rtl' : 'ltr';
+
+  const t = isAr
+    ? {
+        title: 'حسابي',
+        guestProfile: 'حساب ضيف',
+        guestMode: 'وضع الضيف',
+        signIn: 'تسجيل الدخول',
+        signUp: 'إنشاء حساب جديد',
+        editNameBtn: 'تعديل الاسم المعروض',
+        listeningTime: 'وقت الاستماع',
+        likes: 'الإعجابات',
+        songUnit: 'أغنية',
+        accountStatus: 'حالة الحساب',
+        guestStatus: 'حساب ضيف',
+        signedInStatus: 'مسجل',
+        editSheetTitle: 'تعديل الملف الشخصي',
+        fullNameLabel: 'الاسم الكامل',
+        fullNamePlaceholder: 'الاسم المعروض',
+        usernameFixedLabel: 'اسم المستخدم (ثابت)',
+        saveChanges: 'حفظ التغييرات',
+        saving: 'جاري الحفظ...',
+        missingNameTitle: 'تنبيه',
+        missingNameBody: 'يرجى إدخال الاسم الكامل.',
+        saveErrorTitle: 'تعذر الحفظ',
+        saveErrorBody: 'حدث خطأ أثناء تحديث الاسم، يرجى المحاولة مرة أخرى.',
+      }
+    : {
+        title: 'Profile',
+        guestProfile: 'Guest Profile',
+        guestMode: 'Guest Mode',
+        signIn: 'Sign In',
+        signUp: 'Create Account',
+        editNameBtn: 'Edit Display Name',
+        listeningTime: 'Listening Time',
+        likes: 'Likes',
+        songUnit: 'songs',
+        accountStatus: 'Account Status',
+        guestStatus: 'Guest Profile',
+        signedInStatus: 'Signed In',
+        editSheetTitle: 'Edit Profile',
+        fullNameLabel: 'Full Name',
+        fullNamePlaceholder: 'Display Name',
+        usernameFixedLabel: 'Username (Fixed)',
+        saveChanges: 'Save Changes',
+        saving: 'Saving...',
+        missingNameTitle: 'Notice',
+        missingNameBody: 'Please enter your full name.',
+        saveErrorTitle: 'Save Failed',
+        saveErrorBody: 'Could not update your name, please try again.',
+      };
 
   const [profile, setProfile] = useState<any>(null);
   const [firestoreLikesCount, setFirestoreLikesCount] = useState<number>(0);
@@ -85,39 +141,39 @@ export const ProfileScreen = () => {
 
   const palette = isDark
     ? {
-        baseBg: '#070A12',
-        orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
-        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
-        textPrimary: '#FFFFFF',
-        textSecondary: 'rgba(255, 255, 255, 0.62)',
-        textMuted: 'rgba(255, 255, 255, 0.42)',
-        cardBg: 'rgba(18, 22, 30, 0.48)',
-        cardBorder: 'rgba(255, 255, 255, 0.14)',
-        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
-        pillBorder: 'rgba(255, 255, 255, 0.22)',
-        inputBg: 'rgba(255, 255, 255, 0.06)',
-        inputBorder: 'rgba(255, 255, 255, 0.12)',
-        accentBlue: '#38BDF8',
-        accentPink: '#EC4899',
-        accentGreen: '#34C759',
-      }
+      baseBg: '#070A12',
+      orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+      orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
+      textPrimary: '#FFFFFF',
+      textSecondary: 'rgba(255, 255, 255, 0.62)',
+      textMuted: 'rgba(255, 255, 255, 0.42)',
+      cardBg: 'rgba(18, 22, 30, 0.48)',
+      cardBorder: 'rgba(255, 255, 255, 0.14)',
+      cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+      pillBorder: 'rgba(255, 255, 255, 0.22)',
+      inputBg: 'rgba(255, 255, 255, 0.06)',
+      inputBorder: 'rgba(255, 255, 255, 0.12)',
+      accentBlue: '#38BDF8',
+      accentPink: '#EC4899',
+      accentGreen: '#34C759',
+    }
     : {
-        baseBg: '#F2F5FA',
-        orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
-        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
-        textPrimary: '#0F172A',
-        textSecondary: 'rgba(15, 23, 42, 0.65)',
-        textMuted: 'rgba(15, 23, 42, 0.44)',
-        cardBg: 'rgba(255, 255, 255, 0.68)',
-        cardBorder: 'rgba(15, 23, 42, 0.08)',
-        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
-        pillBorder: 'rgba(15, 23, 42, 0.12)',
-        inputBg: 'rgba(15, 23, 42, 0.045)',
-        inputBorder: 'rgba(15, 23, 42, 0.1)',
-        accentBlue: '#007AFF',
-        accentPink: '#DB2777',
-        accentGreen: '#16A34A',
-      };
+      baseBg: '#F2F5FA',
+      orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
+      orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
+      textPrimary: '#0F172A',
+      textSecondary: 'rgba(15, 23, 42, 0.65)',
+      textMuted: 'rgba(15, 23, 42, 0.44)',
+      cardBg: 'rgba(255, 255, 255, 0.68)',
+      cardBorder: 'rgba(15, 23, 42, 0.08)',
+      cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+      pillBorder: 'rgba(15, 23, 42, 0.12)',
+      inputBg: 'rgba(15, 23, 42, 0.045)',
+      inputBorder: 'rgba(15, 23, 42, 0.1)',
+      accentBlue: '#007AFF',
+      accentPink: '#DB2777',
+      accentGreen: '#16A34A',
+    };
 
   const fetchProfileData = useCallback(async () => {
     if (!user?.id) {
@@ -181,7 +237,7 @@ export const ProfileScreen = () => {
   const handleSaveProfile = async () => {
     const cleanName = editFullName.trim();
     if (!user?.id || !cleanName) {
-      Alert.alert('تنبيه', 'يرجى إدخال الاسم الكامل.');
+      Alert.alert(t.missingNameTitle, t.missingNameBody);
       return;
     }
     setSaving(true);
@@ -196,7 +252,7 @@ export const ProfileScreen = () => {
       setShowEdit(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert('تعذر الحفظ', 'حدث خطأ أثناء تحديث الاسم، يرجى المحاولة مرة أخرى.');
+      Alert.alert(t.saveErrorTitle, t.saveErrorBody);
     } finally {
       setSaving(false);
     }
@@ -244,7 +300,7 @@ export const ProfileScreen = () => {
           </LiquidGlassSurface>
         </TouchableOpacity>
 
-        <Text style={[styles.topBarTitle, { color: palette.textPrimary }]}>حسابي</Text>
+        <Text style={[styles.topBarTitle, { color: palette.textPrimary, writingDirection }]}>{t.title}</Text>
 
         <TouchableOpacity
           activeOpacity={0.75}
@@ -299,7 +355,7 @@ export const ProfileScreen = () => {
               },
             ]}
           >
-            <View style={styles.guestHeaderRow}>
+            <View style={[styles.guestHeaderRow, { flexDirection: rowDirection }]}>
               <LinearGradient
                 colors={avatarPreset.colors}
                 start={{ x: 0, y: 0 }}
@@ -309,18 +365,20 @@ export const ProfileScreen = () => {
                 <Text style={styles.appleAvatarEmoji}>{avatarPreset.emoji}</Text>
               </LinearGradient>
 
-              <View style={styles.identityDetails}>
-                <Text style={[styles.profileName, { color: palette.textPrimary }]}>حساب ضيف</Text>
-                <View style={styles.guestBadgePill}>
+              <View style={[styles.identityDetails, { alignItems: isAr ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.profileName, { color: palette.textPrimary, textAlign, writingDirection }]}>
+                  {t.guestProfile}
+                </Text>
+                <View style={[styles.guestBadgePill, { flexDirection: rowDirection }]}>
                   <View style={styles.guestBadgeDot} />
-                  <Text style={[styles.guestBadgeTxt, { color: palette.accentBlue }]}>
-                    وضع الضيف
+                  <Text style={[styles.guestBadgeTxt, { color: palette.accentBlue, writingDirection }]}>
+                    {t.guestMode}
                   </Text>
                 </View>
               </View>
             </View>
 
-            <View style={styles.guestActionsRow}>
+            <View style={[styles.guestActionsRow, { flexDirection: rowDirection }]}>
               <TouchableOpacity
                 style={styles.actionHalf}
                 onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
@@ -342,10 +400,10 @@ export const ProfileScreen = () => {
                     ]}
                     start={{ x: 0.1, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
-                    style={styles.pillGradient}
+                    style={[styles.pillGradient, { flexDirection: rowDirection }]}
                   >
                     <Ionicons name="log-in-outline" size={17} color="#FFFFFF" />
-                    <Text style={styles.primaryPillTxt}>تسجيل الدخول</Text>
+                    <Text style={[styles.primaryPillTxt, { writingDirection }]}>{t.signIn}</Text>
                   </LinearGradient>
                 </LiquidGlassSurface>
               </TouchableOpacity>
@@ -365,12 +423,13 @@ export const ProfileScreen = () => {
                     {
                       backgroundColor: palette.inputBg,
                       borderColor: palette.pillBorder,
+                      flexDirection: rowDirection,
                     },
                   ]}
                 >
                   <Ionicons name="person-add-outline" size={16} color={palette.textPrimary} />
-                  <Text style={[styles.secondaryPillTxt, { color: palette.textPrimary }]}>
-                    إنشاء حساب جديد
+                  <Text style={[styles.secondaryPillTxt, { color: palette.textPrimary, writingDirection }]}>
+                    {t.signUp}
                   </Text>
                 </LiquidGlassSurface>
               </TouchableOpacity>
@@ -391,7 +450,7 @@ export const ProfileScreen = () => {
               },
             ]}
           >
-            <View style={styles.identityRow}>
+            <View style={[styles.identityRow, { flexDirection: rowDirection }]}>
               <TouchableOpacity activeOpacity={0.8} onPress={handleRandomizeAvatar}>
                 {displayUser?.avatar_url ? (
                   <Image
@@ -415,9 +474,9 @@ export const ProfileScreen = () => {
                 </View>
               </TouchableOpacity>
 
-              <View style={styles.identityDetails}>
-                <Text style={[styles.profileName, { color: palette.textPrimary }]} numberOfLines={1}>
-                  {displayUser?.full_name || 'مستخدم A7 Music'}
+              <View style={[styles.identityDetails, { alignItems: isAr ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.profileName, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                  {displayUser?.full_name || 'A7 Music'}
                 </Text>
                 <Text style={[styles.profileHandle, { color: palette.textSecondary }]} numberOfLines={1}>
                   @{displayUser?.username || 'user'}
@@ -443,12 +502,13 @@ export const ProfileScreen = () => {
                   {
                     backgroundColor: palette.inputBg,
                     borderColor: palette.pillBorder,
+                    flexDirection: rowDirection,
                   },
                 ]}
               >
                 <Ionicons name="create-outline" size={16} color={palette.textPrimary} />
-                <Text style={[styles.editProfileTxt, { color: palette.textPrimary }]}>
-                  تعديل الاسم المعروض
+                <Text style={[styles.editProfileTxt, { color: palette.textPrimary, writingDirection }]}>
+                  {t.editNameBtn}
                 </Text>
               </LiquidGlassSurface>
             </TouchableOpacity>
@@ -456,7 +516,7 @@ export const ProfileScreen = () => {
         )}
 
         {/* ── 2. Three Clean Liquid Glass Info Cards ── */}
-        <View style={styles.infoCardsGrid}>
+        <View style={[styles.infoCardsGrid, { flexDirection: rowDirection }]}>
           {/* Card 1: Listening Time */}
           <LiquidGlassSurface
             glassStyle="regular"
@@ -469,15 +529,16 @@ export const ProfileScreen = () => {
                 backgroundColor: palette.cardBg,
                 borderColor: palette.cardBorder,
                 borderTopColor: palette.cardTopBorder,
+                alignItems: isAr ? 'flex-end' : 'flex-start',
               },
             ]}
           >
             <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(0, 122, 255, 0.14)' }]}>
               <Ionicons name="time-outline" size={20} color={palette.accentBlue} />
             </View>
-            <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>وقت الاستماع</Text>
-            <Text style={[styles.infoValue, { color: palette.accentBlue }]} numberOfLines={1}>
-              {formatMinutesAndSeconds(listeningSeconds)}
+            <Text style={[styles.infoLabel, { color: palette.textSecondary, writingDirection }]}>{t.listeningTime}</Text>
+            <Text style={[styles.infoValue, { color: palette.accentBlue, writingDirection }]} numberOfLines={1}>
+              {formatMinutesAndSeconds(listeningSeconds, isAr)}
             </Text>
           </LiquidGlassSurface>
 
@@ -493,15 +554,16 @@ export const ProfileScreen = () => {
                 backgroundColor: palette.cardBg,
                 borderColor: palette.cardBorder,
                 borderTopColor: palette.cardTopBorder,
+                alignItems: isAr ? 'flex-end' : 'flex-start',
               },
             ]}
           >
             <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(236, 72, 153, 0.14)' }]}>
               <Ionicons name="heart" size={20} color={palette.accentPink} />
             </View>
-            <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>الإعجابات</Text>
-            <Text style={[styles.infoValue, { color: palette.accentPink }]} numberOfLines={1}>
-              {totalLikesCount} أغنية
+            <Text style={[styles.infoLabel, { color: palette.textSecondary, writingDirection }]}>{t.likes}</Text>
+            <Text style={[styles.infoValue, { color: palette.accentPink, writingDirection }]} numberOfLines={1}>
+              {totalLikesCount} {t.songUnit}
             </Text>
           </LiquidGlassSurface>
         </View>
@@ -518,10 +580,11 @@ export const ProfileScreen = () => {
               backgroundColor: palette.cardBg,
               borderColor: palette.cardBorder,
               borderTopColor: palette.cardTopBorder,
+              flexDirection: rowDirection,
             },
           ]}
         >
-          <View style={styles.wideCardRight}>
+          <View style={[styles.wideCardRight, { flexDirection: rowDirection }]}>
             <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(52, 199, 89, 0.14)' }]}>
               <Ionicons
                 name={user ? 'shield-checkmark-outline' : 'person-outline'}
@@ -529,15 +592,15 @@ export const ProfileScreen = () => {
                 color={palette.accentGreen}
               />
             </View>
-            <View>
-              <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>حالة الحساب</Text>
-              <Text style={[styles.wideInfoValue, { color: palette.textPrimary }]}>
-                {user ? `مسجل (@${displayUser?.username || 'user'})` : 'حساب ضيف'}
+            <View style={{ alignItems: isAr ? 'flex-end' : 'flex-start' }}>
+              <Text style={[styles.infoLabel, { color: palette.textSecondary, writingDirection }]}>{t.accountStatus}</Text>
+              <Text style={[styles.wideInfoValue, { color: palette.textPrimary, textAlign, writingDirection }]}>
+                {user ? `${t.signedInStatus} (@${displayUser?.username || 'user'})` : t.guestStatus}
               </Text>
             </View>
           </View>
           <Ionicons
-            name={user ? 'checkmark-circle' : 'chevron-back'}
+            name={user ? 'checkmark-circle' : isAr ? 'chevron-back' : 'chevron-forward'}
             size={20}
             color={user ? palette.accentGreen : palette.textMuted}
           />
@@ -549,12 +612,14 @@ export const ProfileScreen = () => {
         ref={editSheetRef}
         isVisible={showEdit}
         onClose={() => setShowEdit(false)}
-        title="تعديل الملف الشخصي"
+        title={t.editSheetTitle}
         initialSnap={0.5}
       >
         <View style={[styles.editSheetContent, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: palette.textSecondary }]}>الاسم الكامل</Text>
+            <Text style={[styles.inputLabel, { color: palette.textSecondary, textAlign, writingDirection }]}>
+              {t.fullNameLabel}
+            </Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -562,19 +627,20 @@ export const ProfileScreen = () => {
                   color: palette.textPrimary,
                   backgroundColor: palette.inputBg,
                   borderColor: palette.inputBorder,
+                  textAlign,
+                  writingDirection,
                 },
               ]}
               value={editFullName}
               onChangeText={setEditFullName}
-              placeholder="الاسم المعروض"
+              placeholder={t.fullNamePlaceholder}
               placeholderTextColor={palette.textMuted}
-              textAlign="right"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: palette.textSecondary }]}>
-              اسم المستخدم (ثابت)
+            <Text style={[styles.inputLabel, { color: palette.textSecondary, textAlign, writingDirection }]}>
+              {t.usernameFixedLabel}
             </Text>
             <View
               style={[
@@ -582,6 +648,7 @@ export const ProfileScreen = () => {
                 {
                   backgroundColor: palette.inputBg,
                   borderColor: palette.inputBorder,
+                  flexDirection: rowDirection,
                 },
               ]}
             >
@@ -616,8 +683,8 @@ export const ProfileScreen = () => {
                 end={{ x: 0.9, y: 1 }}
                 style={styles.saveBtnGradient}
               >
-                <Text style={styles.saveBtnTxt}>
-                  {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                <Text style={[styles.saveBtnTxt, { writingDirection }]}>
+                  {saving ? t.saving : t.saveChanges}
                 </Text>
               </LinearGradient>
             </LiquidGlassSurface>

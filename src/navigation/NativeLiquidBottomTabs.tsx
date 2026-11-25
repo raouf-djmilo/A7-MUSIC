@@ -8,6 +8,7 @@ import { MusicLibrary } from '../screens/MusicLibrary';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { useAudioStore } from '../store/useAudioStore';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { useSyncNativeAppearance } from '../hooks/useSyncNativeAppearance';
 
 export interface NativeLiquidBottomTabsProps {
@@ -30,6 +31,8 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
   onTabChange,
 }) => {
   const { theme, isDark } = useTheme();
+  const language = useLanguageStore((s) => s.language);
+  const isEn = language === 'en';
 
   // 🌓 Guarantee native UIWindow and UITabBar sync with internal theme
   useSyncNativeAppearance(isDark);
@@ -103,7 +106,7 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
     >
       <Tabs.Screen
         screenKey="DashboardTab"
-        title="الرئيسية"
+        title={isEn ? 'Home' : 'الرئيسية'}
         ios={{
           icon: {
             type: 'sfSymbol',
@@ -118,7 +121,7 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
 
       <Tabs.Screen
         screenKey="MusicTab"
-        title="الموسيقى"
+        title={isEn ? 'Music' : 'الموسيقى'}
         ios={{
           icon: {
             type: 'sfSymbol',
@@ -133,7 +136,7 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
 
       <Tabs.Screen
         screenKey="SearchTab"
-        title="بحث"
+        title={isEn ? 'Search' : 'بحث'}
         ios={{
           icon: {
             type: 'sfSymbol',
@@ -148,7 +151,7 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
 
       <Tabs.Screen
         screenKey="LibraryTab"
-        title="المكتبة"
+        title={isEn ? 'Library' : 'المكتبة'}
         ios={{
           icon: {
             type: 'sfSymbol',
@@ -163,7 +166,7 @@ export const NativeLiquidBottomTabs: React.FC<NativeLiquidBottomTabsProps> = ({
 
       <Tabs.Screen
         screenKey="ProfileTab"
-        title="حسابي"
+        title={isEn ? 'Profile' : 'حسابي'}
         ios={{
           icon: {
             type: 'sfSymbol',

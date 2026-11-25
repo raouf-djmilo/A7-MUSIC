@@ -20,6 +20,7 @@ import Animated, {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeContext';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { LiquidGlassBubble } from './liquidGlass/LiquidGlassBubble';
 import {
   APPLE_BAR_METRICS,
@@ -41,29 +42,36 @@ const IOS_CRISP_SPRING = {
   overshootClamping: false,
 };
 
-const TAB_METAS: { [key: string]: { label: string; outlineIcon: string; filledIcon: string } } = {
+const TAB_METAS: {
+  [key: string]: { ar: string; en: string; outlineIcon: string; filledIcon: string };
+} = {
   DashboardTab: {
-    label: 'الرئيسية',
+    ar: 'الرئيسية',
+    en: 'Home',
     outlineIcon: 'home-outline',
     filledIcon: 'home',
   },
   MusicTab: {
-    label: 'الموسيقى',
+    ar: 'الموسيقى',
+    en: 'Music',
     outlineIcon: 'musical-notes-outline',
     filledIcon: 'musical-notes',
   },
   SearchTab: {
-    label: 'بحث',
+    ar: 'بحث',
+    en: 'Search',
     outlineIcon: 'search-outline',
     filledIcon: 'search',
   },
   LibraryTab: {
-    label: 'المكتبة',
+    ar: 'المكتبة',
+    en: 'Library',
     outlineIcon: 'library-outline',
     filledIcon: 'library',
   },
   ProfileTab: {
-    label: 'حسابي',
+    ar: 'حسابي',
+    en: 'Profile',
     outlineIcon: 'person-outline',
     filledIcon: 'person',
   },
@@ -168,6 +176,7 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
   navigation,
 }) => {
   const { isDark } = useTheme();
+  const language = useLanguageStore((s) => s.language);
   const insets = useSafeAreaInsets();
   const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
 
@@ -361,7 +370,8 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
           <View style={[styles.tabsRow, { paddingHorizontal: APPLE_BAR_METRICS.innerInset }]}>
             {routes.map((route: any, index: number) => {
               const meta = TAB_METAS[route.name] || {
-                label: route.name,
+                ar: route.name,
+                en: route.name,
                 outlineIcon: 'ellipse-outline',
                 filledIcon: 'ellipse',
               };
@@ -372,7 +382,7 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
                   route={route}
                   index={index}
                   isActive={currentIndex === index}
-                  label={meta.label}
+                  label={language === 'en' ? meta.en : meta.ar}
                   outlineIcon={meta.outlineIcon}
                   filledIcon={meta.filledIcon}
                   indicatorX={indicatorX}

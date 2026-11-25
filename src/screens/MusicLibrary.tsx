@@ -6,25 +6,27 @@ import {
   FlatList,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   RefreshControl,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../providers/AuthProvider';
 import { useAudioStore, Track } from '../store/useAudioStore';
+import { useLanguageStore } from '../store/useLanguageStore';
 import {
   getFirebaseLikedSongs,
   getFirebasePlaylists,
   createFirebasePlaylist,
+  addTrackToFirebasePlaylist,
   UserPlaylist,
 } from '../services/firebaseMusicDb';
 import { useTheme } from '../theme/ThemeContext';
-import { ThemeTokens } from '../theme/types';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -32,16 +34,18 @@ import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 import { useDownloadStore, downloadService, DownloadedTrack } from '../services/downloadService';
 import { useNetworkStore } from '../services/networkService';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
+import { DynamicBottomSheet } from '../components/DynamicBottomSheet';
+import { ToastManager } from '../components/InAppToast';
 
-const { width } = Dimensions.get('window');
-
-// Curated Workout & Running Playlists
-const WORKOUT_PLAYLISTS = [
+const CURATED_MIX_PRESETS = [
   {
-    id: 'pl-run-160',
-    title: '🏃 160 BPM Cadence Run',
-    subtitle: 'إيقاع مثالي لركض مسافات طويلة',
-    color: ['#FF416C', '#FF4B2B'],
+    id: 'mix-run-160',
+    titleAr: 'ميكس الجري السريع',
+    titleEn: '160 BPM Run Mix',
+    subtitleAr: 'إيقاع نشيط ومتواصل',
+    subtitleEn: 'High cadence energy',
+    colors: ['#FF416C', '#FF4B2B'] as const,
     tracks: [
       {
         videoId: '7nosk_eK6rE',
@@ -60,10 +64,12 @@ const WORKOUT_PLAYLISTS = [
     ],
   },
   {
-    id: 'pl-cardio-hiit',
-    title: '⚡ Cardio & HIIT Energy',
-    subtitle: 'حماس ونبض عالي لتمارين الكارديو',
-    color: ['#8A2387', '#E94057'],
+    id: 'mix-hiit',
+    titleAr: 'ميكس الطاقة والكارديو',
+    titleEn: 'Cardio & HIIT Mix',
+    subtitleAr: 'موسيقى حماسية متنوعة',
+    subtitleEn: 'Upbeat workout rhythm',
+    colors: ['#8A2387', '#E94057'] as const,
     tracks: [
       {
         videoId: 'kJQP7kiw5Fk',
@@ -75,10 +81,12 @@ const WORKOUT_PLAYLISTS = [
     ],
   },
   {
-    id: 'pl-walk-chill',
-    title: '🚶 Morning Walk & Chill',
-    subtitle: 'موسيقى هادئة ومنعشة للمشي الصباحي',
-    color: ['#11998e', '#38ef7d'],
+    id: 'mix-chill',
+    titleAr: 'ميكس هادئ ومريح',
+    titleEn: 'Chill & Focus Mix',
+    subtitleAr: 'أجواء هادئة ومريحة',
+    subtitleEn: 'Relaxed everyday mix',
+    colors: ['#11998e', '#38ef7d'] as const,
     tracks: [
       {
         videoId: 'jfKfPfyJRdk',
@@ -91,12 +99,25 @@ const WORKOUT_PLAYLISTS = [
   },
 ];
 
+type ViewAllType =
+  | null
+  | 'songs'
+  | 'artists'
+  | 'albums'
+  | 'mixes'
+  | 'radios'
+  | 'playlists';
+
 export const MusicLibrary = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createThemedStyles(theme, isDark), [theme, isDark]);
+  const { isDark } = useTheme();
+  const language = useLanguageStore((s) => s.language);
+  const isAr = language === 'ar';
+  const rowDirection = isAr ? 'row-reverse' : 'row';
+  const textAlign = isAr ? 'right' : 'left';
+  const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   const currentTrack = useAudioStore((s) => s.currentTrack);
@@ -107,9 +128,7 @@ export const MusicLibrary = () => {
   const toggleLike = useAudioStore((s) => s.toggleLike);
   const followedArtists = useAudioStore((s) => s.followedArtists);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
-  const playDownloadedQueue = useAudioStore((s) => s.playDownloadedQueue);
 
-  // ── Offline & Downloaded Storage Hooks ──
   const isOnline = useNetworkStore((s) => s.isOnline);
   const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
   const totalStorageMB = useDownloadStore((s) => s.totalStorageMB);
@@ -118,40 +137,128 @@ export const MusicLibrary = () => {
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
   const [savedTracks, setSavedTracks] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
+  const [cachedDnaMixes, setCachedDnaMixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleCreatePlaylist = useCallback(() => {
-    if (!user?.id) {
-      Alert.alert('تسجيل الدخول مطلوب', 'يرجى تسجيل الدخول لإنشاء قوائم تشغيل وحفظها في حسابك.');
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (Alert.prompt) {
-      Alert.prompt(
-        'إنشاء قائمة تشغيل جديدة',
-        'أدخل اسم قائمة التشغيل:',
-        [
-          { text: 'إلغاء', style: 'cancel' },
-          {
-            text: 'إنشاء',
-            onPress: async (name?: string) => {
-              if (!name?.trim()) return;
-              const created = await createFirebasePlaylist(user.id, name.trim());
-              if (created) {
-                setPlaylists((prev) => [created, ...prev]);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            },
-          },
-        ],
-        'plain-text'
-      );
-    }
-  }, [user?.id]);
+  // View All Modal Sheet State
+  const [viewAllType, setViewAllType] = useState<ViewAllType>(null);
 
-  // Auto-switch to Downloads tab when device is offline
+  // Create Playlist Modal Sheet State
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
+  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+
+  const palette = isDark
+    ? {
+        baseBg: '#070A12',
+        orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
+        textPrimary: '#FFFFFF',
+        textSecondary: 'rgba(255, 255, 255, 0.62)',
+        textMuted: 'rgba(255, 255, 255, 0.42)',
+        cardBg: 'rgba(18, 22, 30, 0.48)',
+        cardBorder: 'rgba(255, 255, 255, 0.14)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+        pillBorder: 'rgba(255, 255, 255, 0.22)',
+        inputBg: 'rgba(255, 255, 255, 0.06)',
+        inputBorder: 'rgba(255, 255, 255, 0.12)',
+        accentBlue: '#38BDF8',
+      }
+    : {
+        baseBg: '#F2F5FA',
+        orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
+        textPrimary: '#0F172A',
+        textSecondary: 'rgba(15, 23, 42, 0.65)',
+        textMuted: 'rgba(15, 23, 42, 0.44)',
+        cardBg: 'rgba(255, 255, 255, 0.68)',
+        cardBorder: 'rgba(15, 23, 42, 0.08)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+        pillBorder: 'rgba(15, 23, 42, 0.12)',
+        inputBg: 'rgba(15, 23, 42, 0.045)',
+        inputBorder: 'rgba(15, 23, 42, 0.1)',
+        accentBlue: '#007AFF',
+      };
+
+  const t = isAr
+    ? {
+        title: 'المكتبة',
+        favoritesTab: 'المفضلة',
+        downloadsTab: 'المحمّلة',
+        playlistsTitle: 'قوائم التشغيل',
+        newPlaylist: 'قائمة جديدة',
+        viewAll: 'عرض الكل',
+        favoriteSongsTitle: 'الأغاني المفضلة',
+        followedArtistsTitle: 'الفنانون المتابعون',
+        favoriteAlbumsTitle: 'الألبومات المفضلة',
+        mixedMusicTitle: 'موسيقى متنوعة',
+        artistRadioTitle: 'راديو الفنانين',
+        downloadsHeroTitle: 'الموسيقى المحمّلة',
+        downloadsEmptyTitle: 'لا توجد مقاطع محمّلة',
+        downloadsEmptySub: 'قم بتنزيل أغانيك المفضلة للاستماع بدون إنترنت.',
+        favoritesEmptyTitle: 'لا توجد أغانٍ مفضلة بعد',
+        favoritesEmptySub: 'أضف الأغاني التي تعجبك لتظهر هنا في مكتبتك.',
+        searchDownloadsPlaceholder: 'ابحث في المقاطع المحمّلة...',
+        searchFavoritesPlaceholder: 'ابحث في المفضلة...',
+        trackUnit: 'أغنية',
+        artistTag: 'فنان',
+        albumTag: 'ألبوم',
+        radioTag: 'راديو',
+        playAll: 'تشغيل الكل',
+        createPlaylistTitle: 'إنشاء قائمة تشغيل',
+        playlistNameLabel: 'اسم القائمة',
+        playlistNamePlaceholder: 'مثال: أغاني المساء',
+        pickFavLabel: 'أضف من أغانيك المفضلة (اختياري)',
+        createBtn: 'إنشاء القائمة',
+        creating: 'جاري الإنشاء...',
+        loginNeededTitle: 'تسجيل الدخول مطلوب',
+        loginNeededBody: 'سجّل الدخول لإنشاء قوائم تشغيل وحفظها في حسابك.',
+        playlistCreated: 'تم إنشاء القائمة بنجاح ✨',
+        deleteFromPhoneTitle: 'حذف من الهاتف',
+        deleteBtn: 'حذف',
+        cancelBtn: 'إلغاء',
+      }
+    : {
+        title: 'Library',
+        favoritesTab: 'Favorites',
+        downloadsTab: 'Downloaded',
+        playlistsTitle: 'Your Playlists',
+        newPlaylist: 'New Playlist',
+        viewAll: 'View All',
+        favoriteSongsTitle: 'Favorite Songs',
+        followedArtistsTitle: 'Followed Artists',
+        favoriteAlbumsTitle: 'Favorite Albums',
+        mixedMusicTitle: 'Mixed Music',
+        artistRadioTitle: 'Artist Radio',
+        downloadsHeroTitle: 'Downloaded Music',
+        downloadsEmptyTitle: 'No Downloaded Tracks',
+        downloadsEmptySub: 'Download your favorite tracks to listen offline.',
+        favoritesEmptyTitle: 'No Favorite Songs Yet',
+        favoritesEmptySub: 'Like tracks while listening to build your library.',
+        searchDownloadsPlaceholder: 'Search downloaded tracks...',
+        searchFavoritesPlaceholder: 'Search favorites...',
+        trackUnit: 'tracks',
+        artistTag: 'Artist',
+        albumTag: 'Album',
+        radioTag: 'Radio',
+        playAll: 'Play All',
+        createPlaylistTitle: 'Create Playlist',
+        playlistNameLabel: 'Playlist Name',
+        playlistNamePlaceholder: 'e.g. Evening Vibes',
+        pickFavLabel: 'Add from Favorite Songs (optional)',
+        createBtn: 'Create Playlist',
+        creating: 'Creating...',
+        loginNeededTitle: 'Sign In Required',
+        loginNeededBody: 'Sign in to create and save custom playlists.',
+        playlistCreated: 'Playlist created ✨',
+        deleteFromPhoneTitle: 'Remove Download',
+        deleteBtn: 'Remove',
+        cancelBtn: 'Cancel',
+      };
+
   useEffect(() => {
     if (!isOnline) {
       setActiveTab('downloads');
@@ -163,29 +270,43 @@ export const MusicLibrary = () => {
   }, [loadManifest]);
 
   const fetchLibrary = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
     try {
+      const uid = user?.id || 'guest';
+      const cachedFeedRaw = await AsyncStorage.getItem(`@nouble_dna_feed_v5_${uid}`).catch(() => null);
+      if (cachedFeedRaw) {
+        try {
+          const parsed = JSON.parse(cachedFeedRaw);
+          if (Array.isArray(parsed?.sections?.topMixes)) {
+            setCachedDnaMixes(parsed.sections.topMixes);
+          }
+        } catch {
+          // Ignore malformed cache
+        }
+      }
+
+      if (!user?.id) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       const [likes, userPlaylists] = await Promise.all([
         getFirebaseLikedSongs(user.id),
         getFirebasePlaylists(user.id),
       ]);
       setSavedTracks(
-        likes.map((t) => ({
-          id: t.videoId,
-          video_id: t.videoId,
-          title: t.title,
-          artist: t.artist,
-          thumbnail: t.thumbnail,
-          duration: Math.floor((t.duration || 0) / 1000),
+        likes.map((item) => ({
+          id: item.videoId,
+          video_id: item.videoId,
+          title: item.title,
+          artist: item.artist,
+          thumbnail: item.thumbnail,
+          duration: Math.floor((item.duration || 0) / 1000),
         }))
       );
       setPlaylists(userPlaylists);
-    } catch (e) {
-      console.warn('Error fetching music library:', e);
+    } catch {
+      // Preserve state
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -202,34 +323,185 @@ export const MusicLibrary = () => {
     loadManifest();
   };
 
-  const filteredTracks = savedTracks.filter((t) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (t.title && t.title.toLowerCase().includes(q)) ||
-      (t.artist && t.artist.toLowerCase().includes(q))
-    );
-  });
+  // Derived Favorite Albums (grouped by artist from liked tracks)
+  const favoriteAlbums = useMemo(() => {
+    const map = new Map<string, { id: string; title: string; artist: string; cover: string; tracks: Track[] }>();
+    for (const item of savedTracks) {
+      const artistName = (item.artist || 'A7 Music').trim();
+      const key = artistName.toLowerCase();
+      const trackObj: Track = {
+        videoId: item.video_id,
+        title: item.title,
+        artist: artistName,
+        thumbnail: item.thumbnail,
+        duration: (item.duration || 0) * 1000,
+      };
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `alb-${key}`,
+          title: isAr ? `ألبوم ${artistName}` : `${artistName} Essentials`,
+          artist: artistName,
+          cover: item.thumbnail || '',
+          tracks: [trackObj],
+        });
+      } else {
+        map.get(key)!.tracks.push(trackObj);
+      }
+    }
+    return Array.from(map.values());
+  }, [savedTracks, isAr]);
 
-  const filteredDownloads = downloadedTracks.filter((t) => {
-    if (!searchQuery.trim()) return true;
+  // Derived Mixed Music (from user's Music DNA mixes + curated presets)
+  const mixedMusicList = useMemo(() => {
+    const dnaItems = (cachedDnaMixes || []).map((m: any, idx: number) => ({
+      id: m.id || `dna-mix-${idx}`,
+      title: m.title || (isAr ? 'ميكس مخصص' : 'Custom Mix'),
+      subtitle: m.subtitle || (isAr ? 'مختاراتك المتنوعة' : 'Mixed for you'),
+      cover: m.cover || m.tracks?.[0]?.thumbnail || '',
+      colors: ['#007AFF', '#6366F1'] as const,
+      tracks: Array.isArray(m.tracks) ? m.tracks : [],
+    }));
+    const presetItems = CURATED_MIX_PRESETS.map((p) => ({
+      id: p.id,
+      title: isAr ? p.titleAr : p.titleEn,
+      subtitle: isAr ? p.subtitleAr : p.subtitleEn,
+      cover: p.tracks[0]?.thumbnail || '',
+      colors: p.colors,
+      tracks: p.tracks,
+    }));
+    return [...dnaItems, ...presetItems];
+  }, [cachedDnaMixes, isAr]);
+
+  // Derived Artist Radio Stations (from followedArtists + savedTracks artists)
+  const artistRadios = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Array<{ id: string; name: string; avatar: string; tracks: Track[] }> = [];
+
+    for (const art of followedArtists || []) {
+      const key = (art.name || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const matching = savedTracks
+        .filter((s) => (s.artist || '').toLowerCase().includes(key))
+        .map((s) => ({
+          videoId: s.video_id,
+          title: s.title,
+          artist: s.artist || art.name,
+          thumbnail: s.thumbnail,
+          duration: (s.duration || 0) * 1000,
+        }));
+      list.push({
+        id: `radio-${art.id}`,
+        name: art.name,
+        avatar: getUniversalArtistAvatar(art.avatar, art.name) || art.avatar || '',
+        tracks: matching,
+      });
+    }
+
+    for (const alb of favoriteAlbums) {
+      const key = alb.artist.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      list.push({
+        id: `radio-${key}`,
+        name: alb.artist,
+        avatar: alb.cover,
+        tracks: alb.tracks,
+      });
+    }
+    return list;
+  }, [followedArtists, savedTracks, favoriteAlbums]);
+
+  const filteredDownloads = useMemo(() => {
+    if (!searchQuery.trim()) return downloadedTracks;
     const q = searchQuery.toLowerCase();
-    return (
-      (t.title && t.title.toLowerCase().includes(q)) ||
-      (t.artist && t.artist.toLowerCase().includes(q))
+    return downloadedTracks.filter(
+      (item) =>
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.artist && item.artist.toLowerCase().includes(q))
     );
-  });
+  }, [downloadedTracks, searchQuery]);
+
+  const filteredLikedTracks = useMemo(() => {
+    if (!searchQuery.trim()) return savedTracks;
+    const q = searchQuery.toLowerCase();
+    return savedTracks.filter(
+      (item) =>
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.artist && item.artist.toLowerCase().includes(q))
+    );
+  }, [savedTracks, searchQuery]);
+
+  const handleOpenCreatePlaylist = () => {
+    if (!user?.id) {
+      Alert.alert(t.loginNeededTitle, t.loginNeededBody);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setNewPlaylistName('');
+    setSelectedTrackIds([]);
+    setShowCreatePlaylist(true);
+  };
+
+  const toggleSelectTrackForPlaylist = (videoId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedTrackIds((prev) =>
+      prev.includes(videoId) ? prev.filter((id) => id !== videoId) : [...prev, videoId]
+    );
+  };
+
+  const handleConfirmCreatePlaylist = async () => {
+    const cleanName = newPlaylistName.trim();
+    if (!user?.id || !cleanName) return;
+    setCreatingPlaylist(true);
+    try {
+      const created = await createFirebasePlaylist(user.id, cleanName);
+      if (created) {
+        const pickedTracks: Track[] = savedTracks
+          .filter((s) => selectedTrackIds.includes(s.video_id))
+          .map((s) => ({
+            videoId: s.video_id,
+            title: s.title,
+            artist: s.artist || 'Artist',
+            thumbnail: s.thumbnail,
+            duration: (s.duration || 0) * 1000,
+          }));
+
+        for (const trk of pickedTracks) {
+          await addTrackToFirebasePlaylist(user.id, created.id, trk);
+        }
+
+        const finalPlaylist: UserPlaylist = {
+          ...created,
+          tracks: pickedTracks,
+          cover: pickedTracks[0]?.thumbnail || created.cover,
+        };
+        setPlaylists((prev) => [finalPlaylist, ...prev]);
+        setShowCreatePlaylist(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        ToastManager.show({
+          title: t.playlistCreated,
+          subtitle: `${cleanName} (${pickedTracks.length} ${t.trackUnit})`,
+          icon: 'checkmark-circle',
+        });
+      }
+    } catch {
+      Alert.alert(isAr ? 'تنبيه' : 'Notice', isAr ? 'تعذر إنشاء القائمة.' : 'Could not create playlist.');
+    } finally {
+      setCreatingPlaylist(false);
+    }
+  };
 
   const handlePlayAllLiked = () => {
     if (savedTracks.length === 0) return;
-    const trackQueue: Track[] = savedTracks.map((t) => ({
-      videoId: t.video_id,
-      title: t.title,
-      artist: t.artist || 'فنان',
-      thumbnail: t.thumbnail,
-      duration: (t.duration || 0) * 1000,
+    const trackQueue: Track[] = savedTracks.map((item) => ({
+      videoId: item.video_id,
+      title: item.title,
+      artist: item.artist || 'Artist',
+      thumbnail: item.thumbnail,
+      duration: (item.duration || 0) * 1000,
     }));
-    playAlbumContext(trackQueue, 0, 'Liked Songs');
+    playAlbumContext(trackQueue, 0, t.favoriteSongsTitle);
   };
 
   const handlePlayAllDownloads = () => {
@@ -244,19 +516,19 @@ export const MusicLibrary = () => {
       duration: d.duration,
     }));
     useAudioStore.setState({ isOfflinePlayback: true });
-    playAlbumContext(trackQueue, 0, 'Downloads');
+    playAlbumContext(trackQueue, 0, t.downloadsHeroTitle);
     setPlayerModalVisible(true);
   };
 
   const handleDeleteDownload = (item: DownloadedTrack) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      'حذف من الهاتف',
-      `هل تريد حذف "${item.title}" من ذاكرة الهاتف لتفريغ المساحة؟`,
+      t.deleteFromPhoneTitle,
+      isAr ? `حذف "${item.title}" من الجهاز؟` : `Remove "${item.title}" from device?`,
       [
-        { text: 'إلغاء', style: 'cancel' },
+        { text: t.cancelBtn, style: 'cancel' },
         {
-          text: 'حذف',
+          text: t.deleteBtn,
           style: 'destructive',
           onPress: async () => {
             await downloadService.deleteDownloadedTrack(item.videoId);
@@ -267,974 +539,1461 @@ export const MusicLibrary = () => {
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      {/* ── Segmented Tab Switch (Liked vs Downloads) ── */}
-      <View style={styles.segmentContainer}>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'liked' && styles.segmentBtnActiveLiked]}
-          activeOpacity={0.8}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab('liked');
-          }}
-        >
-          <Ionicons
-            name={activeTab === 'liked' ? 'heart' : 'heart-outline'}
-            size={16}
-            color={activeTab === 'liked' ? '#FFFFFF' : theme.textMuted}
-          />
-          <Text style={[styles.segmentText, activeTab === 'liked' && styles.segmentTextActive]}>
-            المفضلة ({savedTracks.length})
-          </Text>
+  const renderSectionHeader = (
+    title: string,
+    onViewAll?: () => void,
+    rightAction?: React.ReactNode
+  ) => (
+    <View style={[styles.sectionHeaderRow, { flexDirection: rowDirection }]}>
+      <Text style={[styles.sectionTitle, { color: palette.textPrimary, writingDirection }]}>
+        {title}
+      </Text>
+      {rightAction ? (
+        rightAction
+      ) : onViewAll ? (
+        <TouchableOpacity onPress={onViewAll} activeOpacity={0.75}>
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive
+            borderRadius={14}
+            style={[styles.viewAllPill, { backgroundColor: palette.inputBg, borderColor: palette.pillBorder }]}
+          >
+            <Text style={[styles.viewAllTxt, { color: palette.accentBlue, writingDirection }]}>
+              {t.viewAll}
+            </Text>
+          </LiquidGlassSurface>
         </TouchableOpacity>
+      ) : null}
+    </View>
+  );
 
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'downloads' && styles.segmentBtnActiveDownloads]}
-          activeOpacity={0.8}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab('downloads');
-          }}
-        >
-          <Ionicons
-            name={activeTab === 'downloads' ? 'cloud-done' : 'cloud-done-outline'}
-            size={16}
-            color={activeTab === 'downloads' ? '#FFFFFF' : '#10B981'}
-          />
-          <Text style={[styles.segmentText, activeTab === 'downloads' && styles.segmentTextActive]}>
-            المحمّلة ({downloadedTracks.length})
-          </Text>
-          {downloadedTracks.length > 0 && (
-            <View style={styles.storageMiniBadge}>
-              <Text style={styles.storageMiniBadgeText}>{totalStorageMB}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+  return (
+    <View style={[styles.container, { backgroundColor: palette.baseBg, paddingTop: insets.top + 6 }]}>
+      {/* ── Ambient Liquid Gradient Background ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.baseBg }]} />
+        <LinearGradient
+          colors={palette.orbTop}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.85, y: 0.75 }}
+          style={styles.ambientTop}
+        />
+        <LinearGradient
+          colors={palette.orbBottom}
+          start={{ x: 0.2, y: 0.3 }}
+          end={{ x: 0.9, y: 1 }}
+          style={styles.ambientBottom}
+        />
       </View>
 
-      {/* ── User Playlists Section (Firebase Firestore) ── */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 14 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: theme.textPrimary, fontSize: 16, fontWeight: '700' }}>
-            قوائم التشغيل ({playlists.length})
-          </Text>
+      {/* ── Top Title & Liquid Glass Segment Switcher ── */}
+      <View style={styles.topHeader}>
+        <Text style={[styles.screenTitle, { color: palette.textPrimary, textAlign, writingDirection }]}>
+          {t.title}
+        </Text>
+
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isDark={isDark}
+          isInteractive={false}
+          borderRadius={20}
+          style={[
+            styles.segmentBar,
+            {
+              backgroundColor: palette.cardBg,
+              borderColor: palette.cardBorder,
+              borderTopColor: palette.cardTopBorder,
+              flexDirection: rowDirection,
+            },
+          ]}
+        >
           <TouchableOpacity
-            onPress={handleCreatePlaylist}
-            activeOpacity={0.8}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: 'rgba(59,130,246,0.16)',
+            style={[styles.segmentBtn, activeTab === 'liked' && styles.segmentBtnActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('liked');
             }}
+            activeOpacity={0.85}
           >
-            <Ionicons name="add" size={16} color="#3B82F6" />
-            <Text style={{ color: '#3B82F6', fontSize: 12.5, fontWeight: '700' }}>قائمة جديدة</Text>
+            <Ionicons
+              name={activeTab === 'liked' ? 'heart' : 'heart-outline'}
+              size={16}
+              color={activeTab === 'liked' ? '#FFFFFF' : palette.textSecondary}
+            />
+            <Text
+              style={[
+                styles.segmentTxt,
+                { color: activeTab === 'liked' ? '#FFFFFF' : palette.textSecondary, writingDirection },
+              ]}
+            >
+              {t.favoritesTab} ({savedTracks.length})
+            </Text>
           </TouchableOpacity>
-        </View>
-        {playlists.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {playlists.map((pl) => (
+
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeTab === 'downloads' && styles.segmentBtnActiveGreen]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('downloads');
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={activeTab === 'downloads' ? 'cloud-done' : 'cloud-done-outline'}
+              size={16}
+              color={activeTab === 'downloads' ? '#FFFFFF' : '#10B981'}
+            />
+            <Text
+              style={[
+                styles.segmentTxt,
+                { color: activeTab === 'downloads' ? '#FFFFFF' : palette.textSecondary, writingDirection },
+              ]}
+            >
+              {t.downloadsTab} ({downloadedTracks.length})
+            </Text>
+          </TouchableOpacity>
+        </LiquidGlassSurface>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: miniPlayerBottomGap + 28 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.textPrimary} />
+        }
+      >
+        {activeTab === 'liked' ? (
+          <View>
+            {/* ── Search Bar ── */}
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive={false}
+              borderRadius={16}
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.inputBorder,
+                  flexDirection: rowDirection,
+                },
+              ]}
+            >
+              <Ionicons name="search" size={18} color={palette.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: palette.textPrimary, textAlign, writingDirection }]}
+                placeholder={t.searchFavoritesPlaceholder}
+                placeholderTextColor={palette.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={palette.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </LiquidGlassSurface>
+
+            {/* ── 1. Your Playlists Carousel + Create Button ── */}
+            {renderSectionHeader(
+              `${t.playlistsTitle} (${playlists.length})`,
+              playlists.length > 0 ? () => setViewAllType('playlists') : undefined,
+              <View style={{ flexDirection: rowDirection, alignItems: 'center', gap: 8 }}>
+                {playlists.length > 0 && (
+                  <TouchableOpacity onPress={() => setViewAllType('playlists')} activeOpacity={0.75}>
+                    <LiquidGlassSurface
+                      glassStyle="regular"
+                      isDark={isDark}
+                      isInteractive
+                      borderRadius={14}
+                      style={[styles.viewAllPill, { backgroundColor: palette.inputBg, borderColor: palette.pillBorder }]}
+                    >
+                      <Text style={[styles.viewAllTxt, { color: palette.accentBlue }]}>{t.viewAll}</Text>
+                    </LiquidGlassSurface>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleOpenCreatePlaylist} activeOpacity={0.8}>
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isDark={isDark}
+                    isInteractive
+                    tintColor="rgba(0, 122, 255, 0.25)"
+                    borderRadius={16}
+                    style={[styles.newPlaylistBtn, { flexDirection: rowDirection }]}
+                  >
+                    <Ionicons name="add" size={16} color="#38BDF8" />
+                    <Text style={[styles.newPlaylistTxt, { writingDirection }]}>{t.newPlaylist}</Text>
+                  </LiquidGlassSurface>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {playlists.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselContainer}
+              >
+                {playlists.map((pl) => (
+                  <TouchableOpacity
+                    key={pl.id}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      navigation.navigate('AlbumDetails', {
+                        albumTitle: pl.name,
+                        artistName: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                        cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
+                        type: 'playlist',
+                        album: {
+                          id: pl.id,
+                          title: pl.name,
+                          artist: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                          thumbnail: pl.cover || pl.tracks?.[0]?.thumbnail || '',
+                          tracks: pl.tracks || [],
+                        },
+                      })
+                    }
+                  >
+                    <LiquidGlassSurface
+                      glassStyle="regular"
+                      isDark={isDark}
+                      isInteractive
+                      borderRadius={20}
+                      style={[
+                        styles.squareGlassCard,
+                        {
+                          backgroundColor: palette.cardBg,
+                          borderColor: palette.cardBorder,
+                          borderTopColor: palette.cardTopBorder,
+                        },
+                      ]}
+                    >
+                      {pl.cover || pl.tracks?.[0]?.thumbnail ? (
+                        <Image
+                          source={{ uri: getUniversalStudioArtwork(pl.cover || pl.tracks?.[0]?.thumbnail) }}
+                          style={styles.squareCover}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={['#007AFF', '#6366F1']}
+                          style={[styles.squareCover, styles.coverCenter]}
+                        >
+                          <Ionicons name="musical-notes" size={32} color="#FFFFFF" />
+                        </LinearGradient>
+                      )}
+                      <Text
+                        style={[styles.cardTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                        numberOfLines={1}
+                      >
+                        {pl.name}
+                      </Text>
+                      <Text
+                        style={[styles.cardSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                        numberOfLines={1}
+                      >
+                        {pl.tracks?.length || 0} {t.trackUnit}
+                      </Text>
+                    </LiquidGlassSurface>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* ── 2. Favorite Songs Carousel + Play All + View All ── */}
+            {renderSectionHeader(
+              `${t.favoriteSongsTitle} (${filteredLikedTracks.length})`,
+              filteredLikedTracks.length > 0 ? () => setViewAllType('songs') : undefined
+            )}
+
+            {filteredLikedTracks.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselContainer}
+              >
+                {filteredLikedTracks.slice(0, 12).map((item) => {
+                  const isCurrent = currentTrack?.videoId === item.video_id;
+                  return (
+                    <TouchableOpacity
+                      key={item.video_id}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (isCurrent) {
+                          togglePlay();
+                        } else {
+                          playTrack({
+                            videoId: item.video_id,
+                            title: item.title,
+                            artist: item.artist || t.artistTag,
+                            thumbnail: item.thumbnail,
+                            duration: (item.duration || 0) * 1000,
+                          });
+                        }
+                      }}
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={20}
+                        style={[
+                          styles.squareGlassCard,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: isCurrent ? '#007AFF' : palette.cardBorder,
+                            borderTopColor: palette.cardTopBorder,
+                          },
+                        ]}
+                      >
+                        <View>
+                          <Image
+                            source={{ uri: getUniversalStudioArtwork(item.thumbnail) }}
+                            style={styles.squareCover}
+                            contentFit="cover"
+                          />
+                          <View style={styles.playOverlayBadge}>
+                            <Ionicons
+                              name={isCurrent && isPlaying ? 'pause' : 'play'}
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                          </View>
+                        </View>
+                        <Text
+                          style={[
+                            styles.cardTitle,
+                            { color: isCurrent ? palette.accentBlue : palette.textPrimary, textAlign, writingDirection },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          style={[styles.cardSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                          numberOfLines={1}
+                        >
+                          {item.artist || t.artistTag}
+                        </Text>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={isDark}
+                isInteractive={false}
+                borderRadius={22}
+                style={[
+                  styles.emptyGlassCard,
+                  { backgroundColor: palette.cardBg, borderColor: palette.cardBorder },
+                ]}
+              >
+                <Ionicons name="heart-outline" size={32} color={palette.textMuted} />
+                <Text style={[styles.emptyTitle, { color: palette.textPrimary, writingDirection }]}>
+                  {t.favoritesEmptyTitle}
+                </Text>
+                <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
+                  {t.favoritesEmptySub}
+                </Text>
+              </LiquidGlassSurface>
+            )}
+
+            {/* ── 3. Followed Artists Carousel + View All ── */}
+            {followedArtists && followedArtists.length > 0 && (
+              <View>
+                {renderSectionHeader(
+                  `${t.followedArtistsTitle} (${followedArtists.length})`,
+                  () => setViewAllType('artists')
+                )}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContainer}
+                >
+                  {followedArtists.map((art) => (
+                    <TouchableOpacity
+                      key={`art-${art.id}`}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('ArtistDetail', { artistName: art.name });
+                      }}
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={22}
+                        style={[
+                          styles.artistGlassCard,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: palette.cardBorder,
+                            borderTopColor: palette.cardTopBorder,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: getUniversalArtistAvatar(art.avatar, art.name) || art.avatar }}
+                          style={styles.artistAvatar}
+                          contentFit="cover"
+                        />
+                        <Text
+                          style={[styles.cardTitle, { color: palette.textPrimary, textAlign: 'center' }]}
+                          numberOfLines={1}
+                        >
+                          {art.name}
+                        </Text>
+                        <Text style={[styles.cardSub, { color: palette.textSecondary, textAlign: 'center' }]}>
+                          {t.artistTag}
+                        </Text>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── 4. Favorite Albums Carousel + View All ── */}
+            {favoriteAlbums.length > 0 && (
+              <View>
+                {renderSectionHeader(
+                  `${t.favoriteAlbumsTitle} (${favoriteAlbums.length})`,
+                  () => setViewAllType('albums')
+                )}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContainer}
+                >
+                  {favoriteAlbums.map((alb) => (
+                    <TouchableOpacity
+                      key={alb.id}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        navigation.navigate('AlbumDetails', {
+                          albumTitle: alb.title,
+                          artistName: alb.artist,
+                          cover: alb.cover,
+                          type: 'album',
+                          album: {
+                            id: alb.id,
+                            title: alb.title,
+                            artist: alb.artist,
+                            thumbnail: alb.cover,
+                            tracks: alb.tracks,
+                          },
+                        })
+                      }
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={20}
+                        style={[
+                          styles.squareGlassCard,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: palette.cardBorder,
+                            borderTopColor: palette.cardTopBorder,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: getUniversalStudioArtwork(alb.cover) }}
+                          style={styles.squareCover}
+                          contentFit="cover"
+                        />
+                        <Text
+                          style={[styles.cardTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                          numberOfLines={1}
+                        >
+                          {alb.title}
+                        </Text>
+                        <Text
+                          style={[styles.cardSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                          numberOfLines={1}
+                        >
+                          {alb.tracks.length} {t.trackUnit}
+                        </Text>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── 5. Mixed Music Carousel + View All ── */}
+            {renderSectionHeader(t.mixedMusicTitle, () => setViewAllType('mixes'))}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContainer}
+            >
+              {mixedMusicList.map((mix) => (
+                <TouchableOpacity
+                  key={mix.id}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (mix.tracks.length > 0) {
+                      playAlbumContext(mix.tracks, 0, mix.title);
+                    }
+                  }}
+                >
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isDark={isDark}
+                    isInteractive
+                    borderRadius={20}
+                    style={[
+                      styles.squareGlassCard,
+                      {
+                        backgroundColor: palette.cardBg,
+                        borderColor: palette.cardBorder,
+                        borderTopColor: palette.cardTopBorder,
+                      },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={mix.colors as any}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[styles.squareCover, styles.coverCenter]}
+                    >
+                      <Ionicons name="sparkles" size={28} color="#FFFFFF" />
+                    </LinearGradient>
+                    <Text
+                      style={[styles.cardTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                      numberOfLines={1}
+                    >
+                      {mix.title}
+                    </Text>
+                    <Text
+                      style={[styles.cardSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                      numberOfLines={1}
+                    >
+                      {mix.subtitle}
+                    </Text>
+                  </LiquidGlassSurface>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* ── 6. Artist Radio Carousel + View All ── */}
+            {artistRadios.length > 0 && (
+              <View>
+                {renderSectionHeader(t.artistRadioTitle, () => setViewAllType('radios'))}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContainer}
+                >
+                  {artistRadios.map((radio) => (
+                    <TouchableOpacity
+                      key={radio.id}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (radio.tracks.length > 0) {
+                          playAlbumContext(radio.tracks, 0, `${radio.name} ${t.radioTag}`);
+                        } else {
+                          navigation.navigate('ArtistDetail', { artistName: radio.name });
+                        }
+                      }}
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={20}
+                        style={[
+                          styles.squareGlassCard,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: palette.cardBorder,
+                            borderTopColor: palette.cardTopBorder,
+                          },
+                        ]}
+                      >
+                        <View>
+                          <Image
+                            source={{ uri: getUniversalStudioArtwork(radio.avatar) }}
+                            style={styles.squareCover}
+                            contentFit="cover"
+                          />
+                          <View style={styles.radioPillBadge}>
+                            <Ionicons name="radio" size={12} color="#FFFFFF" />
+                          </View>
+                        </View>
+                        <Text
+                          style={[styles.cardTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                          numberOfLines={1}
+                        >
+                          {radio.name}
+                        </Text>
+                        <Text
+                          style={[styles.cardSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                          numberOfLines={1}
+                        >
+                          {t.radioTag}
+                        </Text>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        ) : (
+          /* ══════════════════════════════════════════════ */
+          /* DOWNLOADS SECTION                              */
+          /* ══════════════════════════════════════════════ */
+          <View>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive={false}
+              borderRadius={24}
+              style={[
+                styles.downloadsHeroCard,
+                {
+                  backgroundColor: palette.cardBg,
+                  borderColor: palette.cardBorder,
+                  borderTopColor: palette.cardTopBorder,
+                  flexDirection: rowDirection,
+                },
+              ]}
+            >
+              <View style={[styles.downloadsHeroInfo, { flexDirection: rowDirection }]}>
+                <View style={styles.downloadsIconCircle}>
+                  <Ionicons name="cloud-done" size={26} color="#10B981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.heroTitle, { color: palette.textPrimary, textAlign, writingDirection }]}>
+                    {t.downloadsHeroTitle}
+                  </Text>
+                  <Text style={[styles.heroSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                    {downloadedTracks.length} {t.trackUnit} • {totalStorageMB}
+                  </Text>
+                </View>
+              </View>
+              {downloadedTracks.length > 0 && (
+                <TouchableOpacity style={styles.playAllCircle} onPress={handlePlayAllDownloads}>
+                  <Ionicons name="play" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+            </LiquidGlassSurface>
+
+            {/* Search Downloads */}
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive={false}
+              borderRadius={16}
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.inputBorder,
+                  flexDirection: rowDirection,
+                },
+              ]}
+            >
+              <Ionicons name="search" size={18} color={palette.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: palette.textPrimary, textAlign, writingDirection }]}
+                placeholder={t.searchDownloadsPlaceholder}
+                placeholderTextColor={palette.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </LiquidGlassSurface>
+
+            {filteredDownloads.length > 0 ? (
+              <View style={styles.downloadsListWrap}>
+                {filteredDownloads.map((item) => {
+                  const isCurrent = currentTrack?.videoId === item.videoId;
+                  return (
+                    <TouchableOpacity
+                      key={item.videoId}
+                      activeOpacity={0.82}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (isCurrent) {
+                          setPlayerModalVisible(true);
+                        } else {
+                          playTrack({
+                            videoId: item.videoId,
+                            title: item.title,
+                            artist: item.artist,
+                            thumbnail: item.artworkLocalUri || item.thumbnail,
+                            audioUrl: item.audioLocalUri,
+                            duration: item.duration,
+                          });
+                        }
+                      }}
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={18}
+                        style={[
+                          styles.listTrackRow,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: isCurrent ? '#10B981' : palette.cardBorder,
+                            flexDirection: rowDirection,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: getUniversalStudioArtwork(item.artworkLocalUri || item.thumbnail) }}
+                          style={styles.rowThumb}
+                          contentFit="cover"
+                        />
+                        <View style={styles.rowTexts}>
+                          <Text
+                            style={[
+                              styles.rowTitle,
+                              { color: isCurrent ? '#10B981' : palette.textPrimary, textAlign, writingDirection },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.title}
+                          </Text>
+                          <Text
+                            style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                            numberOfLines={1}
+                          >
+                            {item.artist}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteDownload(item)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="trash-outline" size={19} color="#EF4444" />
+                        </TouchableOpacity>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={isDark}
+                isInteractive={false}
+                borderRadius={22}
+                style={[
+                  styles.emptyGlassCard,
+                  { backgroundColor: palette.cardBg, borderColor: palette.cardBorder },
+                ]}
+              >
+                <Ionicons name="cloud-offline-outline" size={34} color={palette.textMuted} />
+                <Text style={[styles.emptyTitle, { color: palette.textPrimary, writingDirection }]}>
+                  {t.downloadsEmptyTitle}
+                </Text>
+                <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
+                  {t.downloadsEmptySub}
+                </Text>
+              </LiquidGlassSurface>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── View All Modal Sheet ── */}
+      <DynamicBottomSheet
+        isVisible={viewAllType !== null}
+        onClose={() => setViewAllType(null)}
+        title={
+          viewAllType === 'songs'
+            ? t.favoriteSongsTitle
+            : viewAllType === 'artists'
+            ? t.followedArtistsTitle
+            : viewAllType === 'albums'
+            ? t.favoriteAlbumsTitle
+            : viewAllType === 'mixes'
+            ? t.mixedMusicTitle
+            : viewAllType === 'radios'
+            ? t.artistRadioTitle
+            : t.playlistsTitle
+        }
+        initialSnap={0.78}
+      >
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, gap: 10 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {viewAllType === 'songs' &&
+            filteredLikedTracks.map((item) => (
               <TouchableOpacity
-                key={pl.id}
-                activeOpacity={0.82}
-                onPress={() =>
+                key={`va-song-${item.video_id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
+                  playTrack({
+                    videoId: item.video_id,
+                    title: item.title,
+                    artist: item.artist || t.artistTag,
+                    thumbnail: item.thumbnail,
+                    duration: (item.duration || 0) * 1000,
+                  });
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <Image source={{ uri: getUniversalStudioArtwork(item.thumbnail) }} style={styles.rowThumb} contentFit="cover" />
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {item.artist || t.artistTag}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() =>
+                      toggleLike({
+                        videoId: item.video_id,
+                        title: item.title,
+                        artist: item.artist || t.artistTag,
+                        thumbnail: item.thumbnail,
+                        duration: (item.duration || 0) * 1000,
+                      })
+                    }
+                  >
+                    <Ionicons name="heart" size={20} color="#EC4899" />
+                  </TouchableOpacity>
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            ))}
+
+          {viewAllType === 'artists' &&
+            followedArtists.map((art) => (
+              <TouchableOpacity
+                key={`va-art-${art.id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
+                  navigation.navigate('ArtistDetail', { artistName: art.name });
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <Image
+                    source={{ uri: getUniversalArtistAvatar(art.avatar, art.name) || art.avatar }}
+                    style={[styles.rowThumb, { borderRadius: 24 }]}
+                    contentFit="cover"
+                  />
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {art.name}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                      {t.artistTag}
+                    </Text>
+                  </View>
+                  <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={18} color={palette.textMuted} />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            ))}
+
+          {viewAllType === 'albums' &&
+            favoriteAlbums.map((alb) => (
+              <TouchableOpacity
+                key={`va-alb-${alb.id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
+                  navigation.navigate('AlbumDetails', {
+                    albumTitle: alb.title,
+                    artistName: alb.artist,
+                    cover: alb.cover,
+                    type: 'album',
+                    album: { id: alb.id, title: alb.title, artist: alb.artist, thumbnail: alb.cover, tracks: alb.tracks },
+                  });
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <Image source={{ uri: getUniversalStudioArtwork(alb.cover) }} style={styles.rowThumb} contentFit="cover" />
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {alb.title}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                      {alb.tracks.length} {t.trackUnit}
+                    </Text>
+                  </View>
+                  <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={18} color={palette.textMuted} />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            ))}
+
+          {viewAllType === 'mixes' &&
+            mixedMusicList.map((mix) => (
+              <TouchableOpacity
+                key={`va-mix-${mix.id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
+                  if (mix.tracks.length > 0) playAlbumContext(mix.tracks, 0, mix.title);
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <LinearGradient colors={mix.colors as any} style={[styles.rowThumb, styles.coverCenter]}>
+                    <Ionicons name="sparkles" size={20} color="#FFF" />
+                  </LinearGradient>
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {mix.title}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {mix.subtitle}
+                    </Text>
+                  </View>
+                  <Ionicons name="play-circle" size={24} color={palette.accentBlue} />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            ))}
+
+          {viewAllType === 'radios' &&
+            artistRadios.map((radio) => (
+              <TouchableOpacity
+                key={`va-rad-${radio.id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
+                  if (radio.tracks.length > 0) {
+                    playAlbumContext(radio.tracks, 0, `${radio.name} ${t.radioTag}`);
+                  } else {
+                    navigation.navigate('ArtistDetail', { artistName: radio.name });
+                  }
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <Image source={{ uri: getUniversalStudioArtwork(radio.avatar) }} style={styles.rowThumb} contentFit="cover" />
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {radio.name}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                      {t.radioTag}
+                    </Text>
+                  </View>
+                  <Ionicons name="radio" size={20} color={palette.accentBlue} />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            ))}
+
+          {viewAllType === 'playlists' &&
+            playlists.map((pl) => (
+              <TouchableOpacity
+                key={`va-pl-${pl.id}`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setViewAllType(null);
                   navigation.navigate('AlbumDetails', {
                     albumTitle: pl.name,
-                    artistName: `${pl.tracks?.length || 0} أغنية`,
+                    artistName: `${pl.tracks?.length || 0} ${t.trackUnit}`,
                     cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                     type: 'playlist',
                     album: {
                       id: pl.id,
                       title: pl.name,
-                      artist: `${pl.tracks?.length || 0} tracks`,
+                      artist: `${pl.tracks?.length || 0} ${t.trackUnit}`,
                       thumbnail: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                       tracks: pl.tracks || [],
                     },
-                  })
-                }
-                style={{
-                  width: 132,
-                  padding: 10,
-                  borderRadius: 14,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                  borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
+                  });
                 }}
               >
-                <Text style={{ color: theme.textPrimary, fontSize: 13.5, fontWeight: '700' }} numberOfLines={1}>
-                  {pl.name}
-                </Text>
-                <Text style={{ color: theme.textSecondary, fontSize: 11.5, marginTop: 3 }} numberOfLines={1}>
-                  {pl.tracks?.length || 0} أغنية
-                </Text>
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={16}
+                  style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
+                >
+                  <LinearGradient colors={['#007AFF', '#6366F1']} style={[styles.rowThumb, styles.coverCenter]}>
+                    <Ionicons name="musical-notes" size={20} color="#FFF" />
+                  </LinearGradient>
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                      {pl.name}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                      {pl.tracks?.length || 0} {t.trackUnit}
+                    </Text>
+                  </View>
+                  <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={18} color={palette.textMuted} />
+                </LiquidGlassSurface>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-        )}
-      </View>
+        </ScrollView>
+      </DynamicBottomSheet>
 
-      {/* ── Tab View A: DOWNLOADS ── */}
-      {activeTab === 'downloads' && (
-        <>
-          {/* Hardware Downloads Hero Banner */}
-          <LinearGradient
-            colors={['#065f46', '#059669', '#10B981']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <View style={styles.heroContent}>
-              <View style={[styles.heartCircle, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                <Ionicons name="phone-portrait-outline" size={32} color="#FFF" />
-              </View>
-              <View style={styles.heroTexts}>
-                <Text style={styles.heroTitle}>الأغاني المحمّلة على الجهاز</Text>
-                <Text style={styles.heroSubtitle}>
-                  {downloadedTracks.length} {downloadedTracks.length === 1 ? 'مقطع' : 'مقاطع'} • {totalStorageMB} • استماع 0ms بدون إنترنت
-                </Text>
-              </View>
-            </View>
-
-            {downloadedTracks.length > 0 && (
-              <TouchableOpacity style={styles.heroPlayBtn} onPress={handlePlayAllDownloads}>
-                <Ionicons name="play" size={26} color="#000" />
-              </TouchableOpacity>
-            )}
-          </LinearGradient>
-
-          {/* Search Within Downloads */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="ابحث في المقاطع المحمّلة على الهاتف..."
-              placeholderTextColor={theme.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <Ionicons name="hardware-chip-outline" size={18} color="#10B981" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionTitle}>
-              المخزنة على وحدة التخزين ({filteredDownloads.length})
-            </Text>
-          </View>
-        </>
-      )}
-
-      {/* ── Tab View B: LIKED SONGS & CURATED ── */}
-      {activeTab === 'liked' && (
-        <>
-          {/* Guest Sync Invitation */}
-          {!user && (
-            <TouchableOpacity
-              style={styles.guestBannerCard}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
-            >
-              <View style={styles.guestBannerLeft}>
-                <View style={styles.guestBannerIconWrap}>
-                  <Ionicons name="sparkles" size={18} color="#007AFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.guestBannerTitle}>احتفظ بموسيقاك في حسابك</Text>
-                  <Text style={styles.guestBannerSubtitle}>سجّل دخولك لحفظ أغانيك المفضلة والوصول إليها دائماً</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" />
-            </TouchableOpacity>
-          )}
-
-          {/* Liked Songs Hero Banner */}
-          <LinearGradient
-            colors={['#450af5', '#8e2de2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBanner}
-          >
-            <View style={styles.heroContent}>
-              <View style={styles.heartCircle}>
-                <Ionicons name="heart" size={36} color="#FFF" />
-              </View>
-              <View style={styles.heroTexts}>
-                <Text style={styles.heroTitle}>الأغاني المفضلة</Text>
-                <Text style={styles.heroSubtitle}>
-                  {savedTracks.length} {savedTracks.length === 1 ? 'أغنية محفوظة' : 'أغانٍ محفوظة'}
-                </Text>
-              </View>
-            </View>
-
-            {savedTracks.length > 0 && (
-              <TouchableOpacity style={styles.heroPlayBtn} onPress={handlePlayAllLiked}>
-                <Ionicons name="play" size={26} color="#000" />
-              </TouchableOpacity>
-            )}
-          </LinearGradient>
-
-          {/* Followed Artists Section */}
-          {followedArtists && followedArtists.length > 0 && (
-            <View style={{ marginBottom: 20 }}>
-              <View style={styles.sectionHeader}>
-                <Ionicons name="people" size={18} color="#1DB954" style={{ marginRight: 6 }} />
-                <Text style={styles.sectionTitle}>الفنانون المتابعون ({followedArtists.length})</Text>
-              </View>
-
-              <FlatList
-                data={followedArtists}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => `fav-art-${item.id}`}
-                contentContainerStyle={styles.artistsScroll}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.followedArtistCard}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      navigation.navigate('ArtistDetail', { artistName: item.name });
-                    }}
-                  >
-                    <View style={styles.followedArtistAvatarWrap}>
-                      {getUniversalArtistAvatar(item.avatar, item.name) || item.avatar ? (
-                        <Image
-                          source={{ uri: getUniversalArtistAvatar(item.avatar, item.name) || item.avatar }}
-                          style={styles.followedArtistAvatar}
-                          contentFit="cover"
-                          priority="normal"
-                          cachePolicy="memory-disk"
-                          transition={150}
-                        />
-                      ) : (
-                        <View style={[styles.followedArtistAvatar, styles.followedArtistFallback]}>
-                          <Text style={styles.followedArtistFallbackText}>
-                            {(item.name || 'A').charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.followedArtistName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.followedArtistTag}>فنان</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          )}
-
-          {/* Workout Curated Playlists Section */}
-          <View style={styles.sectionHeader}>
-            <Ionicons name="flame" size={18} color="#FF4B2B" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionTitle}>قوائم تشغيل التمارين الرياضية</Text>
-          </View>
-
-          <FlatList
-            data={WORKOUT_PLAYLISTS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.playlistsScroll}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (item.tracks.length > 0) {
-                    playAlbumContext(item.tracks, 0, item.title);
-                  }
-                }}
-              >
-                <LinearGradient
-                  colors={item.color as any}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.playlistCard}
-                >
-                  <View style={styles.playlistTop}>
-                    <Ionicons name="musical-note" size={24} color="rgba(255,255,255,0.7)" />
-                    <View style={styles.miniPlayCircle}>
-                      <Ionicons name="play" size={14} color="#000" />
-                    </View>
-                  </View>
-                  <View>
-                    <Text style={styles.playlistTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.playlistSub} numberOfLines={1}>{item.subtitle}</Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-          />
-
-          {/* Search Within Library */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="ابحث في أغانيك المفضلة..."
-              placeholderTextColor={theme.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <Ionicons name="list" size={18} color="#1DB954" style={{ marginRight: 6 }} />
-            <Text style={styles.sectionTitle}>
-              قائمتي ({filteredTracks.length})
-            </Text>
-          </View>
-        </>
-      )}
-    </View>
-  );
-
-  const renderTrackItem = ({ item, index }: { item: any; index: number }) => {
-    // ── Check if rendering a DownloadedTrack ──
-    if (activeTab === 'downloads') {
-      const dTrack = item as DownloadedTrack;
-      const isCurrent = currentTrack?.videoId === dTrack.videoId;
-
-      return (
-        <TouchableOpacity
-          style={[styles.trackRow, isCurrent && styles.trackRowActive]}
-          activeOpacity={0.7}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (isCurrent) {
-              setPlayerModalVisible(true);
-            } else {
-              const trackQueue: Track[] = downloadedTracks.map((d) => ({
-                videoId: d.videoId,
-                title: d.title,
-                artist: d.artist,
-                thumbnail: d.artworkLocalUri || d.thumbnail,
-                audioUrl: d.audioLocalUri,
-                duration: d.duration,
-              }));
-              useAudioStore.setState({ isOfflinePlayback: true });
-              playAlbumContext(trackQueue, index, 'Downloads');
-              setPlayerModalVisible(true);
-            }
-          }}
-        >
-          <Image
-            source={{ uri: dTrack.artworkLocalUri || getUniversalStudioArtwork(dTrack.thumbnail) }}
-            style={styles.trackThumb}
-            contentFit="cover"
-            priority="high"
-            cachePolicy="memory-disk"
-            transition={200}
-          />
-
-          <View style={styles.trackInfo}>
-            <Text style={[styles.trackTitle, isCurrent && { color: '#10B981' }]} numberOfLines={1}>
-              {dTrack.title}
-            </Text>
-            <View style={styles.downloadMetaRow}>
-              <Text style={styles.trackArtist} numberOfLines={1}>
-                {dTrack.artist || 'فنان'}
-              </Text>
-              <View style={styles.dotSeparator} />
-              <View style={styles.bitrateBadge}>
-                <Text style={styles.bitrateBadgeText}>{dTrack.bitrateLabel || '320 kbps HD'}</Text>
-              </View>
-              <View style={styles.dotSeparator} />
-              <View style={styles.sizeBadgeWrap}>
-                <Ionicons name="phone-portrait-outline" size={11} color="#10B981" />
-                <Text style={styles.fileSizeText}>{dTrack.fileSizeMB}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Delete Button to reclaim storage */}
-          <TouchableOpacity
-            style={styles.trashBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleDeleteDownload(dTrack);
-            }}
-          >
-            <Ionicons name="trash-outline" size={18} color="rgba(239, 68, 68, 0.85)" />
-          </TouchableOpacity>
-
-          {/* Play/Pause Button */}
-          <TouchableOpacity 
-            style={styles.playIconBox}
-            activeOpacity={0.75}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={(e) => {
-              e.stopPropagation();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              if (isCurrent) {
-                togglePlay();
-              } else {
-                playDownloadedQueue(index);
-              }
-            }}
-          >
-            <Ionicons
-              name={isCurrent && isPlaying ? 'pause' : 'play'}
-              size={14}
-              color={isCurrent ? '#10B981' : theme.textSecondary}
-            />
-          </TouchableOpacity>
-        </TouchableOpacity>
-      );
-    }
-
-    // ── Liked Track Item (Online / Supabase) ──
-    const isCurrent = currentTrack?.videoId === item.video_id;
-
-    return (
-      <TouchableOpacity
-        style={[styles.trackRow, isCurrent && styles.trackRowActive]}
-        activeOpacity={0.7}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          if (isCurrent) {
-            setPlayerModalVisible(true);
-          } else {
-            const activeList = searchQuery.trim() ? filteredTracks : savedTracks;
-            const trackQueue: Track[] = activeList.map((t) => ({
-              videoId: t.video_id,
-              title: t.title,
-              artist: t.artist || 'فنان',
-              thumbnail: t.thumbnail,
-              duration: (t.duration || 0) * 1000,
-            }));
-            const foundIdx = trackQueue.findIndex((t) => t.videoId === item.video_id);
-            const playIdx = foundIdx >= 0 ? foundIdx : index;
-            playAlbumContext(trackQueue, playIdx, 'favorites');
-            setPlayerModalVisible(true);
-          }
-        }}
+      {/* ── Create Custom Playlist & Pick Favorite Music Sheet ── */}
+      <DynamicBottomSheet
+        isVisible={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+        title={t.createPlaylistTitle}
+        initialSnap={0.78}
       >
-        <Image
-          source={{ uri: getUniversalStudioArtwork(item.thumbnail) }}
-          style={styles.trackThumb}
-          contentFit="cover"
-          priority="high"
-          cachePolicy="memory-disk"
-          transition={200}
-        />
-
-        <View style={styles.trackInfo}>
-          <Text style={[styles.trackTitle, isCurrent && { color: '#1DB954' }]} numberOfLines={1}>
-            {item.title}
+        <View style={{ flex: 1, paddingHorizontal: 18, paddingBottom: insets.bottom + 20 }}>
+          <Text style={[styles.sheetLabel, { color: palette.textSecondary, textAlign, writingDirection }]}>
+            {t.playlistNameLabel}
           </Text>
+          <TextInput
+            style={[
+              styles.sheetInput,
+              {
+                color: palette.textPrimary,
+                backgroundColor: palette.inputBg,
+                borderColor: palette.inputBorder,
+                textAlign,
+                writingDirection,
+              },
+            ]}
+            value={newPlaylistName}
+            onChangeText={setNewPlaylistName}
+            placeholder={t.playlistNamePlaceholder}
+            placeholderTextColor={palette.textMuted}
+          />
+
+          {savedTracks.length > 0 && (
+            <>
+              <Text style={[styles.sheetLabel, { color: palette.textSecondary, textAlign, writingDirection, marginTop: 14 }]}>
+                {t.pickFavLabel}
+              </Text>
+              <ScrollView style={{ flex: 1, marginTop: 6 }} showsVerticalScrollIndicator={false}>
+                {savedTracks.map((item) => {
+                  const selected = selectedTrackIds.includes(item.video_id);
+                  return (
+                    <TouchableOpacity
+                      key={`pick-${item.video_id}`}
+                      activeOpacity={0.75}
+                      onPress={() => toggleSelectTrackForPlaylist(item.video_id)}
+                      style={[
+                        styles.pickRow,
+                        {
+                          flexDirection: rowDirection,
+                          borderColor: selected ? '#007AFF' : palette.inputBorder,
+                          backgroundColor: selected ? 'rgba(0, 122, 255, 0.1)' : palette.inputBg,
+                        },
+                      ]}
+                    >
+                      <Image source={{ uri: getUniversalStudioArtwork(item.thumbnail) }} style={styles.pickThumb} contentFit="cover" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        <Text style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]} numberOfLines={1}>
+                          {item.artist || t.artistTag}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={selected ? 'checkmark-circle' : 'add-circle-outline'}
+                        size={22}
+                        color={selected ? '#007AFF' : palette.textMuted}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
+
           <TouchableOpacity
-            activeOpacity={0.7}
-            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-            onPress={(e) => {
-              e.stopPropagation();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate('ArtistDetail', { artistName: item.artist });
-            }}
+            disabled={!newPlaylistName.trim() || creatingPlaylist}
+            onPress={handleConfirmCreatePlaylist}
+            activeOpacity={0.86}
+            style={[styles.createBtnOuter, (!newPlaylistName.trim() || creatingPlaylist) && { opacity: 0.55 }]}
           >
-            <Text style={styles.trackArtist} numberOfLines={1}>
-              {item.artist || 'فنان مجهول'}
-            </Text>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              tintColor="rgba(0, 122, 255, 0.45)"
+              borderRadius={24}
+              style={styles.createBtnGlass}
+            >
+              <LinearGradient
+                colors={['rgba(255,255,255,0.26)', 'rgba(56,189,248,0.24)', 'rgba(0,122,255,0.45)']}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
+                style={styles.createBtnGradient}
+              >
+                <Text style={styles.createBtnTxt}>
+                  {creatingPlaylist ? t.creating : t.createBtn}
+                </Text>
+              </LinearGradient>
+            </LiquidGlassSurface>
           </TouchableOpacity>
         </View>
+      </DynamicBottomSheet>
 
-        <TouchableOpacity
-          style={styles.heartBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={(e) => {
-            e.stopPropagation();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            toggleLike({
-              videoId: item.video_id,
-              title: item.title,
-              artist: item.artist,
-              thumbnail: item.thumbnail,
-            });
-          }}
-        >
-          <Ionicons name="heart" size={20} color="#FF3B30" />
-        </TouchableOpacity>
-
-        {/* Isolated Play/Pause Button (Audio control only, does not trigger modal) */}
-        <TouchableOpacity 
-          style={styles.playIconBox}
-          activeOpacity={0.75}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={(e) => {
-            e.stopPropagation();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            if (isCurrent) {
-              togglePlay();
-            } else {
-              const activeList = searchQuery.trim() ? filteredTracks : savedTracks;
-              const trackQueue: Track[] = activeList.map((t) => ({
-                videoId: t.video_id,
-                title: t.title,
-                artist: t.artist || 'فنان',
-                thumbnail: t.thumbnail,
-                duration: (t.duration || 0) * 1000,
-              }));
-              const foundIdx = trackQueue.findIndex((t) => t.videoId === item.video_id);
-              const playIdx = foundIdx >= 0 ? foundIdx : index;
-              playAlbumContext(trackQueue, playIdx, 'favorites');
-            }
-          }}
-        >
-          <Ionicons
-            name={isCurrent && isPlaying ? 'pause' : 'play'}
-            size={14}
-            color={isCurrent ? '#1DB954' : theme.textSecondary}
-          />
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
-
-  const activeListData = activeTab === 'downloads' ? filteredDownloads : filteredTracks;
-
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={activeListData}
-        keyExtractor={(item: any) => item.id || item.video_id || item.videoId}
-        renderItem={renderTrackItem}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingTop: insets.top + 12, paddingBottom: miniPlayerBottomGap },
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#10B981"
-          />
-        }
-        ListEmptyComponent={
-          activeTab === 'downloads' ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="cloud-download-outline" size={48} color="#10B981" />
-              </View>
-              <Text style={styles.emptyTitle}>لا توجد أغانٍ محمّلة على الهاتف</Text>
-              <Text style={styles.emptySubtitle}>
-                اضغط على زر التنزيل داخل مشغل الموسيقى لحفظ أغانيك والاستماع إليها بدون إنترنت وفي وضع الطيران بجودة HD.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="musical-notes-outline" size={64} color={theme.textMuted} />
-              <Text style={styles.emptyTitle}>لا توجد أغانٍ هنا بعد</Text>
-              <Text style={styles.emptySubtitle}>
-                اضغط على زر القلب ❤️ في المشغل لإضافة أغانيك المفضلة إلى مكتبتك الرياضية.
-              </Text>
-            </View>
-          )
-        }
-      />
+      {loading && (
+        <View style={styles.loaderOverlay}>
+          <ActivityIndicator color="#007AFF" size="large" />
+        </View>
+      )}
     </View>
   );
 };
 
-const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    loaderContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.background,
-    },
-    header: {
-      paddingHorizontal: 16,
-      paddingTop: 14,
-    },
-    heroBanner: {
-      borderRadius: 20,
-      padding: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 24,
-      shadowColor: '#8e2de2',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    heroContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-    },
-    heartCircle: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    heroTexts: {},
-    heroTitle: {
-      color: '#FFF',
-      fontSize: 20,
-      fontWeight: 'bold',
-      marginBottom: 4,
-    },
-    heroSubtitle: {
-      color: 'rgba(255,255,255,0.75)',
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    heroPlayBtn: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: '#1DB954',
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 5,
-    },
-    guestBannerCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: 'rgba(0, 122, 255, 0.08)',
-      borderWidth: 1,
-      borderColor: 'rgba(0, 122, 255, 0.2)',
-      borderRadius: 16,
-      padding: 14,
-      marginBottom: 16,
-    },
-    guestBannerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      flex: 1,
-    },
-    guestBannerIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: 'rgba(0, 122, 255, 0.14)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    guestBannerTitle: {
-      color: theme.textPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    guestBannerSubtitle: {
-      color: theme.textMuted,
-      fontSize: 12,
-      lineHeight: 16,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    sectionTitle: {
-      color: theme.textPrimary,
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    artistsScroll: {
-      gap: 14,
-      paddingRight: 16,
-    },
-    followedArtistCard: {
-      alignItems: 'center',
-      width: 76,
-    },
-    followedArtistAvatarWrap: {
-      width: 66,
-      height: 66,
-      borderRadius: 33,
-      overflow: 'hidden',
-      marginBottom: 6,
-      backgroundColor: isDark ? '#262626' : theme.surfaceSubtle,
-    },
-    followedArtistAvatar: {
-      width: '100%',
-      height: '100%',
-    },
-    followedArtistFallback: {
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: isDark ? '#2e3a33' : '#e0ece4',
-    },
-    followedArtistFallbackText: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: isDark ? '#FFFFFF' : '#111b15',
-    },
-    followedArtistName: {
-      color: theme.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-      textAlign: 'center',
-      marginBottom: 2,
-    },
-    followedArtistTag: {
-      color: theme.textMuted,
-      fontSize: 10.5,
-      fontWeight: '500',
-      textAlign: 'center',
-    },
-    playlistsScroll: {
-      paddingRight: 16,
-      gap: 12,
-      marginBottom: 20,
-    },
-    playlistCard: {
-      width: width * 0.42,
-      height: 110,
-      borderRadius: 16,
-      padding: 12,
-      justifyContent: 'space-between',
-    },
-    playlistTop: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    miniPlayCircle: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: '#FFF',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    playlistTitle: {
-      color: '#FFF',
-      fontSize: 13,
-      fontWeight: 'bold',
-      marginBottom: 2,
-    },
-    playlistSub: {
-      color: 'rgba(255,255,255,0.7)',
-      fontSize: 11,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.surfaceSubtle,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      height: 44,
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    searchInput: {
-      flex: 1,
-      color: theme.textPrimary,
-      fontSize: 14,
-    },
-    listContent: {
-      paddingBottom: 110,
-    },
-    trackRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      marginHorizontal: 16,
-      marginBottom: 8,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : theme.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: theme.cardShadow.shadowColor,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: isDark ? 0.2 : 0.05,
-      shadowRadius: 3,
-      elevation: 2,
-    },
-    trackRowActive: {
-      borderColor: 'rgba(29, 185, 84, 0.4)',
-      backgroundColor: isDark ? 'rgba(29, 185, 84, 0.15)' : 'rgba(29, 185, 84, 0.08)',
-    },
-    trackThumb: {
-      width: 48,
-      height: 48,
-      borderRadius: 10,
-      backgroundColor: theme.surfaceSubtle,
-    },
-    trackInfo: {
-      flex: 1,
-      marginLeft: 12,
-    },
-    trackTitle: {
-      color: theme.textPrimary,
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 4,
-    },
-    trackArtist: {
-      color: theme.textSecondary,
-      fontSize: 13,
-    },
-    heartBtn: {
-      padding: 8,
-      marginRight: 4,
-    },
-    playIconBox: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.surfaceSubtle,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      paddingVertical: 40,
-      paddingHorizontal: 24,
-    },
-    emptyTitle: {
-      color: theme.textPrimary,
-      fontSize: 17,
-      fontWeight: 'bold',
-      marginTop: 14,
-      marginBottom: 6,
-    },
-    emptySubtitle: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      textAlign: 'center',
-      lineHeight: 18,
-    },
-    // Segmented Switcher
-    segmentContainer: {
-      flexDirection: 'row',
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.surfaceSubtle,
-      borderRadius: 14,
-      padding: 4,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    segmentBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 10,
-      gap: 6,
-    },
-    segmentBtnActiveLiked: {
-      backgroundColor: '#8e2de2',
-      shadowColor: '#8e2de2',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    segmentBtnActiveDownloads: {
-      backgroundColor: '#059669',
-      shadowColor: '#059669',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    segmentText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.textMuted,
-    },
-    segmentTextActive: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-    },
-    storageMiniBadge: {
-      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 8,
-      marginLeft: 4,
-    },
-    storageMiniBadgeText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#FFFFFF',
-    },
-    // Download Metadata & Badges
-    downloadMetaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginTop: 2,
-    },
-    dotSeparator: {
-      width: 3,
-      height: 3,
-      borderRadius: 1.5,
-      backgroundColor: theme.textMuted,
-    },
-    bitrateBadge: {
-      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
-      paddingHorizontal: 6,
-      paddingVertical: 1.5,
-      borderRadius: 6,
-      borderWidth: 0.5,
-      borderColor: 'rgba(16, 185, 129, 0.35)',
-    },
-    bitrateBadgeText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#10B981',
-    },
-    sizeBadgeWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 3,
-    },
-    fileSizeText: {
-      fontSize: 11,
-      color: theme.textMuted,
-      fontWeight: '500',
-    },
-    trashBtn: {
-      padding: 8,
-      marginRight: 4,
-    },
-    emptyIconCircle: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: 'rgba(16, 185, 129, 0.12)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(16, 185, 129, 0.25)',
-    },
-  });
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  ambientTop: {
+    position: 'absolute',
+    top: -60,
+    left: -50,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+  },
+  ambientBottom: {
+    position: 'absolute',
+    bottom: -80,
+    right: -50,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+  },
+  topHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  segmentBar: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 4,
+    gap: 6,
+    overflow: 'hidden',
+  },
+  segmentBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  segmentBtnActiveGreen: {
+    backgroundColor: '#10B981',
+  },
+  segmentTxt: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  searchBar: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 16,
+    height: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    gap: 10,
+    overflow: 'hidden',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sectionHeaderRow: {
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  viewAllPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  viewAllTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  newPlaylistBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    alignItems: 'center',
+    gap: 4,
+    overflow: 'hidden',
+  },
+  newPlaylistTxt: {
+    color: '#38BDF8',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  carouselContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  squareGlassCard: {
+    width: 144,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 10,
+    overflow: 'hidden',
+  },
+  squareCover: {
+    width: 122,
+    height: 122,
+    borderRadius: 14,
+    marginBottom: 8,
+  },
+  coverCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playOverlayBadge: {
+    position: 'absolute',
+    bottom: 14,
+    right: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 122, 255, 0.88)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioPillBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  artistGlassCard: {
+    width: 124,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  artistAvatar: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  cardSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  emptyGlassCard: {
+    marginHorizontal: 16,
+    marginBottom: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    gap: 6,
+    overflow: 'hidden',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptySub: {
+    fontSize: 12.5,
+    textAlign: 'center',
+  },
+  downloadsHeroCard: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    overflow: 'hidden',
+  },
+  downloadsHeroInfo: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  downloadsIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  heroSub: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  playAllCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadsListWrap: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  listTrackRow: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 10,
+    alignItems: 'center',
+    gap: 12,
+    overflow: 'hidden',
+  },
+  rowThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+  },
+  rowTexts: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  rowSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  sheetLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  sheetInput: {
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pickRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 8,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  pickThumb: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+  },
+  createBtnOuter: {
+    marginTop: 12,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  createBtnGlass: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.36)',
+    overflow: 'hidden',
+  },
+  createBtnGradient: {
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.16)',
+  },
+});
 
 export default MusicLibrary;
