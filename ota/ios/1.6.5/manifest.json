@@ -1,13 +1,13 @@
 {
-  "id": "125d51ba-835f-4695-ac29-5b4c0176d950",
-  "createdAt": "2026-11-25T17:59:50.207Z",
+  "id": "7cb31056-5e15-4860-b8cd-826ce14c2bd8",
+  "createdAt": "2026-11-25T18:15:57.679Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "5NjehM41pg2yjsyAI5axSNxB_p6GX4seOBBWME7EESE",
-    "key": "d03c3b40b367000b15e2ee9e1d0e9011",
+    "hash": "J4ymh6JvmgjK-f1zS_eat5-WIZqAPvAriQOil0EX8tA",
+    "key": "4a12fd6827b3e78c8faa7ee070b994ea",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-1140c1253739c9db5085b6ee883950a2.hbc"
+    "url": "./_expo/static/js/ios/index-b8bd11a502c45ede669eaed63cb5147c.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.a130101",
+      "otaVersion": "1.6.5-ota.6cdbe5d",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "a130101",
-      "title": "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
+      "commitSha": "6cdbe5d",
+      "title": "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
       "highlights": [
-        "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
+        "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:59:50.207Z",
-      "bundleSizeBytes": 6842636
+      "publishedAt": "2026-11-25T18:15:57.679Z",
+      "bundleSizeBytes": 6851031
     }
   }
 }

@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.a130101",
-  "updateId": "125d51ba-835f-4695-ac29-5b4c0176d950",
-  "publishedAt": "2026-11-25T17:59:50.207Z",
-  "title": "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
+  "otaVersion": "1.6.5-ota.6cdbe5d",
+  "updateId": "7cb31056-5e15-4860-b8cd-826ce14c2bd8",
+  "publishedAt": "2026-11-25T18:15:57.679Z",
+  "title": "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
   "highlights": [
-    "fix(shorts): custom cropped YouTubeShortWebView (zero YT chrome, instant mute, zero duplicate icons, strict official artist filter)",
+    "feat(artist,album,search): fix Shorts carousel discovery, guarantee album/song covers, improve Album contrast, add Spotify-style Popular +30 & Releases UI",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6842636,
+  "bundleSizeBytes": 6851031,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
