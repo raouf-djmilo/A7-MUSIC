@@ -325,14 +325,14 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
       pageRef.current += 1;
 
       if (nextBatch.length > 0) {
-        setFeed((prev) => {
-          const existing = new Set(prev.map((x) => x.videoId));
-          const unique = nextBatch.filter((x) => !existing.has(x.videoId));
-          if (unique.length === 0) return prev;
-          const merged = [...prev, ...unique];
+        const currentFeed = feedRef.current;
+        const existing = new Set(currentFeed.map((x) => x.videoId));
+        const unique = nextBatch.filter((x) => !existing.has(x.videoId));
+        if (unique.length > 0) {
+          const merged = [...currentFeed, ...unique];
+          setFeed(merged);
           onFeedGrow?.(merged);
-          return merged;
-        });
+        }
       }
     } catch {
       // Fail gracefully without interrupting playback

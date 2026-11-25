@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../providers/AuthProvider';
@@ -54,7 +54,8 @@ const CAROUSEL_PLAYER_PARAMS = {
   loop: false,
 };
 
-export const MusicSearch = ({ navigation, route }: any) => {
+export const MusicSearch = ({ route }: any) => {
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const isScreenFocused = useIsFocused();
   const { isDark } = useTheme();
