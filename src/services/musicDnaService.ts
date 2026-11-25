@@ -287,37 +287,26 @@ class MusicDnaEngine {
   }
 
   /**
-   * Detect Top Signature Artist dynamically from user's real listening telemetry (returns null if none yet)
    * Top-20 Ranked Artists learned from on-device telemetry (identical for Guests & Signed-In Users)
    */
-  public getTopSignatureArtist(): string | null {
   public getTopRankedArtists(limit: number = 20): { name: string; score: number }[] {
     const ranked = this.getRankedTelemetryTracks();
-    if (ranked.length === 0) return null;
+    if (ranked.length === 0) return [];
 
     const artistScores: Record<string, number> = {};
     for (const t of ranked) {
       const a = cleanArtistName(t.artist);
-      if (a && a !== 'Artist') {
-        if (a && a !== 'Artist' && !isFakeArtistChannel(a)) {
-          artistScores[a] = (artistScores[a] || 0) + this.calculateTrackScore(t);
-        }
+      if (a && a !== 'Artist' && !isFakeArtistChannel(a)) {
+        artistScores[a] = (artistScores[a] || 0) + this.calculateTrackScore(t);
       }
-      return Object.entries(artistScores)
-        .map(([name, score]) => ({ name, score }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
     }
 
-    let topArtist: string | null = null;
-    let maxScore = 0;
-    for (const [artist, score] of Object.entries(artistScores)) {
-      if (score > maxScore) {
-        maxScore = score;
-        topArtist = artist;
-      }
-    }
-    return topArtist;
+    return Object.entries(artistScores)
+      .map(([name, score]) => ({ name, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+
   /**
    * Pick a weighted random artist from user's Top-20 learned artists (returns null if no history yet)
    */
