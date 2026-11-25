@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
-  FlatList,
   TouchableOpacity,
-  Pressable,
   ActivityIndicator,
   Alert,
   ScrollView,
@@ -18,9 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import Animated from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 
 import {
   getFirebaseUserProfile,
@@ -28,121 +25,99 @@ import {
   getFirebaseLikedSongs,
 } from '../services/firebaseMusicDb';
 import { useAuth } from '../providers/AuthProvider';
-import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { ThemeTokens } from '../theme/types';
+import { useTheme } from '../theme/ThemeContext';
 import { useAudioStore } from '../store/useAudioStore';
 import {
   fetchTotalListeningSeconds,
-  formatListeningTime,
   subscribeListeningTime,
 } from '../services/listeningTimeService';
 import { DynamicBottomSheet, DynamicBottomSheetRef } from '../components/DynamicBottomSheet';
-import { GlassCard } from '../components/GlassCard';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const APPLE_AVATAR_PRESETS: Array<{ emoji: string; colors: readonly [string, string] }> = [
+  { emoji: '🎧', colors: ['#38BDF8', '#007AFF'] },
+  { emoji: '🎵', colors: ['#A855F7', '#6366F1'] },
+  { emoji: '✨', colors: ['#F59E0B', '#EC4899'] },
+  { emoji: '🎹', colors: ['#10B981', '#0EA5E9'] },
+  { emoji: '🔥', colors: ['#FB7185', '#F97316'] },
+  { emoji: '💿', colors: ['#60A5FA', '#8B5CF6'] },
+  { emoji: '🎙️', colors: ['#34D399', '#059669'] },
+  { emoji: '🌊', colors: ['#22D3EE', '#2563EB'] },
+];
 
-// ────────────────────────────────────────────────────────
-// MEMOIZED MUSIC ITEM
-// ────────────────────────────────────────────────────────
-const MemoizedMusicItem = memo(({ item }: { item: any }) => {
-  const { theme } = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const currentTrack = useAudioStore((s) => s.currentTrack);
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const playTrack = useAudioStore((s) => s.playTrack);
-  const togglePlay = useAudioStore((s) => s.togglePlay);
-  const isCurrent = currentTrack?.videoId === item.video_id;
+const formatMinutesAndSeconds = (totalSeconds: number): string => {
+  const safe = Math.max(0, Math.floor(totalSeconds || 0));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins} د ${secs} ث`;
+};
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (isCurrent) {
-      togglePlay();
-    } else {
-      playTrack({
-        videoId: item.video_id,
-        title: item.title,
-        artist: item.artist || 'Unknown Artist',
-        thumbnail: item.thumbnail || '',
-        duration: item.duration,
-      });
-    }
-  };
-
-  return (
-    <GlassCard
-      style={[styles.musicCard, isCurrent && { borderColor: '#007AFF' }]}
-      borderRadius={18}
-      onPress={handlePress}
-    >
-      <View style={styles.musicRow}>
-        <Image
-          source={{
-            uri: getUniversalStudioArtwork(item.thumbnail),
-          }}
-          style={styles.musicThumb}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          priority="high"
-          transition={150}
-        />
-
-        <View style={styles.musicInfoCol}>
-          <Text
-            style={[styles.musicTitleTxt, isCurrent && { color: '#007AFF' }]}
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
-          <Text style={styles.musicArtistTxt} numberOfLines={1}>
-            {item.artist || 'فنان'}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.musicPlayBtn}
-          onPress={handlePress}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons
-            name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
-            size={36}
-            color={isCurrent ? '#007AFF' : theme.textPrimary}
-          />
-        </TouchableOpacity>
-      </View>
-    </GlassCard>
-  );
-});
+const hashSeed = (seed: string): number => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
 
 export const ProfileScreen = () => {
   const { user, updateUser } = useAuth();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
-  const currentTrack = useAudioStore((s) => s.currentTrack);
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const playTrack = useAudioStore((s) => s.playTrack);
-  const togglePlay = useAudioStore((s) => s.togglePlay);
-  const { theme, isDark, toggleTheme } = useTheme();
-  const styles = useThemedStyles(createStyles);
+  const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
+  const { isDark, toggleTheme } = useTheme();
 
   const [profile, setProfile] = useState<any>(null);
-  const [musicLikes, setMusicLikes] = useState<any[]>([]);
+  const [firestoreLikesCount, setFirestoreLikesCount] = useState<number>(0);
   const [listeningSeconds, setListeningSeconds] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [avatarSeedOffset, setAvatarSeedOffset] = useState(0);
 
-  // Edit Profile States
+  // Edit Profile States (Full Name only — username stays fixed)
   const [showEdit, setShowEdit] = useState(false);
   const [editFullName, setEditFullName] = useState('');
-  const [editUsername, setEditUsername] = useState('');
-  const [editBio, setEditBio] = useState('');
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const editSheetRef = useRef<DynamicBottomSheetRef>(null);
+
+  const palette = isDark
+    ? {
+        baseBg: '#070A12',
+        orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
+        textPrimary: '#FFFFFF',
+        textSecondary: 'rgba(255, 255, 255, 0.62)',
+        textMuted: 'rgba(255, 255, 255, 0.42)',
+        cardBg: 'rgba(18, 22, 30, 0.48)',
+        cardBorder: 'rgba(255, 255, 255, 0.14)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+        pillBorder: 'rgba(255, 255, 255, 0.22)',
+        inputBg: 'rgba(255, 255, 255, 0.06)',
+        inputBorder: 'rgba(255, 255, 255, 0.12)',
+        accentBlue: '#38BDF8',
+        accentPink: '#EC4899',
+        accentGreen: '#34C759',
+      }
+    : {
+        baseBg: '#F2F5FA',
+        orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
+        textPrimary: '#0F172A',
+        textSecondary: 'rgba(15, 23, 42, 0.65)',
+        textMuted: 'rgba(15, 23, 42, 0.44)',
+        cardBg: 'rgba(255, 255, 255, 0.68)',
+        cardBorder: 'rgba(15, 23, 42, 0.08)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+        pillBorder: 'rgba(15, 23, 42, 0.12)',
+        inputBg: 'rgba(15, 23, 42, 0.045)',
+        inputBorder: 'rgba(15, 23, 42, 0.1)',
+        accentBlue: '#007AFF',
+        accentPink: '#DB2777',
+        accentGreen: '#16A34A',
+      };
 
   const fetchProfileData = useCallback(async () => {
     if (!user?.id) {
@@ -151,44 +126,33 @@ export const ProfileScreen = () => {
       return;
     }
     try {
-      // 1. Fetch Profile from Firestore
-      const prof = await getFirebaseUserProfile(user.id);
+      const [prof, likes, seconds] = await Promise.all([
+        getFirebaseUserProfile(user.id),
+        getFirebaseLikedSongs(user.id),
+        fetchTotalListeningSeconds(user.id),
+      ]);
 
       if (prof) {
         setProfile(prof);
-        setEditFullName(prof.full_name || '');
-        setEditUsername(prof.username || '');
-        setEditBio(prof.bio || '');
+        setEditFullName(prof.full_name || user.full_name || '');
+      } else {
+        setEditFullName(user.full_name || '');
       }
 
-      // 2. Fetch Liked Music from Firestore
-      const likes = await getFirebaseLikedSongs(user.id);
-      setMusicLikes(
-        likes.map((t) => ({
-          video_id: t.videoId,
-          title: t.title,
-          artist: t.artist,
-          thumbnail: t.thumbnail,
-          duration: Math.floor((t.duration || 0) / 1000),
-        }))
-      );
-
-      // 3. Fetch Listening Time
-      const seconds = await fetchTotalListeningSeconds(user.id);
+      setFirestoreLikesCount(likes.length);
       setListeningSeconds(seconds);
-    } catch (err) {
-      console.warn('[ProfileScreen] Error fetching profile:', err);
+    } catch {
+      // Preserve existing state silently
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.full_name]);
 
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  // Subscribe to live heartbeat listening seconds
   useEffect(() => {
     const unsubscribe = subscribeListeningTime((total) => {
       setListeningSeconds(total);
@@ -201,917 +165,794 @@ export const ProfileScreen = () => {
     fetchProfileData();
   };
 
-  const cleanUsername = (text: string) => {
-    const cleaned = text.replace(/\s+/g, '_').toLowerCase();
-    setEditUsername(cleaned);
+  const displayUser = profile || user;
+
+  const avatarPreset = useMemo(() => {
+    const seed = `${displayUser?.id || 'guest'}_${displayUser?.username || 'a7'}`;
+    const idx = (hashSeed(seed) + avatarSeedOffset) % APPLE_AVATAR_PRESETS.length;
+    return APPLE_AVATAR_PRESETS[idx];
+  }, [displayUser?.id, displayUser?.username, avatarSeedOffset]);
+
+  const handleRandomizeAvatar = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAvatarSeedOffset((prev) => prev + 1 + Math.floor(Math.random() * 5));
   };
 
   const handleSaveProfile = async () => {
-    if (!user?.id || !editFullName.trim() || !editUsername.trim()) return;
+    const cleanName = editFullName.trim();
+    if (!user?.id || !cleanName) {
+      Alert.alert('تنبيه', 'يرجى إدخال الاسم الكامل.');
+      return;
+    }
     setSaving(true);
-
     try {
       await upsertFirebaseUserProfile(user.id, {
-        full_name: editFullName.trim(),
-        username: editUsername.trim().toLowerCase(),
-        bio: editBio.trim(),
+        full_name: cleanName,
       });
-
       await updateUser({
-        full_name: editFullName.trim(),
-        username: editUsername.trim().toLowerCase(),
-        bio: editBio.trim(),
+        full_name: cleanName,
       });
-
       await fetchProfileData();
       setShowEdit(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      Alert.alert('خطأ في التحديث', err.message || 'تعذر حفظ التغييرات');
+    } catch {
+      Alert.alert('تعذر الحفظ', 'حدث خطأ أثناء تحديث الاسم، يرجى المحاولة مرة أخرى.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePickAvatar = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-
-      if (!result.canceled && result.assets[0]?.uri && user?.id) {
-        setUploadingAvatar(true);
-        const avatarUri = result.assets[0].uri;
-
-        await upsertFirebaseUserProfile(user.id, { avatar_url: avatarUri });
-        await updateUser({ avatar_url: avatarUri });
-        setProfile((prev: any) => ({ ...prev, avatar_url: avatarUri }));
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    } catch (err: any) {
-      Alert.alert('خطأ', 'فشل في تحديث الصورة');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
-  const displayUser = profile || user;
-
-  // ────────────────────────────────────────────────────────
-  // HEADER COMPONENT (Athlete ID + Clean 2x2 Grid + Carousel)
-  // ────────────────────────────────────────────────────────
-  const renderHeader = () => {
-    return (
-      <View style={styles.headerContainer}>
-        {/* ── 1. Athlete Identity Card / Guest Hero Card ── */}
-        {!user ? (
-          <GlassCard style={styles.guestCard} borderRadius={20}>
-            <View style={styles.guestHeaderRow}>
-              <View style={styles.guestAvatarWrap}>
-                <Ionicons name="musical-notes" size={26} color="#007AFF" />
-              </View>
-              <View style={styles.guestHeaderInfo}>
-                <Text style={styles.guestTitle}>مرحباً بك في A7 MUSIC</Text>
-                <View style={styles.guestBadgePill}>
-                  <View style={styles.guestBadgeDot} />
-                  <Text style={styles.guestBadgeTxt}>وضع الضيف</Text>
-                </View>
-              </View>
-            </View>
-
-            <Text style={styles.guestDescription}>
-              أنت تتصفح التطبيق كضيف. أنشئ حساباً مجانياً للاحتفاظ بأغانيك وقوائمك المفضلة وسجل تمارينك والوصول إليها من أي هاتف.
-            </Text>
-
-            <View style={styles.guestActionsRow}>
-              <TouchableOpacity
-                style={styles.guestLoginBtn}
-                onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="log-in-outline" size={17} color="#FFF" style={{ marginRight: 6 }} />
-                <Text style={styles.guestLoginBtnTxt}>تسجيل الدخول</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.guestSignUpBtn}
-                onPress={() => navigation.navigate('Auth', { screen: 'SignUp' })}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="sparkles-outline" size={16} color={theme.textPrimary} style={{ marginRight: 6 }} />
-                <Text style={[styles.guestSignUpBtnTxt, { color: theme.textPrimary }]}>إنشاء حساب جديد</Text>
-              </TouchableOpacity>
-            </View>
-          </GlassCard>
-        ) : (
-          <GlassCard style={styles.identityCard} borderRadius={20}>
-            <View style={styles.identityRow}>
-              {/* Neon Ring Avatar */}
-              <View style={styles.avatarNeonWrapper}>
-                <TouchableOpacity
-                  onPress={handlePickAvatar}
-                  disabled={uploadingAvatar}
-                  activeOpacity={0.8}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        displayUser?.avatar_url ||
-                        `https://i.pravatar.cc/150?u=${displayUser?.id || 'runner'}`,
-                    }}
-                    style={styles.avatarImg}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    priority="high"
-                  />
-                  {uploadingAvatar && (
-                    <View style={[StyleSheet.absoluteFill, styles.avatarOverlay]}>
-                      <ActivityIndicator color="#FFF" size="small" />
-                    </View>
-                  )}
-                  <View style={styles.cameraPill}>
-                    <Ionicons name="camera" size={11} color="#FFFFFF" />
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Athlete Details */}
-              <View style={styles.identityDetails}>
-                <Text style={styles.athleteName} numberOfLines={1}>
-                  {displayUser?.full_name || 'مستخدم A7 MUSIC'}
-                </Text>
-                <Text style={styles.athleteHandle} numberOfLines={1}>
-                  @{displayUser?.username || 'athlete'}
-                </Text>
-
-                {/* Athletic Explorer Badge */}
-                <View style={styles.badgeRow}>
-                  <View style={styles.explorerBadge}>
-                    <Ionicons name="flash" size={11} color="#FC5200" />
-                    <Text style={styles.explorerBadgeTxt}>عضو متميز</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Bio snippet */}
-            {displayUser?.bio ? (
-              <Text style={styles.bioText} numberOfLines={2}>
-                {displayUser.bio}
-              </Text>
-            ) : null}
-
-            {/* Edit Profile Button */}
-            <TouchableOpacity
-              style={styles.editProfileBtn}
-              onPress={() => setShowEdit(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={15} color={theme.textPrimary} />
-              <Text style={styles.editProfileBtnTxt}>تعديل الملف الشخصي</Text>
-            </TouchableOpacity>
-          </GlassCard>
-        )}
-
-        {/* ── 2. Clean Minimalist Metrics Grid (Pure Music Focus) ── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>مؤشرات الاستماع</Text>
-        </View>
-
-        <View style={styles.telemetryGrid}>
-          {/* Card 1: Music Listening Time */}
-          <GlassCard style={styles.metricCard} borderRadius={18}>
-            <View style={styles.metricTopRow}>
-              <View
-                style={[
-                  styles.metricIconWrap,
-                  { backgroundColor: 'rgba(0, 122, 255, 0.12)' },
-                ]}
-              >
-                <Ionicons name="pulse" size={18} color="#007AFF" />
-              </View>
-              <Text style={styles.metricPureTitle}>الاستماع</Text>
-            </View>
-            <Text style={[styles.metricMainValue, { color: '#007AFF' }]} numberOfLines={1}>
-              {formatListeningTime(listeningSeconds)}
-            </Text>
-          </GlassCard>
-
-          {/* Card 2: Liked Music */}
-          <GlassCard style={styles.metricCard} borderRadius={18}>
-            <View style={styles.metricTopRow}>
-              <View
-                style={[
-                  styles.metricIconWrap,
-                  { backgroundColor: 'rgba(236, 72, 153, 0.12)' },
-                ]}
-              >
-                <Ionicons name="heart" size={18} color="#EC4899" />
-              </View>
-              <Text style={styles.metricPureTitle}>المفضلة</Text>
-            </View>
-            <Text style={[styles.metricMainValue, { color: '#EC4899' }]} numberOfLines={1}>
-              {musicLikes.length}{' '}
-              <Text style={styles.metricUnit}>مسار</Text>
-            </Text>
-          </GlassCard>
-        </View>
-
-        {/* ── 3. Favorite Music Carousel (Fixed expo-image) ── */}
-        {musicLikes.length > 0 && (
-          <View style={styles.carouselSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>أبرز المسارات</Text>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselScroll}
-            >
-              {musicLikes.slice(0, 10).map((item) => {
-                const isCurrent = currentTrack?.videoId === item.video_id;
-                return (
-                  <GlassCard
-                    key={item.id || item.video_id}
-                    style={styles.carouselCard}
-                    borderRadius={16}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (isCurrent) {
-                        togglePlay();
-                      } else {
-                        playTrack({
-                          videoId: item.video_id,
-                          title: item.title,
-                          artist: item.artist || 'Unknown Artist',
-                          thumbnail: item.thumbnail || '',
-                          duration: item.duration,
-                        });
-                      }
-                    }}
-                  >
-                    <View style={styles.carouselThumbWrap}>
-                      <Image
-                        source={{
-                          uri:
-                            item.thumbnail ||
-                            'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200',
-                        }}
-                        style={styles.carouselThumb}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                        priority="high"
-                      />
-                      <View style={styles.carouselPlayOverlay}>
-                        <Ionicons
-                          name={isCurrent && isPlaying ? 'pause-circle' : 'play-circle'}
-                          size={30}
-                          color={isCurrent ? '#007AFF' : '#FFFFFF'}
-                        />
-                      </View>
-                    </View>
-                    <Text style={styles.carouselTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.carouselArtist} numberOfLines={1}>
-                      {item.artist || 'فنان'}
-                    </Text>
-                  </GlassCard>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* ── 4. Liked Music Section Header ── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>المسارات المفضلة ({musicLikes.length})</Text>
-        </View>
-      </View>
-    );
-  };
-
-  const renderMusicItem = useCallback(
-    ({ item }: { item: any }) => <MemoizedMusicItem item={item} />,
-    []
-  );
-
-  const keyExtractor = useCallback((item: any) => item.id || item.video_id, []);
+  const totalLikesCount = user ? Math.max(firestoreLikesCount, likedTrackIds.length) : likedTrackIds.length;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 4 }]}>
-      {/* ── Top Header Bar (Only ONE Gear Icon in the entire screen) ── */}
+    <View style={[styles.container, { backgroundColor: palette.baseBg, paddingTop: insets.top + 6 }]}>
+      {/* ── Ambient Liquid Gradient Background ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.baseBg }]} />
+        <LinearGradient
+          colors={palette.orbTop}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.85, y: 0.75 }}
+          style={styles.ambientTop}
+        />
+        <LinearGradient
+          colors={palette.orbBottom}
+          start={{ x: 0.2, y: 0.3 }}
+          end={{ x: 0.9, y: 1 }}
+          style={styles.ambientBottom}
+        />
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      </View>
+
+      {/* ── Top Liquid Glass Bar ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          style={styles.topBarBtn}
-          onPress={() => navigation.navigate('Settings')}
+          activeOpacity={0.75}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate('Settings');
+          }}
         >
-          <Ionicons name="settings-outline" size={22} color={theme.textPrimary} />
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive
+            borderRadius={20}
+            style={[styles.topGlassBtn, { borderColor: palette.pillBorder }]}
+          >
+            <Ionicons name="settings-outline" size={20} color={palette.textPrimary} />
+          </LiquidGlassSurface>
         </TouchableOpacity>
 
-        <Text style={styles.topBarTitle}>الملف الشخصي</Text>
+        <Text style={[styles.topBarTitle, { color: palette.textPrimary }]}>حسابي</Text>
 
-        <View style={styles.topBarRight}>
-          <TouchableOpacity
-            style={styles.topBarBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              toggleTheme();
-            }}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            toggleTheme();
+          }}
+        >
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive
+            borderRadius={20}
+            style={[styles.topGlassBtn, { borderColor: palette.pillBorder }]}
           >
             <Ionicons
               name={isDark ? 'sunny-outline' : 'moon-outline'}
-              size={21}
+              size={20}
               color={isDark ? '#F59E0B' : '#6366F1'}
             />
-          </TouchableOpacity>
-        </View>
+          </LiquidGlassSurface>
+        </TouchableOpacity>
       </View>
 
-      {/* ── Optimized Virtualized List (0ms latency, memoized items) ── */}
-      <FlatList
-        data={musicLikes}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={renderHeader}
-        renderItem={renderMusicItem}
+      <ScrollView
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingBottom: miniPlayerBottomGap },
+          { paddingBottom: miniPlayerBottomGap + 24 },
         ]}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        windowSize={3}
-        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.textPrimary}
+            tintColor={palette.textPrimary}
           />
         }
-        ListEmptyComponent={
-          !loading ? (
-            <GlassCard style={styles.emptyCard} borderRadius={18}>
-              <Ionicons
-                name="musical-notes-outline"
-                size={44}
-                color={theme.textMuted}
-              />
-              <Text style={styles.emptyTitle}>لا توجد مسارات مفضلة بعد</Text>
-              <Text style={styles.emptyDesc}>
-                أضف أغانيك المفضلة أثناء الاستماع في تبويب الموسيقى!
-              </Text>
-            </GlassCard>
-          ) : undefined
-        }
-      />
+      >
+        {/* ── 1. Identity / Guest Hero Card (Apple Liquid Glass) ── */}
+        {!user ? (
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive={false}
+            borderRadius={28}
+            style={[
+              styles.heroCard,
+              {
+                backgroundColor: palette.cardBg,
+                borderColor: palette.cardBorder,
+                borderTopColor: palette.cardTopBorder,
+              },
+            ]}
+          >
+            <View style={styles.guestHeaderRow}>
+              <LinearGradient
+                colors={avatarPreset.colors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.appleAvatarOrb}
+              >
+                <Text style={styles.appleAvatarEmoji}>{avatarPreset.emoji}</Text>
+              </LinearGradient>
 
-      {/* ── Edit Profile Dynamic Bottom Sheet ── */}
+              <View style={styles.identityDetails}>
+                <Text style={[styles.profileName, { color: palette.textPrimary }]}>حساب ضيف</Text>
+                <View style={styles.guestBadgePill}>
+                  <View style={styles.guestBadgeDot} />
+                  <Text style={[styles.guestBadgeTxt, { color: palette.accentBlue }]}>
+                    وضع الضيف
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.guestActionsRow}>
+              <TouchableOpacity
+                style={styles.actionHalf}
+                onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
+                activeOpacity={0.85}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  tintColor="rgba(0, 122, 255, 0.45)"
+                  borderRadius={20}
+                  style={styles.primaryPillGlass}
+                >
+                  <LinearGradient
+                    colors={[
+                      'rgba(255, 255, 255, 0.26)',
+                      'rgba(56, 189, 248, 0.24)',
+                      'rgba(0, 122, 255, 0.45)',
+                    ]}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={styles.pillGradient}
+                  >
+                    <Ionicons name="log-in-outline" size={17} color="#FFFFFF" />
+                    <Text style={styles.primaryPillTxt}>تسجيل الدخول</Text>
+                  </LinearGradient>
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionHalf}
+                onPress={() => navigation.navigate('Auth', { screen: 'SignUp' })}
+                activeOpacity={0.82}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={20}
+                  style={[
+                    styles.secondaryPillGlass,
+                    {
+                      backgroundColor: palette.inputBg,
+                      borderColor: palette.pillBorder,
+                    },
+                  ]}
+                >
+                  <Ionicons name="person-add-outline" size={16} color={palette.textPrimary} />
+                  <Text style={[styles.secondaryPillTxt, { color: palette.textPrimary }]}>
+                    إنشاء حساب جديد
+                  </Text>
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            </View>
+          </LiquidGlassSurface>
+        ) : (
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive={false}
+            borderRadius={28}
+            style={[
+              styles.heroCard,
+              {
+                backgroundColor: palette.cardBg,
+                borderColor: palette.cardBorder,
+                borderTopColor: palette.cardTopBorder,
+              },
+            ]}
+          >
+            <View style={styles.identityRow}>
+              <TouchableOpacity activeOpacity={0.8} onPress={handleRandomizeAvatar}>
+                {displayUser?.avatar_url ? (
+                  <Image
+                    source={{ uri: displayUser.avatar_url }}
+                    style={styles.avatarPhoto}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={avatarPreset.colors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.appleAvatarOrbLarge}
+                  >
+                    <Text style={styles.appleAvatarEmojiLarge}>{avatarPreset.emoji}</Text>
+                  </LinearGradient>
+                )}
+                <View style={styles.shufflePill}>
+                  <Ionicons name="sparkles" size={11} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.identityDetails}>
+                <Text style={[styles.profileName, { color: palette.textPrimary }]} numberOfLines={1}>
+                  {displayUser?.full_name || 'مستخدم A7 Music'}
+                </Text>
+                <Text style={[styles.profileHandle, { color: palette.textSecondary }]} numberOfLines={1}>
+                  @{displayUser?.username || 'user'}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => {
+                setEditFullName(displayUser?.full_name || '');
+                setShowEdit(true);
+              }}
+              activeOpacity={0.8}
+              style={{ marginTop: 16 }}
+            >
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={isDark}
+                isInteractive
+                borderRadius={18}
+                style={[
+                  styles.editProfilePill,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.pillBorder,
+                  },
+                ]}
+              >
+                <Ionicons name="create-outline" size={16} color={palette.textPrimary} />
+                <Text style={[styles.editProfileTxt, { color: palette.textPrimary }]}>
+                  تعديل الاسم المعروض
+                </Text>
+              </LiquidGlassSurface>
+            </TouchableOpacity>
+          </LiquidGlassSurface>
+        )}
+
+        {/* ── 2. Three Clean Liquid Glass Info Cards ── */}
+        <View style={styles.infoCardsGrid}>
+          {/* Card 1: Listening Time */}
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive={false}
+            borderRadius={22}
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: palette.cardBg,
+                borderColor: palette.cardBorder,
+                borderTopColor: palette.cardTopBorder,
+              },
+            ]}
+          >
+            <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(0, 122, 255, 0.14)' }]}>
+              <Ionicons name="time-outline" size={20} color={palette.accentBlue} />
+            </View>
+            <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>وقت الاستماع</Text>
+            <Text style={[styles.infoValue, { color: palette.accentBlue }]} numberOfLines={1}>
+              {formatMinutesAndSeconds(listeningSeconds)}
+            </Text>
+          </LiquidGlassSurface>
+
+          {/* Card 2: Liked Music Count */}
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive={false}
+            borderRadius={22}
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: palette.cardBg,
+                borderColor: palette.cardBorder,
+                borderTopColor: palette.cardTopBorder,
+              },
+            ]}
+          >
+            <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(236, 72, 153, 0.14)' }]}>
+              <Ionicons name="heart" size={20} color={palette.accentPink} />
+            </View>
+            <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>الإعجابات</Text>
+            <Text style={[styles.infoValue, { color: palette.accentPink }]} numberOfLines={1}>
+              {totalLikesCount} أغنية
+            </Text>
+          </LiquidGlassSurface>
+        </View>
+
+        {/* Card 3: Account Status */}
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isDark={isDark}
+          isInteractive={false}
+          borderRadius={22}
+          style={[
+            styles.wideInfoCard,
+            {
+              backgroundColor: palette.cardBg,
+              borderColor: palette.cardBorder,
+              borderTopColor: palette.cardTopBorder,
+            },
+          ]}
+        >
+          <View style={styles.wideCardRight}>
+            <View style={[styles.infoIconWrap, { backgroundColor: 'rgba(52, 199, 89, 0.14)' }]}>
+              <Ionicons
+                name={user ? 'shield-checkmark-outline' : 'person-outline'}
+                size={20}
+                color={palette.accentGreen}
+              />
+            </View>
+            <View>
+              <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>حالة الحساب</Text>
+              <Text style={[styles.wideInfoValue, { color: palette.textPrimary }]}>
+                {user ? `مسجل (@${displayUser?.username || 'user'})` : 'حساب ضيف'}
+              </Text>
+            </View>
+          </View>
+          <Ionicons
+            name={user ? 'checkmark-circle' : 'chevron-back'}
+            size={20}
+            color={user ? palette.accentGreen : palette.textMuted}
+          />
+        </LiquidGlassSurface>
+      </ScrollView>
+
+      {/* ── Edit Profile Bottom Sheet (Full Name Only, Username Fixed) ── */}
       <DynamicBottomSheet
         ref={editSheetRef}
         isVisible={showEdit}
         onClose={() => setShowEdit(false)}
         title="تعديل الملف الشخصي"
-        initialSnap={0.7}
+        initialSnap={0.5}
       >
         <View style={[styles.editSheetContent, { paddingBottom: insets.bottom + 20 }]}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            style={{ flex: 1 }}
-          >
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>الاسم الكامل</Text>
-              <TextInput
-                style={styles.textInput}
-                value={editFullName}
-                onChangeText={setEditFullName}
-                placeholder="الاسم المعروض"
-                placeholderTextColor={theme.textMuted}
-              />
-            </View>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: palette.textSecondary }]}>الاسم الكامل</Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  color: palette.textPrimary,
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.inputBorder,
+                },
+              ]}
+              value={editFullName}
+              onChangeText={setEditFullName}
+              placeholder="الاسم المعروض"
+              placeholderTextColor={palette.textMuted}
+              textAlign="right"
+            />
+          </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>اسم المستخدم (@)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={editUsername}
-                onChangeText={cleanUsername}
-                autoCapitalize="none"
-                placeholder="username"
-                placeholderTextColor={theme.textMuted}
-              />
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: palette.textSecondary }]}>
+              اسم المستخدم (ثابت)
+            </Text>
+            <View
+              style={[
+                styles.fixedUsernameBox,
+                {
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.inputBorder,
+                },
+              ]}
+            >
+              <Ionicons name="lock-closed-outline" size={16} color={palette.textMuted} />
+              <Text style={[styles.fixedUsernameTxt, { color: palette.textSecondary }]}>
+                @{displayUser?.username || 'user'}
+              </Text>
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>النبذة الشخصية (Bio)</Text>
-              <TextInput
-                style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
-                value={editBio}
-                onChangeText={setEditBio}
-                multiline
-                maxLength={250}
-                placeholder="أهدافك التدريبية أو جدول تمارينك..."
-                placeholderTextColor={theme.textMuted}
-              />
-            </View>
-          </ScrollView>
+          </View>
 
           <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+            style={[styles.saveBtnOuter, saving && { opacity: 0.65 }]}
             onPress={handleSaveProfile}
             disabled={saving}
+            activeOpacity={0.86}
           >
-            <Text style={styles.saveBtnTxt}>
-              {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-            </Text>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              tintColor="rgba(0, 122, 255, 0.45)"
+              borderRadius={24}
+              style={styles.saveBtnGlass}
+            >
+              <LinearGradient
+                colors={[
+                  'rgba(255, 255, 255, 0.26)',
+                  'rgba(56, 189, 248, 0.24)',
+                  'rgba(0, 122, 255, 0.45)',
+                ]}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
+                style={styles.saveBtnGradient}
+              >
+                <Text style={styles.saveBtnTxt}>
+                  {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                </Text>
+              </LinearGradient>
+            </LiquidGlassSurface>
           </TouchableOpacity>
         </View>
       </DynamicBottomSheet>
 
       {loading && (
         <View style={styles.loaderOverlay}>
-          <ActivityIndicator color="#FC5200" size="large" />
+          <ActivityIndicator color="#007AFF" size="large" />
         </View>
       )}
     </View>
   );
 };
 
-const createStyles = (theme: ThemeTokens) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    topBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingBottom: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderSubtle,
-    },
-    topBarTitle: {
-      color: theme.textPrimary,
-      fontSize: 18,
-      fontWeight: 'bold',
-      letterSpacing: -0.3,
-    },
-    topBarBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    topBarRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    scrollContainer: {
-      paddingHorizontal: 12,
-      paddingTop: 12,
-    },
-    headerContainer: {
-      marginBottom: 8,
-    },
-
-    // ── Guest Hero Card ──
-    guestCard: {
-      padding: 18,
-      marginBottom: 12,
-    },
-    guestHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      gap: 12,
-    },
-    guestAvatarWrap: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: 'rgba(0, 122, 255, 0.12)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(0, 122, 255, 0.25)',
-    },
-    guestHeaderInfo: {
-      flex: 1,
-    },
-    guestTitle: {
-      color: theme.textPrimary,
-      fontSize: 16,
-      fontWeight: '800',
-      marginBottom: 4,
-    },
-    guestBadgePill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      backgroundColor: 'rgba(0, 122, 255, 0.1)',
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 12,
-      gap: 5,
-    },
-    guestBadgeDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: '#007AFF',
-    },
-    guestBadgeTxt: {
-      color: '#007AFF',
-      fontSize: 11,
-      fontWeight: '700',
-    },
-    guestDescription: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      lineHeight: 20,
-      marginBottom: 16,
-      textAlign: 'right',
-    },
-    guestActionsRow: {
-      flexDirection: 'row',
-      gap: 10,
-    },
-    guestLoginBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#007AFF',
-      height: 42,
-      borderRadius: 14,
-    },
-    guestLoginBtnTxt: {
-      color: '#FFFFFF',
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    guestSignUpBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.surfaceSubtle,
-      borderWidth: 1,
-      borderColor: theme.border,
-      height: 42,
-      borderRadius: 14,
-    },
-    guestSignUpBtnTxt: {
-      fontSize: 13,
-      fontWeight: '700',
-    },
-
-    // ── Athlete Identity Card ──
-    identityCard: {
-      padding: 14,
-      marginBottom: 12,
-    },
-    identityRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    avatarNeonWrapper: {
-      position: 'relative',
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      borderWidth: 2,
-      borderColor: '#FC5200',
-      padding: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarImg: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: theme.surfaceSubtle,
-    },
-    avatarOverlay: {
-      borderRadius: 32,
-      backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    cameraPill: {
-      position: 'absolute',
-      bottom: -2,
-      right: -2,
-      backgroundColor: '#FC5200',
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: theme.background,
-    },
-    identityDetails: {
-      flex: 1,
-      marginLeft: 14,
-    },
-    athleteName: {
-      color: theme.textPrimary,
-      fontSize: 18,
-      fontWeight: '800',
-      letterSpacing: -0.3,
-    },
-    athleteHandle: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      marginTop: 2,
-    },
-    badgeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginTop: 5,
-    },
-    explorerBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'rgba(252, 82, 0, 0.12)',
-      paddingHorizontal: 7,
-      paddingVertical: 3,
-      borderRadius: 9,
-      gap: 3,
-    },
-    explorerBadgeTxt: {
-      color: '#FC5200',
-      fontSize: 10,
-      fontWeight: '700',
-    },
-    bioText: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      lineHeight: 18,
-      marginTop: 10,
-      paddingHorizontal: 2,
-    },
-    editProfileBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      backgroundColor: theme.surfaceSubtle,
-      paddingVertical: 8,
-      borderRadius: 12,
-      marginTop: 12,
-    },
-    editProfileBtnTxt: {
-      color: theme.textPrimary,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-
-    // ── Telemetry Grid ──
-    sectionHeaderRow: {
-      marginBottom: 8,
-      marginTop: 4,
-      paddingHorizontal: 2,
-    },
-    sectionTitle: {
-      color: theme.textPrimary,
-      fontSize: 15,
-      fontWeight: '800',
-      letterSpacing: -0.3,
-    },
-    telemetryGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-      marginBottom: 12,
-    },
-    metricCard: {
-      width: (SCREEN_WIDTH - 24 - 12) / 2,
-      padding: 12,
-    },
-    metricTopRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 8,
-    },
-    metricIconWrap: {
-      width: 30,
-      height: 30,
-      borderRadius: 9,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    metricPureTitle: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    metricMainValue: {
-      color: theme.textPrimary,
-      fontSize: 21,
-      fontWeight: '900',
-      letterSpacing: -0.5,
-    },
-    metricUnit: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.textSecondary,
-    },
-
-    // ── Carousel Section ──
-    carouselSection: {
-      marginBottom: 12,
-    },
-    carouselScroll: {
-      gap: 12,
-      paddingVertical: 2,
-    },
-    carouselCard: {
-      width: 120,
-      padding: 10,
-    },
-    carouselThumbWrap: {
-      position: 'relative',
-      width: 100,
-      height: 100,
-      borderRadius: 14,
-      overflow: 'hidden',
-      marginBottom: 6,
-      backgroundColor: theme.surfaceSubtle,
-    },
-    carouselThumb: {
-      width: 100,
-      height: 100,
-    },
-    carouselPlayOverlay: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: 'rgba(0,0,0,0.25)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    carouselTitle: {
-      color: theme.textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-      textAlign: 'center',
-    },
-    carouselArtist: {
-      color: theme.textSecondary,
-      fontSize: 11,
-      textAlign: 'center',
-      marginTop: 2,
-    },
-
-    // ── Instant Tab Switcher (0ms Pressable + Reanimated Indicator) ──
-    tabSwitchContainer: {
-      flexDirection: 'row',
-      backgroundColor: theme.surfaceSubtle,
-      borderRadius: 14,
-      padding: 4,
-      marginBottom: 12,
-      position: 'relative',
-    },
-    slidingIndicator: {
-      position: 'absolute',
-      top: 4,
-      left: 4,
-      bottom: 4,
-      width: (SCREEN_WIDTH - 24 - 8) / 2,
-      backgroundColor: theme.glassCard,
-      borderRadius: 11,
-      zIndex: 1,
-      borderWidth: 1,
-      borderColor: theme.glassBorder,
-    },
-    pressableTabBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 9,
-      borderRadius: 11,
-      gap: 6,
-      zIndex: 2,
-    },
-    tabBtnTxt: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-
-    // ── Music Item ──
-    musicCard: {
-      padding: 12,
-      marginBottom: 12,
-    },
-    musicRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    musicThumb: {
-      width: 50,
-      height: 50,
-      borderRadius: 12,
-      marginRight: 12,
-      backgroundColor: theme.surfaceSubtle,
-    },
-    musicInfoCol: {
-      flex: 1,
-    },
-    musicTitleTxt: {
-      color: theme.textPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    musicArtistTxt: {
-      color: theme.textSecondary,
-      fontSize: 12,
-      marginTop: 3,
-    },
-    musicPlayBtn: {
-      padding: 4,
-    },
-
-    // Empty state
-    emptyCard: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 26,
-      marginTop: 8,
-    },
-    emptyTitle: {
-      color: theme.textPrimary,
-      fontSize: 15,
-      fontWeight: '700',
-      marginTop: 12,
-      textAlign: 'center',
-    },
-    emptyDesc: {
-      color: theme.textSecondary,
-      fontSize: 12,
-      textAlign: 'center',
-      marginTop: 4,
-      lineHeight: 18,
-    },
-
-    // Bottom Sheet
-    editSheetContent: {
-      paddingHorizontal: 16,
-      paddingTop: 8,
-      flex: 1,
-    },
-    inputGroup: {
-      marginBottom: 14,
-    },
-    inputLabel: {
-      color: theme.textSecondary,
-      fontSize: 13,
-      fontWeight: '700',
-      marginBottom: 6,
-      textAlign: 'right',
-    },
-    textInput: {
-      backgroundColor: theme.surfaceSubtle,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      color: theme.textPrimary,
-      fontSize: 14,
-      textAlign: 'right',
-      borderWidth: 1,
-      borderColor: theme.borderSubtle,
-    },
-    saveBtn: {
-      backgroundColor: '#FC5200',
-      borderRadius: 14,
-      paddingVertical: 13,
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    saveBtnTxt: {
-      color: '#FFFFFF',
-      fontSize: 15,
-      fontWeight: 'bold',
-    },
-    loaderOverlay: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: 'rgba(0,0,0,0.3)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-  });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  ambientTop: {
+    position: 'absolute',
+    top: -60,
+    left: -50,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+  },
+  ambientBottom: {
+    position: 'absolute',
+    bottom: -80,
+    right: -50,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+  },
+  topBarTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    writingDirection: 'rtl',
+  },
+  topGlassBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  scrollContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  heroCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  guestHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 18,
+  },
+  identityRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 14,
+  },
+  appleAvatarOrb: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appleAvatarEmoji: {
+    fontSize: 26,
+  },
+  appleAvatarOrbLarge: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appleAvatarEmojiLarge: {
+    fontSize: 32,
+  },
+  avatarPhoto: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+  },
+  shufflePill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  identityDetails: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  profileHandle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  guestBadgePill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  guestBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#007AFF',
+  },
+  guestBadgeTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  guestActionsRow: {
+    flexDirection: 'row-reverse',
+    gap: 10,
+  },
+  actionHalf: {
+    flex: 1,
+  },
+  primaryPillGlass: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.36)',
+    overflow: 'hidden',
+  },
+  pillGradient: {
+    height: 46,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  primaryPillTxt: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  secondaryPillGlass: {
+    height: 46,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    overflow: 'hidden',
+  },
+  secondaryPillTxt: {
+    fontSize: 13,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  editProfilePill: {
+    height: 44,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    overflow: 'hidden',
+  },
+  editProfileTxt: {
+    fontSize: 14,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  infoCardsGrid: {
+    flexDirection: 'row-reverse',
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoCard: {
+    flex: 1,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'flex-end',
+    overflow: 'hidden',
+  },
+  infoIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+    writingDirection: 'rtl',
+  },
+  infoValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    writingDirection: 'rtl',
+  },
+  wideInfoCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  wideCardRight: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  wideInfoValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  editSheetContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  textInput: {
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: '600',
+    writingDirection: 'rtl',
+  },
+  fixedUsernameBox: {
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fixedUsernameTxt: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  saveBtnOuter: {
+    marginTop: 8,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  saveBtnGlass: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.36)',
+    overflow: 'hidden',
+  },
+  saveBtnGradient: {
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    writingDirection: 'rtl',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+});
 
 export default ProfileScreen;

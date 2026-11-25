@@ -522,7 +522,7 @@ export const SignUpScreen = ({ navigation }: any) => {
                     {loading ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text style={styles.signUpBtnText}>إنشاء حساب مجاني</Text>
+                      <Text style={styles.signUpBtnText}>إنشاء حساب جديد</Text>
                     )}
                   </LinearGradient>
                 </LiquidGlassSurface>
@@ -619,10 +619,10 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: 0.4,
+    fontSize: 28,
+    fontWeight: '800',
     writingDirection: 'rtl',
+    textAlign: 'center',
   },
   errorBox: {
     flexDirection: 'row-reverse',
@@ -749,8 +749,9 @@ const styles = StyleSheet.create({
   signUpBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontWeight: '700',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   footer: {
     flexDirection: 'row-reverse',
