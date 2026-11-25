@@ -201,7 +201,10 @@ export function analyzeUserVibe(
   let runningCount = 0;
   let chillCount = 0;
 
-  let leadingArtist = activeTrack?.artist ? cleanArtistName(activeTrack.artist) : 'Djalil Palermo';
+  let leadingArtist = activeTrack?.artist ? cleanArtistName(activeTrack.artist) : '';
+  if (!leadingArtist && history.length > 0) {
+    leadingArtist = cleanArtistName(history[0]?.artist) || '';
+  }
 
   for (const t of candidatePool) {
     const title = (t.title || '').toLowerCase();
@@ -289,7 +292,21 @@ export function analyzeUserVibe(
   }
 
   if (related.length === 0) {
-    related = ['Soolking', 'Djalil Palermo', 'Didine Canon 16', 'Cheb Khaled', 'Mouh Milano'];
+    // Derive related artists dynamically from user's history + learned taste cache (zero hardcoded artists)
+    const historyArtists = Array.from(
+      new Set(
+        history
+          .map((t) => cleanArtistName(t.artist))
+          .filter((a) => a && a !== 'Artist' && a.toLowerCase() !== leadingArtist.toLowerCase())
+      )
+    ).slice(0, 5);
+    const learnedTop = inMemoryTasteCache
+      ? Object.entries(inMemoryTasteCache.artistScores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name]) => name)
+      : [];
+    related = Array.from(new Set([...historyArtists, ...learnedTop]));
   }
 
   return {
