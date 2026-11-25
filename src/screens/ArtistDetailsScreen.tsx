@@ -10,17 +10,33 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import {
+  Modal,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { fetchArtistFullProfile, ArtistFullProfile, ArtistAlbumItem } from '../services/youtubeMusicService';
+import {
+  fetchArtistFullProfile,
+  fetchArtistMoreTracks,
+  ArtistFullProfile,
+  ArtistAlbumItem,
+} from '../services/youtubeMusicService';
 import { useAudioStore, Track } from '../store/useAudioStore';
 import { useTheme } from '../theme/ThemeContext';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { ThemeTokens } from '../theme/types';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
-import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import {
+  getUniversalStudioArtwork,
+  getUniversalStudioArtworkSource,
+  getUniversalArtistAvatar,
+} from '../utils/artworkHelper';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -56,6 +72,11 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   const { artistName, artist } = route.params || {};
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
+  const language = useLanguageStore((s) => s.language);
+  const isAr = language === 'ar';
+  const rowDirection = isAr ? 'row-reverse' : 'row';
+  const textAlign = isAr ? 'right' : 'left';
+  const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   // Audio store state & actions
@@ -73,7 +94,14 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   const [data, setData] = useState<ArtistFullProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
-  const [showAllTracks, setShowAllTracks] = useState(false);
+  const [visibleTrackLimit, setVisibleTrackLimit] = useState(10);
+  const [loadingMoreTracks, setLoadingMoreTracks] = useState(false);
+  const moreTracksPageRef = useRef(0);
+
+  // Releases Discography Modal State (Spotify Releases view)
+  const [releasesModalVisible, setReleasesModalVisible] = useState(false);
+  const [releasesTab, setReleasesTab] = useState<'albums' | 'singles' | 'playlists'>('albums');
+  const [releasesLimit, setReleasesLimit] = useState(30);
   const [showAllAlbums, setShowAllAlbums] = useState(false);
   const [showAllSingles, setShowAllSingles] = useState(false);
   const [showAllPlaylists, setShowAllPlaylists] = useState(false);
@@ -157,29 +185,62 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
     });
   };
 
+  const handleShowMoreTracks = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const nextLimit = visibleTrackLimit + 30;
+    setVisibleTrackLimit(nextLimit);
+
+    const existing = data?.topTracks || [];
+    if (nextLimit >= existing.length && data?.name && !loadingMoreTracks) {
+      setLoadingMoreTracks(true);
+      try {
+        const more = await fetchArtistMoreTracks(
+          data.name,
+          moreTracksPageRef.current,
+          existing.map((t) => t.videoId)
+        );
+        moreTracksPageRef.current += 1;
+        if (more.length > 0) {
+          setData((prev) =>
+            prev ? { ...prev, topTracks: [...prev.topTracks, ...more] } : prev
+          );
+        }
+      } catch {
+        // Ignore pagination network error
+      } finally {
+        setLoadingMoreTracks(false);
+      }
+    }
+  };
+
   const displayedTracks = useMemo(() => {
     const all = data?.topTracks || [];
-    if (activeFilter === 'popular') return all;
-    return showAllTracks ? all : all.slice(0, 5);
-  }, [data?.topTracks, showAllTracks, activeFilter]);
+    const cap = activeFilter === 'popular' ? Math.max(visibleTrackLimit, 30) : visibleTrackLimit;
+    return all.slice(0, cap);
+  }, [data?.topTracks, visibleTrackLimit, activeFilter]);
+
+  const popularReleasesList = useMemo(() => {
+    const merged = [...(data?.albums || []), ...(data?.singlesAndEPs || [])];
+    return merged.slice(0, 5);
+  }, [data?.albums, data?.singlesAndEPs]);
 
   const displayedAlbums = useMemo(() => {
     const all = data?.albums || [];
-    if (activeFilter === 'albums') return all;
+    if (activeFilter === 'albums') return all.slice(0, releasesLimit);
     return showAllAlbums ? all : all.slice(0, 6);
-  }, [data?.albums, showAllAlbums, activeFilter]);
+  }, [data?.albums, showAllAlbums, activeFilter, releasesLimit]);
 
   const displayedSingles = useMemo(() => {
     const all = data?.singlesAndEPs || [];
-    if (activeFilter === 'singles') return all;
+    if (activeFilter === 'singles') return all.slice(0, releasesLimit);
     return showAllSingles ? all : all.slice(0, 6);
-  }, [data?.singlesAndEPs, showAllSingles, activeFilter]);
+  }, [data?.singlesAndEPs, showAllSingles, activeFilter, releasesLimit]);
 
   const displayedPlaylists = useMemo(() => {
     const all = data?.playlists || [];
-    if (activeFilter === 'playlists') return all;
+    if (activeFilter === 'playlists') return all.slice(0, releasesLimit);
     return showAllPlaylists ? all : all.slice(0, 6);
-  }, [data?.playlists, showAllPlaylists, activeFilter]);
+  }, [data?.playlists, showAllPlaylists, activeFilter, releasesLimit]);
 
   const renderTrackRow = (track: Track, index: number) => {
     const isCurrent = currentTrack?.videoId === track.videoId;
@@ -187,7 +248,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
 
     return (
       <TouchableOpacity
-        key={`pop-${track.videoId || index}`}
+        key={`pop-${track.videoId || index}-${index}`}
         style={styles.trackRow}
         activeOpacity={0.7}
         onPress={() => {
@@ -212,7 +273,12 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
         </View>
 
         <Image
-          source={{ uri: getUniversalStudioArtwork(track.thumbnail || data?.avatar) }}
+          source={getUniversalStudioArtworkSource(
+            track.thumbnail || data?.avatar,
+            track.title,
+            track.artist || resolvedName,
+            track.videoId
+          )}
           style={styles.trackCover}
           contentFit="cover"
           priority="high"
@@ -522,14 +588,18 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           </TouchableOpacity>
         )}
 
-        {/* ── 6. "Popular" Top Tracks ── */}
+        {/* ── 6. "Popular" Top Tracks (10 initial -> +30 Show more pagination) ── */}
         {(activeFilter === 'all' || activeFilter === 'popular') && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeaderTitle}>Popular</Text>
-              {activeFilter === 'popular' && (
-                <Text style={styles.sectionSubtitle}>Top releases & trending</Text>
-              )}
+              <Text style={styles.sectionHeaderTitle}>
+                {isAr ? 'الأكثر استماعاً' : 'Popular'}
+              </Text>
+              <Text style={styles.sectionSubtitle}>
+                {isAr
+                  ? `${displayedTracks.length} من الأغاني`
+                  : `${displayedTracks.length} songs`}
+              </Text>
             </View>
 
             {loading ? (
@@ -549,22 +619,144 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
               displayedTracks.map((t: Track, idx: number) => renderTrackRow(t, idx))
             )}
 
-            {activeFilter === 'all' && data && data.topTracks && data.topTracks.length > 5 && (
+            {data && (
               <View style={styles.seeAllWrapper}>
                 <TouchableOpacity
                   style={styles.seeAllPill}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowAllTracks((prev) => !prev);
-                  }}
+                  disabled={loadingMoreTracks}
+                  onPress={handleShowMoreTracks}
                 >
-                  <Text style={styles.seeAllPillText}>
-                    {showAllTracks ? 'Show less' : 'See all songs'}
-                  </Text>
+                  {loadingMoreTracks ? (
+                    <ActivityIndicator size="small" color={theme.textPrimary} />
+                  ) : (
+                    <Text style={styles.seeAllPillText}>
+                      {isAr ? 'عرض المزيد (+30)' : 'Show more'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        )}
+
+        {/* ── 6B. "Popular Releases" (Spotify-style Latest Release + Albums + See Discography) ── */}
+        {activeFilter === 'all' && !loading && popularReleasesList.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <View style={[styles.sectionHeaderRow, { flexDirection: rowDirection }]}>
+              <Text style={[styles.sectionHeaderTitle, { writingDirection }]}>
+                {isAr ? 'أشهر الإصدارات' : 'Popular Releases'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setReleasesTab('albums');
+                  setReleasesLimit(30);
+                  setReleasesModalVisible(true);
+                }}
+              >
+                <Text style={[styles.showAllLinkTxt, { color: isDark ? '#38BDF8' : '#007AFF' }]}>
+                  {isAr ? 'عرض الكل' : 'Show all'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingHorizontal: 16, gap: 10 }}>
+              {popularReleasesList.map((rel, idx) => (
+                <TouchableOpacity
+                  key={`pop-rel-${rel.id || idx}`}
+                  activeOpacity={0.82}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('AlbumDetails', {
+                      playlistId: rel.id,
+                      albumTitle: rel.title,
+                      artistName: data?.name || resolvedName,
+                      cover: rel.cover,
+                      type: rel.type || 'album',
+                    });
+                  }}
+                >
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isDark={isDark}
+                    isInteractive
+                    borderRadius={16}
+                    style={[
+                      styles.releaseRowGlass,
+                      {
+                        flexDirection: rowDirection,
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
+                      },
+                    ]}
+                  >
+                    <Image
+                      source={getUniversalStudioArtworkSource(
+                        rel.cover || data?.avatar,
+                        rel.title,
+                        data?.name || resolvedName
+                      )}
+                      style={styles.releaseThumb}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                    <View style={{ flex: 1 }}>
+                      {idx === 0 && (
+                        <Text
+                          style={[
+                            styles.latestReleaseLabel,
+                            { color: isDark ? '#38BDF8' : '#007AFF', textAlign, writingDirection },
+                          ]}
+                        >
+                          {isAr ? 'أحدث إصدار' : 'Latest release'}
+                        </Text>
+                      )}
+                      <Text
+                        style={[
+                          styles.releaseTitleTxt,
+                          { color: theme.textPrimary, textAlign, writingDirection },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {rel.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.releaseMetaTxt,
+                          { color: theme.textSecondary, textAlign, writingDirection },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {rel.type === 'single' ? (isAr ? 'أغنية منفردة' : 'Single') : isAr ? 'ألبوم' : 'Album'} • {rel.year}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={isAr ? 'chevron-back' : 'chevron-forward'}
+                      size={18}
+                      color={theme.textMuted}
+                    />
+                  </LiquidGlassSurface>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.seeAllWrapper}>
+              <TouchableOpacity
+                style={styles.seeAllPill}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setReleasesTab('albums');
+                  setReleasesLimit(30);
+                  setReleasesModalVisible(true);
+                }}
+              >
+                <Text style={styles.seeAllPillText}>
+                  {isAr ? 'عرض جميع الألبومات والإصدارات' : 'See discography'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -609,7 +801,11 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
                     >
                       <View style={styles.albumCoverWrapper}>
                         <Image
-                          source={{ uri: getUniversalStudioArtwork(album.cover) }}
+                          source={getUniversalStudioArtworkSource(
+                            album.cover || data?.avatar,
+                            album.title,
+                            data?.name || resolvedName
+                          )}
                           style={styles.albumCoverImg}
                           contentFit="cover"
                           priority="normal"
@@ -691,7 +887,11 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
                     >
                       <View style={styles.albumCoverWrapper}>
                         <Image
-                          source={{ uri: getUniversalStudioArtwork(single.cover) }}
+                          source={getUniversalStudioArtworkSource(
+                            single.cover || data?.avatar,
+                            single.title,
+                            data?.name || resolvedName
+                          )}
                           style={styles.albumCoverImg}
                           contentFit="cover"
                           priority="normal"
@@ -773,7 +973,11 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
                     >
                       <View style={styles.albumCoverWrapper}>
                         <Image
-                          source={{ uri: getUniversalStudioArtwork(playlist.cover) }}
+                          source={getUniversalStudioArtworkSource(
+                            playlist.cover || data?.avatar,
+                            playlist.title,
+                            data?.name || resolvedName
+                          )}
                           style={styles.albumCoverImg}
                           contentFit="cover"
                           priority="normal"
@@ -888,11 +1092,201 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           <View style={styles.channelFooter}>
             <View style={styles.channelProtocolBadge}>
               <Ionicons name="musical-notes" size={13} color="#1DB954" />
-              <Text style={styles.channelProtocolText}>Official YouTube Music & Spotify Catalog</Text>
+              <Text style={styles.channelProtocolText}>Official Music Catalog</Text>
             </View>
           </View>
         </View>
       </Animated.ScrollView>
+
+      {/* ── Fullscreen Spotify-Style "Releases" Discography Modal (30-per-page) ── */}
+      <Modal
+        visible={releasesModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setReleasesModalVisible(false)}
+      >
+        <View
+          style={[
+            styles.releasesModalContainer,
+            {
+              backgroundColor: isDark ? '#070A12' : '#F2F5FA',
+              paddingTop: Math.max(insets.top, 18),
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.releasesModalHeader}>
+            <TouchableOpacity
+              onPress={() => setReleasesModalVisible(false)}
+              activeOpacity={0.75}
+            >
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={isDark}
+                isInteractive
+                borderRadius={20}
+                style={styles.releasesBackBtn}
+              >
+                <Ionicons name="chevron-back" size={22} color={theme.textPrimary} />
+              </LiquidGlassSurface>
+            </TouchableOpacity>
+            <Text style={[styles.releasesModalTitle, { color: theme.textPrimary }]}>
+              {isAr ? 'الإصدارات والألبومات' : 'Releases'}
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Category Filter Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ maxHeight: 48, flexGrow: 0 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center' }}
+          >
+            {(
+              [
+                { key: 'albums', label: isAr ? 'الألبومات' : 'Albums' },
+                { key: 'singles', label: isAr ? 'أغاني منفردة' : 'Singles and EPs' },
+                { key: 'playlists', label: isAr ? 'قوائم وتجميعات' : 'Playlists' },
+              ] as const
+            ).map((tab) => {
+              const active = releasesTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setReleasesTab(tab.key);
+                  }}
+                >
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isDark={isDark}
+                    isInteractive
+                    tintColor={active ? 'rgba(0, 122, 255, 0.35)' : undefined}
+                    borderRadius={18}
+                    style={[
+                      styles.releaseFilterChip,
+                      {
+                        backgroundColor: active ? '#007AFF' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        borderColor: active ? '#38BDF8' : isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: active ? '#FFFFFF' : theme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {tab.label}
+                    </Text>
+                  </LiquidGlassSurface>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Releases List (30 per batch + Show more) */}
+          <FlatList
+            data={(releasesTab === 'albums'
+              ? data?.albums || []
+              : releasesTab === 'singles'
+              ? data?.singlesAndEPs || []
+              : data?.playlists || []
+            ).slice(0, releasesLimit)}
+            keyExtractor={(item, idx) => `rel-mod-${item.id || idx}-${idx}`}
+            contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: insets.bottom + 30 }}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => {
+                  setReleasesModalVisible(false);
+                  navigation.navigate('AlbumDetails', {
+                    playlistId: item.id,
+                    albumTitle: item.title,
+                    artistName: data?.name || resolvedName,
+                    cover: item.cover,
+                    type: item.type || (releasesTab === 'singles' ? 'single' : 'album'),
+                  });
+                }}
+              >
+                <LiquidGlassSurface
+                  glassStyle="regular"
+                  isDark={isDark}
+                  isInteractive
+                  borderRadius={18}
+                  style={[
+                    styles.releaseRowGlass,
+                    {
+                      flexDirection: rowDirection,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.8)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={getUniversalStudioArtworkSource(
+                      item.cover || data?.avatar,
+                      item.title,
+                      data?.name || resolvedName
+                    )}
+                    style={styles.releaseThumbLarge}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                  <View style={{ flex: 1 }}>
+                    {index === 0 && (
+                      <Text
+                        style={[
+                          styles.latestReleaseLabel,
+                          { color: isDark ? '#38BDF8' : '#007AFF', textAlign, writingDirection },
+                        ]}
+                      >
+                        {isAr ? 'أحدث إصدار' : 'Latest release'}
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.releaseTitleTxt,
+                        { color: theme.textPrimary, textAlign, writingDirection },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.releaseMetaTxt,
+                        { color: theme.textSecondary, textAlign, writingDirection },
+                      ]}
+                    >
+                      {releasesTab === 'singles'
+                        ? isAr
+                          ? 'أغنية منفردة'
+                          : 'Single'
+                        : releasesTab === 'playlists'
+                        ? isAr
+                          ? 'قائمة تشغيل'
+                          : 'Playlist'
+                        : isAr
+                        ? 'ألبوم'
+                        : 'Album'}{' '}
+                      • {item.year}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={isAr ? 'chevron-back' : 'chevron-forward'}
+                    size={18}
+                    color={theme.textMuted}
+                  />
+                </LiquidGlassSurface>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1136,6 +1530,9 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
     sectionHeaderRow: {
       paddingHorizontal: 16,
       marginBottom: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     sectionHeaderTitle: {
       color: theme.textPrimary,
@@ -1372,6 +1769,73 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
       color: theme.textMuted,
       fontSize: 11,
       fontWeight: '600',
+    },
+    showAllLinkTxt: {
+      fontSize: 13.5,
+      fontWeight: '700',
+    },
+    releaseRowGlass: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 10,
+      alignItems: 'center',
+      gap: 12,
+      overflow: 'hidden',
+    },
+    releaseThumb: {
+      width: 56,
+      height: 56,
+      borderRadius: 10,
+    },
+    releaseThumbLarge: {
+      width: 68,
+      height: 68,
+      borderRadius: 12,
+    },
+    latestReleaseLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      marginBottom: 2,
+    },
+    releaseTitleTxt: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    releaseMetaTxt: {
+      fontSize: 12.5,
+      fontWeight: '500',
+      marginTop: 2,
+    },
+    releasesModalContainer: {
+      flex: 1,
+    },
+    releasesModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+    },
+    releasesBackBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    releasesModalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    releaseFilterChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 18,
+      borderWidth: 1,
+      overflow: 'hidden',
     },
   });
 

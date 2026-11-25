@@ -24,13 +24,21 @@ import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useTheme } from '../theme/ThemeContext';
 import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
-import { searchYouTubeMusicWithArtist, ArtistMatch } from '../services/youtubeMusicService';
+import {
+  searchYouTubeMusicWithArtist,
+  searchYouTubePlaylists,
+  ArtistMatch,
+  ArtistAlbumItem,
+} from '../services/youtubeMusicService';
 import {
   ArtistMusicShort,
   fetchOfficialArtistShorts,
 } from '../services/youtubeShortsService';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
-import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import {
+  getUniversalStudioArtworkSource,
+  getUniversalArtistAvatar,
+} from '../utils/artworkHelper';
 import { addToSearchHistory, cleanSearchHistory } from '../features/music/engines/searchHistory.engine';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ShortsReelsModal } from '../components/ShortsReelsModal';
@@ -59,9 +67,13 @@ export const MusicSearch = ({ route }: any) => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<{ artist: ArtistMatch | null; tracks: any[] } | null>(null);
+  const [results, setResults] = useState<{
+    artist: ArtistMatch | null;
+    tracks: any[];
+    albums: ArtistAlbumItem[];
+  } | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'tracks' | 'artists'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'tracks' | 'albums' | 'artists'>('all');
 
   // Official Artist Shorts Carousel States
   const [shorts, setShorts] = useState<ArtistMusicShort[]>([]);
@@ -127,10 +139,12 @@ export const MusicSearch = ({ route }: any) => {
         loadingShorts: 'جاري تحميل مقاطع الفنانين...',
         all: 'الكل',
         songs: 'الأغاني',
+        albums: 'الألبومات',
         artists: 'الفنانون',
         searching: 'جاري البحث...',
-        verifiedArtist: 'فنان رسمي',
-        viewProfile: 'عرض صفحة الفنان',
+        verifiedArtist: 'فنان رسمي • قناة يوتيوب',
+        viewProfile: 'عرض القناة والموسيقى',
+        albumsHeader: 'الألبومات والإصدارات',
         songsHeader: 'الأغاني',
         nothingFound: `لا توجد نتائج لـ "${query}"`,
         tryAnother: 'جرّب البحث عن فنان أو أغنية أخرى.',
@@ -144,10 +158,12 @@ export const MusicSearch = ({ route }: any) => {
         loadingShorts: 'Loading official artist shorts...',
         all: 'All',
         songs: 'Songs',
+        albums: 'Albums',
         artists: 'Artists',
         searching: 'Searching Music...',
-        verifiedArtist: 'Official Artist',
-        viewProfile: 'View Artist Profile',
+        verifiedArtist: 'Official Artist Channel',
+        viewProfile: 'View Channel & Music',
+        albumsHeader: 'Albums & Releases',
         songsHeader: 'Songs',
         nothingFound: `Nothing found for "${query}"`,
         tryAnother: 'Try searching for another artist or song.',
@@ -236,7 +252,10 @@ export const MusicSearch = ({ route }: any) => {
     if (!searchTerm.trim()) return;
     setLoading(true);
     try {
-      const { artist, tracks } = await searchYouTubeMusicWithArtist(searchTerm);
+      const [{ artist, tracks }, albumsList] = await Promise.all([
+        searchYouTubeMusicWithArtist(searchTerm),
+        searchYouTubePlaylists(searchTerm).catch(() => [] as ArtistAlbumItem[]),
+      ]);
       if (tracks && tracks.length > 0) {
         const formatted = tracks.map((item) => ({
           ...item,
@@ -247,6 +266,7 @@ export const MusicSearch = ({ route }: any) => {
         setResults({
           artist: artist || null,
           tracks: formatted,
+          albums: albumsList || [],
         });
       } else {
         const localMatches = searchCuratedMusic(searchTerm);
@@ -261,6 +281,7 @@ export const MusicSearch = ({ route }: any) => {
         setResults({
           artist: null,
           tracks: fallbackList,
+          albums: albumsList || [],
         });
       }
     } catch {
@@ -470,7 +491,7 @@ export const MusicSearch = ({ route }: any) => {
           ]}
         >
           <Image
-            source={{ uri: getUniversalStudioArtwork(item.thumbnail) }}
+            source={getUniversalStudioArtworkSource(item.thumbnail, item.title, item.artist, item.videoId)}
             style={styles.trackThumb}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -599,6 +620,7 @@ export const MusicSearch = ({ route }: any) => {
               [
                 { key: 'all', label: t.all },
                 { key: 'tracks', label: t.songs },
+                { key: 'albums', label: t.albums },
                 { key: 'artists', label: t.artists },
               ] as const
             ).map((f) => {
@@ -729,13 +751,13 @@ export const MusicSearch = ({ route }: any) => {
       ) : results ? (
         /* ── Search Results UI (Liquid Glass) ── */
         <FlatList
-          data={activeFilter === 'artists' ? [] : results.tracks}
+          data={activeFilter === 'artists' || activeFilter === 'albums' ? [] : results.tracks}
           keyExtractor={(it, index) => `${it.videoId}-${index}`}
           renderItem={renderTrackItem}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: miniPlayerBottomGap + 24 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 6 }}>
-              {results.artist && activeFilter !== 'tracks' && (
+              {results.artist && (activeFilter === 'all' || activeFilter === 'artists') && (
                 <View style={styles.artistSection}>
                   <Text
                     style={[
@@ -814,7 +836,90 @@ export const MusicSearch = ({ route }: any) => {
                 </View>
               )}
 
-              {activeFilter !== 'artists' && (
+              {/* Search Albums & Releases Carousel */}
+              {results.albums &&
+                results.albums.length > 0 &&
+                (activeFilter === 'all' || activeFilter === 'albums') && (
+                  <View style={styles.artistSection}>
+                    <Text
+                      style={[
+                        styles.sectionTitleHeader,
+                        { color: palette.textSecondary, textAlign, writingDirection },
+                      ]}
+                    >
+                      {t.albumsHeader}
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+                    >
+                      {results.albums.map((alb, idx) => (
+                        <TouchableOpacity
+                          key={`srch-alb-${alb.id}-${idx}`}
+                          activeOpacity={0.85}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (query.trim()) handleCommitSearch(query);
+                            navigation.navigate('AlbumDetails', {
+                              playlistId: alb.id,
+                              albumTitle: alb.title,
+                              artistName: results.artist?.name || query.trim(),
+                              cover: alb.cover,
+                              type: alb.type || 'album',
+                            });
+                          }}
+                        >
+                          <LiquidGlassSurface
+                            glassStyle="regular"
+                            isDark={isDark}
+                            isInteractive
+                            borderRadius={18}
+                            style={[
+                              styles.searchAlbumCard,
+                              {
+                                backgroundColor: palette.cardBg,
+                                borderColor: palette.cardBorder,
+                                borderTopColor: palette.cardTopBorder,
+                              },
+                            ]}
+                          >
+                            <Image
+                              source={getUniversalStudioArtworkSource(
+                                alb.cover || results.tracks[0]?.thumbnail,
+                                alb.title,
+                                results.artist?.name || ''
+                              )}
+                              style={styles.searchAlbumCover}
+                              contentFit="cover"
+                              cachePolicy="memory-disk"
+                            />
+                            <Text
+                              style={[
+                                styles.searchAlbumTitle,
+                                { color: palette.textPrimary, textAlign, writingDirection },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {alb.title}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.searchAlbumYear,
+                                { color: palette.textSecondary, textAlign, writingDirection },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {alb.year}
+                            </Text>
+                          </LiquidGlassSurface>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+              {activeFilter !== 'artists' && activeFilter !== 'albums' && (
                 <Text
                   style={[
                     styles.sectionTitleHeader,
@@ -827,15 +932,17 @@ export const MusicSearch = ({ route }: any) => {
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.centerEmpty}>
-              <Ionicons name="search-outline" size={54} color={palette.textMuted} />
-              <Text style={[styles.emptyTitle, { color: palette.textPrimary, writingDirection }]}>
-                {t.nothingFound}
-              </Text>
-              <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
-                {t.tryAnother}
-              </Text>
-            </View>
+            activeFilter === 'albums' || activeFilter === 'artists' ? undefined : (
+              <View style={styles.centerEmpty}>
+                <Ionicons name="search-outline" size={54} color={palette.textMuted} />
+                <Text style={[styles.emptyTitle, { color: palette.textPrimary, writingDirection }]}>
+                  {t.nothingFound}
+                </Text>
+                <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
+                  {t.tryAnother}
+                </Text>
+              </View>
+            )
           }
         />
       ) : null}
@@ -1122,6 +1229,28 @@ const styles = StyleSheet.create({
   artistActionText: {
     fontSize: 12.5,
     fontWeight: '700',
+  },
+  searchAlbumCard: {
+    width: 136,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 9,
+    overflow: 'hidden',
+  },
+  searchAlbumCover: {
+    width: 116,
+    height: 116,
+    borderRadius: 12,
+    marginBottom: 7,
+  },
+  searchAlbumTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  searchAlbumYear: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 2,
   },
   trackRowGlass: {
     borderRadius: 18,

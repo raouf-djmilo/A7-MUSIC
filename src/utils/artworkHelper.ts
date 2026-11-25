@@ -154,7 +154,7 @@ export const getUniversalStudioArtwork = (
 
   if (!url || typeof url !== 'string' || url.trim() === '') {
     if (resolvedVid && resolvedVid.length >= 8) {
-      return `https://i.ytimg.com/vi/${resolvedVid}/maxresdefault.jpg`;
+      return `https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`;
     }
     return '';
   }
@@ -180,13 +180,11 @@ export const getUniversalStudioArtwork = (
     return `${clean}${separator}w800-h800-l90-rj`;
   }
 
-  // 4. YouTube Video Thumbnails: Upgrade to hq720.jpg / maxresdefault.jpg
+  // 4. YouTube Video Thumbnails: Upgrade cleanly to reliable hq720 / hqdefault (never 404-prone maxresdefault)
   if (clean.includes('ytimg.com/vi/') || clean.includes('/vi/')) {
     const vid = clean.split('/vi/')[1]?.split('/')[0];
     if (vid && vid.length >= 8) {
-      return clean.includes('maxresdefault')
-        ? `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`
-        : `https://i.ytimg.com/vi/${vid}/hq720.jpg`;
+      return `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
     }
   }
 

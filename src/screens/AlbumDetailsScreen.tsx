@@ -17,8 +17,14 @@ import * as Haptics from 'expo-haptics';
 import { fetchPlaylistOrAlbumDetails, PlaylistAlbumDetails } from '../services/youtubeMusicService';
 import { useAudioStore, Track } from '../store/useAudioStore';
 import { useTheme } from '../theme/ThemeContext';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
-import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
+import {
+  getUniversalStudioArtwork,
+  getUniversalStudioArtworkSource,
+  getUniversalArtistAvatar,
+} from '../utils/artworkHelper';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,6 +43,11 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
 
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
+  const language = useLanguageStore((s) => s.language);
+  const isAr = language === 'ar';
+  const rowDirection = isAr ? 'row-reverse' : 'row';
+  const textAlign = isAr ? 'right' : 'left';
+  const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
 
   // Audio store state & actions
@@ -127,6 +138,16 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
   };
 
   const artworkUrl = getUniversalStudioArtwork(details?.cover || resolvedCover);
+  const artworkSource = useMemo(
+    () =>
+      getUniversalStudioArtworkSource(
+        details?.cover || resolvedCover,
+        details?.title || resolvedTitle,
+        details?.artist || resolvedArtist,
+        details?.tracks?.[0]?.videoId
+      ),
+    [details?.cover, resolvedCover, details?.title, resolvedTitle, details?.artist, resolvedArtist, details?.tracks]
+  );
   const artistAvatarUrl = getUniversalArtistAvatar(
     details?.artistAvatar,
     details?.artist || resolvedArtist
@@ -151,14 +172,7 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
 
     return (
       <TouchableOpacity
-        style={[
-          styles.trackRow,
-          {
-            borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-            backgroundColor: isCurrent ? (isDark ? 'rgba(29, 185, 84, 0.08)' : 'rgba(29, 185, 84, 0.05)') : 'transparent',
-          },
-        ]}
-        activeOpacity={0.7}
+        activeOpacity={0.78}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (isCurrent) {
@@ -168,71 +182,116 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
             setPlayerModalVisible(true);
           }
         }}
+        style={{ paddingHorizontal: 14, marginBottom: 8 }}
       >
-        {/* Track Index or Equalizer */}
-        <View style={styles.trackIndexWrapper}>
-          {isLoadingTrack ? (
-            <ActivityIndicator size="small" color="#1DB954" />
-          ) : isCurrent && isPlaying ? (
-            <Ionicons name="volume-high" size={16} color="#1DB954" />
-          ) : (
-            <Text style={[styles.trackIndex, isCurrent && { color: '#1DB954', fontWeight: '800' }]}>
-              {index + 1}
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isDark={isDark}
+          isInteractive
+          borderRadius={18}
+          style={[
+            styles.trackRow,
+            {
+              flexDirection: rowDirection,
+              borderColor: isCurrent
+                ? '#1DB954'
+                : isDark
+                ? 'rgba(255,255,255,0.12)'
+                : 'rgba(15,23,42,0.08)',
+              backgroundColor: isCurrent
+                ? isDark
+                  ? 'rgba(29, 185, 84, 0.14)'
+                  : 'rgba(29, 185, 84, 0.08)'
+                : isDark
+                ? 'rgba(18, 22, 30, 0.56)'
+                : 'rgba(255, 255, 255, 0.78)',
+            },
+          ]}
+        >
+          {/* Track Index or Equalizer */}
+          <View style={styles.trackIndexWrapper}>
+            {isLoadingTrack ? (
+              <ActivityIndicator size="small" color="#1DB954" />
+            ) : isCurrent && isPlaying ? (
+              <Ionicons name="volume-high" size={16} color="#1DB954" />
+            ) : (
+              <Text
+                style={[
+                  styles.trackIndex,
+                  { color: isDark ? 'rgba(255,255,255,0.65)' : '#475569' },
+                  isCurrent && { color: '#1DB954', fontWeight: '800' },
+                ]}
+              >
+                {index + 1}
+              </Text>
+            )}
+          </View>
+
+          {/* Track Thumbnail (Cascade Fallback guarantees 100% cover visibility) */}
+          <Image
+            source={getUniversalStudioArtworkSource(
+              item.thumbnail || artworkUrl,
+              item.title,
+              item.artist || details?.artist || resolvedArtist,
+              item.videoId
+            )}
+            style={styles.trackThumb}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={150}
+          />
+
+          {/* Track Title & Artist */}
+          <View style={styles.trackInfo}>
+            <Text
+              style={[
+                styles.trackTitle,
+                { color: isDark ? '#FFFFFF' : '#0F172A', textAlign, writingDirection },
+                isCurrent && { color: '#1DB954' },
+              ]}
+              numberOfLines={1}
+            >
+              {item.title}
             </Text>
-          )}
-        </View>
+            <Text
+              style={[
+                styles.trackArtist,
+                { color: isDark ? 'rgba(255,255,255,0.68)' : '#475569', textAlign, writingDirection },
+              ]}
+              numberOfLines={1}
+            >
+              {item.artist || details?.artist || resolvedArtist}
+            </Text>
+          </View>
 
-        {/* Track Thumbnail */}
-        <Image
-          source={{ uri: getUniversalStudioArtwork(item.thumbnail || artworkUrl) }}
-          style={styles.trackThumb}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          transition={150}
-        />
-
-        {/* Track Title & Artist */}
-        <View style={styles.trackInfo}>
+          {/* Track Duration */}
           <Text
             style={[
-              styles.trackTitle,
-              { color: isDark ? '#FFFFFF' : theme.textPrimary },
-              isCurrent && { color: '#1DB954' },
+              styles.trackDuration,
+              { color: isDark ? 'rgba(255,255,255,0.55)' : '#64748B' },
             ]}
-            numberOfLines={1}
           >
-            {item.title}
+            {formatTrackDuration(item.duration)}
           </Text>
-          <Text
-            style={[styles.trackArtist, { color: isDark ? 'rgba(255,255,255,0.5)' : theme.textSecondary }]}
-            numberOfLines={1}
+
+          {/* Heart / Favorite Button */}
+          <TouchableOpacity
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            activeOpacity={0.7}
+            onPress={(e) => {
+              e.stopPropagation();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleLike(item);
+            }}
+            style={styles.heartBtn}
           >
-            {item.artist || details?.artist || resolvedArtist}
-          </Text>
-        </View>
-
-        {/* Track Duration */}
-        <Text style={[styles.trackDuration, { color: isDark ? 'rgba(255,255,255,0.4)' : theme.textMuted }]}>
-          {formatTrackDuration(item.duration)}
-        </Text>
-
-        {/* Heart / Favorite Button */}
-        <TouchableOpacity
-          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-          activeOpacity={0.7}
-          onPress={(e) => {
-            e.stopPropagation();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            toggleLike(item);
-          }}
-          style={styles.heartBtn}
-        >
-          <Ionicons
-            name={isLiked ? 'heart' : 'heart-outline'}
-            size={18}
-            color={isLiked ? '#1DB954' : (isDark ? 'rgba(255,255,255,0.35)' : theme.textMuted)}
-          />
-        </TouchableOpacity>
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isLiked ? '#1DB954' : isDark ? 'rgba(255,255,255,0.55)' : '#64748B'}
+            />
+          </TouchableOpacity>
+        </LiquidGlassSurface>
       </TouchableOpacity>
     );
   };
@@ -242,14 +301,14 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
       {/* Album Artwork with Glow Backdrop */}
       <View style={styles.artworkWrapper}>
         <Image
-          source={{ uri: artworkUrl }}
+          source={artworkSource}
           style={styles.artworkBackdrop}
           contentFit="cover"
-          blurRadius={30}
+          blurRadius={32}
           cachePolicy="memory-disk"
         />
         <Image
-          source={{ uri: artworkUrl }}
+          source={artworkSource}
           style={styles.artworkImage}
           contentFit="cover"
           priority="high"
@@ -398,18 +457,23 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#0A0A0A' : theme.background }]}>
-      {/* Ambient Top Glow */}
+    <View style={[styles.container, { backgroundColor: isDark ? '#070A12' : '#F2F5FA' }]}>
+      {/* Ambient Top Glow with High-Contrast Liquid Glass Scrim (text always legible!) */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Image
-          source={{ uri: artworkUrl }}
+          source={artworkSource}
           style={styles.ambientTopGlow}
           contentFit="cover"
           blurRadius={50}
           cachePolicy="memory-disk"
         />
         <LinearGradient
-          colors={['transparent', isDark ? '#0A0A0A' : theme.background]}
+          colors={
+            isDark
+              ? ['rgba(7, 10, 18, 0.56)', 'rgba(7, 10, 18, 0.88)', '#070A12']
+              : ['rgba(242, 245, 250, 0.72)', 'rgba(242, 245, 250, 0.94)', '#F2F5FA']
+          }
+          locations={[0, 0.42, 0.85]}
           style={StyleSheet.absoluteFill}
         />
       </View>
@@ -625,10 +689,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    borderBottomWidth: 1,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 12,
+    overflow: 'hidden',
   },
   trackIndexWrapper: {
     width: 24,

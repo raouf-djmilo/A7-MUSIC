@@ -21,7 +21,7 @@ export interface ArtistMusicShort {
   durationMs: number;
 }
 
-const SHORTS_CACHE_KEY_PREFIX = '@a7music_artist_shorts_v3_';
+const SHORTS_CACHE_KEY_PREFIX = '@a7music_artist_shorts_v4_';
 const SHORTS_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
 const NON_MUSIC_SPAM_KEYWORDS = [
@@ -122,15 +122,16 @@ function cleanShortTitle(rawTitle: string): string {
 }
 
 /**
- * Strictly verifies that a YouTube video belongs to an Official Music Artist channel
- * (Official Artist musical note badge, Verified channel, VEVO, or Topic) — rejecting
- * craft channels, ringtone reuploaders, and non-music accounts.
+ * Scores & verifies whether a YouTube video belongs to a genuine Music Artist channel:
+ * - Rejects non-music spam (craft/DIY, ringtone reuploaders, vlogs, podcasts, gaming, etc.)
+ * - Gives highest score (3) to Official Artist / VEVO / - Topic badges, score (2) to Verified,
+ *   and score (1) to clean music-matched artist channels so the carousel ALWAYS populates cleanly.
  */
-function verifyArtistChannel(ownerName: string, ownerBadges: any[] = []): boolean {
-  if (!ownerName) return false;
+function scoreArtistChannel(ownerName: string, ownerBadges: any[] = []): number {
+  if (!ownerName) return 0;
   const lowerOwner = ownerName.toLowerCase();
   if (NON_ARTIST_CHANNEL_WORDS.some((w) => lowerOwner.includes(w))) {
-    return false;
+    return 0;
   }
 
   const hasOfficialMusicBadge = ownerBadges.some((b: any) => {
@@ -151,12 +152,10 @@ function verifyArtistChannel(ownerName: string, ownerBadges: any[] = []): boolea
 
   const isVevoOrTopic = /vevo$/i.test(ownerName) || /-\s*topic$/i.test(ownerName);
 
-  if (hasOfficialMusicBadge || isVevoOrTopic) {
-    return true;
-  }
-
-  // Verified channel is allowed only if its name passes fake-channel music filter
-  return hasVerifiedBadge && !isFakeArtistChannel(ownerName);
+  if (hasOfficialMusicBadge || isVevoOrTopic) return 3;
+  if (hasVerifiedBadge && !isFakeArtistChannel(ownerName)) return 2;
+  if (!isFakeArtistChannel(ownerName)) return 1;
+  return 0;
 }
 
 /**
@@ -267,11 +266,9 @@ async function queryYouTubeArtistShorts(
         ?.contents || [];
     const items = sections?.[0]?.itemSectionRenderer?.contents || [];
 
-    const collected: ArtistMusicShort[] = [];
+    const scoredItems: Array<{ score: number; item: ArtistMusicShort }> = [];
 
     for (const item of items) {
-      // Skip unverified reelShelfRenderer items (they often contain non-artist viral shorts like craft/DIY)
-      // Strict Official Artist check runs on videoRenderer which includes ownerBadges & channel verification.
       const v = item.videoRenderer;
       if (!v?.videoId) continue;
       const rawTitle = v.title?.runs?.map((r: any) => r.text).join('') || '';
@@ -279,7 +276,8 @@ async function queryYouTubeArtistShorts(
       const badges = v.ownerBadges || [];
 
       if (isSpamTitleOrChannel(rawTitle, rawOwner)) continue;
-      if (!verifyArtistChannel(rawOwner, badges)) continue;
+      const channelScore = scoreArtistChannel(rawOwner, badges);
+      if (channelScore <= 0) continue;
 
       const durationText = v.lengthText?.simpleText;
       const durationMs = parseDurationText(durationText);
@@ -288,7 +286,8 @@ async function queryYouTubeArtistShorts(
           v.navigationEndpoint?.commandMetadata?.webCommandMetadata?.url?.includes('/shorts/')
       );
 
-      if (!isShortsNav && durationMs > 90000) continue;
+      // Accept true Shorts and short official music clips up to 3.5 minutes (EgIYAQ%3D%3D window)
+      if (!isShortsNav && durationMs > 220000) continue;
 
       const channelThumbs =
         v.channelThumbnailSupportedRenderers?.channelThumbnailWithLinkRenderer?.thumbnail
@@ -298,24 +297,28 @@ async function queryYouTubeArtistShorts(
       const artist = cleanArtistName(rawOwner);
       const tag = extractHashtag(rawTitle, deriveTagFromQuery(searchQuery, artist));
 
-      collected.push({
-        videoId: v.videoId,
-        title: cleanShortTitle(rawTitle),
-        artist,
-        artistId: v.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId,
-        artistAvatar:
-          channelAvatar ||
-          getUniversalArtistAvatar('', artist) ||
-          `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
-        isOfficialArtist: true,
-        thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hq720.jpg`,
-        hashtag: tag,
-        tags: [tag, '#music short'],
-        durationMs: Math.min(durationMs, 60000),
+      scoredItems.push({
+        score: channelScore + (isShortsNav ? 1 : 0),
+        item: {
+          videoId: v.videoId,
+          title: cleanShortTitle(rawTitle),
+          artist,
+          artistId: v.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId,
+          artistAvatar:
+            channelAvatar ||
+            getUniversalArtistAvatar('', artist) ||
+            `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+          isOfficialArtist: channelScore >= 2,
+          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+          hashtag: tag,
+          tags: [tag, '#music'],
+          durationMs: Math.min(durationMs, 90000),
+        },
       });
     }
 
-    return collected;
+    scoredItems.sort((a, b) => b.score - a.score);
+    return scoredItems.map((x) => x.item);
   } catch {
     clearTimeout(timeoutId);
     return [];

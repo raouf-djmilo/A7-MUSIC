@@ -294,11 +294,11 @@ export async function searchYouTubeMusicWithArtist(query: string): Promise<Searc
         }
 
         const thumbs = v.thumbnail?.thumbnails || [];
-        const rawThumbnail = thumbs.length > 0 
-          ? thumbs[thumbs.length - 1]?.url 
-          : `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`;
+        const rawThumbnail = thumbs.length > 0
+          ? thumbs[thumbs.length - 1]?.url
+          : `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
         const thumbnail = rawThumbnail.includes('ytimg.com/vi/')
-          ? `https://i.ytimg.com/vi/${v.videoId}/maxresdefault.jpg`
+          ? `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`
           : rawThumbnail;
 
         rawTracks.push({
@@ -1369,10 +1369,10 @@ export async function fetchArtistFullProfile(rawArtistName: string): Promise<Art
       avatar: realAvatar,
       handle: channelInfo?.handle || artist?.handle || `@${cleanArtist.toLowerCase().replace(/[^\w]/g, '')}`,
       verified: channelInfo?.isOfficial ?? artist?.isOfficial ?? true,
-      topTracks: topTracks.slice(0, 20),
-      albums: albums.slice(0, 16),
-      singlesAndEPs: singlesAndEPs.slice(0, 16),
-      playlists: playlists.slice(0, 12),
+      topTracks: topTracks.slice(0, 60),
+      albums: albums.slice(0, 30),
+      singlesAndEPs: singlesAndEPs.slice(0, 30),
+      playlists: playlists.slice(0, 20),
       relatedArtists,
     };
   } catch (err) {
@@ -1389,5 +1389,35 @@ export async function fetchArtistFullProfile(rawArtistName: string): Promise<Art
       relatedArtists: [],
     };
   }
+}
+
+/**
+ * Paginated Catalog Loader: Fetches additional batches (+30 tracks) for an artist
+ * when the user taps "Show more" on an artist's Popular songs list.
+ */
+export async function fetchArtistMoreTracks(
+  artistName: string,
+  batchPage: number,
+  excludeVideoIds: string[]
+): Promise<Track[]> {
+  const clean = cleanArtistName(artistName);
+  if (!clean) return [];
+  const exclude = new Set(excludeVideoIds);
+  const queries = [
+    `${clean} official songs`,
+    `${clean} top hits audio`,
+    `${clean} album tracks`,
+    `${clean} live concert music`,
+  ];
+  const q = queries[batchPage % queries.length];
+  const res = await searchYouTubeMusicWithArtist(q);
+  const out: Track[] = [];
+  for (const t of res.tracks || []) {
+    if (!t.videoId || exclude.has(t.videoId)) continue;
+    exclude.add(t.videoId);
+    out.push(t);
+    if (out.length >= 30) break;
+  }
+  return out;
 }
 
