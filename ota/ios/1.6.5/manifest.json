@@ -1,13 +1,13 @@
 {
-  "id": "b5a993ec-8797-410a-b07d-d21519273405",
-  "createdAt": "2026-11-25T16:34:53.776Z",
+  "id": "3820f16f-cbfb-4210-b1a6-c8b52a9d726e",
+  "createdAt": "2026-11-25T16:46:03.817Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "lhETmI3t4wMeZ8Y1psQN3XCfvYEH3qcRnTAt1ROE2H8",
-    "key": "497deffafccc80d611957a551a09475b",
+    "hash": "hlg8KHZ4dDsDPBlaeOcTRTCMH4u0algRrqYUKVfS4vc",
+    "key": "cea46728a15131e9e41cccfbbb1bf3bf",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-e1ad039bf9e4772ce121bcf6a2db7ef5.hbc"
+    "url": "./_expo/static/js/ios/index-bc88221a0d65c95042e259cfd567722b.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.2191cbf",
+      "otaVersion": "1.6.5-ota.0a16ceb",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "2191cbf",
-      "title": "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
+      "commitSha": "0a16ceb",
+      "title": "feat(profile,auth): fix Arabic button ligatures and redesign ProfileScreen with Apple Liquid Glass",
       "highlights": [
-        "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
+        "feat(profile,auth): fix Arabic button ligatures and redesign ProfileScreen with Apple Liquid Glass",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T16:34:53.776Z",
-      "bundleSizeBytes": 6786266
+      "publishedAt": "2026-11-25T16:46:03.817Z",
+      "bundleSizeBytes": 6770890
     }
   }
 }

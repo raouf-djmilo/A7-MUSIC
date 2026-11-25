@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.2191cbf",
-  "updateId": "b5a993ec-8797-410a-b07d-d21519273405",
-  "publishedAt": "2026-11-25T16:34:53.776Z",
-  "title": "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
+  "otaVersion": "1.6.5-ota.0a16ceb",
+  "updateId": "3820f16f-cbfb-4210-b1a6-c8b52a9d726e",
+  "publishedAt": "2026-11-25T16:46:03.817Z",
+  "title": "feat(profile,auth): fix Arabic button ligatures and redesign ProfileScreen with Apple Liquid Glass",
   "highlights": [
-    "polish(auth): clean centered Liquid Glass UI, RTL Arabic, Light/Dark mode, instant input focus, user-safe errors",
+    "feat(profile,auth): fix Arabic button ligatures and redesign ProfileScreen with Apple Liquid Glass",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6786266,
+  "bundleSizeBytes": 6770890,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
