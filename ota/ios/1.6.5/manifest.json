@@ -1,13 +1,13 @@
 {
-  "id": "e94df8c4-917c-4864-a02a-1eadb832f615",
-  "createdAt": "2026-11-25T17:40:40.073Z",
+  "id": "ce2021c4-ec15-4a1b-8df6-3fb6fc684cc5",
+  "createdAt": "2026-11-25T17:47:41.325Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "EM5xDAKVydKLGoFH0Ck6wWtW2eSi8a-v1kEJKBoB4qY",
-    "key": "3da8d932809bce1f3b04d80645ae39ca",
+    "hash": "KbR9mgTYgVxzuPFT0uGo6h-T86SXC-eHLXuGhJnvB_Y",
+    "key": "f97a2a90b44d46688f4f8d5b6d111c03",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-a2d25072b09d7b702cf1d8dd9163e03e.hbc"
+    "url": "./_expo/static/js/ios/index-f92e19edf78cbb9030c4b277b6379805.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.5d38f85",
+      "otaVersion": "1.6.5-ota.b15a18d",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "5d38f85",
-      "title": "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
+      "commitSha": "b15a18d",
+      "title": "feat(shorts): fix mute/volume control, preload next video for instant swipe, add pause/play & replay, polish Liquid Glass cards",
       "highlights": [
-        "fix(search,shorts): use useNavigation() in MusicSearch and move onFeedGrow out of setFeed updater",
+        "feat(shorts): fix mute/volume control, preload next video for instant swipe, add pause/play & replay, polish Liquid Glass cards",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:40:40.073Z",
-      "bundleSizeBytes": 6831487
+      "publishedAt": "2026-11-25T17:47:41.325Z",
+      "bundleSizeBytes": 6833077
     }
   }
 }
