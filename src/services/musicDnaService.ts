@@ -89,11 +89,20 @@ export interface MoodCluster {
   tracks: Track[];
 }
 
+export interface ArtistRadioItem {
+  id: string;
+  artistName: string;
+  bgColor: string;
+  topArtworks: string[]; // Up to 3 distinct covers for the 3 overlapping circles
+  tracks: Track[];
+}
+
 export interface DynamicHomeSections {
   quickJump: Track[];
   topMixes: MoodCluster[];
   pickedForYou: Track | null;
-  favouriteArtists: { name: string; avatar: string; isOfficial?: boolean }[];
+  favouriteArtists: { name: string; avatar: string; isOfficial?: boolean; id?: string; channelId?: string }[];
+  artistRadios?: ArtistRadioItem[];
   recentlyPlayed: Track[];
   energyWorkout: Track[];
 }
@@ -223,7 +232,7 @@ class MusicDnaEngine {
       this.newPlaysSinceSync = 0;
       this.syncWithSupabase();
       // Also re-trigger dynamic discovery in background to refresh feed with latest tastes
-      this.discoverLiveFeeds('All', true).catch(() => {});
+      this.discoverLiveFeeds('All', true).catch(() => { });
     }
   }
 
@@ -511,36 +520,109 @@ class MusicDnaEngine {
       const normKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
       const seenArtistKeys = new Set<string>();
 
+      // Official Artists ONLY (exclude generic/fan/random YouTube uploader channels)
+      const artistTracksMap = new Map<string, { name: string; avatar: string; isOfficial: boolean; tracks: Track[] }>();
+      const seenArtistKeys = new Set<string>();
+
       for (const tr of allDiscovered) {
+        if (!tr.isOfficial) continue;
         const genuineName = extractGenuineArtist(tr.title, tr.artist);
         const k = genuineName ? normKey(genuineName) : '';
-        if (
-          genuineName &&
-          genuineName.length >= 3 &&
-          !isFakeArtistChannel(genuineName) &&
-          !seenArtistKeys.has(k) &&
-          artistMap.size < 12
-        ) {
+        if (!genuineName || genuineName.length < 3 || isFakeArtistChannel(genuineName)) {
+          continue;
+        }
+        if (!seenArtistKeys.has(k)) {
+          if (artistTracksMap.size >= 12) continue;
           seenArtistKeys.add(k);
           const avatar = tr.artistAvatar || getUniversalArtistAvatar(tr.artistAvatar, genuineName);
-          artistMap.set(genuineName, {
+          artistTracksMap.set(k, {
             name: genuineName,
             avatar,
             isOfficial: true,
+            tracks: [tr],
           });
+        } else {
+          artistTracksMap.get(k)?.tracks.push(tr);
         }
       }
 
-      // Shuffle discovered artists so the rail feels fresh and never fixed
-      const favouriteArtists = shuffleArray(Array.from(artistMap.values()));
+      // Deduplicate tracks between Top Mixes and Recommended Stations so they never repeat
+      const topMixVideoIds = new Set<string>();
+      for (const m of clusters) {
+        m.tracks = m.tracks.slice(0, 10);
+        for (const mt of m.tracks) {
+          if (mt.videoId) topMixVideoIds.add(mt.videoId);
+        }
+      }
+
+      const distinctStationTracks: Track[] = [];
+      const seenStationIds = new Set<string>();
+      for (const t of [...cadenceTracks, ...energyTracks, ...chillTracks, ...trendingTracks]) {
+        if (!t?.videoId || seenStationIds.has(t.videoId) || topMixVideoIds.has(t.videoId)) continue;
+        seenStationIds.add(t.videoId);
+        distinctStationTracks.push(t);
+        if (distinctStationTracks.length >= 10) break;
+      }
+      if (distinctStationTracks.length < 6) {
+        for (const t of cadenceTracks) {
+          if (t?.videoId && !seenStationIds.has(t.videoId)) {
+            seenStationIds.add(t.videoId);
+            distinctStationTracks.push(t);
+          }
+          if (distinctStationTracks.length >= 10) break;
+        }
+      }
+
+      // Shuffle discovered official artists so Popular Artists stays fresh
+      const shuffledArtists = shuffleArray(Array.from(artistTracksMap.values()));
+      const favouriteArtists = shuffledArtists.map(({ name, avatar, isOfficial }) => ({
+        name,
+        avatar,
+        isOfficial,
+      }));
+
+      // Build Spotify-style Artist Radio Cards with dynamic pastel colors & top 3 track covers
+      const RADIO_PALETTE = [
+        '#9BF0B8',
+        '#FF9CE3',
+        '#8CD3FF',
+        '#FFD166',
+        '#C7B8FF',
+        '#FFA69E',
+        '#A8F5E5',
+        '#FBC4AB',
+      ];
+      const artistRadios: ArtistRadioItem[] = shuffledArtists.slice(0, 8).map((art, idx) => {
+        const coverSet = new Set<string>();
+        const topArtworks: string[] = [];
+        for (const tr of art.tracks) {
+          const thumb = getUniversalStudioArtwork(tr.thumbnail, tr.title, tr.artist, tr.videoId);
+          if (thumb && !coverSet.has(thumb)) {
+            coverSet.add(thumb);
+            topArtworks.push(thumb);
+          }
+          if (topArtworks.length >= 3) break;
+        }
+        if (topArtworks.length === 0 && art.avatar) {
+          topArtworks.push(art.avatar);
+        }
+        return {
+          id: `artist-radio-${normKey(art.name)}-${idx}`,
+          artistName: art.name,
+          bgColor: RADIO_PALETTE[idx % RADIO_PALETTE.length],
+          topArtworks,
+          tracks: art.tracks.slice(0, 10),
+        };
+      });
 
       const fullSections: DynamicHomeSections = {
         quickJump: quickJumpTracks,
         topMixes: clusters,
         pickedForYou,
         favouriteArtists,
+        artistRadios,
         recentlyPlayed: [],
-        energyWorkout: cadenceTracks.slice(0, 15),
+        energyWorkout: distinctStationTracks,
       };
 
       // Persist to local cache with timestamp (6-hour TTL)
@@ -553,7 +635,7 @@ class MusicDnaEngine {
       AsyncStorage.setItem(
         `${FEED_CACHE_KEY_PREFIX}${this.activeUserId}`,
         JSON.stringify(payload)
-      ).catch(() => {});
+      ).catch(() => { });
 
       return this.filterSections(fullSections, activeFilter);
     } catch (err) {

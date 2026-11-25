@@ -21,6 +21,7 @@ import { MoodFilterBarSection } from './sections/MoodFilterBar.section';
 import { QuickGridSection } from './sections/QuickGrid.section';
 import { PickedForYouSection } from './sections/PickedForYou.section';
 import { TopMixesRailSection } from './sections/TopMixesRail.section';
+import { ArtistRadiosRailSection } from './sections/ArtistRadiosRail.section';
 import { WorkoutCadenceSection } from './sections/WorkoutCadence.section';
 import { FavoriteArtistsRailSection } from './sections/FavoriteArtistsRail.section';
 import { RecentlyPlayedRailSection } from './sections/RecentlyPlayedRail.section';
@@ -151,6 +152,25 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
     [navigation]
   );
 
+  const handleOpenArtistRadio = useCallback(
+    (radio: any) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.navigate('AlbumDetails', {
+        albumTitle: `${radio.artistName} Radio`,
+        artistName: radio.artistName,
+        cover: radio.topArtworks?.[0] || '',
+        type: 'playlist',
+        album: {
+          title: `${radio.artistName} Radio`,
+          artist: radio.artistName,
+          thumbnail: radio.topArtworks?.[0] || '',
+          tracks: radio.tracks || [],
+        },
+      });
+    },
+    [navigation]
+  );
+
   return (
     <ScrollView
       style={styles.container}
@@ -188,6 +208,11 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
           />
 
           <TopMixesRailSection topMixes={sections.topMixes} />
+
+          <ArtistRadiosRailSection
+            radios={sections.artistRadios || []}
+            onOpenRadio={handleOpenArtistRadio}
+          />
 
           <WorkoutCadenceSection
             tracks={sections.energyWorkout}
