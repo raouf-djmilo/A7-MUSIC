@@ -184,9 +184,9 @@ export function getRegionSeedQueries(region: RegionProfile): {
           'arabic acoustic guitar vibes',
         ],
         energy: [
-          'rap dz workout energy',
-          'high energy cardio beats 160 bpm',
-          'afro maghreb club rhythm',
+          'popular hip hop & pop hits algeria',
+          'new urban & electronic releases',
+          'afro maghreb hits mix',
         ],
       };
     }
@@ -195,7 +195,7 @@ export function getRegionSeedQueries(region: RegionProfile): {
       const country = region.countryName || code;
       return {
         trending: [
-          `top music ${country} trending 2026`,
+          `top music ${country} trending`,
           `arabic pop hits ${country}`,
           `top rap ${country} official`,
         ],
@@ -209,8 +209,8 @@ export function getRegionSeedQueries(region: RegionProfile): {
           'oriental lofi chill beats',
         ],
         energy: [
-          'arabic workout hip hop energy',
-          '160 bpm running cardio beats',
+          'arabic hip hop & urban hits',
+          'popular pop & rhythm mix',
         ],
       };
     }
@@ -228,7 +228,7 @@ export function getRegionSeedQueries(region: RegionProfile): {
           `popular pop & hip hop station`,
         ],
         chill: ['acoustic chill sessions official', 'lofi chill beats'],
-        energy: ['workout energy hits', '160 bpm running cardio'],
+        energy: ['popular urban & pop hits', 'electronic discovery mix'],
       };
     }
   }
@@ -252,9 +252,9 @@ export function getRegionSeedQueries(region: RegionProfile): {
       'late night acoustic vibes',
     ],
     energy: [
-      '160 bpm running cardio workout',
-      'high energy gym motivation beats',
-      'electronic workout rhythm',
+      'popular pop & urban hits',
+      'electronic & afrobeats discovery',
+      'upbeat indie & dance mix',
     ],
   };
 }

@@ -1,9 +1,9 @@
 export const FILTER_PILLS = [
   'All',
-  'Music',
-  'Workout 160 BPM',
-  'Rai DZ',
+  'For You',
+  'Trending',
   'Chill',
+  'Discover',
 ] as const;
 
 export type FilterPill = (typeof FILTER_PILLS)[number];

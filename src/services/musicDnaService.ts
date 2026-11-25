@@ -11,14 +11,13 @@ import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/ar
 import { CURATED_TRACKS } from '../data/curatedMusic';
 import { getRegionProfile, getRegionSeedQueries } from './regionService';
 
-// ── Dynamic Rotating Seed Pools (Zero Fixed Artists!) ──
+// ── Dynamic Rotating Seed Pools (Zero Fixed Artists, Zero Sport/Gym Bias!) ──
 const SEED_POOLS = {
   cadence: [
-    'running cadence 160 bpm',
-    '160 bpm running cardio workout music',
-    'running workout motivation',
-    'electronic cardio beats 160 bpm',
-    'high cadence stride workout',
+    'popular discovery radio mix',
+    'fresh hits & trending station',
+    'urban pop & electronic mix',
+    'indie & afrobeats radio',
   ],
   chill: [
     'acoustic chill sessions official',
@@ -27,10 +26,10 @@ const SEED_POOLS = {
     'late night chill R&B',
   ],
   energy: [
-    'high energy workout bass boost',
-    'drill & hip hop workout beats',
-    'afro house workout energy',
-    'cardio motivation beats',
+    'popular urban & hip hop hits',
+    'upbeat pop & electronic mix',
+    'afro house & dance discovery',
+    'trending rhythm & beats',
   ],
   trending: [
     'top music trending official',
@@ -424,9 +423,9 @@ class MusicDnaEngine {
         {
           id: 'cluster-cadence',
           key: 'cadence',
-          title: 'Energy Radio',
-          badgeColor: '#FF6B00', // Athletic orange
-          subtitle: 'High Energy & Rhythm',
+          title: 'Recommended Radio',
+          badgeColor: '#3B82F6',
+          subtitle: 'Fresh stations matched to you',
           artwork: pickDistinctCover(cadenceTracks, 0),
           tracks: shuffleArray(cadenceTracks).slice(0, 15),
         },

@@ -41,13 +41,13 @@ export const QuickGridSection: React.FC<QuickGridSectionProps> = memo(
 
     return (
       <View style={styles.quickGrid}>
-        {/* Slot 0: Liked Songs Card with Violet Gradient */}
+        {/* Slot 0: Liked Songs List Card (opens Liked Songs / Library list directly) */}
         <TouchableOpacity
           style={[styles.quickTile, styles.likedSongsTile]}
           activeOpacity={0.82}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            AudioBridgeEngine.playLikedSongs(userId, tracks);
+            onNavigateLibrary();
           }}
         >
           <LinearGradient

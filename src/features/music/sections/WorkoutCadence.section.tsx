@@ -88,7 +88,7 @@ export const WorkoutCadenceSection: React.FC<WorkoutCadenceSectionProps> = memo(
     return (
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Workout Cadence</Text>
+          <Text style={styles.sectionTitle}>Recommended stations</Text>
         </View>
 
         <FlatList
