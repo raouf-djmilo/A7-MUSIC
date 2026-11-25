@@ -1,13 +1,13 @@
 {
-  "id": "838d2f0f-627b-4c84-aaa2-68a47d2e9a83",
-  "createdAt": "2026-11-25T18:47:55.498Z",
+  "id": "965f254c-0997-493f-8931-c70b1fd9cd0a",
+  "createdAt": "2026-11-25T19:08:04.921Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "FvACefvSo3n3G2xY3RQpfcG94u1Zy5KAP8orBW0VJp4",
-    "key": "ec6904e298631f04d7cb6f9e7d26c0f5",
+    "hash": "w_ZKF2yKrfU53gp19XkysK50TX_ZW-7tsvf6uvePjCU",
+    "key": "a6ea5d682b781a2c74bd43e3e5d1a551",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-f9c30e3b00a7bd047aee2c6cfb864a9f.hbc"
+    "url": "./_expo/static/js/ios/index-58417dc54132179c6913d69434951d3e.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.39451b3",
+      "otaVersion": "1.6.5-ota.50f4199",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "39451b3",
-      "title": "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
+      "commitSha": "50f4199",
+      "title": "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
       "highlights": [
-        "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
+        "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T18:47:55.498Z",
-      "bundleSizeBytes": 6841883
+      "publishedAt": "2026-11-25T19:08:04.921Z",
+      "bundleSizeBytes": 6829678
     }
   }
 }

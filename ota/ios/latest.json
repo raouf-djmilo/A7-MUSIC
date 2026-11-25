@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.39451b3",
-  "updateId": "838d2f0f-627b-4c84-aaa2-68a47d2e9a83",
-  "publishedAt": "2026-11-25T18:47:55.498Z",
-  "title": "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
+  "otaVersion": "1.6.5-ota.50f4199",
+  "updateId": "965f254c-0997-493f-8931-c70b1fd9cd0a",
+  "publishedAt": "2026-11-25T19:08:04.921Z",
+  "title": "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
   "highlights": [
-    "fix(audio): unify native TrackPlayer engine, fast direct AAC streaming, full lock-screen controls & background continuity",
+    "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6841883,
+  "bundleSizeBytes": 6829678,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
