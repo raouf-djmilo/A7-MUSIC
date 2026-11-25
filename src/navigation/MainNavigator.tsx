@@ -46,16 +46,16 @@ const TabNavigator = ({ route }: any) => {
 
   const [activeTab, setActiveTab] = useState(initialIndex);
 
-  // Sync if route params change externally
+  // Sync only when external route.params.screen changes (never snap back on manual tab switch)
   useEffect(() => {
     const screenName = route?.params?.screen;
     if (screenName) {
       const idx = TAB_ROUTES.indexOf(screenName);
-      if (idx !== -1 && idx !== activeTab) {
+      if (idx !== -1) {
         setActiveTab(idx);
       }
     }
-  }, [route?.params?.screen, activeTab]);
+  }, [route?.params?.screen]);
 
   const tabs = useMemo(
     () => [

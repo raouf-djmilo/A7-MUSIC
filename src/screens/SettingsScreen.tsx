@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '../providers/AuthProvider';
@@ -171,28 +170,32 @@ export const SettingsScreen = () => {
       };
 
   useEffect(() => {
-    checkUpdates(false).catch(() => {});
-    loadManifest().catch(() => {});
+    const timer = setTimeout(() => {
+      checkUpdates(false).catch(() => {});
+      loadManifest().catch(() => {});
 
-    AsyncStorage.getItem(STORAGE_BG_PLAYBACK_KEY)
-      .then((val) => {
-        if (val !== null) {
-          const isEnabled = val === 'true';
-          setBgPlayback(isEnabled);
-          useAudioStore.setState({ backgroundAudioEnabled: isEnabled });
-        }
-      })
-      .catch(() => {});
+      AsyncStorage.getItem(STORAGE_BG_PLAYBACK_KEY)
+        .then((val) => {
+          if (val !== null) {
+            const isEnabled = val === 'true';
+            setBgPlayback(isEnabled);
+            useAudioStore.setState({ backgroundAudioEnabled: isEnabled });
+          }
+        })
+        .catch(() => {});
 
-    Promise.all([
-      AsyncStorage.getItem(STORAGE_NOTIFICATIONS_KEY),
-      safeGetPermissionsAsync(),
-    ])
-      .then(([savedOptIn, perms]) => {
-        const enabled = Boolean(perms.granted && savedOptIn !== 'false');
-        setNotificationsEnabled(enabled);
-      })
-      .catch(() => {});
+      Promise.all([
+        AsyncStorage.getItem(STORAGE_NOTIFICATIONS_KEY),
+        safeGetPermissionsAsync(),
+      ])
+        .then(([savedOptIn, perms]) => {
+          const enabled = Boolean(perms.granted && savedOptIn !== 'false');
+          setNotificationsEnabled(enabled);
+        })
+        .catch(() => {});
+    }, 320);
+
+    return () => clearTimeout(timer);
   }, [checkUpdates, loadManifest]);
 
   const handleNotificationsToggle = async (val: boolean) => {
@@ -379,7 +382,6 @@ export const SettingsScreen = () => {
           end={{ x: 0.9, y: 1 }}
           style={styles.ambientBottom}
         />
-        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
       </View>
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
