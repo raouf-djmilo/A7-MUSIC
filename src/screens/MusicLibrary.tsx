@@ -16,7 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../providers/AuthProvider';
 import { useAudioStore, Track } from '../store/useAudioStore';
-import { supabase } from '../lib/supabase';
+import {
+  getFirebaseLikedSongs,
+  getFirebasePlaylists,
+  createFirebasePlaylist,
+  UserPlaylist,
+} from '../services/firebaseMusicDb';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
 import { useNavigation } from '@react-navigation/native';
@@ -111,9 +116,39 @@ export const MusicLibrary = () => {
 
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
   const [savedTracks, setSavedTracks] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleCreatePlaylist = useCallback(() => {
+    if (!user?.id) {
+      Alert.alert('تسجيل الدخول مطلوب', 'يرجى تسجيل الدخول لإنشاء قوائم تشغيل وحفظها في حسابك.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Alert.prompt) {
+      Alert.prompt(
+        'إنشاء قائمة تشغيل جديدة',
+        'أدخل اسم قائمة التشغيل:',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          {
+            text: 'إنشاء',
+            onPress: async (name?: string) => {
+              if (!name?.trim()) return;
+              const created = await createFirebasePlaylist(user.id, name.trim());
+              if (created) {
+                setPlaylists((prev) => [created, ...prev]);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+            },
+          },
+        ],
+        'plain-text'
+      );
+    }
+  }, [user?.id]);
 
   // Auto-switch to Downloads tab when device is offline
   useEffect(() => {
@@ -133,15 +168,21 @@ export const MusicLibrary = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('music_likes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setSavedTracks(data);
-      }
+      const [likes, userPlaylists] = await Promise.all([
+        getFirebaseLikedSongs(user.id),
+        getFirebasePlaylists(user.id),
+      ]);
+      setSavedTracks(
+        likes.map((t) => ({
+          id: t.videoId,
+          video_id: t.videoId,
+          title: t.title,
+          artist: t.artist,
+          thumbnail: t.thumbnail,
+          duration: Math.floor((t.duration || 0) / 1000),
+        }))
+      );
+      setPlaylists(userPlaylists);
     } catch (e) {
       console.warn('Error fetching music library:', e);
     } finally {
@@ -269,6 +310,71 @@ export const MusicLibrary = () => {
             </View>
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* ── User Playlists Section (Firebase Firestore) ── */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <Text style={{ color: theme.textPrimary, fontSize: 16, fontWeight: '700' }}>
+            قوائم التشغيل ({playlists.length})
+          </Text>
+          <TouchableOpacity
+            onPress={handleCreatePlaylist}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: 'rgba(59,130,246,0.16)',
+            }}
+          >
+            <Ionicons name="add" size={16} color="#3B82F6" />
+            <Text style={{ color: '#3B82F6', fontSize: 12.5, fontWeight: '700' }}>قائمة جديدة</Text>
+          </TouchableOpacity>
+        </View>
+        {playlists.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+            {playlists.map((pl) => (
+              <TouchableOpacity
+                key={pl.id}
+                activeOpacity={0.82}
+                onPress={() =>
+                  navigation.navigate('AlbumDetails', {
+                    albumTitle: pl.name,
+                    artistName: `${pl.tracks?.length || 0} أغنية`,
+                    cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
+                    type: 'playlist',
+                    album: {
+                      id: pl.id,
+                      title: pl.name,
+                      artist: `${pl.tracks?.length || 0} tracks`,
+                      thumbnail: pl.cover || pl.tracks?.[0]?.thumbnail || '',
+                      tracks: pl.tracks || [],
+                    },
+                  })
+                }
+                style={{
+                  width: 132,
+                  padding: 10,
+                  borderRadius: 14,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
+                }}
+              >
+                <Text style={{ color: theme.textPrimary, fontSize: 13.5, fontWeight: '700' }} numberOfLines={1}>
+                  {pl.name}
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 11.5, marginTop: 3 }} numberOfLines={1}>
+                  {pl.tracks?.length || 0} أغنية
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* ── Tab View A: DOWNLOADS ── */}

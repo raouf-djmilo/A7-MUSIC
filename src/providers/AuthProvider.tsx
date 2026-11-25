@@ -1,6 +1,17 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import {
+  getFirebaseUserProfile,
+  upsertFirebaseUserProfile,
+} from '../services/firebaseMusicDb';
 import { useAudioStore } from '../store/useAudioStore';
 import { useNetworkStore } from '../services/networkService';
 
@@ -44,149 +55,99 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(updatedUser);
     await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
     try {
-      await supabase.from('profiles').update(newData).eq('id', user.id);
+      await upsertFirebaseUserProfile(user.id, newData);
     } catch (e) {
-      console.warn('Failed to update profile in Supabase:', e);
+      console.warn('Failed to update profile in Firestore:', e);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    const initAuth = async () => {
-      // ⚡ 1. INSTANT LOCAL CACHE RESTORE (0ms boot)
-      try {
-        const storedToken = await AsyncStorage.getItem('userToken');
-        const storedUser = await AsyncStorage.getItem('userData');
-        if (storedToken && storedUser && isMounted) {
+    // 1. Instant 0ms local cache restore
+    AsyncStorage.multiGet(['userToken', 'userData'])
+      .then((pairs) => {
+        if (!isMounted) return;
+        const storedToken = pairs[0]?.[1];
+        const storedUser = pairs[1]?.[1];
+        if (storedToken && storedUser) {
           setSession(storedToken);
           setUser(JSON.parse(storedUser));
         }
-      } catch (e) {
-        console.warn('Local auth restore error:', e);
-      } finally {
-        if (isMounted) {
-          setLoading(false); // Unblock app IMMEDIATELY in ~2ms!
-        }
-      }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
-      // ⚡ 2. NON-BLOCKING BACKGROUND CLOUD SYNC (with 2.5s safeguard timeout)
-      try {
-        const fetchSessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Auth check timeout')), 2500)
-        );
-
-        const { data } = (await Promise.race([
-          fetchSessionPromise,
-          timeoutPromise,
-        ])) as any;
-
-        const initialSession = data?.session;
-
-        if (initialSession?.user && isMounted) {
-          setSession(initialSession.access_token);
-          await AsyncStorage.setItem('userToken', initialSession.access_token);
-
-          (async () => {
-            try {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', initialSession.user.id)
-                .maybeSingle();
-
-              if (!isMounted) return;
-              const currentUser: User = {
-                id: initialSession.user.id,
-                email: initialSession.user.email || '',
-                username: profile?.username || initialSession.user.user_metadata?.username,
-                full_name: profile?.full_name || initialSession.user.user_metadata?.full_name,
-                avatar_url: profile?.avatar_url,
-                bio: profile?.bio,
-                phone_number: profile?.phone_number || initialSession.user.user_metadata?.phone_number,
-              };
-              setUser(currentUser);
-              await AsyncStorage.setItem('userData', JSON.stringify(currentUser));
-              useNetworkStore.getState().recordSuccessfulLogin();
-            } catch (err) {
-              // Silently handle background profile sync error
-            }
-          })();
-        }
-      } catch (e) {
-        // Silently handled: Network timeout or offline boot
-      }
-    };
-
-    initAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (event === 'SIGNED_OUT' || !currentSession) {
+    // 2. Firebase Auth state listener
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (!isMounted) return;
+      if (!fbUser) {
         setSession(null);
         setUser(null);
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('userData');
-      } else if (currentSession?.user) {
-        setSession(currentSession.access_token);
+        await AsyncStorage.multiRemove(['userToken', 'userData']).catch(() => {});
+        return;
+      }
+
+      try {
+        const token = await fbUser.getIdToken();
+        setSession(token);
+        await AsyncStorage.setItem('userToken', token);
+
+        const profile = await getFirebaseUserProfile(fbUser.uid).catch(() => null);
+        if (!isMounted) return;
+
+        const currentUser: User = {
+          id: fbUser.uid,
+          email: fbUser.email || profile?.email || '',
+          username: profile?.username || fbUser.email?.split('@')[0] || 'user',
+          full_name: profile?.full_name || fbUser.displayName || 'A7 Listener',
+          avatar_url: profile?.avatar_url || fbUser.photoURL || undefined,
+          bio: profile?.bio,
+          phone_number: profile?.phone_number,
+        };
+        setUser(currentUser);
+        await AsyncStorage.setItem('userData', JSON.stringify(currentUser));
+        useNetworkStore.getState().recordSuccessfulLogin();
+      } catch {
+        // Offline fallback preserves cached session
       }
     });
 
     return () => {
-      authListener?.subscription?.unsubscribe();
+      isMounted = false;
+      unsubscribe();
     };
   }, []);
 
   const login = async (loginData: { identifier: string; password: string }) => {
     try {
-      let email = loginData.identifier.trim();
-
-      // If user provided a username instead of email, look up their email
+      const email = loginData.identifier.trim().toLowerCase();
       if (!email.includes('@')) {
-        const { data: profile, error: profileErr } = await supabase
-          .from('profiles')
-          .select('email')
-          .ilike('username', email)
-          .maybeSingle();
-
-        if (profileErr || !profile?.email) {
-          return { data: null, error: new Error('اسم المستخدم غير مسجل لدينا') };
-        }
-        email = profile.email;
+        return {
+          data: null,
+          error: new Error('يرجى إدخال البريد الإلكتروني لتسجيل الدخول عبر Firebase.'),
+        };
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: loginData.password,
-      });
-
-      if (error) {
-        return { data: null, error };
-      }
-
-      const authUser = data.user;
-      const token = data.session.access_token;
-
-      // Fetch profile
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .maybeSingle();
+      const cred = await signInWithEmailAndPassword(auth, email, loginData.password);
+      const fbUser = cred.user;
+      const token = await fbUser.getIdToken();
+      const userProfile = await getFirebaseUserProfile(fbUser.uid).catch(() => null);
 
       const loggedInUser: User = {
-        id: authUser.id,
-        email: authUser.email || email,
-        username: userProfile?.username || authUser.user_metadata?.username,
-        full_name: userProfile?.full_name || authUser.user_metadata?.full_name,
-        avatar_url: userProfile?.avatar_url,
+        id: fbUser.uid,
+        email: fbUser.email || email,
+        username: userProfile?.username || email.split('@')[0],
+        full_name: userProfile?.full_name || fbUser.displayName || 'A7 Listener',
+        avatar_url: userProfile?.avatar_url || fbUser.photoURL || undefined,
         bio: userProfile?.bio,
         phone_number: userProfile?.phone_number,
       };
 
       setSession(token);
       setUser(loggedInUser);
-
       await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(loggedInUser));
       await useNetworkStore.getState().recordSuccessfulLogin();
@@ -208,43 +169,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const cleanEmail = registerData.email.trim().toLowerCase();
       const cleanUsername = registerData.username.trim().toLowerCase();
 
-      // Sign up with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: registerData.password,
-        options: {
-          data: {
-            username: cleanUsername,
-            full_name: registerData.full_name,
-            phone_number: registerData.phone_number,
-          },
-        },
-      });
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        cleanEmail,
+        registerData.password
+      );
+      const fbUser = cred.user;
 
-      if (error) {
-        return { data: null, error };
+      if (registerData.full_name) {
+        await updateProfile(fbUser, { displayName: registerData.full_name }).catch(() => {});
       }
 
-      const authUser = data.user;
-      if (!authUser) {
-        return { data: null, error: new Error('فشل إنشاء الحساب، يرجى المحاولة لاحقاً.') };
-      }
-
-      // Ensure profile exists in profiles table
-      const profileRecord = {
-        id: authUser.id,
+      await upsertFirebaseUserProfile(fbUser.uid, {
+        id: fbUser.uid,
         email: cleanEmail,
         username: cleanUsername,
         full_name: registerData.full_name,
-        phone_number: registerData.phone_number,
-        created_at: new Date().toISOString(),
-      };
+        phone_number: registerData.phone_number || '',
+      });
 
-      await supabase.from('profiles').upsert(profileRecord);
-
-      const token = data.session?.access_token || '';
+      const token = await fbUser.getIdToken();
       const registeredUser: User = {
-        id: authUser.id,
+        id: fbUser.uid,
         email: cleanEmail,
         username: cleanUsername,
         full_name: registerData.full_name,
@@ -253,10 +199,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setSession(token);
       setUser(registeredUser);
-
-      if (token) {
-        await AsyncStorage.setItem('userToken', token);
-      }
+      await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(registeredUser));
       await useNetworkStore.getState().recordSuccessfulLogin();
 
@@ -273,11 +216,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (audioErr) {
         console.warn('Error stopping audio on logout:', audioErr);
       }
-      await supabase.auth.signOut();
+      await signOut(auth);
       setSession(null);
       setUser(null);
-      await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('userData');
+      await AsyncStorage.multiRemove(['userToken', 'userData']);
     } catch (error) {
       console.error('Error during logout:', error);
     }
@@ -293,4 +235,3 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

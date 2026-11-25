@@ -3,7 +3,12 @@ import { NativeModules, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import TrackPlayer from 'react-native-track-player';
-import { supabase } from '../lib/supabase';
+import {
+  getFirebaseLikedSongs,
+  addFirebaseLikedSong,
+  removeFirebaseLikedSong,
+  toggleFirebaseFavoriteArtist,
+} from '../services/firebaseMusicDb';
 import { CURATED_TRACKS } from '../data/curatedMusic';
 import { 
   trackListeningSecond, 
@@ -267,25 +272,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     if (activeUserId) {
       try {
-        if (exists) {
-          await supabase
-            .from('user_followed_artists')
-            .delete()
-            .eq('user_id', activeUserId)
-            .eq('artist_id', artist.id);
-        } else {
-          await supabase
-            .from('user_followed_artists')
-            .upsert({
-              user_id: activeUserId,
-              artist_id: artist.id,
-              artist_name: artist.name,
-              artist_avatar: artist.avatar,
-              created_at: new Date().toISOString(),
-            }, { onConflict: 'user_id,artist_id' });
-        }
+        await toggleFirebaseFavoriteArtist(activeUserId, artist);
       } catch (e) {
-        console.warn('[AudioStore] Supabase followed artists sync error:', e);
+        console.warn('[AudioStore] Firebase followed artists sync error:', e);
       }
     }
   },
@@ -393,13 +382,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   fetchInitialLikes: async (userId) => {
     try {
-      const { data } = await supabase
-        .from('music_likes')
-        .select('video_id')
-        .eq('user_id', userId);
-      if (data) {
-        set({ likedTrackIds: data.map((d: any) => d.video_id) });
-      }
+      const liked = await getFirebaseLikedSongs(userId);
+      set({ likedTrackIds: liked.map((d) => d.videoId) });
     } catch (e) {
       console.warn('[AudioStore] Fetch likes error:', e);
     }
@@ -975,22 +959,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     try {
       if (isLiked) {
-        await supabase
-          .from('music_likes')
-          .delete()
-          .eq('user_id', activeUserId)
-          .eq('video_id', track.videoId);
+        await removeFirebaseLikedSong(activeUserId, track.videoId);
       } else {
-        await supabase
-          .from('music_likes')
-          .upsert({
-            user_id: activeUserId,
-            video_id: track.videoId,
-            title: track.title,
-            artist: track.artist,
-            thumbnail: track.thumbnail,
-            duration: Math.floor((track.duration || 0) / 1000)
-          }, { onConflict: 'user_id,video_id' });
+        await addFirebaseLikedSong(activeUserId, track);
       }
     } catch (e) {
       set({ likedTrackIds });

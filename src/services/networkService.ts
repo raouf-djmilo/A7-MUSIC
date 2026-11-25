@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
 
 // Key for recording whether this device has ever had an authenticated session
 export const HAS_EVER_LOGGED_IN_KEY = '@a7flow_has_ever_logged_in';
@@ -78,15 +78,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const userData = await AsyncStorage.getItem('userData');
       const hasEver = await AsyncStorage.getItem(HAS_EVER_LOGGED_IN_KEY);
       
-      let supabaseSessionExists = false;
-      try {
-        const { data } = await supabase.auth.getSession();
-        supabaseSessionExists = Boolean(data?.session?.user);
-      } catch (e) {
-        // Offline or storage issue
-      }
-
-      const hasSession = Boolean(userToken || userData || hasEver === 'true' || supabaseSessionExists);
+      const firebaseSessionExists = Boolean(auth.currentUser);
+      const hasSession = Boolean(userToken || userData || hasEver === 'true' || firebaseSessionExists);
 
       // 2. Query hardware connectivity
       let online = get().isOnline;

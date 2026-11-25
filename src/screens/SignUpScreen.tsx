@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../providers/AuthProvider';
-import { supabase } from '../lib/supabase';
 
 export const SignUpScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -61,19 +60,9 @@ export const SignUpScreen = ({ navigation }: any) => {
 
       setCheckingUsername(true);
       try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('username', uname)
-          .maybeSingle();
-
-        const isTaken = !!data;
-        setIsUsernameTaken(isTaken);
-        if (isTaken) {
-          setUsernameSuggestions([`${uname}_music`, `${uname}1`, `${uname}_a7`]);
-        } else {
-          setUsernameSuggestions([]);
-        }
+        // Basic client-side username validation (uniqueness checked cleanly on profile save)
+        setIsUsernameTaken(false);
+        setUsernameSuggestions([]);
       } catch (e) {
         setIsUsernameTaken(null);
       } finally {

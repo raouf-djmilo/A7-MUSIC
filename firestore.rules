@@ -1,0 +1,289 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model — A7 MUSIC (project: a7-music-app-dz)
+// ===============================================================
+//
+// All user data is strictly scoped under `users/{userId}` where
+// `userId` matches `request.auth.uid`.
+//
+// Collection: users
+// Document ID: {userId} (Firebase Auth UID)
+// Fields:
+//   - email: string (optional, valid email, <= 320 chars)
+//   - full_name: string (optional, 0..100 chars)
+//   - username: string (optional, 0..50 chars)
+//   - avatar_url: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - total_listening_seconds: number (optional, >= 0, <= 1000000000)
+//   - created_at: timestamp | ISO-8601 string (optional, immutable once set)
+//   - updated_at: timestamp | ISO-8601 string (optional)
+//
+// Subcollection: users/{userId}/liked_songs
+// Document ID: {videoId}
+// Fields:
+//   - videoId: string (required, 1..64 chars, must match {videoId})
+//   - title: string (required, 1..300 chars)
+//   - artist: string (optional, 0..200 chars)
+//   - thumbnail: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - duration: number (0..86400) | string (0..20 chars) (optional)
+//   - likedAt: timestamp | ISO-8601 string (optional)
+//
+// Subcollection: users/{userId}/playlists
+// Document ID: {playlistId}
+// Fields:
+//   - name: string (required, 1..100 chars)
+//   - description: string (optional, 0..1000 chars)
+//   - cover: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - tracks: list (optional, <= 200 items)
+//   - createdAt: timestamp | ISO-8601 string (optional, immutable once set)
+//   - updatedAt: timestamp | ISO-8601 string (optional)
+//
+// Subcollection (optional): users/{userId}/playlists/{playlistId}/tracks
+// Document ID: {trackId}
+// Fields:
+//   - videoId: string (required, 1..64 chars)
+//   - title: string (required, 1..300 chars)
+//   - artist: string (optional, 0..200 chars)
+//   - thumbnail: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - duration: number (0..86400) | string (0..20 chars) (optional)
+//   - addedAt: timestamp | ISO-8601 string (optional)
+//   - order: number (optional, 0..10000)
+//
+// Subcollection: users/{userId}/favorite_artists
+// Document ID: {artistKey}
+// Fields:
+//   - name: string (required, 1..200 chars)
+//   - avatar: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - channelId: string (optional, 0..128 chars)
+//   - addedAt: timestamp | ISO-8601 string (optional)
+//
+// Subcollection: users/{userId}/music_dna
+// Document ID: {docId}
+// Fields:
+//   - telemetry: map | list (optional, <= 500 entries)
+//   - top_artist_ids: list (optional, <= 20 items)
+//   - top_track_ids: list (optional, <= 50 items)
+//   - updated_at: timestamp | ISO-8601 string (optional)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) || isValidString(data[field], minLen, maxLen);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() <= 320 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrlOrEmpty(url) {
+      return url is string &&
+        url.size() <= 2048 &&
+        (url.size() == 0 || url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidOptionalUrl(data, field) {
+      return !(field in data) || isValidUrlOrEmpty(data[field]);
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.size() <= 40 &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidTimestampOrDate(val) {
+      return val is timestamp || isValidDateString(val);
+    }
+
+    function isValidOptionalTimestampOrDate(data, field) {
+      return !(field in data) || isValidTimestampOrDate(data[field]);
+    }
+
+    function isValidOptionalDuration(data, field) {
+      return !(field in data) ||
+        (data[field] is number && data[field] >= 0 && data[field] <= 86400) ||
+        isValidString(data[field], 0, 20);
+    }
+
+    function isImmutableIfPresent(field) {
+      return !(field in resource.data) ||
+        ((field in request.resource.data) && request.resource.data[field] == resource.data[field]);
+    }
+
+    // ===============================================================
+    // Domain Validators (Used in BOTH create and update)
+    // ===============================================================
+
+    function isValidUserProfile(data) {
+      return hasOnlyAllowedFields([
+          'email', 'full_name', 'username', 'avatar_url',
+          'total_listening_seconds', 'created_at', 'updated_at'
+        ]) &&
+        (!('email' in data) || isValidEmail(data.email)) &&
+        isValidOptionalString(data, 'full_name', 0, 100) &&
+        isValidOptionalString(data, 'username', 0, 50) &&
+        isValidOptionalUrl(data, 'avatar_url') &&
+        (!('total_listening_seconds' in data) ||
+          (data.total_listening_seconds is number &&
+           data.total_listening_seconds >= 0 &&
+           data.total_listening_seconds <= 1000000000)) &&
+        isValidOptionalTimestampOrDate(data, 'created_at') &&
+        isValidOptionalTimestampOrDate(data, 'updated_at');
+    }
+
+    function isValidLikedSong(data, videoId) {
+      return hasRequiredFields(['videoId', 'title']) &&
+        hasOnlyAllowedFields([
+          'videoId', 'title', 'artist', 'thumbnail', 'duration', 'likedAt'
+        ]) &&
+        isValidString(data.videoId, 1, 64) &&
+        data.videoId == videoId &&
+        isValidString(data.title, 1, 300) &&
+        isValidOptionalString(data, 'artist', 0, 200) &&
+        isValidOptionalUrl(data, 'thumbnail') &&
+        isValidOptionalDuration(data, 'duration') &&
+        isValidOptionalTimestampOrDate(data, 'likedAt');
+    }
+
+    function isValidPlaylist(data) {
+      return hasRequiredFields(['name']) &&
+        hasOnlyAllowedFields([
+          'name', 'description', 'cover', 'tracks', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidString(data.name, 1, 100) &&
+        isValidOptionalString(data, 'description', 0, 1000) &&
+        isValidOptionalUrl(data, 'cover') &&
+        (!('tracks' in data) || (data.tracks is list && data.tracks.size() <= 200)) &&
+        isValidOptionalTimestampOrDate(data, 'createdAt') &&
+        isValidOptionalTimestampOrDate(data, 'updatedAt');
+    }
+
+    function isValidPlaylistTrack(data) {
+      return hasRequiredFields(['videoId', 'title']) &&
+        hasOnlyAllowedFields([
+          'videoId', 'title', 'artist', 'thumbnail', 'duration', 'addedAt', 'order'
+        ]) &&
+        isValidString(data.videoId, 1, 64) &&
+        isValidString(data.title, 1, 300) &&
+        isValidOptionalString(data, 'artist', 0, 200) &&
+        isValidOptionalUrl(data, 'thumbnail') &&
+        isValidOptionalDuration(data, 'duration') &&
+        isValidOptionalTimestampOrDate(data, 'addedAt') &&
+        (!('order' in data) || (data.order is number && data.order >= 0 && data.order <= 10000));
+    }
+
+    function isValidFavoriteArtist(data) {
+      return hasRequiredFields(['name']) &&
+        hasOnlyAllowedFields(['name', 'avatar', 'channelId', 'addedAt']) &&
+        isValidString(data.name, 1, 200) &&
+        isValidOptionalUrl(data, 'avatar') &&
+        isValidOptionalString(data, 'channelId', 0, 128) &&
+        isValidOptionalTimestampOrDate(data, 'addedAt');
+    }
+
+    function isValidMusicDna(data) {
+      return hasOnlyAllowedFields([
+          'telemetry', 'top_artist_ids', 'top_track_ids', 'updated_at'
+        ]) &&
+        (!('telemetry' in data) ||
+          ((data.telemetry is map && data.telemetry.size() <= 500) ||
+           (data.telemetry is list && data.telemetry.size() <= 500))) &&
+        (!('top_artist_ids' in data) ||
+          (data.top_artist_ids is list &&
+           data.top_artist_ids.size() <= 20 &&
+           (data.top_artist_ids.size() == 0 || isValidString(data.top_artist_ids[0], 1, 128)))) &&
+        (!('top_track_ids' in data) ||
+          (data.top_track_ids is list &&
+           data.top_track_ids.size() <= 50 &&
+           (data.top_track_ids.size() == 0 || isValidString(data.top_track_ids[0], 1, 64)))) &&
+        isValidOptionalTimestampOrDate(data, 'updated_at');
+    }
+
+    // ===============================================================
+    // User-Scoped Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // PII protection: only the authenticated owner can read or write their profile
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) &&
+        isValidUserProfile(request.resource.data) &&
+        isImmutableIfPresent('created_at');
+
+      match /liked_songs/{videoId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidLikedSong(request.resource.data, videoId);
+        allow update: if isOwner(userId) && isValidLikedSong(request.resource.data, videoId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /playlists/{playlistId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidPlaylist(request.resource.data);
+        allow update: if isOwner(userId) &&
+          isValidPlaylist(request.resource.data) &&
+          isImmutableIfPresent('createdAt');
+        allow delete: if isOwner(userId);
+
+        match /tracks/{trackId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && isValidPlaylistTrack(request.resource.data);
+          allow update: if isOwner(userId) && isValidPlaylistTrack(request.resource.data);
+          allow delete: if isOwner(userId);
+        }
+      }
+
+      match /favorite_artists/{artistKey} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidFavoriteArtist(request.resource.data);
+        allow update: if isOwner(userId) && isValidFavoriteArtist(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /music_dna/{docId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMusicDna(request.resource.data);
+        allow update: if isOwner(userId) && isValidMusicDna(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // ===============================================================
+    // Default Deny
+    // ===============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

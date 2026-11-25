@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const LISTENING_TIME_CACHE_KEY = '@nouble_listening_seconds_';
 
@@ -73,17 +74,13 @@ export const fetchTotalListeningSeconds = async (userId: string): Promise<number
     }
   } catch (e) {}
 
-  // 2. Fetch fresh ground-truth from Supabase profiles table
+  // 2. Fetch fresh ground-truth from Firestore users/{userId}
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('total_listening_seconds')
-      .eq('id', userId)
-      .single();
+    const snap = await getDoc(doc(db, 'users', userId));
+    const data = snap.exists() ? snap.data() : null;
 
-    if (!error && data && typeof data.total_listening_seconds === 'number') {
+    if (data && typeof data.total_listening_seconds === 'number') {
       const dbTotal = Math.max(0, data.total_listening_seconds);
-      // If DB total is greater or equal to cache, update cache
       if (dbTotal >= lastKnownTotal - pendingDeltaSeconds) {
         lastKnownTotal = dbTotal + pendingDeltaSeconds;
         await AsyncStorage.setItem(`${LISTENING_TIME_CACHE_KEY}${userId}`, String(lastKnownTotal));
@@ -91,15 +88,15 @@ export const fetchTotalListeningSeconds = async (userId: string): Promise<number
         return lastKnownTotal;
       }
     }
-  } catch (err) {
-    // Supabase query failed; cached value remains active
+  } catch {
+    // Firestore offline fallback; cached value remains active
   }
 
   return lastKnownTotal;
 };
 
 /**
- * Flush accumulated pending seconds to Supabase profiles table
+ * Flush accumulated pending seconds to Firestore users/{userId}
  */
 export const flushListeningSecondsToSupabase = async () => {
   if (!activeUserId || pendingDeltaSeconds <= 0) return;
@@ -108,29 +105,26 @@ export const flushListeningSecondsToSupabase = async () => {
   pendingDeltaSeconds = 0;
 
   try {
-    // 1. Read latest from profiles
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('total_listening_seconds')
-      .eq('id', activeUserId)
-      .single();
+    const userRef = doc(db, 'users', activeUserId);
+    const snap = await getDoc(userRef);
+    const data = snap.exists() ? snap.data() : null;
 
-    const currentInDb = (!error && data && typeof data.total_listening_seconds === 'number')
-      ? data.total_listening_seconds
-      : (lastKnownTotal - deltaToFlush);
+    const currentInDb =
+      data && typeof data.total_listening_seconds === 'number'
+        ? data.total_listening_seconds
+        : lastKnownTotal - deltaToFlush;
 
     const newTotal = currentInDb + deltaToFlush;
 
-    // 2. Update profiles table
-    await supabase
-      .from('profiles')
-      .update({
+    await setDoc(
+      userRef,
+      {
         total_listening_seconds: newTotal,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', activeUserId);
+      },
+      { merge: true }
+    );
 
-    // 3. Cache locally
     await AsyncStorage.setItem(
       `${LISTENING_TIME_CACHE_KEY}${activeUserId}`,
       String(newTotal)

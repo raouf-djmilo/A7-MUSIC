@@ -22,7 +22,11 @@ import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 
-import { supabase } from '../lib/supabase';
+import {
+  getFirebaseUserProfile,
+  upsertFirebaseUserProfile,
+  getFirebaseLikedSongs,
+} from '../services/firebaseMusicDb';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { ThemeTokens } from '../theme/types';
@@ -147,12 +151,8 @@ export const ProfileScreen = () => {
       return;
     }
     try {
-      // 1. Fetch Profile
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // 1. Fetch Profile from Firestore
+      const prof = await getFirebaseUserProfile(user.id);
 
       if (prof) {
         setProfile(prof);
@@ -161,14 +161,17 @@ export const ProfileScreen = () => {
         setEditBio(prof.bio || '');
       }
 
-      // 2. Fetch Liked Music
-      const { data: likes } = await supabase
-        .from('music_likes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (likes) setMusicLikes(likes);
+      // 2. Fetch Liked Music from Firestore
+      const likes = await getFirebaseLikedSongs(user.id);
+      setMusicLikes(
+        likes.map((t) => ({
+          video_id: t.videoId,
+          title: t.title,
+          artist: t.artist,
+          thumbnail: t.thumbnail,
+          duration: Math.floor((t.duration || 0) / 1000),
+        }))
+      );
 
       // 3. Fetch Listening Time
       const seconds = await fetchTotalListeningSeconds(user.id);
@@ -208,17 +211,11 @@ export const ProfileScreen = () => {
     setSaving(true);
 
     try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editFullName.trim(),
-          username: editUsername.trim().toLowerCase(),
-          bio: editBio.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
+      await upsertFirebaseUserProfile(user.id, {
+        full_name: editFullName.trim(),
+        username: editUsername.trim().toLowerCase(),
+        bio: editBio.trim(),
+      });
 
       await updateUser({
         full_name: editFullName.trim(),
@@ -249,16 +246,10 @@ export const ProfileScreen = () => {
         setUploadingAvatar(true);
         const avatarUri = result.assets[0].uri;
 
-        const { error } = await supabase
-          .from('profiles')
-          .update({ avatar_url: avatarUri, updated_at: new Date().toISOString() })
-          .eq('id', user.id);
-
-        if (!error) {
-          await updateUser({ avatar_url: avatarUri });
-          setProfile((prev: any) => ({ ...prev, avatar_url: avatarUri }));
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        await upsertFirebaseUserProfile(user.id, { avatar_url: avatarUri });
+        await updateUser({ avatar_url: avatarUri });
+        setProfile((prev: any) => ({ ...prev, avatar_url: avatarUri }));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
       Alert.alert('خطأ', 'فشل في تحديث الصورة');

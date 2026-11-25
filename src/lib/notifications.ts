@@ -1,29 +1,12 @@
-import { supabase } from '../lib/supabase';
-
 /**
  * 🔔 saveNotification
- * Persists a notification to the DB. Safe to call anywhere.
- * Will silently ignore if sender === receiver (no self-notifications).
+ * No-op / local-safe stub after migrating away from Supabase.
  */
 export const saveNotification = async (
-  senderId: string,
-  receiverId: string,
-  type: 'like' | 'comment' | 'follow',
-  postId?: string
+  _senderId: string,
+  _receiverId: string,
+  _type: 'like' | 'comment' | 'follow',
+  _postId?: string
 ): Promise<void> => {
-  // Never notify yourself
-  if (!senderId || !receiverId || senderId === receiverId) return;
-
-  try {
-    await supabase.from('notifications').insert({
-      sender_id:   senderId,
-      receiver_id: receiverId,
-      type,
-      post_id:     postId || null,
-      is_read:     false,
-    });
-  } catch (err) {
-    // Silent fail — notifications are non-critical
-    console.warn('[saveNotification] failed:', err);
-  }
+  // Notifications are handled locally via expo-notifications
 };

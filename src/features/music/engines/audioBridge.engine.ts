@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useAudioStore, Track } from '../../../store/useAudioStore';
 import { MoodCluster } from '../../../services/musicDnaService';
 import { CURATED_TRACKS } from '../../../data/curatedMusic';
-import { supabase } from '../../../lib/supabase';
+import { getFirebaseLikedSongs } from '../../../services/firebaseMusicDb';
 
 /**
  * 🎵 Audio Bridge Engine
@@ -43,19 +43,9 @@ export class AudioBridgeEngine {
 
     if (likedTracks.length === 0 && userId) {
       try {
-        const { data } = await supabase
-          .from('music_likes')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        if (data && data.length > 0) {
-          likedTracks = data.map((d: any): Track => ({
-            videoId: d.video_id,
-            title: d.title,
-            artist: d.artist || 'Artist',
-            thumbnail: d.thumbnail,
-            duration: (d.duration || 0) * 1000,
-          }));
+        const fbLiked = await getFirebaseLikedSongs(userId);
+        if (fbLiked.length > 0) {
+          likedTracks = fbLiked;
         }
       } catch (e) {
         console.warn('[AudioBridge] Fetch liked tracks failed:', e);

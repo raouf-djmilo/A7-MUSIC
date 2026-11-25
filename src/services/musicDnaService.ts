@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { saveFirebaseMusicDna } from './firebaseMusicDb';
 import { Track } from '../store/useAudioStore';
 import {
   searchYouTubeMusic,
@@ -263,21 +263,13 @@ class MusicDnaEngine {
         .slice(0, 10)
         .map(([name]) => name);
 
-      await supabase.from('user_music_dna').upsert({
-        user_id: this.activeUserId,
-        mood_weights: {
-          cadence: 65,
-          signature: 80,
-          replay: 75,
-          chill: 50,
-          energy: 70,
-        },
+      await saveFirebaseMusicDna(this.activeUserId, {
+        telemetry: ranked.slice(0, 100),
         top_artist_ids: topArtists,
         top_track_ids: topTracks,
-        updated_at: new Date().toISOString(),
       });
     } catch (e) {
-      console.warn('[MusicDNA] Supabase sync non-fatal error:', e);
+      console.warn('[MusicDNA] Firebase sync non-fatal error:', e);
     }
   }
 
@@ -733,16 +725,16 @@ class MusicDnaEngine {
     const defaultMixes: MoodCluster[] =
       historyTracks.length > 0
         ? [
-            {
-              id: 'cluster-replay',
-              key: 'replay',
-              title: 'On Repeat',
-              badgeColor: '#8E2DE2',
-              subtitle: 'Your most played tracks',
-              artwork: firstCover,
-              tracks: historyTracks,
-            },
-          ]
+          {
+            id: 'cluster-replay',
+            key: 'replay',
+            title: 'On Repeat',
+            badgeColor: '#8E2DE2',
+            subtitle: 'Your most played tracks',
+            artwork: firstCover,
+            tracks: historyTracks,
+          },
+        ]
         : [];
 
     const fallbackArtists = Array.from(
