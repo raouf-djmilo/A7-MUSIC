@@ -1,13 +1,13 @@
 {
-  "id": "0fc3313c-90c6-4c08-bc13-e1c9fc3427f4",
-  "createdAt": "2026-11-25T17:28:03.604Z",
+  "id": "d3a18ef7-2fe4-431e-85c6-ee555c0879cf",
+  "createdAt": "2026-11-25T17:37:45.165Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "X1CJ-Xy6PRWl549gjgtg8wLxRsacx9TpQyZvdcryOMU",
-    "key": "e30841c323123490f41a97dc8f457e76",
+    "hash": "EQLsgrpIieyLolZs8Jeyuxu7FOPXbg4T1S9f7Bcb5Vo",
+    "key": "3f5c89f3c28498bbc6f663d601450fec",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-7ed7e1cc634a353b5aa9d23a539b8c00.hbc"
+    "url": "./_expo/static/js/ios/index-1f3e13e6f985c8d291b403baa72f8677.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.e76b6da",
+      "otaVersion": "1.6.5-ota.1759d7b",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "e76b6da",
-      "title": "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
+      "commitSha": "1759d7b",
+      "title": "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
       "highlights": [
-        "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
+        "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T17:28:03.604Z",
-      "bundleSizeBytes": 6825941
+      "publishedAt": "2026-11-25T17:37:45.165Z",
+      "bundleSizeBytes": 6831487
     }
   }
 }

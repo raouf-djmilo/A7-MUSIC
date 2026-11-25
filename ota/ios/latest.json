@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.e76b6da",
-  "updateId": "0fc3313c-90c6-4c08-bc13-e1c9fc3427f4",
-  "publishedAt": "2026-11-25T17:28:03.604Z",
-  "title": "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
+  "otaVersion": "1.6.5-ota.1759d7b",
+  "updateId": "d3a18ef7-2fe4-431e-85c6-ee555c0879cf",
+  "publishedAt": "2026-11-25T17:37:45.165Z",
+  "title": "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
   "highlights": [
-    "feat(search,shorts): add Official Artist Music Shorts carousel + TikTok/Spotify-style ShortsReelsModal with Liquid Glass UI",
+    "feat(shorts): unlimited DNA-driven Artist Shorts feed, 10-card carousel preview, clickable Artist Channel & 120fps stability",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6825941,
+  "bundleSizeBytes": 6831487,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
