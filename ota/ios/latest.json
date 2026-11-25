@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.7e48a6c",
-  "updateId": "9ce670e0-d34c-494d-8f73-c4a01896610f",
-  "publishedAt": "2026-11-25T17:00:45.597Z",
-  "title": "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
+  "otaVersion": "1.6.5-ota.dcbb16b",
+  "updateId": "907e38ab-4e22-4b3d-8235-3f4200675095",
+  "publishedAt": "2026-11-25T17:13:03.058Z",
+  "title": "feat(library,i18n): redesign MusicLibrary with Apple Liquid Glass carousels, View All & custom playlists; sync TabBar & Profile language",
   "highlights": [
-    "fix(nav,perf): fix tab snap-back after login and optimize SettingsScreen slide transition FPS",
+    "feat(library,i18n): redesign MusicLibrary with Apple Liquid Glass carousels, View All & custom playlists; sync TabBar & Profile language",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6775805,
+  "bundleSizeBytes": 6789925,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
