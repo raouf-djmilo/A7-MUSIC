@@ -141,7 +141,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       case 'auth/network-request-failed':
         return new Error('تعذر الاتصال بالشبكة، يرجى التحقق من الإنترنت.');
       default:
-        return new Error(err?.message || fallback);
+        return new Error(fallback);
     }
   };
 

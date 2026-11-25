@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,69 +6,80 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Pressable,
   TextInput,
   ActivityIndicator,
   Alert,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../providers/AuthProvider';
+import { useTheme } from '../theme/ThemeContext';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ToastManager } from '../components/InAppToast';
 
 export const LoginScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
+  const { isDark } = useTheme();
 
   const topPadding = Math.max(insets.top, Platform.OS === 'ios' ? 48 : 24);
   const bottomPadding = Math.max(insets.bottom, 16);
+
+  const identifierRef = useRef<any>(null);
+  const passwordRef = useRef<any>(null);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState<'identifier' | 'password' | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const isAr = true;
-
-  const t = isAr
+  const palette = isDark
     ? {
-        guest: 'المتابعة كضيف',
-        tagline: 'استمع واكتشف الموسيقى بحرية',
-        identifierPlaceholder: 'اسم المستخدم أو البريد الإلكتروني',
-        passwordPlaceholder: 'كلمة المرور',
-        forgot: 'نسيت كلمة المرور؟',
-        forgotTitle: 'استعادة كلمة المرور',
-        forgotBody: 'يرجى مراجعة بريدك الإلكتروني المسجل لتعيين كلمة مرور جديدة.',
-        signIn: 'تسجيل الدخول',
-        missingAlertTitle: 'تنبيه',
-        missingAlertBody: 'يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور.',
-        errorTitle: 'تعذر تسجيل الدخول',
-        errorBody: 'بيانات الدخول غير صحيحة، يرجى المحاولة مرة أخرى.',
-        noAccount: 'ليس لديك حساب؟ ',
-        createAccount: 'إنشاء حساب جديد',
+        baseBg: '#070A12',
+        orbTop: ['rgba(0, 122, 255, 0.22)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.12)', 'rgba(0, 80, 200, 0.16)'] as const,
+        textPrimary: '#FFFFFF',
+        textSecondary: 'rgba(255, 255, 255, 0.6)',
+        placeholder: 'rgba(255, 255, 255, 0.42)',
+        iconColor: 'rgba(255, 255, 255, 0.52)',
+        cardBg: 'rgba(18, 22, 30, 0.5)',
+        cardBorder: 'rgba(255, 255, 255, 0.14)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+        inputBg: 'rgba(255, 255, 255, 0.06)',
+        inputBorder: 'rgba(255, 255, 255, 0.12)',
+        inputTopBorder: 'rgba(255, 255, 255, 0.22)',
+        topPillBorder: 'rgba(255, 255, 255, 0.22)',
+        linkColor: '#38BDF8',
+        errorBg: 'rgba(255, 59, 48, 0.14)',
+        errorBorder: 'rgba(255, 59, 48, 0.32)',
+        errorText: '#FF6961',
       }
     : {
-        guest: 'Continue as Guest',
-        tagline: 'Listen & discover music freely',
-        identifierPlaceholder: 'Username or Email',
-        passwordPlaceholder: 'Password',
-        forgot: 'Forgot Password?',
-        forgotTitle: 'Reset Password',
-        forgotBody: 'Check your registered email inbox to reset your password.',
-        signIn: 'Sign In',
-        missingAlertTitle: 'Notice',
-        missingAlertBody: 'Please enter your username or email and password.',
-        errorTitle: 'Sign In Failed',
-        errorBody: 'Invalid credentials, please try again.',
-        noAccount: "Don't have an account? ",
-        createAccount: 'Create Account',
+        baseBg: '#F2F5FA',
+        orbTop: ['rgba(0, 122, 255, 0.18)', 'rgba(56, 189, 248, 0.08)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.1)', 'rgba(0, 122, 255, 0.14)'] as const,
+        textPrimary: '#0F172A',
+        textSecondary: 'rgba(15, 23, 42, 0.62)',
+        placeholder: 'rgba(15, 23, 42, 0.44)',
+        iconColor: 'rgba(15, 23, 42, 0.52)',
+        cardBg: 'rgba(255, 255, 255, 0.68)',
+        cardBorder: 'rgba(15, 23, 42, 0.08)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+        inputBg: 'rgba(15, 23, 42, 0.045)',
+        inputBorder: 'rgba(15, 23, 42, 0.09)',
+        inputTopBorder: 'rgba(255, 255, 255, 0.85)',
+        topPillBorder: 'rgba(15, 23, 42, 0.12)',
+        linkColor: '#007AFF',
+        errorBg: 'rgba(255, 59, 48, 0.1)',
+        errorBorder: 'rgba(255, 59, 48, 0.25)',
+        errorText: '#D70015',
       };
 
   const navigateToHome = () => {
@@ -99,24 +110,26 @@ export const LoginScreen = ({ navigation }: any) => {
   };
 
   const onLogin = async () => {
-    if (!identifier.trim() || !password) {
-      Alert.alert(t.missingAlertTitle, t.missingAlertBody);
+    const cleanId = identifier.trim().toLowerCase();
+    if (!cleanId || !password) {
+      setErrorMsg('يرجى إدخال اسم المستخدم أو البريد الإلكتروني وكلمة المرور.');
       return;
     }
 
+    setErrorMsg('');
     setLoading(true);
     const { error } = await login({
-      identifier: identifier.trim().toLowerCase(),
+      identifier: cleanId,
       password,
     });
     setLoading(false);
 
     if (error) {
-      Alert.alert(t.errorTitle, error.message || t.errorBody);
+      setErrorMsg(error.message || 'تعذر تسجيل الدخول، يرجى التحقق من البيانات والمحاولة ثانية.');
     } else {
       ToastManager.show({
         title: 'تم تسجيل الدخول بنجاح ✨',
-        subtitle: 'مرحباً بك في A7 MUSIC',
+        subtitle: 'مرحباً بك في A7 Music',
         icon: 'checkmark-circle',
       });
       navigateToHome();
@@ -124,25 +137,25 @@ export const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: palette.baseBg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* ── Ambient Liquid Gradient Background ── */}
-      <View style={StyleSheet.absoluteFill}>
-        <View style={styles.darkBase} />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.baseBg }]} />
         <LinearGradient
-          colors={['rgba(0, 122, 255, 0.18)', 'rgba(56, 189, 248, 0.05)', 'transparent']}
+          colors={palette.orbTop}
           start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.8, y: 0.7 }}
+          end={{ x: 0.85, y: 0.75 }}
           style={styles.ambientTop}
         />
         <LinearGradient
-          colors={['transparent', 'rgba(139, 92, 246, 0.08)', 'rgba(0, 80, 200, 0.12)']}
+          colors={palette.orbBottom}
           start={{ x: 0.2, y: 0.3 }}
           end={{ x: 0.9, y: 1 }}
           style={styles.ambientBottom}
         />
-        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
       </View>
 
       <View style={[styles.mainWrapper, { paddingTop: topPadding, paddingBottom: bottomPadding }]}>
@@ -155,28 +168,27 @@ export const LoginScreen = ({ navigation }: any) => {
           >
             <LiquidGlassSurface
               glassStyle="regular"
-              isDark
+              isDark={isDark}
               isInteractive
               borderRadius={19}
-              style={styles.closeBtn}
+              style={[styles.closeBtn, { borderColor: palette.topPillBorder }]}
             >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
+              <Ionicons name="close" size={21} color={palette.textPrimary} />
             </LiquidGlassSurface>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleContinueAsGuest}
-            activeOpacity={0.75}
-          >
+          <TouchableOpacity onPress={handleContinueAsGuest} activeOpacity={0.75}>
             <LiquidGlassSurface
               glassStyle="regular"
-              isDark
+              isDark={isDark}
               isInteractive
               borderRadius={20}
-              style={styles.skipGuestPill}
+              style={[styles.skipGuestPill, { borderColor: palette.topPillBorder }]}
             >
-              <Text style={styles.skipGuestPillText}>{t.guest}</Text>
-              <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.85)" />
+              <Ionicons name="chevron-back" size={16} color={palette.textSecondary} />
+              <Text style={[styles.skipGuestPillText, { color: palette.textPrimary }]}>
+                المتابعة كضيف
+              </Text>
             </LiquidGlassSurface>
           </TouchableOpacity>
         </View>
@@ -188,117 +200,143 @@ export const LoginScreen = ({ navigation }: any) => {
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingTop: 10, paddingBottom: Math.max(insets.bottom, 24) },
+              { paddingBottom: Math.max(insets.bottom, 24) },
             ]}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
-            {/* ── Brand Header (A7 Liquid Glass) ── */}
+            {/* ── Clean Centered Title ── */}
             <View style={styles.header}>
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark
-                isInteractive={false}
-                borderRadius={28}
-                style={styles.logoBadgeContainer}
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.04)', 'transparent']}
-                  start={{ x: 0.15, y: 0 }}
-                  end={{ x: 0.85, y: 0.85 }}
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
-                <Image
-                  source={require('../../assets/logo.png')}
-                  style={styles.logoImage}
-                  contentFit="cover"
-                  priority="high"
-                />
-              </LiquidGlassSurface>
-
-              <Text style={styles.brandTitle}>A7 MUSIC</Text>
-              <Text style={styles.tagline}>{t.tagline}</Text>
+              <Text style={[styles.brandTitle, { color: palette.textPrimary }]}>A7 Music</Text>
             </View>
 
-            {/* ── Liquid Glass Form Card ── */}
-            <LiquidGlassSurface
-              glassStyle="regular"
-              isDark
-              isInteractive={false}
-              borderRadius={28}
-              style={styles.glassCard}
-            >
-              {/* Identifier Input */}
+            {/* ── Error Banner ── */}
+            {!!errorMsg && (
               <View
                 style={[
+                  styles.errorBox,
+                  { backgroundColor: palette.errorBg, borderColor: palette.errorBorder },
+                ]}
+              >
+                <Ionicons name="alert-circle" size={18} color={palette.errorText} />
+                <Text style={[styles.errorText, { color: palette.errorText }]}>{errorMsg}</Text>
+              </View>
+            )}
+
+            {/* ── Centered Liquid Glass Form Card ── */}
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive={false}
+              borderRadius={28}
+              style={[
+                styles.glassCard,
+                {
+                  backgroundColor: palette.cardBg,
+                  borderColor: palette.cardBorder,
+                  borderTopColor: palette.cardTopBorder,
+                },
+              ]}
+            >
+              {/* Identifier Input */}
+              <Pressable
+                onPress={() => identifierRef.current?.focus()}
+                style={[
                   styles.inputWrap,
-                  focusedField === 'identifier' && styles.inputWrapFocused,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.inputBorder,
+                    borderTopColor: palette.inputTopBorder,
+                  },
                 ]}
               >
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={focusedField === 'identifier' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
+                  color={palette.iconColor}
+                  style={styles.inputIconRight}
                 />
                 <TextInput
-                  style={styles.input}
-                  placeholder={t.identifierPlaceholder}
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  ref={identifierRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
+                  placeholder="اسم المستخدم أو البريد الإلكتروني"
+                  placeholderTextColor={palette.placeholder}
                   value={identifier}
-                  onChangeText={setIdentifier}
+                  onChangeText={(txt) => {
+                    setIdentifier(txt);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  onFocus={() => setFocusedField('identifier')}
-                  onBlur={() => setFocusedField(null)}
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  textAlign="right"
                 />
-              </View>
+              </Pressable>
 
               {/* Password Input */}
-              <View
+              <Pressable
+                onPress={() => passwordRef.current?.focus()}
                 style={[
                   styles.inputWrap,
-                  focusedField === 'password' && styles.inputWrapFocused,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.inputBorder,
+                    borderTopColor: palette.inputTopBorder,
+                  },
                 ]}
               >
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={focusedField === 'password' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
+                  color={palette.iconColor}
+                  style={styles.inputIconRight}
                 />
                 <TextInput
-                  style={styles.input}
-                  placeholder={t.passwordPlaceholder}
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  ref={passwordRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
+                  placeholder="كلمة المرور"
+                  placeholderTextColor={palette.placeholder}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(txt) => {
+                    setPassword(txt);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="done"
+                  onSubmitEditing={onLogin}
+                  textAlign="right"
                 />
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((prev) => !prev)}
                   style={styles.eyeBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color="rgba(255, 255, 255, 0.45)"
+                    color={palette.iconColor}
                   />
                 </TouchableOpacity>
-              </View>
+              </Pressable>
 
               {/* Forgot Password */}
               <TouchableOpacity
                 style={styles.forgotBtn}
                 activeOpacity={0.7}
-                onPress={() => Alert.alert(t.forgotTitle, t.forgotBody)}
+                onPress={() =>
+                  Alert.alert(
+                    'استعادة كلمة المرور',
+                    'يرجى مراجعة بريدك الإلكتروني المسجل لتعيين كلمة مرور جديدة.'
+                  )
+                }
               >
-                <Text style={styles.forgotText}>{t.forgot}</Text>
+                <Text style={[styles.forgotText, { color: palette.textSecondary }]}>
+                  نسيت كلمة المرور؟
+                </Text>
               </TouchableOpacity>
 
               {/* Liquid Glass Glossy Sign In Button */}
@@ -310,14 +348,18 @@ export const LoginScreen = ({ navigation }: any) => {
               >
                 <LiquidGlassSurface
                   glassStyle="regular"
-                  isDark
+                  isDark={isDark}
                   isInteractive
-                  tintColor="rgba(0, 122, 255, 0.38)"
+                  tintColor="rgba(0, 122, 255, 0.45)"
                   borderRadius={27}
                   style={styles.loginBtnGlass}
                 >
                   <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.26)', 'rgba(56, 189, 248, 0.18)', 'rgba(0, 122, 255, 0.34)']}
+                    colors={[
+                      'rgba(255, 255, 255, 0.28)',
+                      'rgba(56, 189, 248, 0.26)',
+                      'rgba(0, 122, 255, 0.48)',
+                    ]}
                     start={{ x: 0.1, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
                     style={styles.loginBtnGradient}
@@ -325,22 +367,26 @@ export const LoginScreen = ({ navigation }: any) => {
                     {loading ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text style={styles.loginBtnText}>{t.signIn}</Text>
+                      <Text style={styles.loginBtnText}>تسجيل الدخول</Text>
                     )}
                   </LinearGradient>
                 </LiquidGlassSurface>
               </TouchableOpacity>
             </LiquidGlassSurface>
 
-            {/* ── Footer Switcher ── */}
+            {/* ── Footer Switcher (Proper Arabic RTL) ── */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>{t.noAccount}</Text>
+              <Text style={[styles.footerText, { color: palette.textSecondary }]}>
+                ليس لديك حساب؟
+              </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('SignUp')}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.footerLink}>{t.createAccount}</Text>
+                <Text style={[styles.footerLink, { color: palette.linkColor }]}>
+                  إنشاء حساب جديد
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -353,11 +399,6 @@ export const LoginScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#05070D',
-  },
-  darkBase: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#070A12',
   },
   ambientTop: {
     position: 'absolute',
@@ -392,7 +433,6 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -404,12 +444,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
     gap: 4,
     overflow: 'hidden',
   },
   skipGuestPillText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -419,112 +457,86 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 24,
   },
-  logoBadgeContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    justifyContent: 'center',
+  brandTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  errorBox: {
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 14,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  glassCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 22,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.4,
-        shadowRadius: 22,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.25,
+        shadowRadius: 28,
       },
       android: {
         elevation: 10,
       },
     }),
   },
-  logoImage: {
-    width: 82,
-    height: 82,
-    borderRadius: 22,
-  },
-  brandTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
-  tagline: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.55)',
-    fontWeight: '500',
-    letterSpacing: 0.3,
-  },
-  glassCard: {
-    backgroundColor: 'rgba(18, 22, 30, 0.48)',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    borderTopColor: 'rgba(255, 255, 255, 0.34)',
-    padding: 20,
-    marginBottom: 24,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.42,
-        shadowRadius: 28,
-      },
-      android: {
-        elevation: 14,
-      },
-    }),
-  },
   inputWrap: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     height: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     marginBottom: 14,
   },
-  inputWrapFocused: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(0, 122, 255, 0.08)',
-  },
-  inputIcon: {
-    marginRight: 12,
+  inputIconRight: {
+    marginLeft: 10,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '500',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    paddingVertical: 0,
   },
   eyeBtn: {
     padding: 6,
-    marginLeft: 4,
+    marginRight: 4,
   },
   forgotBtn: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     marginTop: 2,
-    marginBottom: 20,
+    marginBottom: 18,
     paddingVertical: 4,
   },
   forgotText: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
+    writingDirection: 'rtl',
   },
   loginBtnOuter: {
     borderRadius: 27,
@@ -533,7 +545,7 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#007AFF',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.42,
+        shadowOpacity: 0.35,
         shadowRadius: 16,
       },
       android: {
@@ -544,7 +556,7 @@ const styles = StyleSheet.create({
   loginBtnGlass: {
     borderRadius: 27,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.34)',
+    borderColor: 'rgba(255, 255, 255, 0.38)',
     overflow: 'hidden',
   },
   loginBtnGradient: {
@@ -555,25 +567,26 @@ const styles = StyleSheet.create({
   },
   loginBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 0.4,
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    gap: 6,
+    marginTop: 6,
   },
   footerText: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: '500',
+    writingDirection: 'rtl',
   },
   footerLink: {
-    color: '#38BDF8',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    writingDirection: 'rtl',
   },
 });
 

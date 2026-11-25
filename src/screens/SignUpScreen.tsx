@@ -1,23 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   ScrollView,
-  Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { CommonActions } from '@react-navigation/native';
 import { useAuth } from '../providers/AuthProvider';
+import { useTheme } from '../theme/ThemeContext';
 import { getEmailByUsername } from '../services/firebaseMusicDb';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ToastManager } from '../components/InAppToast';
@@ -25,62 +26,99 @@ import { ToastManager } from '../components/InAppToast';
 export const SignUpScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
+  const { isDark } = useTheme();
 
   const topPadding = Math.max(insets.top, Platform.OS === 'ios' ? 48 : 24);
   const bottomPadding = Math.max(insets.bottom, 16);
+
+  const fullNameRef = useRef<any>(null);
+  const emailRef = useRef<any>(null);
+  const usernameRef = useRef<any>(null);
+  const passwordRef = useRef<any>(null);
 
   // Form Fields
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-
-  // UI States
   const [showPassword, setShowPassword] = useState(false);
+
+  // UI & Validation States
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  // Live Username Availability Check
-  const [isUsernameTaken, setIsUsernameTaken] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
-  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const [isUsernameTaken, setIsUsernameTaken] = useState<boolean | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
+  const palette = isDark
+    ? {
+        baseBg: '#070A12',
+        orbTop: ['rgba(0, 122, 255, 0.22)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.12)', 'rgba(0, 80, 200, 0.16)'] as const,
+        textPrimary: '#FFFFFF',
+        textSecondary: 'rgba(255, 255, 255, 0.6)',
+        placeholder: 'rgba(255, 255, 255, 0.42)',
+        iconColor: 'rgba(255, 255, 255, 0.52)',
+        cardBg: 'rgba(18, 22, 30, 0.5)',
+        cardBorder: 'rgba(255, 255, 255, 0.14)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+        inputBg: 'rgba(255, 255, 255, 0.06)',
+        inputBorder: 'rgba(255, 255, 255, 0.12)',
+        inputTopBorder: 'rgba(255, 255, 255, 0.22)',
+        topPillBorder: 'rgba(255, 255, 255, 0.22)',
+        linkColor: '#38BDF8',
+        errorBg: 'rgba(255, 59, 48, 0.14)',
+        errorBorder: 'rgba(255, 59, 48, 0.32)',
+        errorText: '#FF6961',
+      }
+    : {
+        baseBg: '#F2F5FA',
+        orbTop: ['rgba(0, 122, 255, 0.18)', 'rgba(56, 189, 248, 0.08)', 'transparent'] as const,
+        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.1)', 'rgba(0, 122, 255, 0.14)'] as const,
+        textPrimary: '#0F172A',
+        textSecondary: 'rgba(15, 23, 42, 0.62)',
+        placeholder: 'rgba(15, 23, 42, 0.44)',
+        iconColor: 'rgba(15, 23, 42, 0.52)',
+        cardBg: 'rgba(255, 255, 255, 0.68)',
+        cardBorder: 'rgba(15, 23, 42, 0.08)',
+        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+        inputBg: 'rgba(15, 23, 42, 0.045)',
+        inputBorder: 'rgba(15, 23, 42, 0.09)',
+        inputTopBorder: 'rgba(255, 255, 255, 0.85)',
+        topPillBorder: 'rgba(15, 23, 42, 0.12)',
+        linkColor: '#007AFF',
+        errorBg: 'rgba(255, 59, 48, 0.1)',
+        errorBorder: 'rgba(255, 59, 48, 0.25)',
+        errorText: '#D70015',
+      };
+
+  // Debounced live username uniqueness check
   useEffect(() => {
-    const checkUsername = async () => {
-      const uname = username.trim().toLowerCase();
-      if (!uname) {
-        setIsUsernameTaken(null);
-        setUsernameSuggestions([]);
-        return;
-      }
+    const clean = username.trim().toLowerCase().replace(/\s+/g, '');
+    if (clean.length < 3) {
+      setIsUsernameTaken(null);
+      setSuggestions([]);
+      setCheckingUsername(false);
+      return;
+    }
 
-      if (uname.includes(' ') || uname.length > 15) {
-        setIsUsernameTaken(true);
-        setUsernameSuggestions([]);
-        return;
-      }
-
-      setCheckingUsername(true);
+    setCheckingUsername(true);
+    const delayTimer = setTimeout(async () => {
       try {
-        const existingEmail = await getEmailByUsername(uname);
-        const isTaken = Boolean(existingEmail);
-        setIsUsernameTaken(isTaken);
-        if (isTaken) {
-          setUsernameSuggestions([`${uname}_music`, `${uname}1`, `${uname}_a7`]);
+        const existingEmail = await getEmailByUsername(clean);
+        if (existingEmail) {
+          setIsUsernameTaken(true);
+          const randomNum = Math.floor(10 + Math.random() * 89);
+          setSuggestions([`${clean}${randomNum}`, `${clean}_a7`]);
         } else {
-          setUsernameSuggestions([]);
+          setIsUsernameTaken(false);
+          setSuggestions([]);
         }
-      } catch (e) {
-        setIsUsernameTaken(null);
+      } catch {
+        setIsUsernameTaken(false);
       } finally {
         setCheckingUsername(false);
       }
-    };
-
-    const delayTimer = setTimeout(() => {
-      checkUsername();
     }, 450);
 
     return () => clearTimeout(delayTimer);
@@ -116,20 +154,20 @@ export const SignUpScreen = ({ navigation }: any) => {
   const handleSignUp = async () => {
     const cleanFull = fullName.trim();
     const cleanEmail = email.trim().toLowerCase();
-    const cleanUname = username.trim().toLowerCase();
+    const cleanUname = username.trim().toLowerCase().replace(/^@/, '');
 
     if (!cleanFull || !cleanEmail || !cleanUname || !password) {
       setErrorMsg('يرجى ملء جميع الحقول المطلوبة.');
       return;
     }
 
-    if (cleanUname.includes(' ') || cleanUname.length > 15) {
-      setErrorMsg('اسم المستخدم يجب ألا يتجاوز 15 حرفاً وبدون مسافات.');
+    if (cleanUname.includes(' ') || cleanUname.length < 3 || cleanUname.length > 15) {
+      setErrorMsg('اسم المستخدم يجب أن يكون بين 3 و 15 حرفاً وبدون مسافات.');
       return;
     }
 
     if (isUsernameTaken) {
-      setErrorMsg('اسم المستخدم هذا محجوز بالفعل. جرب اسماً آخر.');
+      setErrorMsg('اسم المستخدم هذا محجوز بالفعل، يرجى اختيار اسم آخر.');
       return;
     }
 
@@ -141,17 +179,11 @@ export const SignUpScreen = ({ navigation }: any) => {
     setLoading(true);
     setErrorMsg('');
 
-    // Format phone number
-    const formattedPhone = phoneNumber.trim()
-      ? `+213${phoneNumber.trim().startsWith('0') ? phoneNumber.trim().slice(1) : phoneNumber.trim()}`
-      : undefined;
-
     const { error } = await register({
       full_name: cleanFull,
       email: cleanEmail,
       username: cleanUname,
       password,
-      phone_number: formattedPhone,
     });
 
     setLoading(false);
@@ -161,7 +193,7 @@ export const SignUpScreen = ({ navigation }: any) => {
     } else {
       ToastManager.show({
         title: 'تم إنشاء الحساب بنجاح ✨',
-        subtitle: 'مرحباً بك في A7 MUSIC',
+        subtitle: 'مرحباً بك في A7 Music',
         icon: 'checkmark-circle',
       });
       navigateToHome();
@@ -169,253 +201,295 @@ export const SignUpScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: palette.baseBg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
       {/* ── Ambient Liquid Gradient Background ── */}
-      <View style={StyleSheet.absoluteFill}>
-        <View style={styles.darkBase} />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.baseBg }]} />
         <LinearGradient
-          colors={['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.05)', 'transparent']}
+          colors={palette.orbTop}
           start={{ x: 0.9, y: 0 }}
           end={{ x: 0.1, y: 0.6 }}
           style={styles.ambientTop}
         />
         <LinearGradient
-          colors={['transparent', 'rgba(139, 92, 246, 0.08)', 'rgba(0, 80, 200, 0.12)']}
+          colors={palette.orbBottom}
           start={{ x: 0.1, y: 0.4 }}
           end={{ x: 0.8, y: 1 }}
           style={styles.ambientBottom}
         />
-        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
       </View>
 
-      <StatusBar style="light" />
       <View style={[styles.mainWrapper, { paddingTop: topPadding, paddingBottom: bottomPadding }]}>
+        {/* ── Top Navigation Bar: Close & Skip ── */}
+        <View style={styles.topGuestBar}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={handleContinueAsGuest}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              borderRadius={19}
+              style={[styles.closeBtn, { borderColor: palette.topPillBorder }]}
+            >
+              <Ionicons name="close" size={21} color={palette.textPrimary} />
+            </LiquidGlassSurface>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleContinueAsGuest} activeOpacity={0.75}>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive
+              borderRadius={20}
+              style={[styles.skipGuestPill, { borderColor: palette.topPillBorder }]}
+            >
+              <Ionicons name="chevron-back" size={16} color={palette.textSecondary} />
+              <Text style={[styles.skipGuestPillText, { color: palette.textPrimary }]}>
+                المتابعة كضيف
+              </Text>
+            </LiquidGlassSurface>
+          </TouchableOpacity>
+        </View>
+
         <KeyboardAvoidingView
           style={styles.keyboardWrap}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          {/* ── Top Navigation Bar: Close & Skip ── */}
-          <View style={styles.topGuestBar}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={handleContinueAsGuest}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark
-                isInteractive
-                borderRadius={19}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={22} color="#FFFFFF" />
-              </LiquidGlassSurface>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleContinueAsGuest}
-              activeOpacity={0.75}
-            >
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark
-                isInteractive
-                borderRadius={20}
-                style={styles.skipGuestPill}
-              >
-                <Text style={styles.skipGuestPillText}>المتابعة كضيف</Text>
-                <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.85)" />
-              </LiquidGlassSurface>
-            </TouchableOpacity>
-          </View>
-
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
               { paddingBottom: Math.max(insets.bottom, 28) },
             ]}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
-            {/* ── Header ── */}
+            {/* ── Centered Header ── */}
             <View style={styles.header}>
-              <Text style={styles.title}>إنشاء حساب جديد</Text>
-              <Text style={styles.subtitle}>استمع واكتشف الموسيقى بحرية</Text>
+              <Text style={[styles.title, { color: palette.textPrimary }]}>إنشاء حساب جديد</Text>
             </View>
 
-            {/* Error Message Banner */}
+            {/* ── Error Banner ── */}
             {!!errorMsg && (
-              <View style={styles.errorBox}>
-                <Ionicons name="alert-circle" size={18} color="#FF3B30" style={{ marginRight: 8 }} />
-                <Text style={styles.errorText}>{errorMsg}</Text>
+              <View
+                style={[
+                  styles.errorBox,
+                  { backgroundColor: palette.errorBg, borderColor: palette.errorBorder },
+                ]}
+              >
+                <Ionicons name="alert-circle" size={18} color={palette.errorText} />
+                <Text style={[styles.errorText, { color: palette.errorText }]}>{errorMsg}</Text>
               </View>
             )}
 
-            {/* ── Liquid Glass Form Card ── */}
+            {/* ── Centered Liquid Glass Form Card ── */}
             <LiquidGlassSurface
               glassStyle="regular"
-              isDark
+              isDark={isDark}
               isInteractive={false}
               borderRadius={28}
-              style={styles.glassCard}
+              style={[
+                styles.glassCard,
+                {
+                  backgroundColor: palette.cardBg,
+                  borderColor: palette.cardBorder,
+                  borderTopColor: palette.cardTopBorder,
+                },
+              ]}
             >
               {/* Full Name */}
-              <View
+              <Pressable
+                onPress={() => fullNameRef.current?.focus()}
                 style={[
                   styles.inputWrap,
-                  focusedField === 'fullName' && styles.inputWrapFocused,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.inputBorder,
+                    borderTopColor: palette.inputTopBorder,
+                  },
                 ]}
               >
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={focusedField === 'fullName' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
+                  color={palette.iconColor}
+                  style={styles.inputIconRight}
                 />
                 <TextInput
-                  style={styles.input}
+                  ref={fullNameRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="الاسم الكامل"
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  placeholderTextColor={palette.placeholder}
                   value={fullName}
-                  onChangeText={(t) => {
-                    setFullName(t);
+                  onChangeText={(txt) => {
+                    setFullName(txt);
                     if (errorMsg) setErrorMsg('');
                   }}
                   autoCapitalize="words"
-                  onFocus={() => setFocusedField('fullName')}
-                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                  textAlign="right"
                 />
-              </View>
+              </Pressable>
 
               {/* Email Address */}
-              <View
+              <Pressable
+                onPress={() => emailRef.current?.focus()}
                 style={[
                   styles.inputWrap,
-                  focusedField === 'email' && styles.inputWrapFocused,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.inputBorder,
+                    borderTopColor: palette.inputTopBorder,
+                  },
                 ]}
               >
                 <Ionicons
                   name="mail-outline"
                   size={20}
-                  color={focusedField === 'email' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
+                  color={palette.iconColor}
+                  style={styles.inputIconRight}
                 />
                 <TextInput
-                  style={styles.input}
+                  ref={emailRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="البريد الإلكتروني"
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  placeholderTextColor={palette.placeholder}
                   value={email}
-                  onChangeText={(t) => {
-                    setEmail(t);
+                  onChangeText={(txt) => {
+                    setEmail(txt);
                     if (errorMsg) setErrorMsg('');
                   }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="next"
+                  onSubmitEditing={() => usernameRef.current?.focus()}
+                  textAlign="right"
                 />
-              </View>
+              </Pressable>
 
-              {/* Username */}
-              <View
+              {/* Username Input */}
+              <Pressable
+                onPress={() => usernameRef.current?.focus()}
                 style={[
                   styles.inputWrap,
-                  focusedField === 'username' && styles.inputWrapFocused,
-                  username.length > 0 && isUsernameTaken === true && styles.inputWrapError,
-                  username.length > 0 && isUsernameTaken === false && styles.inputWrapSuccess,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor:
+                      isUsernameTaken === false
+                        ? '#34C759'
+                        : isUsernameTaken === true
+                        ? '#FF3B30'
+                        : palette.inputBorder,
+                    borderTopColor:
+                      isUsernameTaken === false
+                        ? '#34C759'
+                        : isUsernameTaken === true
+                        ? '#FF3B30'
+                        : palette.inputTopBorder,
+                  },
                 ]}
               >
-                <Ionicons
-                  name="at-outline"
-                  size={20}
-                  color={focusedField === 'username' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
-                />
+                <Text style={[styles.atSymbol, { color: palette.iconColor }]}>@</Text>
                 <TextInput
-                  style={styles.input}
-                  placeholder="اسم المستخدم"
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  ref={usernameRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
+                  placeholder="اسم المستخدم (مثال: ahmed99)"
+                  placeholderTextColor={palette.placeholder}
                   value={username}
-                  onChangeText={(t) => {
-                    setUsername(t.replace(/\s/g, '').toLowerCase().slice(0, 15));
+                  onChangeText={(txt) => {
+                    setUsername(txt.replace(/\s+/g, ''));
                     if (errorMsg) setErrorMsg('');
                   }}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  onFocus={() => setFocusedField('username')}
-                  onBlur={() => setFocusedField(null)}
+                  maxLength={15}
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  textAlign="right"
                 />
+                {checkingUsername && <ActivityIndicator size="small" color={palette.linkColor} />}
+                {!checkingUsername && isUsernameTaken === false && (
+                  <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                )}
+                {!checkingUsername && isUsernameTaken === true && (
+                  <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                )}
+              </Pressable>
 
-                {/* Live validation indicator */}
-                {checkingUsername && (
-                  <ActivityIndicator size="small" color="#38BDF8" style={styles.trailingIcon} />
-                )}
-                {!checkingUsername && username.length > 0 && isUsernameTaken === false && (
-                  <Ionicons name="checkmark-circle" size={20} color="#34C759" style={styles.trailingIcon} />
-                )}
-                {!checkingUsername && username.length > 0 && isUsernameTaken === true && (
-                  <Ionicons name="close-circle" size={20} color="#FF3B30" style={styles.trailingIcon} />
-                )}
-              </View>
-
-              {/* Username Suggestions if taken */}
-              {!checkingUsername && isUsernameTaken === true && usernameSuggestions.length > 0 && (
-                <View style={styles.suggestionsContainer}>
-                  <Text style={styles.suggestionsTitle}>اقتراحات:</Text>
-                  <View style={styles.chipsRow}>
-                    {usernameSuggestions.map((sug) => (
+              {/* Username Suggestions if Taken */}
+              {isUsernameTaken === true && suggestions.length > 0 && (
+                <View style={styles.suggestionsWrap}>
+                  <Text style={styles.suggestionsTitle}>محجوز! جرّب أحد هذه الأسماء:</Text>
+                  <View style={styles.suggestionsList}>
+                    {suggestions.map((sug) => (
                       <TouchableOpacity
                         key={sug}
                         style={styles.suggestionChip}
                         onPress={() => setUsername(sug)}
                       >
-                        <Text style={styles.suggestionChipText}>@{sug}</Text>
+                        <Text style={[styles.suggestionChipText, { color: palette.linkColor }]}>
+                          @{sug}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </View>
               )}
 
-              {/* Password */}
-              <View
+              {/* Password Input */}
+              <Pressable
+                onPress={() => passwordRef.current?.focus()}
                 style={[
                   styles.inputWrap,
-                  focusedField === 'password' && styles.inputWrapFocused,
+                  {
+                    backgroundColor: palette.inputBg,
+                    borderColor: palette.inputBorder,
+                    borderTopColor: palette.inputTopBorder,
+                  },
                 ]}
               >
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color={focusedField === 'password' ? '#38BDF8' : 'rgba(255, 255, 255, 0.4)'}
-                  style={styles.inputIcon}
+                  color={palette.iconColor}
+                  style={styles.inputIconRight}
                 />
                 <TextInput
-                  style={styles.input}
+                  ref={passwordRef}
+                  style={[styles.input, { color: palette.textPrimary }]}
                   placeholder="كلمة المرور (6 أحرف على الأقل)"
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  placeholderTextColor={palette.placeholder}
                   value={password}
-                  onChangeText={(t) => {
-                    setPassword(t);
+                  onChangeText={(txt) => {
+                    setPassword(txt);
                     if (errorMsg) setErrorMsg('');
                   }}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSignUp}
+                  textAlign="right"
                 />
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((prev) => !prev)}
                   style={styles.eyeBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color="rgba(255, 255, 255, 0.45)"
+                    color={palette.iconColor}
                   />
                 </TouchableOpacity>
-              </View>
+              </Pressable>
 
               {/* Create Account Button (Liquid Glass Glossy Pill CTA) */}
               <TouchableOpacity
@@ -429,14 +503,18 @@ export const SignUpScreen = ({ navigation }: any) => {
               >
                 <LiquidGlassSurface
                   glassStyle="regular"
-                  isDark
+                  isDark={isDark}
                   isInteractive
-                  tintColor="rgba(0, 122, 255, 0.38)"
+                  tintColor="rgba(0, 122, 255, 0.45)"
                   borderRadius={27}
                   style={styles.signUpBtnGlass}
                 >
                   <LinearGradient
-                    colors={['rgba(255, 255, 255, 0.26)', 'rgba(56, 189, 248, 0.18)', 'rgba(0, 122, 255, 0.34)']}
+                    colors={[
+                      'rgba(255, 255, 255, 0.28)',
+                      'rgba(56, 189, 248, 0.26)',
+                      'rgba(0, 122, 255, 0.48)',
+                    ]}
                     start={{ x: 0.1, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
                     style={styles.signUpBtnGradient}
@@ -451,15 +529,19 @@ export const SignUpScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </LiquidGlassSurface>
 
-            {/* ── Footer Switcher ── */}
+            {/* ── Footer Switcher (Proper Arabic RTL) ── */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>لديك حساب بالفعل؟ </Text>
+              <Text style={[styles.footerText, { color: palette.textSecondary }]}>
+                لديك حساب بالفعل؟
+              </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Login')}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.footerLink}>تسجيل الدخول</Text>
+                <Text style={[styles.footerLink, { color: palette.linkColor }]}>
+                  تسجيل الدخول
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -472,27 +554,22 @@ export const SignUpScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#05070D',
-  },
-  darkBase: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#05070D',
   },
   ambientTop: {
     position: 'absolute',
     top: -60,
     right: -40,
-    width: 380,
-    height: 380,
-    borderRadius: 190,
-  },
-  ambientBottom: {
-    position: 'absolute',
-    bottom: -100,
-    left: -50,
     width: 420,
     height: 420,
     borderRadius: 210,
+  },
+  ambientBottom: {
+    position: 'absolute',
+    bottom: -90,
+    left: -50,
+    width: 450,
+    height: 450,
+    borderRadius: 225,
   },
   mainWrapper: {
     flex: 1,
@@ -514,7 +591,6 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -526,70 +602,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
     gap: 4,
     overflow: 'hidden',
   },
   skipGuestPillText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingHorizontal: 22,
   },
   header: {
-    marginBottom: 26,
+    alignItems: 'center',
+    marginBottom: 22,
   },
   title: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.55)',
-    fontWeight: '500',
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
+    writingDirection: 'rtl',
   },
   errorBox: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.12)',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.3)',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
+    paddingVertical: 11,
+    marginBottom: 14,
+    gap: 8,
   },
   errorText: {
-    color: '#FF3B30',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   glassCard: {
-    backgroundColor: 'rgba(18, 22, 30, 0.48)',
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    borderTopColor: 'rgba(255, 255, 255, 0.34)',
     padding: 20,
     marginBottom: 20,
     overflow: 'hidden',
@@ -597,77 +651,58 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.42,
+        shadowOpacity: 0.25,
         shadowRadius: 28,
       },
       android: {
-        elevation: 14,
+        elevation: 10,
       },
     }),
   },
   inputWrap: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     height: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     marginBottom: 13,
   },
-  inputWrapFocused: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(0, 122, 255, 0.08)',
+  inputIconRight: {
+    marginLeft: 10,
   },
-  inputWrapError: {
-    borderColor: '#FF3B30',
-  },
-  inputWrapSuccess: {
-    borderColor: '#34C759',
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  trailingIcon: {
-    marginLeft: 8,
-  },
-  phonePrefix: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 10,
-  },
-  phoneDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginRight: 10,
+  atSymbol: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginLeft: 10,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '500',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    paddingVertical: 0,
   },
   eyeBtn: {
     padding: 6,
-    marginLeft: 4,
+    marginRight: 4,
   },
-  suggestionsContainer: {
+  suggestionsWrap: {
     marginBottom: 14,
     marginTop: -4,
     paddingHorizontal: 4,
   },
   suggestionsTitle: {
+    color: '#FF9500',
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '600',
     marginBottom: 6,
-    fontWeight: '500',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
-  chipsRow: {
-    flexDirection: 'row',
+  suggestionsList: {
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -677,10 +712,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: 'rgba(56, 189, 248, 0.28)',
   },
   suggestionChipText: {
-    color: '#38BDF8',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -692,7 +726,7 @@ const styles = StyleSheet.create({
       ios: {
         shadowColor: '#007AFF',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.42,
+        shadowOpacity: 0.35,
         shadowRadius: 16,
       },
       android: {
@@ -703,7 +737,7 @@ const styles = StyleSheet.create({
   signUpBtnGlass: {
     borderRadius: 27,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.34)',
+    borderColor: 'rgba(255, 255, 255, 0.38)',
     overflow: 'hidden',
   },
   signUpBtnGradient: {
@@ -714,25 +748,26 @@ const styles = StyleSheet.create({
   },
   signUpBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 0.4,
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
     marginTop: 6,
   },
   footerText: {
-    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: '500',
+    writingDirection: 'rtl',
   },
   footerLink: {
-    color: '#38BDF8',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    writingDirection: 'rtl',
   },
 });
 
