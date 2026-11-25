@@ -17,13 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import YoutubePlayer, { YoutubeIframeRef } from 'react-native-youtube-iframe';
 import * as Haptics from 'expo-haptics';
 
 import {
   ArtistMusicShort,
   fetchMoreArtistShortsBatch,
 } from '../services/youtubeShortsService';
+import { YouTubeShortWebView, YouTubeShortWebViewHandle } from './YouTubeShortWebView';
 import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
@@ -41,22 +41,6 @@ interface ShortsReelsModalProps {
   onClose: () => void;
   onSelectArtist?: (artist: { name: string; id?: string; avatar?: string; isOfficial?: boolean }) => void;
 }
-
-const SHORT_PLAYER_PARAMS = {
-  controls: false,
-  modestbranding: true,
-  rel: false,
-  fs: false,
-  iv_load_policy: 3,
-  preventFullScreen: true,
-  showClosedCaptions: false,
-  loop: false,
-};
-
-const WEBVIEW_PROPS = {
-  allowsInlineMediaPlayback: true,
-  mediaPlaybackRequiresUserAction: false,
-};
 
 const VIDEO_PLAYER_WIDTH = Math.ceil(SCREEN_HEIGHT * (16 / 9));
 
@@ -102,8 +86,7 @@ const ReelPageItem = memo(
     onToggleLike,
     onVideoEnded,
   }: ReelPageItemProps) => {
-    const playerRef = useRef<YoutubeIframeRef>(null);
-    const [playerReady, setPlayerReady] = useState(false);
+    const playerRef = useRef<YouTubeShortWebViewHandle>(null);
 
     const rowDirection = isAr ? 'row-reverse' : 'row';
     const textAlign = isAr ? 'right' : 'left';
@@ -112,20 +95,15 @@ const ReelPageItem = memo(
     const isMounted = isActive || shouldPreload;
     const isPlayingNow = isActive && !paused && !ended;
 
-    // Enforce mute/unmute directly on playerReady and when muted changes
     useEffect(() => {
-      if (!playerReady || !isActive) return;
-      if (isPlayingNow) {
-        (playerRef.current as any)?.playVideo?.();
-      } else {
-        (playerRef.current as any)?.pauseVideo?.();
+      if (isActive) {
+        playerRef.current?.setMuted(muted);
       }
-    }, [playerReady, isActive, isPlayingNow]);
+    }, [muted, isActive]);
 
     const handleReplayPress = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      playerRef.current?.seekTo(0, true);
-      (playerRef.current as any)?.playVideo?.();
+      playerRef.current?.replay();
       onReplay(item.videoId);
     };
 
@@ -139,21 +117,17 @@ const ReelPageItem = memo(
           recyclingKey={item.videoId}
         />
 
-        {/* Active or Preloaded Next Video (Instant 150ms switch on swipe) */}
+        {/* Active or Preloaded Next Video (Cropped clean, opacity:0 when paused/ended/preloading) */}
         {isMounted && (
           <View style={styles.videoClipBox} pointerEvents="none">
-            <YoutubePlayer
+            <YouTubeShortWebView
               ref={playerRef}
               height={SCREEN_HEIGHT}
               width={VIDEO_PLAYER_WIDTH}
               play={isPlayingNow}
-              mute={isActive ? muted : true}
-              volume={isActive && !muted ? 100 : 0}
+              muted={isActive ? muted : true}
               videoId={item.videoId}
-              initialPlayerParams={SHORT_PLAYER_PARAMS}
-              webViewProps={WEBVIEW_PROPS}
-              onReady={() => setPlayerReady(true)}
-              onChangeState={(state: string) => {
+              onStateChange={(state) => {
                 if (state === 'ended' && isActive) {
                   onVideoEnded(item.videoId);
                 }
@@ -587,7 +561,6 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
   );
 
   const activeShort = feed[activeIndex];
-  const isActiveEnded = activeShort ? endedVideoId === activeShort.videoId : false;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
@@ -659,48 +632,27 @@ export const ShortsReelsModal: React.FC<ShortsReelsModalProps> = ({
 
             <Text style={styles.topHashtag}>{activeShort?.hashtag || '#music'}</Text>
 
-            <View style={styles.topRightBtns}>
-              <TouchableOpacity
-                onPress={isActiveEnded ? handleReplay : handleTogglePlayPause}
-                activeOpacity={0.8}
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setMuted((prev) => !prev);
+              }}
+              activeOpacity={0.8}
+            >
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark
+                isInteractive
+                borderRadius={20}
+                style={styles.topCircleBtn}
               >
-                <LiquidGlassSurface
-                  glassStyle="regular"
-                  isDark
-                  isInteractive
-                  borderRadius={20}
-                  style={styles.topCircleBtn}
-                >
-                  <Ionicons
-                    name={isActiveEnded ? 'refresh' : userPaused ? 'play' : 'pause'}
-                    size={18}
-                    color="#FFFFFF"
-                  />
-                </LiquidGlassSurface>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setMuted((prev) => !prev);
-                }}
-                activeOpacity={0.8}
-              >
-                <LiquidGlassSurface
-                  glassStyle="regular"
-                  isDark
-                  isInteractive
-                  borderRadius={20}
-                  style={styles.topCircleBtn}
-                >
-                  <Ionicons
-                    name={muted ? 'volume-mute' : 'volume-high'}
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </LiquidGlassSurface>
-              </TouchableOpacity>
-            </View>
+                <Ionicons
+                  name={muted ? 'volume-mute' : 'volume-high'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </LiquidGlassSurface>
+            </TouchableOpacity>
           </View>
         </View>
 

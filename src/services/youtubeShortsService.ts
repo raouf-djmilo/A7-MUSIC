@@ -21,7 +21,7 @@ export interface ArtistMusicShort {
   durationMs: number;
 }
 
-const SHORTS_CACHE_KEY_PREFIX = '@a7music_artist_shorts_v2_';
+const SHORTS_CACHE_KEY_PREFIX = '@a7music_artist_shorts_v3_';
 const SHORTS_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
 const NON_MUSIC_SPAM_KEYWORDS = [
@@ -49,6 +49,37 @@ const NON_MUSIC_SPAM_KEYWORDS = [
   'meme',
   'trailer',
   'movie clip',
+  'craft',
+  'diy',
+  'drawing',
+  'painting',
+  'shadow',
+  'sonnerie',
+  'ringtone',
+  'ringtonx',
+  'whatsapp status',
+  'nightcore',
+  'slowed + reverb',
+  'slowed reverb',
+  '8d audio',
+];
+
+const NON_ARTIST_CHANNEL_WORDS = [
+  'ringtone',
+  'ringtonx',
+  'sonnerie',
+  'craft',
+  'diy',
+  'art',
+  'vlog',
+  'gaming',
+  'tv',
+  'news',
+  'clip',
+  'edits',
+  'status',
+  'memes',
+  'funny',
 ];
 
 const memoryCacheMap = new Map<string, { ts: number; items: ArtistMusicShort[] }>();
@@ -91,34 +122,41 @@ function cleanShortTitle(rawTitle: string): string {
 }
 
 /**
- * Verifies that a YouTube video belongs to an authentic Music Artist channel
- * (Official Artist badge, Verified music channel, VEVO, or Topic).
+ * Strictly verifies that a YouTube video belongs to an Official Music Artist channel
+ * (Official Artist musical note badge, Verified channel, VEVO, or Topic) — rejecting
+ * craft channels, ringtone reuploaders, and non-music accounts.
  */
 function verifyArtistChannel(ownerName: string, ownerBadges: any[] = []): boolean {
   if (!ownerName) return false;
+  const lowerOwner = ownerName.toLowerCase();
+  if (NON_ARTIST_CHANNEL_WORDS.some((w) => lowerOwner.includes(w))) {
+    return false;
+  }
 
-  const hasArtistBadge = ownerBadges.some((b: any) => {
+  const hasOfficialMusicBadge = ownerBadges.some((b: any) => {
     const style = String(b?.metadataBadgeRenderer?.style || '').toUpperCase();
     const tooltip = String(b?.metadataBadgeRenderer?.tooltip || '').toLowerCase();
     return (
       style.includes('OFFICIAL_ARTIST') ||
-      style.includes('VERIFIED') ||
-      style.includes('MUSIC') ||
-      tooltip.includes('official artist') ||
-      tooltip.includes('verified')
+      style.includes('AUDIO_BADGE') ||
+      tooltip.includes('official artist')
     );
   });
 
-  const looksOfficialName =
-    /vevo$/i.test(ownerName) ||
-    /-\s*topic$/i.test(ownerName) ||
-    /official/i.test(ownerName);
+  const hasVerifiedBadge = ownerBadges.some((b: any) => {
+    const style = String(b?.metadataBadgeRenderer?.style || '').toUpperCase();
+    const tooltip = String(b?.metadataBadgeRenderer?.tooltip || '').toLowerCase();
+    return style.includes('VERIFIED') || tooltip.includes('verified');
+  });
 
-  if (isFakeArtistChannel(ownerName)) {
-    return hasArtistBadge || /vevo$/i.test(ownerName) || /-\s*topic$/i.test(ownerName);
+  const isVevoOrTopic = /vevo$/i.test(ownerName) || /-\s*topic$/i.test(ownerName);
+
+  if (hasOfficialMusicBadge || isVevoOrTopic) {
+    return true;
   }
 
-  return hasArtistBadge || looksOfficialName || !isFakeArtistChannel(ownerName);
+  // Verified channel is allowed only if its name passes fake-channel music filter
+  return hasVerifiedBadge && !isFakeArtistChannel(ownerName);
 }
 
 /**
@@ -232,47 +270,8 @@ async function queryYouTubeArtistShorts(
     const collected: ArtistMusicShort[] = [];
 
     for (const item of items) {
-      // A. Reel Shelf (native YouTube Shorts shelf)
-      if (item.reelShelfRenderer?.items && Array.isArray(item.reelShelfRenderer.items)) {
-        for (const r of item.reelShelfRenderer.items) {
-          const reel = r.reelItemRenderer;
-          if (!reel?.videoId) continue;
-          const rawTitle =
-            reel.headline?.simpleText ||
-            reel.headline?.runs?.map((x: any) => x.text).join('') ||
-            'Music Short';
-          const header =
-            reel.navigationEndpoint?.reelWatchEndpoint?.overlay?.reelPlayerOverlayRenderer
-              ?.reelPlayerHeaderSupportedRenderers?.reelPlayerHeaderRenderer;
-          const rawOwner = header?.channelTitleText?.runs?.[0]?.text || '';
-          const channelBrowseId =
-            header?.channelNavigationEndpoint?.browseEndpoint?.browseId || undefined;
-
-          if (isSpamTitleOrChannel(rawTitle, rawOwner)) continue;
-          if (rawOwner && !verifyArtistChannel(rawOwner, [])) continue;
-          const artist = rawOwner ? cleanArtistName(rawOwner) : cleanArtistName(searchQuery.split('#')[0]);
-          const thumbs = reel.thumbnail?.thumbnails || [];
-          const thumb =
-            thumbs[thumbs.length - 1]?.url ||
-            `https://i.ytimg.com/vi/${reel.videoId}/oar2.jpg`;
-          const tag = extractHashtag(rawTitle, fallbackTag);
-
-          collected.push({
-            videoId: reel.videoId,
-            title: cleanShortTitle(rawTitle),
-            artist,
-            artistId: channelBrowseId,
-            artistAvatar: getUniversalArtistAvatar('', artist) || thumb,
-            isOfficialArtist: true,
-            thumbnail: thumb,
-            hashtag: tag,
-            tags: [tag, '#official artist'],
-            durationMs: 45000,
-          });
-        }
-      }
-
-      // B. Short music videoRenderer (<= 90s or /shorts/)
+      // Skip unverified reelShelfRenderer items (they often contain non-artist viral shorts like craft/DIY)
+      // Strict Official Artist check runs on videoRenderer which includes ownerBadges & channel verification.
       const v = item.videoRenderer;
       if (!v?.videoId) continue;
       const rawTitle = v.title?.runs?.map((r: any) => r.text).join('') || '';

@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import YoutubePlayer from 'react-native-youtube-iframe';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +34,7 @@ import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/ar
 import { addToSearchHistory, cleanSearchHistory } from '../features/music/engines/searchHistory.engine';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ShortsReelsModal } from '../components/ShortsReelsModal';
+import { YouTubeShortWebView, YouTubeShortWebViewHandle } from '../components/YouTubeShortWebView';
 
 const RECENT_SEARCHES_KEY = '@nouble_recent_searches';
 const MAX_RECENT_CHIPS = 5;
@@ -42,11 +42,6 @@ const MAX_RECENT_CHIPS = 5;
 const SHORT_CARD_WIDTH = 152;
 const SHORT_CARD_HEIGHT = 248;
 const SHORT_CARD_GAP = 12;
-
-const CAROUSEL_WEBVIEW_PROPS = {
-  allowsInlineMediaPlayback: true,
-  mediaPlaybackRequiresUserAction: false,
-};
 
 export const MusicSearch = ({ route }: any) => {
   const navigation = useNavigation<any>();
@@ -79,6 +74,7 @@ export const MusicSearch = ({ route }: any) => {
   // Fullscreen TikTok/Reels Shorts Modal States
   const [reelsOpen, setReelsOpen] = useState(false);
   const [reelsInitialIndex, setReelsInitialIndex] = useState(0);
+  const carouselWebViewRef = useRef<YouTubeShortWebViewHandle>(null);
 
   const currentTrack = useAudioStore((s) => s.currentTrack);
   const isPlaying = useAudioStore((s) => s.isPlaying);
@@ -313,6 +309,7 @@ export const MusicSearch = ({ route }: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCarouselMuted((prev) => {
       const nextMuted = !prev;
+      carouselWebViewRef.current?.setMuted(nextMuted);
       if (!nextMuted && isPlaying) {
         togglePlay();
       }
@@ -320,16 +317,13 @@ export const MusicSearch = ({ route }: any) => {
     });
   };
 
-  const CAROUSEL_PLAYER_PARAMS = {
-    controls: false,
-    modestbranding: true,
-    rel: false,
-    fs: false,
-    iv_load_policy: 3,
-    preventFullScreen: true,
-    showClosedCaptions: false,
-    loop: false,
-  };
+  // Guarantee zero carousel audio leaks when leaving Search tab or opening Fullscreen Reels
+  useEffect(() => {
+    if (!isSearchTabActive || reelsOpen || query.trim().length > 0) {
+      carouselWebViewRef.current?.pauseAndMute();
+      setCarouselMuted(true);
+    }
+  }, [isSearchTabActive, reelsOpen, query]);
 
   const renderShortCard = ({ item, index }: { item: ArtistMusicShort; index: number }) => {
     const isActive =
@@ -337,11 +331,6 @@ export const MusicSearch = ({ route }: any) => {
       !query.trim() &&
       !reelsOpen &&
       index === settledCarouselIndex;
-    const isPreloadNext =
-      isSearchTabActive &&
-      !query.trim() &&
-      !reelsOpen &&
-      index === settledCarouselIndex + 1;
     const isEnded = endedCarouselVideoId === item.videoId;
     const isCardPlaying = isActive && !isEnded;
 
@@ -352,6 +341,8 @@ export const MusicSearch = ({ route }: any) => {
         activeOpacity={0.9}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          carouselWebViewRef.current?.pauseAndMute();
+          setCarouselMuted(true);
           setReelsInitialIndex(index);
           setReelsOpen(true);
         }}
@@ -377,19 +368,17 @@ export const MusicSearch = ({ route }: any) => {
             cachePolicy="memory-disk"
           />
 
-          {/* Active OR Preloaded Next Video (Instant transition on scroll) */}
-          {(isActive || isPreloadNext) && (
+          {/* Active Card Video ONLY (Cropped clean, opacity:0 until PLAYING — zero YouTube chrome!) */}
+          {isActive && (
             <View style={styles.shortVideoClip} pointerEvents="none">
-              <YoutubePlayer
+              <YouTubeShortWebView
+                ref={carouselWebViewRef}
                 height={SHORT_CARD_HEIGHT}
                 width={embedWidth}
                 play={isCardPlaying}
-                mute={isActive ? carouselMuted : true}
-                volume={isActive && !carouselMuted ? 100 : 0}
+                muted={carouselMuted}
                 videoId={item.videoId}
-                initialPlayerParams={CAROUSEL_PLAYER_PARAMS}
-                webViewProps={CAROUSEL_WEBVIEW_PROPS}
-                onChangeState={(state: string) => {
+                onStateChange={(state) => {
                   if (state === 'ended' && isActive) {
                     setEndedCarouselVideoId(item.videoId);
                   }
@@ -406,7 +395,7 @@ export const MusicSearch = ({ route }: any) => {
             pointerEvents="none"
           />
 
-          {/* Top-Right Working Sound Mute/Unmute Button ONLY (No top-left badge) */}
+          {/* Top-Right Working Sound Mute/Unmute Button ONLY */}
           <View style={styles.shortCardTop}>
             <View />
             {index === activeCarouselIndex && !query.trim() && (
