@@ -1,13 +1,13 @@
 {
-  "id": "5302f30b-6ca8-4e07-bc69-a2e41068a567",
-  "createdAt": "2026-11-25T01:17:34.023Z",
+  "id": "05ba6399-c0ed-4d11-9efa-8f6e90a0632b",
+  "createdAt": "2026-11-25T01:35:45.510Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "90moRfzIesT_cuA5_ndtdAv7howJGg234TFALiJcJ-s",
-    "key": "0aff385733f0abc9f6db926283f93de6",
+    "hash": "Xr9GfVvJk3Oa3YYirwEOQL8BXwDCE91PT1tNepsWQdg",
+    "key": "6c1a6146207ac9e3b9f61e0e9ba18a0f",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-db1cd1eae26c4a4067762470127d7317.hbc"
+    "url": "./_expo/static/js/ios/index-caf4c0de82721a8b099e818eff60a0e3.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.8d53497",
+      "otaVersion": "1.6.5-ota.597fcc2",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "8d53497",
-      "title": "fix(music): clean duplicate getFallbackSections block in musicDnaService",
+      "commitSha": "597fcc2",
+      "title": "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
       "highlights": [
-        "fix(music): clean duplicate getFallbackSections block in musicDnaService",
+        "feat(firebase): migrate Auth, Profiles, Liked Songs, Playlists, Favorite Artists, and Music DNA from Supabase to Firebase",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T01:17:34.023Z",
-      "bundleSizeBytes": 5656339
+      "publishedAt": "2026-11-25T01:35:45.510Z",
+      "bundleSizeBytes": 6772669
     }
   }
 }
