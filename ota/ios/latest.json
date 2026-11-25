@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.9b6b689",
-  "updateId": "b7a314b4-c81e-4c12-a1c2-281b325a3328",
-  "publishedAt": "2026-11-24T22:56:25.892Z",
-  "title": "feat(nav): separate MusicSearch and MusicLibrary into 5 standalone bottom tabs",
+  "otaVersion": "1.6.5-ota.1017e76",
+  "updateId": "c45b3b91-f1ce-4931-a2cb-6bf37914f618",
+  "publishedAt": "2026-11-25T00:13:12.388Z",
+  "title": "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
   "highlights": [
-    "feat(nav): separate MusicSearch and MusicLibrary into 5 standalone bottom tabs",
+    "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5636310,
+  "bundleSizeBytes": 5636471,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
