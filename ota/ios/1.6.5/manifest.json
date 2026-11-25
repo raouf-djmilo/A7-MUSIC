@@ -1,13 +1,13 @@
 {
-  "id": "c45b3b91-f1ce-4931-a2cb-6bf37914f618",
-  "createdAt": "2026-11-25T00:13:12.388Z",
+  "id": "b88390b1-8dda-4746-8c3a-427bec3f3621",
+  "createdAt": "2026-11-25T00:19:11.177Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "7Ni8tQG5gAB9eWutJMl9iDnTzo9JYzu9o3Pf3_3lsbU",
-    "key": "432243e1daff36e802515e6c8c9b3234",
+    "hash": "mKsf5sVt3u-khN1X2iHuob0wfF5hwBcftNXeAJzbqKs",
+    "key": "5fc547aac736141e4a37a5f453361fbd",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-23df0bc67903d5de7ad26a3b7187aefc.hbc"
+    "url": "./_expo/static/js/ios/index-0b3bff425d42ecba2b07440bf70f851f.hbc"
   },
   "assets": [
     {
@@ -371,18 +371,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.1017e76",
+      "otaVersion": "1.6.5-ota.9a1377a",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "1017e76",
-      "title": "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
+      "commitSha": "9a1377a",
+      "title": "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
       "highlights": [
-        "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
+        "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T00:13:12.388Z",
-      "bundleSizeBytes": 5636471
+      "publishedAt": "2026-11-25T00:19:11.177Z",
+      "bundleSizeBytes": 5636697
     }
   }
 }

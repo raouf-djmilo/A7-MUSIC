@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.1017e76",
-  "updateId": "c45b3b91-f1ce-4931-a2cb-6bf37914f618",
-  "publishedAt": "2026-11-25T00:13:12.388Z",
-  "title": "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
+  "otaVersion": "1.6.5-ota.9a1377a",
+  "updateId": "b88390b1-8dda-4746-8c3a-427bec3f3621",
+  "publishedAt": "2026-11-25T00:19:11.177Z",
+  "title": "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
   "highlights": [
-    "fix(audio): eliminate TrackPlayer RemoteDuck stop-start loop, non-blocking keeper, and 0ms playTrack dispatch",
+    "fix(audio,pull): unify Play/Pause/Seek/Replay controls, add YoutubePlayer onError fallback, and 7s search cache",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 5636471,
+  "bundleSizeBytes": 5636697,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
