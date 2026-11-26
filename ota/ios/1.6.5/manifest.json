@@ -1,13 +1,13 @@
 {
-  "id": "a0a22c40-ee02-4281-a19b-7dfc38488268",
-  "createdAt": "2026-11-26T23:18:31.486Z",
+  "id": "53ca5755-8faf-49cc-94af-be70d4f44e31",
+  "createdAt": "2026-11-26T23:33:06.736Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "sI4Q4y1U7nonX-hBMOGHdXEOtsj6vBDtviHtl4L0bIA",
-    "key": "81e8c12453c89907adfb6c8dfd12de6a",
+    "hash": "x9ECnbR_mFz5d0kzLOUY6DlIssl6LayLNUXt5sm4Cmk",
+    "key": "f4d2195d8b289444424c954d6007fc67",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-aa12e20af1334c5f426adbc22c37d410.hbc"
+    "url": "./_expo/static/js/ios/index-4d4796e954f1647844cf17b8d04ddbf7.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.ba422c2",
+      "otaVersion": "1.6.5-ota.8ef6ee2",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "ba422c2",
-      "title": "fix(audio): stop silent keep-alive AVPlayer from stealing WKWebView audio focus (restore mixWithOthers) and remove premature WebView remount stalls",
+      "commitSha": "8ef6ee2",
+      "title": "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
       "highlights": [
-        "fix(audio): stop silent keep-alive AVPlayer from stealing WKWebView audio focus (restore mixWithOthers) and remove premature WebView remount stalls",
+        "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-26T23:18:31.486Z",
-      "bundleSizeBytes": 6831624
+      "publishedAt": "2026-11-26T23:33:06.736Z",
+      "bundleSizeBytes": 6833717
     }
   }
 }
