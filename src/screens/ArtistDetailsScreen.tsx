@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
   Share,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -58,7 +59,7 @@ const SkeletonItem: React.FC<{ style: any }> = ({ style }) => {
 };
 
 export const ArtistDetailsScreen = ({ route, navigation }: any) => {
-  const { artistName, artist } = route.params || {};
+  const { artistName, artist, artistId } = route.params || {};
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const language = useLanguageStore((s) => s.language);
@@ -82,6 +83,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
 
   const [data, setData] = useState<ArtistFullProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Sub-views (Image 4: Top Songs full list, Image 5: Albums 2-col grid, Info sheet)
   const [topSongsModalVisible, setTopSongsModalVisible] = useState(false);
@@ -92,59 +94,80 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const resolvedName = artistName || artist?.name || artist?.title || 'Artist';
+  const preferredChannelId: string | undefined = artist?.channelId || artistId || undefined;
 
   const isFollowing = useMemo(() => {
     const targetName = data?.name || resolvedName;
     return followedArtistIds.includes(targetName);
   }, [followedArtistIds, data?.name, resolvedName]);
 
-  useEffect(() => {
-    let isMounted = true;
-    moreTracksPageRef.current = 0;
-    const fetchArtist = async () => {
-      setLoading(true);
+  const loadArtistProfile = useCallback(
+    async (isPullRefresh = false) => {
+      moreTracksPageRef.current = 0;
+      if (isPullRefresh) setRefreshing(true);
+      else setLoading(true);
       try {
-        const profile = await fetchArtistFullProfile(resolvedName);
-        if (!isMounted) return;
+        const profile = await fetchArtistFullProfile(resolvedName, preferredChannelId);
         setData(profile);
       } catch (err) {
         console.warn('[ArtistDetailsScreen] Fetch error:', err);
       } finally {
-        if (isMounted) setLoading(false);
+        setLoading(false);
+        setRefreshing(false);
       }
-    };
-    fetchArtist();
-    return () => {
-      isMounted = false;
-    };
-  }, [resolvedName]);
+    },
+    [resolvedName, preferredChannelId]
+  );
+
+  useEffect(() => {
+    loadArtistProfile(false);
+  }, [loadArtistProfile]);
 
   const styles = useMemo(() => createThemedStyles(theme, isDark), [theme, isDark]);
 
+  // Sticky top header opacity on scroll up
   const stickyHeaderOpacity = scrollY.interpolate({
-    inputRange: [220, 300],
+    inputRange: [HERO_HEIGHT - 170, HERO_HEIGHT - 95],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
-  const heroImageTranslateY = scrollY.interpolate({
-    inputRange: [-100, 0, 260],
-    outputRange: [-40, 0, 70],
+  // Smooth Apple-style elastic stretch on pull-down (scrollY < 0) + parallax slide on scroll up
+  const heroLayerTranslateY = scrollY.interpolate({
+    inputRange: [-240, 0, HERO_HEIGHT],
+    outputRange: [120, 0, -HERO_HEIGHT * 0.55],
+    extrapolate: 'clamp',
+  });
+
+  const heroLayerScale = scrollY.interpolate({
+    inputRange: [-240, 0, 120],
+    outputRange: [1 + 240 / HERO_HEIGHT, 1, 1],
+    extrapolate: 'clamp',
+  });
+
+  const heroLayerOpacity = scrollY.interpolate({
+    inputRange: [0, HERO_HEIGHT * 0.55, HERO_HEIGHT * 0.92],
+    outputRange: [1, 0.72, 0.08],
     extrapolate: 'clamp',
   });
 
   const heroPortraitUri = useMemo(() => {
-    // Prefer the exact avatar passed from Search (if present) so Search & Profile share the identical official photo
-    const raw = artist?.avatar || data?.avatar || data?.banner || '';
+    // Once official profile loads, prefer data?.avatar (matched to YouTube Music official portrait);
+    // while loading, display Search artist?.avatar instantaneously for 0ms visual handoff.
+    const raw = data?.avatar || artist?.avatar || data?.banner || '';
     const resolved = getUniversalArtistAvatar(raw, data?.name || resolvedName) || raw;
+    const hasPortraitCrop = /=w\d+-h\d+[^?&]*-p\b/.test(resolved);
     if (resolved.includes('=s')) {
       return resolved.replace(/=s\d+[^?&]*/, '=s1200-c-k-c0x00ffffff-no-rj');
     }
     if (resolved.includes('=w')) {
-      return resolved.replace(/=w\d+-h\d+[^?&]*/, '=w1200-h1200-l90-rj');
+      return resolved.replace(
+        /=w\d+-h\d+[^?&]*/,
+        hasPortraitCrop ? '=w1200-h1200-p-l90-rj' : '=w1200-h1200-l90-rj'
+      );
     }
     return resolved;
-  }, [artist?.avatar, data?.avatar, data?.banner, data?.name, resolvedName]);
+  }, [data?.avatar, data?.banner, data?.name, artist?.avatar, resolvedName]);
 
   const isArtistCatalogPlaying = useMemo(() => {
     if (!isPlaying || !currentTrack) return false;
@@ -163,7 +186,15 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
       playAlbumContext(tracksToPlay, 0, `${data?.name || resolvedName}`);
       setPlayerModalVisible(true);
     }
-  }, [isArtistCatalogPlaying, togglePlay, data?.topTracks, data?.name, resolvedName, playAlbumContext, setPlayerModalVisible]);
+  }, [
+    isArtistCatalogPlaying,
+    togglePlay,
+    data?.topTracks,
+    data?.name,
+    resolvedName,
+    playAlbumContext,
+    setPlayerModalVisible,
+  ]);
 
   const handleToggleFollow = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -182,7 +213,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
       await Share.share({
         message: isAr ? `استمع إلى ${name} على A7 Music` : `Listen to ${name} on A7 Music`,
       });
-    } catch { }
+    } catch {}
   }, [data?.name, resolvedName, isAr]);
 
   const handleShowMoreTracks = useCallback(async () => {
@@ -194,7 +225,8 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
       const more = await fetchArtistMoreTracks(
         data.name,
         moreTracksPageRef.current,
-        existing.map((t) => t.videoId)
+        existing.map((t) => t.videoId),
+        data.channelId
       );
       moreTracksPageRef.current += 1;
       if (more.length > 0) {
@@ -207,7 +239,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
     } finally {
       setLoadingMoreTracks(false);
     }
-  }, [loadingMoreTracks, data?.name, data?.topTracks]);
+  }, [loadingMoreTracks, data?.name, data?.topTracks, data?.channelId]);
 
   const openAlbumDetails = useCallback(
     (item: ArtistAlbumItem) => {
@@ -223,14 +255,13 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
     [navigation, data?.name, resolvedName]
   );
 
-  // Derived data slices
+  // Derived sections
   const previewTopSongs = useMemo(() => (data?.topTracks || []).slice(0, 5), [data?.topTracks]);
   const essentialAlbums = useMemo(
     () => (data?.essentialAlbums || data?.albums || []).slice(0, 3),
     [data?.essentialAlbums, data?.albums]
   );
   const allAlbums = useMemo(() => data?.albums || [], [data?.albums]);
-  const latestRelease = data?.latestRelease || null;
   const isOfficialArtist = data?.isOfficialArtist ?? artist?.isOfficialArtist ?? true;
 
   const renderTopSongRow = useCallback(
@@ -330,12 +361,13 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   );
 
   const albumGridWidth = (SCREEN_WIDTH - 46) / 2;
+  const solidBgColor = isDark ? '#0B0D13' : '#F2F4F8';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: solidBgColor }]}>
       <StatusBar barStyle="light-content" />
 
-      {/* ── Ambient Atmospheric Liquid Backdrop ── */}
+      {/* ── Ambient Atmospheric Liquid Backdrop (Seamless Behind Entire Screen) ── */}
       {heroPortraitUri ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Image
@@ -344,19 +376,67 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
             contentFit="cover"
             cachePolicy="memory-disk"
           />
-          <BlurView intensity={isDark ? 92 : 78} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+          <BlurView
+            intensity={isDark ? 95 : 85}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
           <LinearGradient
             colors={
               isDark
-                ? ['rgba(20, 22, 28, 0.45)', 'rgba(14, 16, 22, 0.88)', '#0B0D13']
-                : ['rgba(95, 102, 112, 0.45)', 'rgba(242, 244, 248, 0.92)', '#F2F4F8']
+                ? ['rgba(18, 22, 30, 0.38)', 'rgba(11, 13, 19, 0.88)', solidBgColor]
+                : ['rgba(110, 118, 128, 0.42)', 'rgba(242, 244, 248, 0.90)', solidBgColor]
             }
+            locations={[0, 0.55, 1]}
             style={StyleSheet.absoluteFill}
           />
         </View>
       ) : null}
 
-      {/* ── Sticky Frosted Header on Scroll ── */}
+      {/* ── Pinned Elastic Stretchy Hero Portrait Layer (Never Shows Top or Bottom Crop Cuts!) ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.pinnedHeroWrapper,
+          {
+            opacity: heroLayerOpacity,
+            transform: [{ translateY: heroLayerTranslateY }, { scale: heroLayerScale }],
+          },
+        ]}
+      >
+        {loading && !heroPortraitUri ? (
+          <SkeletonItem style={StyleSheet.absoluteFill} />
+        ) : heroPortraitUri ? (
+          <Image
+            source={{ uri: heroPortraitUri }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+            priority="high"
+            cachePolicy="memory-disk"
+            transition={220}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1E2430' }]} />
+        )}
+
+        {/* Multi-stop Silky Bottom Feather Blending 100% Seamlessly Into Ambient Liquid Glass */}
+        <LinearGradient
+          colors={[
+            'rgba(0,0,0,0.20)',
+            'rgba(0,0,0,0.02)',
+            'transparent',
+            isDark ? 'rgba(11, 13, 19, 0.14)' : 'rgba(242, 244, 248, 0.14)',
+            isDark ? 'rgba(11, 13, 19, 0.42)' : 'rgba(242, 244, 248, 0.42)',
+            isDark ? 'rgba(11, 13, 19, 0.78)' : 'rgba(242, 244, 248, 0.78)',
+            isDark ? 'rgba(11, 13, 19, 0.96)' : 'rgba(242, 244, 248, 0.96)',
+            solidBgColor,
+          ]}
+          locations={[0, 0.14, 0.40, 0.56, 0.72, 0.85, 0.94, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
+      {/* ── Sticky Frosted Header on Scroll Up ── */}
       <Animated.View
         pointerEvents="none"
         style={[
@@ -368,7 +448,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           },
         ]}
       >
-        <BlurView intensity={75} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+        <BlurView intensity={78} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         <Text style={styles.stickyHeaderTitle} numberOfLines={1}>
           {data?.name || resolvedName}
         </Text>
@@ -421,259 +501,125 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
         </LiquidGlassSurface>
       </View>
 
-      {/* ── Scrollable Apple Music Liquid Glass Artist Body ── */}
+      {/* ── Scrollable Foreground Content with Pull-to-Refresh ── */}
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadArtistProfile(true)}
+            tintColor="#FFFFFF"
+            progressViewOffset={insets.top + 48}
+          />
+        }
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
         contentContainerStyle={{ paddingBottom: miniPlayerBottomGap + 28 }}
       >
-        {/* 1. Hero Official Artist Portrait */}
-        <View style={styles.heroContainer}>
-          {loading && !heroPortraitUri ? (
-            <SkeletonItem style={styles.heroImage} />
-          ) : heroPortraitUri ? (
-            <Animated.View
-              style={[
-                styles.heroImage,
-                { transform: [{ translateY: heroImageTranslateY }] },
-              ]}
-            >
-              <Image
-                source={{ uri: heroPortraitUri }}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-                priority="high"
-                cachePolicy="memory-disk"
-                transition={250}
-              />
-            </Animated.View>
-          ) : (
-            <View style={[styles.heroImage, { backgroundColor: '#1E2430' }]} />
-          )}
+        {/* Transparent Spacer letting Pinned Portrait shine cleanly */}
+        <View style={{ height: HERO_HEIGHT - 135 }} pointerEvents="none" />
 
-          {/* Soft Bottom Blur + Seamless Feather Gradient (Zero Horizontal Crop Seam) */}
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 155,
-              overflow: 'hidden',
-            }}
-          >
-            <BlurView
-              intensity={38}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
+        {/* Soft Feather Behind Name & Action Controls into Solid Body Backdrop */}
+        <LinearGradient
+          colors={[
+            'transparent',
+            isDark ? 'rgba(11, 13, 19, 0.58)' : 'rgba(242, 244, 248, 0.58)',
+            solidBgColor,
+          ]}
+          locations={[0, 0.52, 1]}
+          style={styles.heroOverlayContent}
+        >
+          <View style={styles.artistNameRow}>
+            <Text
+              style={styles.heroArtistName}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
+              {data?.name || resolvedName}
+            </Text>
+            {isOfficialArtist && (
+              <Ionicons name="musical-note" size={18} color="#FFFFFF" style={{ marginLeft: 6, opacity: 0.92 }} />
+            )}
           </View>
 
-          <LinearGradient
-            colors={[
-              'rgba(0,0,0,0.14)',
-              'transparent',
-              isDark ? 'rgba(11, 13, 19, 0.52)' : 'rgba(242, 244, 248, 0.48)',
-              isDark ? 'rgba(11, 13, 19, 0.90)' : 'rgba(242, 244, 248, 0.92)',
-              isDark ? '#0B0D13' : '#F2F4F8',
-            ]}
-            locations={[0, 0.42, 0.72, 0.91, 1]}
-            style={styles.heroGradient}
-          />
-
-          {/* Centered Artist Name & 3 Liquid Glass Action Buttons */}
-          <View style={styles.heroOverlayContent}>
-            <View style={styles.artistNameRow}>
-              <Text
-                style={styles.heroArtistName}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-              >
-                {data?.name || resolvedName}
+          {!loading && !isOfficialArtist && (
+            <View style={styles.normalChannelBadge}>
+              <Text style={styles.normalChannelBadgeText}>
+                {isAr ? 'قناة يوتيوب' : 'YouTube Channel'}
               </Text>
-              {isOfficialArtist && (
-                <Ionicons name="musical-note" size={18} color="#FFFFFF" style={{ marginLeft: 6, opacity: 0.9 }} />
-              )}
             </View>
+          )}
 
-            {!loading && !isOfficialArtist && (
-              <View style={styles.normalChannelBadge}>
-                <Text style={styles.normalChannelBadgeText}>
-                  {isAr ? 'قناة يوتيوب' : 'YouTube Channel'}
-                </Text>
-              </View>
-            )}
-
-            {/* ( i )   ( ▶ )   ( ☆ ) */}
-            <View style={styles.heroActionsRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setInfoModalVisible(true);
-                }}
+          {/* ( i )   ( ▶ )   ( ☆ ) */}
+          <View style={styles.heroActionsRow}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setInfoModalVisible(true);
+              }}
+            >
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={true}
+                isInteractive
+                borderRadius={24}
+                style={styles.heroSecondaryCircle}
               >
-                <LiquidGlassSurface
-                  glassStyle="regular"
-                  isDark={true}
-                  isInteractive
-                  borderRadius={24}
-                  style={styles.heroSecondaryCircle}
-                >
-                  <Ionicons name="information" size={22} color="#FFFFFF" />
-                </LiquidGlassSurface>
-              </TouchableOpacity>
+                <Ionicons name="information" size={22} color="#FFFFFF" />
+              </LiquidGlassSurface>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={handlePlayArtistCatalog}
-                style={styles.heroPlayCircle}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={handlePlayArtistCatalog}
+              style={styles.heroPlayCircle}
+            >
+              <Ionicons
+                name={isArtistCatalogPlaying ? 'pause' : 'play'}
+                size={28}
+                color="#111111"
+                style={{ marginLeft: isArtistCatalogPlaying ? 0 : 3 }}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity activeOpacity={0.8} onPress={handleToggleFollow}>
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={true}
+                isInteractive
+                borderRadius={24}
+                tintColor={isFollowing ? 'rgba(250, 45, 72, 0.45)' : undefined}
+                style={styles.heroSecondaryCircle}
               >
                 <Ionicons
-                  name={isArtistCatalogPlaying ? 'pause' : 'play'}
-                  size={28}
-                  color="#111111"
-                  style={{ marginLeft: isArtistCatalogPlaying ? 0 : 3 }}
+                  name={isFollowing ? 'star' : 'star-outline'}
+                  size={21}
+                  color={isFollowing ? '#FFD60A' : '#FFFFFF'}
                 />
-              </TouchableOpacity>
-
-              <TouchableOpacity activeOpacity={0.8} onPress={handleToggleFollow}>
-                <LiquidGlassSurface
-                  glassStyle="regular"
-                  isDark={true}
-                  isInteractive
-                  borderRadius={24}
-                  tintColor={isFollowing ? 'rgba(250, 45, 72, 0.45)' : undefined}
-                  style={styles.heroSecondaryCircle}
-                >
-                  <Ionicons
-                    name={isFollowing ? 'star' : 'star-outline'}
-                    size={21}
-                    color={isFollowing ? '#FFD60A' : '#FFFFFF'}
-                  />
-                </LiquidGlassSurface>
-              </TouchableOpacity>
-            </View>
+              </LiquidGlassSurface>
+            </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
 
-        {/* 2. Top Songs > Section (Image 1 & 2) */}
-        <View style={[styles.sectionBlock, { marginTop: 10 }]}>
-          <TouchableOpacity
-            style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}
-            activeOpacity={0.75}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setTopSongsModalVisible(true);
-            }}
-          >
-            <Text style={[styles.sectionTitle, { writingDirection }]}>
-              {isAr ? 'أشهر الأغاني' : 'Top Songs'}
-            </Text>
-            <Ionicons
-              name={isAr ? 'chevron-back' : 'chevron-forward'}
-              size={20}
-              color={theme.textSecondary}
-              style={{ marginTop: 2 }}
-            />
-          </TouchableOpacity>
-
-          {loading ? (
-            <View style={{ paddingHorizontal: 18, gap: 12 }}>
-              {[1, 2, 3, 4, 5].map((k) => (
-                <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <SkeletonItem style={{ width: 50, height: 50, borderRadius: 8 }} />
-                  <View style={{ flex: 1, gap: 6 }}>
-                    <SkeletonItem style={{ width: '68%', height: 15, borderRadius: 4 }} />
-                    <SkeletonItem style={{ width: '42%', height: 12, borderRadius: 4 }} />
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View>
-              {previewTopSongs.map((t, idx) =>
-                renderTopSongRow(t, idx, idx < previewTopSongs.length - 1)
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* 4. Essential Albums Carousel (1 to 3 Max — Image 2) */}
-        {(loading || essentialAlbums.length > 0) && (
-          <View style={styles.sectionBlock}>
-            <View style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}>
-              <Text style={[styles.sectionTitle, { writingDirection }]}>
-                {isAr ? 'الألبومات الأساسية' : 'Essential Albums'}
-              </Text>
-            </View>
-
-            {loading ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContent}>
-                {[1, 2].map((k) => (
-                  <View key={k} style={{ width: 174 }}>
-                    <SkeletonItem style={{ width: 174, height: 174, borderRadius: 14, marginBottom: 8 }} />
-                    <SkeletonItem style={{ width: '75%', height: 14, borderRadius: 4, marginBottom: 4 }} />
-                    <SkeletonItem style={{ width: '40%', height: 12, borderRadius: 4 }} />
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselContent}
-              >
-                {essentialAlbums.map((alb, idx) => (
-                  <TouchableOpacity
-                    key={`ess-${alb.id || idx}`}
-                    style={styles.essentialCard}
-                    activeOpacity={0.85}
-                    onPress={() => openAlbumDetails(alb)}
-                  >
-                    <Image
-                      source={getUniversalStudioArtworkSource(
-                        alb.cover || heroPortraitUri,
-                        alb.title,
-                        data?.name || resolvedName
-                      )}
-                      style={styles.essentialCover}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                      transition={150}
-                    />
-                    <Text style={[styles.carouselTitle, { textAlign, writingDirection }]} numberOfLines={1}>
-                      {alb.title}
-                    </Text>
-                    <Text style={[styles.carouselYear, { textAlign, writingDirection }]} numberOfLines={1}>
-                      {alb.year}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* 5. Albums > Carousel (Image 2 & 3 -> Opens Image 5 Grid) */}
-        {(loading || allAlbums.length > 0) && (
+        {/* Continuous Body Surface (Zero Seam Below Hero) */}
+        <View style={[styles.bodySurface, { backgroundColor: solidBgColor }]}>
+          {/* Top Songs > Section (Image 1 & 2) */}
           <View style={styles.sectionBlock}>
             <TouchableOpacity
               style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}
               activeOpacity={0.75}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setAlbumsModalVisible(true);
+                setTopSongsModalVisible(true);
               }}
             >
               <Text style={[styles.sectionTitle, { writingDirection }]}>
-                {isAr ? 'الألبومات' : 'Albums'}
+                {isAr ? 'أشهر الأغاني' : 'Top Songs'}
               </Text>
               <Ionicons
                 name={isAr ? 'chevron-back' : 'chevron-forward'}
@@ -684,51 +630,159 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
             </TouchableOpacity>
 
             {loading ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContent}>
-                {[1, 2, 3].map((k) => (
-                  <View key={k} style={{ width: 158 }}>
-                    <SkeletonItem style={{ width: 158, height: 158, borderRadius: 14, marginBottom: 8 }} />
-                    <SkeletonItem style={{ width: '75%', height: 14, borderRadius: 4, marginBottom: 4 }} />
-                    <SkeletonItem style={{ width: '40%', height: 12, borderRadius: 4 }} />
+              <View style={{ paddingHorizontal: 18, gap: 12 }}>
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <SkeletonItem style={{ width: 50, height: 50, borderRadius: 8 }} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <SkeletonItem style={{ width: '68%', height: 15, borderRadius: 4 }} />
+                      <SkeletonItem style={{ width: '42%', height: 12, borderRadius: 4 }} />
+                    </View>
                   </View>
                 ))}
-              </ScrollView>
+              </View>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselContent}
-              >
-                {allAlbums.map((alb, idx) => (
-                  <TouchableOpacity
-                    key={`alb-${alb.id || idx}`}
-                    style={styles.albumCarouselCard}
-                    activeOpacity={0.85}
-                    onPress={() => openAlbumDetails(alb)}
-                  >
-                    <Image
-                      source={getUniversalStudioArtworkSource(
-                        alb.cover || heroPortraitUri,
-                        alb.title,
-                        data?.name || resolvedName
-                      )}
-                      style={styles.albumCarouselCover}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                      transition={150}
-                    />
-                    <Text style={[styles.carouselTitle, { textAlign, writingDirection }]} numberOfLines={1}>
-                      {alb.title}
-                    </Text>
-                    <Text style={[styles.carouselYear, { textAlign, writingDirection }]} numberOfLines={1}>
-                      {alb.year}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <View>
+                {previewTopSongs.map((t, idx) =>
+                  renderTopSongRow(t, idx, idx < previewTopSongs.length - 1)
+                )}
+              </View>
             )}
           </View>
-        )}
+
+          {/* Essential Albums Carousel (1 to 3 Most-Viewed Flagship Albums — Image 2) */}
+          {(loading || essentialAlbums.length > 0) && (
+            <View style={styles.sectionBlock}>
+              <View style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}>
+                <Text style={[styles.sectionTitle, { writingDirection }]}>
+                  {isAr ? 'الألبومات الأساسية' : 'Essential Albums'}
+                </Text>
+              </View>
+
+              {loading ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {[1, 2].map((k) => (
+                    <View key={k} style={{ width: 174 }}>
+                      <SkeletonItem style={{ width: 174, height: 174, borderRadius: 14, marginBottom: 8 }} />
+                      <SkeletonItem style={{ width: '75%', height: 14, borderRadius: 4, marginBottom: 4 }} />
+                      <SkeletonItem style={{ width: '40%', height: 12, borderRadius: 4 }} />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {essentialAlbums.map((alb, idx) => (
+                    <TouchableOpacity
+                      key={`ess-${alb.id || idx}`}
+                      style={styles.essentialCard}
+                      activeOpacity={0.85}
+                      onPress={() => openAlbumDetails(alb)}
+                    >
+                      <Image
+                        source={getUniversalStudioArtworkSource(
+                          alb.cover || heroPortraitUri,
+                          alb.title,
+                          data?.name || resolvedName
+                        )}
+                        style={styles.essentialCover}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={150}
+                      />
+                      <Text style={[styles.carouselTitle, { textAlign, writingDirection }]} numberOfLines={1}>
+                        {alb.title}
+                      </Text>
+                      <Text style={[styles.carouselYear, { textAlign, writingDirection }]} numberOfLines={1}>
+                        {alb.year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          )}
+
+          {/* Albums > Carousel (Image 2 & 3 -> Opens Image 5 Grid) */}
+          {(loading || allAlbums.length > 0) && (
+            <View style={styles.sectionBlock}>
+              <TouchableOpacity
+                style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}
+                activeOpacity={0.75}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAlbumsModalVisible(true);
+                }}
+              >
+                <Text style={[styles.sectionTitle, { writingDirection }]}>
+                  {isAr ? 'الألبومات' : 'Albums'}
+                </Text>
+                <Ionicons
+                  name={isAr ? 'chevron-back' : 'chevron-forward'}
+                  size={20}
+                  color={theme.textSecondary}
+                  style={{ marginTop: 2 }}
+                />
+              </TouchableOpacity>
+
+              {loading ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {[1, 2, 3].map((k) => (
+                    <View key={k} style={{ width: 158 }}>
+                      <SkeletonItem style={{ width: 158, height: 158, borderRadius: 14, marginBottom: 8 }} />
+                      <SkeletonItem style={{ width: '75%', height: 14, borderRadius: 4, marginBottom: 4 }} />
+                      <SkeletonItem style={{ width: '40%', height: 12, borderRadius: 4 }} />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {allAlbums.map((alb, idx) => (
+                    <TouchableOpacity
+                      key={`alb-${alb.id || idx}`}
+                      style={styles.albumCarouselCard}
+                      activeOpacity={0.85}
+                      onPress={() => openAlbumDetails(alb)}
+                    >
+                      <Image
+                        source={getUniversalStudioArtworkSource(
+                          alb.cover || heroPortraitUri,
+                          alb.title,
+                          data?.name || resolvedName
+                        )}
+                        style={styles.albumCarouselCover}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={150}
+                      />
+                      <Text style={[styles.carouselTitle, { textAlign, writingDirection }]} numberOfLines={1}>
+                        {alb.title}
+                      </Text>
+                      <Text style={[styles.carouselYear, { textAlign, writingDirection }]} numberOfLines={1}>
+                        {alb.year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          )}
+        </View>
       </Animated.ScrollView>
 
       {/* ── MODAL 1 (Image 4): Full Top Songs List with Show More Pagination ── */}
@@ -742,16 +796,13 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           style={[
             styles.modalContainer,
             {
-              backgroundColor: isDark ? '#0B0D13' : '#FFFFFF',
+              backgroundColor: solidBgColor,
               paddingTop: Math.max(insets.top, 16),
             },
           ]}
         >
           <View style={styles.modalHeader}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => setTopSongsModalVisible(false)}
-            >
+            <TouchableOpacity activeOpacity={0.75} onPress={() => setTopSongsModalVisible(false)}>
               <LiquidGlassSurface
                 glassStyle="regular"
                 isDark={isDark}
@@ -815,16 +866,13 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           style={[
             styles.modalContainer,
             {
-              backgroundColor: isDark ? '#0B0D13' : '#FFFFFF',
+              backgroundColor: solidBgColor,
               paddingTop: Math.max(insets.top, 16),
             },
           ]}
         >
           <View style={styles.modalHeader}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => setAlbumsModalVisible(false)}
-            >
+            <TouchableOpacity activeOpacity={0.75} onPress={() => setAlbumsModalVisible(false)}>
               <LiquidGlassSurface
                 glassStyle="regular"
                 isDark={isDark}
@@ -965,7 +1013,14 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDark ? '#0B0D13' : '#F2F4F8',
+    },
+    pinnedHeroWrapper: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: HERO_HEIGHT,
+      zIndex: 0,
     },
     stickyHeader: {
       position: 'absolute',
@@ -1023,31 +1078,11 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
     },
-    heroContainer: {
-      width: SCREEN_WIDTH,
-      height: HERO_HEIGHT,
-      position: 'relative',
-      justifyContent: 'flex-end',
-      overflow: 'hidden',
-    },
-    heroImage: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    heroGradient: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
     heroOverlayContent: {
       alignItems: 'center',
+      paddingTop: 18,
       paddingHorizontal: 20,
-      paddingBottom: 18,
+      paddingBottom: 20,
     },
     artistNameRow: {
       flexDirection: 'row',
@@ -1061,9 +1096,9 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
       color: '#FFFFFF',
       textAlign: 'center',
       letterSpacing: -0.5,
-      textShadowColor: 'rgba(0,0,0,0.35)',
+      textShadowColor: 'rgba(0,0,0,0.4)',
       textShadowOffset: { width: 0, height: 2 },
-      textShadowRadius: 8,
+      textShadowRadius: 10,
     },
     normalChannelBadge: {
       paddingHorizontal: 10,
@@ -1107,45 +1142,8 @@ const createThemedStyles = (theme: ThemeTokens, isDark: boolean) =>
       shadowRadius: 12,
       elevation: 6,
     },
-    latestReleaseWrapper: {
-      paddingHorizontal: 18,
-      marginTop: 6,
-      marginBottom: 18,
-    },
-    latestReleaseCard: {
-      padding: 12,
-      borderRadius: 20,
-      alignItems: 'center',
-      gap: 14,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.28)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.22)',
-      overflow: 'hidden',
-    },
-    latestReleaseCover: {
-      width: 72,
-      height: 72,
-      borderRadius: 12,
-    },
-    latestReleaseInfo: {
-      flex: 1,
-    },
-    latestReleaseMeta: {
-      fontSize: 12.5,
-      fontWeight: '600',
-      color: isDark ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.88)',
-      marginBottom: 2,
-    },
-    latestReleaseTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#FFFFFF',
-      marginBottom: 2,
-    },
-    latestReleaseSub: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(255,255,255,0.84)',
+    bodySurface: {
+      paddingTop: 6,
     },
     sectionBlock: {
       marginBottom: 24,
