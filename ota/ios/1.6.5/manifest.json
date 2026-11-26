@@ -1,13 +1,13 @@
 {
-  "id": "965f254c-0997-493f-8931-c70b1fd9cd0a",
-  "createdAt": "2026-11-25T19:08:04.921Z",
+  "id": "7ad41d6f-72ab-4b54-adfe-ea472f1bbdb6",
+  "createdAt": "2026-11-26T23:10:06.299Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "w_ZKF2yKrfU53gp19XkysK50TX_ZW-7tsvf6uvePjCU",
-    "key": "a6ea5d682b781a2c74bd43e3e5d1a551",
+    "hash": "8ouJJOBFZwW_xgyvdZipyPOQjH0GY5g8gwx2TDtNrzY",
+    "key": "de4b0fb40e7079abbe1ec31a212d4253",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-58417dc54132179c6913d69434951d3e.hbc"
+    "url": "./_expo/static/js/ios/index-d08d5057d47e7bfa2f3e614522252126.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.50f4199",
+      "otaVersion": "1.6.5-ota.e8ea165",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "50f4199",
-      "title": "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
+      "commitSha": "e8ea165",
+      "title": "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
       "highlights": [
-        "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
+        "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-25T19:08:04.921Z",
-      "bundleSizeBytes": 6829678
+      "publishedAt": "2026-11-26T23:10:06.299Z",
+      "bundleSizeBytes": 6831208
     }
   }
 }

@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.50f4199",
-  "updateId": "965f254c-0997-493f-8931-c70b1fd9cd0a",
-  "publishedAt": "2026-11-25T19:08:04.921Z",
-  "title": "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
+  "otaVersion": "1.6.5-ota.e8ea165",
+  "updateId": "7ad41d6f-72ab-4b54-adfe-ea472f1bbdb6",
+  "publishedAt": "2026-11-26T23:10:06.299Z",
+  "title": "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
   "highlights": [
-    "fix(audio): eliminate CoreMedia HTTP 403 hijack, fix Control Center inactive pause glitch, and keep silent WebKit background audio alive",
+    "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6829678,
+  "bundleSizeBytes": 6831208,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
