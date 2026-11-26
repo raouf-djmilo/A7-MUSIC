@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.8ef6ee2",
-  "updateId": "53ca5755-8faf-49cc-94af-be70d4f44e31",
-  "publishedAt": "2026-11-26T23:33:06.736Z",
-  "title": "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
+  "otaVersion": "1.6.5-ota.49b0444",
+  "updateId": "5b18ebfa-8684-4976-8baf-c752ea7bdf38",
+  "publishedAt": "2026-11-26T23:42:24.335Z",
+  "title": "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
   "highlights": [
-    "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
+    "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6833717,
+  "bundleSizeBytes": 6837103,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

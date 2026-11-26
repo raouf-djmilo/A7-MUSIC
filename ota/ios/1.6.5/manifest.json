@@ -1,13 +1,13 @@
 {
-  "id": "53ca5755-8faf-49cc-94af-be70d4f44e31",
-  "createdAt": "2026-11-26T23:33:06.736Z",
+  "id": "5b18ebfa-8684-4976-8baf-c752ea7bdf38",
+  "createdAt": "2026-11-26T23:42:24.335Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "x9ECnbR_mFz5d0kzLOUY6DlIssl6LayLNUXt5sm4Cmk",
-    "key": "f4d2195d8b289444424c954d6007fc67",
+    "hash": "xPsp1mwjsndDjsSGOlwA0UWzES8R9JH24xljtSM_i7Q",
+    "key": "487ca6182ecb333e23977aec05b79319",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-4d4796e954f1647844cf17b8d04ddbf7.hbc"
+    "url": "./_expo/static/js/ios/index-d0f5fc71cc9108f98f7d5049368319b2.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.8ef6ee2",
+      "otaVersion": "1.6.5-ota.49b0444",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "8ef6ee2",
-      "title": "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
+      "commitSha": "49b0444",
+      "title": "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
       "highlights": [
-        "feat(artist): redesign ArtistDetailsScreen in Apple Music Liquid Glass with official YouTube Music artist verification, HD portraits, Essential Albums, and paginated Top Songs",
+        "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-26T23:33:06.736Z",
-      "bundleSizeBytes": 6833717
+      "publishedAt": "2026-11-26T23:42:24.335Z",
+      "bundleSizeBytes": 6837103
     }
   }
 }
