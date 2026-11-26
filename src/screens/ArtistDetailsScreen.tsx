@@ -37,7 +37,7 @@ import {
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HERO_HEIGHT = 395;
+const HERO_HEIGHT = 430;
 
 // ── Skeleton Shimmer Placeholder ──
 const SkeletonItem: React.FC<{ style: any }> = ({ style }) => {
@@ -134,9 +134,17 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   });
 
   const heroPortraitUri = useMemo(() => {
-    const raw = data?.avatar || artist?.avatar || data?.banner || '';
-    return getUniversalArtistAvatar(raw, data?.name || resolvedName) || raw;
-  }, [data?.avatar, data?.banner, data?.name, artist?.avatar, resolvedName]);
+    // Prefer the exact avatar passed from Search (if present) so Search & Profile share the identical official photo
+    const raw = artist?.avatar || data?.avatar || data?.banner || '';
+    const resolved = getUniversalArtistAvatar(raw, data?.name || resolvedName) || raw;
+    if (resolved.includes('=s')) {
+      return resolved.replace(/=s\d+[^?&]*/, '=s1200-c-k-c0x00ffffff-no-rj');
+    }
+    if (resolved.includes('=w')) {
+      return resolved.replace(/=w\d+-h\d+[^?&]*/, '=w1200-h1200-l90-rj');
+    }
+    return resolved;
+  }, [artist?.avatar, data?.avatar, data?.banner, data?.name, resolvedName]);
 
   const isArtistCatalogPlaying = useMemo(() => {
     if (!isPlaying || !currentTrack) return false;
@@ -174,7 +182,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
       await Share.share({
         message: isAr ? `استمع إلى ${name} على A7 Music` : `Listen to ${name} on A7 Music`,
       });
-    } catch {}
+    } catch { }
   }, [data?.name, resolvedName, isAr]);
 
   const handleShowMoreTracks = useCallback(async () => {
@@ -447,15 +455,34 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
             <View style={[styles.heroImage, { backgroundColor: '#1E2430' }]} />
           )}
 
-          {/* Smooth Liquid Fade from Portrait into Glass Backdrop */}
+          {/* Soft Bottom Blur + Seamless Feather Gradient (Zero Horizontal Crop Seam) */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 155,
+              overflow: 'hidden',
+            }}
+          >
+            <BlurView
+              intensity={38}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+
           <LinearGradient
             colors={[
-              'rgba(0,0,0,0.18)',
+              'rgba(0,0,0,0.14)',
               'transparent',
-              isDark ? 'rgba(18, 20, 26, 0.55)' : 'rgba(92, 98, 108, 0.45)',
-              isDark ? 'rgba(14, 16, 22, 0.96)' : 'rgba(105, 112, 122, 0.95)',
+              isDark ? 'rgba(11, 13, 19, 0.52)' : 'rgba(242, 244, 248, 0.48)',
+              isDark ? 'rgba(11, 13, 19, 0.90)' : 'rgba(242, 244, 248, 0.92)',
+              isDark ? '#0B0D13' : '#F2F4F8',
             ]}
-            locations={[0, 0.35, 0.72, 1]}
+            locations={[0, 0.42, 0.72, 0.91, 1]}
             style={styles.heroGradient}
           />
 
@@ -536,54 +563,8 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           </View>
         </View>
 
-        {/* 2. Latest Release Liquid Glass Card */}
-        {!loading && latestRelease && (
-          <View style={styles.latestReleaseWrapper}>
-            <TouchableOpacity activeOpacity={0.85} onPress={() => openAlbumDetails(latestRelease)}>
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isDark={isDark}
-                isInteractive
-                borderRadius={20}
-                style={[styles.latestReleaseCard, { flexDirection: rowDirection }]}
-              >
-                <Image
-                  source={getUniversalStudioArtworkSource(
-                    latestRelease.cover || heroPortraitUri,
-                    latestRelease.title,
-                    data?.name || resolvedName
-                  )}
-                  style={styles.latestReleaseCover}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                />
-                <View style={styles.latestReleaseInfo}>
-                  <Text style={[styles.latestReleaseMeta, { textAlign, writingDirection }]}>
-                    {latestRelease.year}
-                  </Text>
-                  <Text
-                    style={[styles.latestReleaseTitle, { textAlign, writingDirection }]}
-                    numberOfLines={2}
-                  >
-                    {latestRelease.title}
-                  </Text>
-                  <Text style={[styles.latestReleaseSub, { textAlign, writingDirection }]}>
-                    {latestRelease.type === 'single'
-                      ? isAr
-                        ? 'أغنية منفردة'
-                        : '1 Song'
-                      : isAr
-                        ? 'ألبوم رسمي'
-                        : 'Album'}
-                  </Text>
-                </View>
-              </LiquidGlassSurface>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 3. Top Songs > Section (Image 1 & 2) */}
-        <View style={styles.sectionBlock}>
+        {/* 2. Top Songs > Section (Image 1 & 2) */}
+        <View style={[styles.sectionBlock, { marginTop: 10 }]}>
           <TouchableOpacity
             style={[styles.sectionHeaderBtn, { flexDirection: rowDirection }]}
             activeOpacity={0.75}

@@ -1427,10 +1427,16 @@ export async function fetchYouTubeMusicOfficialArtist(
           const title = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || 'Track';
           const col1Runs = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
           const col2Runs = cols[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
-          const albumName =
-            col2Runs.find((r: any) => r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('MPREb_'))?.text ||
-            col2Runs[0]?.text ||
+          const col3Runs = cols[3]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const allMetaRuns = [...col2Runs, ...col3Runs, ...col1Runs];
+          const albumRun = allMetaRuns.find((r: any) =>
+            r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('MPREb_')
+          );
+          const candidateText =
+            albumRun?.text ||
+            col2Runs.find((r: any) => r.text && !/\b(plays?|views?|listeners?)\b/i.test(r.text) && r.text !== '•')?.text ||
             '';
+          const albumName = candidateText && !/\b(plays?|views?|listeners?)\b/i.test(candidateText) ? candidateText : '';
           const artistText = col1Runs[0]?.text || headerTitle;
 
           const thumbs = mr.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
@@ -1516,77 +1522,7 @@ export async function fetchYouTubeMusicOfficialArtist(
  * Strictly resolves identity and fetches real YouTube studio data, genuine tracks, albums, singles & EPs, and playlists for ANY artist.
  */
 export async function fetchArtistFullProfile(rawArtistName: string): Promise<ArtistFullProfile> {
-  const clean = (rawArtistName || '').trim().toLowerCase();
-
-  // 1. Strict Identity Check: DJ Khaled (American)
-  if (clean === 'dj khaled' || clean === 'djkhaled' || clean.startsWith('dj khaled')) {
-    try {
-      const [yt, chan] = await Promise.all([
-        searchYouTubeMusicWithArtist('DJ Khaled official music'),
-        fetchRealYouTubeChannel('DJ Khaled'),
-      ]);
-      const av = chan?.avatar || yt.artist?.avatar || yt.tracks[0]?.artistAvatar;
-      const { latestRelease, essentialAlbums } = computeArtistReleasesAndEssentials(
-        DJ_KHALED_PROFILE.albums,
-        DJ_KHALED_PROFILE.singlesAndEPs
-      );
-      return {
-        ...DJ_KHALED_PROFILE,
-        avatar: av || DJ_KHALED_PROFILE.avatar,
-        banner: av || DJ_KHALED_PROFILE.banner,
-        subCount: chan?.subscriberCount || DJ_KHALED_PROFILE.subCount,
-        channelId: chan?.channelId,
-        isOfficialArtist: true,
-        latestRelease,
-        essentialAlbums,
-        topTracks: yt.tracks.length > 0 ? yt.tracks.slice(0, 15) : DJ_KHALED_PROFILE.topTracks,
-      };
-    } catch (e) {}
-    return {
-      ...DJ_KHALED_PROFILE,
-      isOfficialArtist: true,
-      ...computeArtistReleasesAndEssentials(DJ_KHALED_PROFILE.albums, DJ_KHALED_PROFILE.singlesAndEPs),
-    };
-  }
-
-  // 2. Strict Identity Check: Cheb Khaled (Algerian)
-  if (clean === 'khaled' || clean === 'cheb khaled' || clean === 'chebkhaled') {
-    try {
-      const [yt, chan, ytMusic] = await Promise.all([
-        searchYouTubeMusicWithArtist('Cheb Khaled Aïcha Cest la vie'),
-        fetchRealYouTubeChannel('Cheb Khaled'),
-        fetchYouTubeMusicOfficialArtist('Khaled'),
-      ]);
-      const av = ytMusic?.avatar || chan?.avatar || yt.artist?.avatar || yt.tracks[0]?.artistAvatar;
-      const mergedAlbums = ytMusic?.albums?.length ? ytMusic.albums : CHEB_KHALED_PROFILE.albums;
-      const mergedSingles = ytMusic?.singlesAndEPs?.length ? ytMusic.singlesAndEPs : CHEB_KHALED_PROFILE.singlesAndEPs;
-      const { latestRelease, essentialAlbums } = computeArtistReleasesAndEssentials(mergedAlbums, mergedSingles);
-      return {
-        ...CHEB_KHALED_PROFILE,
-        avatar: av || CHEB_KHALED_PROFILE.avatar,
-        banner: av || CHEB_KHALED_PROFILE.banner,
-        subCount: ytMusic?.subCount || chan?.subscriberCount || CHEB_KHALED_PROFILE.subCount,
-        channelId: ytMusic?.channelId || chan?.channelId,
-        isOfficialArtist: true,
-        latestRelease,
-        essentialAlbums,
-        albums: mergedAlbums,
-        singlesAndEPs: mergedSingles,
-        topTracks: ytMusic?.topTracks?.length
-          ? ytMusic.topTracks.slice(0, 25)
-          : yt.tracks.length > 0
-            ? yt.tracks.slice(0, 15)
-            : CHEB_KHALED_PROFILE.topTracks,
-      };
-    } catch (e) {}
-    return {
-      ...CHEB_KHALED_PROFILE,
-      isOfficialArtist: true,
-      ...computeArtistReleasesAndEssentials(CHEB_KHALED_PROFILE.albums, CHEB_KHALED_PROFILE.singlesAndEPs),
-    };
-  }
-
-  // 3. For ANY other artist in the world: Dynamic Real YouTube Music Official Artist Fetch
+  // Universal Dynamic Real YouTube Music + Official Channel Fetch (zero hardcoded artists)
   try {
     const [searchRes, channelInfo, ytMusicArtist] = await Promise.all([
       searchYouTubeMusicWithArtist(`${rawArtistName} official audio`),
@@ -1606,28 +1542,35 @@ export async function fetchArtistFullProfile(rawArtistName: string): Promise<Art
     const rawTracks = searchRes.tracks;
 
     const cleanArtist = cleanArtistName(
-      ytMusicArtist?.name || channelInfo?.name || artist?.name || rawArtistName
+      channelInfo?.name || ytMusicArtist?.name || artist?.name || rawArtistName
     );
-    const filteredTracks = rawTracks.filter((t) =>
+    const filteredYtMusicTracks = (ytMusicArtist?.topTracks || []).filter((t) =>
       isGenuineArtistTrack(t.title, t.artist, cleanArtist)
     );
-    const fallbackTracks = filteredTracks.length >= 3 ? filteredTracks : rawTracks;
+    const ytTopTracks =
+      filteredYtMusicTracks.length >= 4 ? filteredYtMusicTracks : (ytMusicArtist?.topTracks || []);
+
+    const filteredFallback = rawTracks.filter((t) =>
+      isGenuineArtistTrack(t.title, t.artist, cleanArtist)
+    );
+    const fallbackTracks = filteredFallback.length >= 3 ? filteredFallback : rawTracks;
     const topTracks =
-      ytMusicArtist?.topTracks && ytMusicArtist.topTracks.length >= 5
+      ytTopTracks.length >= 4
         ? [
-            ...ytMusicArtist.topTracks,
+            ...ytTopTracks,
             ...fallbackTracks.filter(
-              (ft) => !ytMusicArtist.topTracks.some((yt) => yt.videoId === ft.videoId)
+              (ft) => !ytTopTracks.some((yt) => yt.videoId === ft.videoId)
             ),
           ]
         : fallbackTracks;
 
-    // Guaranteed 100% REAL authentic YouTube official artist portrait / avatar
-    const realAvatar =
-      ytMusicArtist?.avatar ||
+    // Prioritize official YouTube Channel avatar first so Search mini-avatar and Profile portrait match 1:1
+    const realAvatar = getHighResYouTubeAvatar(
       channelInfo?.avatar ||
       artist?.avatar ||
-      (topTracks[0]?.artistAvatar ? topTracks[0].artistAvatar : topTracks[0]?.thumbnail || '');
+      ytMusicArtist?.avatar ||
+      (topTracks[0]?.artistAvatar ? topTracks[0].artistAvatar : topTracks[0]?.thumbnail || '')
+    );
     const realBanner = realAvatar || channelBanner || '';
     const subCount =
       ytMusicArtist?.subCount ||
