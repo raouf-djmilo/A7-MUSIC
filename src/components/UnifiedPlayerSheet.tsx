@@ -571,7 +571,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     }
   }, [activeEngine]);
 
-  // ── 🛡️ Startup Watchdog: auto-recover if YoutubePlayer fails/stalls silently on unstarted/cued ──
+  // ── 🛡️ Startup Watchdog: auto-recover only if YoutubePlayer genuinely stalls without ever starting ──
   useEffect(() => {
     if (activeEngine !== 'youtube' || !isPlaying || !currentTrack?.videoId) return;
     const targetVid = currentTrack.videoId;
@@ -587,7 +587,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       ) {
         (youtubePlayerRef.current as any)?.playVideo?.();
       }
-    }, 2000);
+    }, 2200);
 
     const remountTimer = setTimeout(() => {
       const latest = useAudioStore.getState();
@@ -603,7 +603,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           setYoutubeRemountKey((k) => k + 1);
         }
       }
-    }, 4800);
+    }, 8000);
 
     return () => {
       clearTimeout(nudgeTimer);
@@ -692,20 +692,21 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                           !after.isPlaying ||
                           after.isUserPauseAction ||
                           after.activeEngine !== 'youtube' ||
-                          after.currentTrack?.videoId !== targetVid
+                          after.currentTrack?.videoId !== targetVid ||
+                          startedYoutubeVideoIdRef.current !== targetVid
                         ) {
                           return;
                         }
                         yt.getCurrentTime?.()
                           .then((nowSec: number) => {
-                            if (typeof nowSec === 'number' && Math.abs(nowSec - baselineSec) < 0.2) {
+                            if (typeof nowSec === 'number' && Math.abs(nowSec - baselineSec) < 0.15) {
                               // Media decoder froze in backgrounded WebKit -> cleanly remount & seek to exact second
                               pendingYoutubeSeekSecRef.current = Math.max(0, Math.floor(baselineSec));
                               setYoutubeRemountKey((k) => k + 1);
                             }
                           })
                           .catch(() => {});
-                      }, 1400)
+                      }, 2200)
                     );
                   }
                 }
@@ -748,7 +749,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     };
   }, []);
 
-  // ── 🛡️ Foreground Playback Progress Monitor: auto-recovers frozen WebView without requiring Next Track ──
+  // ── 🛡️ Foreground Playback Progress Monitor: auto-recovers only an already-started WebView that freezes ──
   useEffect(() => {
     if (!isPlaying || activeEngine !== 'youtube' || !currentTrack?.videoId) return;
     let lastCheckedPos = useAudioStore.getState().positionMillis;
@@ -761,7 +762,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         return;
       }
       const s = useAudioStore.getState();
-      if (!s.isPlaying || s.isUserPauseAction || s.activeEngine !== 'youtube') {
+      if (
+        !s.isPlaying ||
+        s.isUserPauseAction ||
+        s.activeEngine !== 'youtube' ||
+        startedYoutubeVideoIdRef.current !== s.currentTrack?.videoId
+      ) {
         stagnantTicks = 0;
         return;
       }
@@ -771,9 +777,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         return;
       }
       stagnantTicks += 1;
-      if (stagnantTicks === 3) {
+      if (stagnantTicks === 4) {
         (youtubePlayerRef.current as any)?.playVideo?.();
-      } else if (stagnantTicks >= 6 && recoveredOnceForPos !== Math.floor(s.positionMillis / 1000)) {
+      } else if (stagnantTicks >= 9 && recoveredOnceForPos !== Math.floor(s.positionMillis / 1000)) {
         const sec = Math.max(0, Math.floor(s.positionMillis / 1000));
         recoveredOnceForPos = sec;
         stagnantTicks = 0;

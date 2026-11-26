@@ -249,9 +249,10 @@ export const markTrackEndHandled = (trackKey: string): boolean => {
   return true;
 };
 
-// ── Silent Native Background Keep-Alive (expo-video doNotMix + NO NowPlaying takeover) ──
-// Note: doNotMix ensures iOS does NOT suppress the Control Center / Lock Screen widget (.mixWithOthers hides NowPlaying),
-// while showNowPlayingNotification = false keeps NowPlayingManager unregistered so WKWebView retains widget ownership.
+// ── Silent Native Background Keep-Alive (expo-video mixWithOthers + NO NowPlaying takeover) ──
+// CRITICAL: MUST always use 'mixWithOthers' alongside WKWebView — 'doNotMix' steals AVAudioSession focus
+// on iOS and forces WKWebView YouTube playback to auto-pause ~1 second after every Play action.
+// showNowPlayingNotification = false keeps NowPlayingManager unregistered so WKWebView retains widget control.
 let _silentAnchorPlayer: any = null;
 let _isStartingAnchor = false;
 
@@ -259,9 +260,10 @@ export const startSilentBackgroundKeepAlive = async (): Promise<void> => {
   if (_isStartingAnchor) return;
   try {
     if (_silentAnchorPlayer) {
+      if (_silentAnchorPlayer.playing) return;
       _silentAnchorPlayer.staysActiveInBackground = true;
       _silentAnchorPlayer.showNowPlayingNotification = false;
-      _silentAnchorPlayer.audioMixingMode = 'doNotMix';
+      _silentAnchorPlayer.audioMixingMode = 'mixWithOthers';
       _silentAnchorPlayer.isMuted = false;
       _silentAnchorPlayer.volume = 0.0;
       _silentAnchorPlayer.play();
@@ -277,7 +279,7 @@ export const startSilentBackgroundKeepAlive = async (): Promise<void> => {
     anchor.isMuted = false;
     anchor.staysActiveInBackground = true;
     anchor.showNowPlayingNotification = false;
-    anchor.audioMixingMode = 'doNotMix';
+    anchor.audioMixingMode = 'mixWithOthers';
     anchor.play();
     _silentAnchorPlayer = anchor;
   } catch {

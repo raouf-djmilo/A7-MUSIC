@@ -495,19 +495,31 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
 
     // ── 0. Smart Idempotent Play Guard ──
-    // Only skip restart if the exact same track is actively playing AND actually advancing (> 1.2s or native)
+    // Resume instantly if the same paused song is tapped from any tab/list, or skip redundant reload while actively playing
     const isSameTrack = Boolean(
       state.currentTrack &&
       ((track.videoId && state.currentTrack.videoId === track.videoId) ||
         ((track as any).id && (state.currentTrack as any).id === (track as any).id))
     );
 
-    if (isSameTrack && (!targetQueue.length || targetQueue === state.queue)) {
+    if (isSameTrack) {
       if (!state.isPlaying) {
+        if (targetQueue.length > 0 && targetQueue !== state.queue) {
+          const foundIdx = (targetIndex >= 0 && targetIndex < targetQueue.length)
+            ? targetIndex
+            : targetQueue.findIndex(t => t.videoId === track.videoId);
+          set({
+            queue: targetQueue,
+            currentQueue: targetQueue,
+            currentIndex: foundIdx >= 0 ? foundIdx : 0,
+            currentContextName: resolvedContextName,
+            queueContextName: resolvedContextName,
+          });
+        }
         await get().resumeTrack();
         return;
       }
-      if (state.positionMillis > 1200 || state.activeEngine === 'native') {
+      if ((!targetQueue.length || targetQueue === state.queue) && (state.positionMillis > 1200 || state.activeEngine === 'native')) {
         return;
       }
       // If activeEngine === 'youtube' stalled at 0:00, fall through to force-start cleanly
