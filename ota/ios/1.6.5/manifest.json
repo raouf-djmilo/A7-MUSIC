@@ -1,13 +1,13 @@
 {
-  "id": "7ad41d6f-72ab-4b54-adfe-ea472f1bbdb6",
-  "createdAt": "2026-11-26T23:10:06.299Z",
+  "id": "a0a22c40-ee02-4281-a19b-7dfc38488268",
+  "createdAt": "2026-11-26T23:18:31.486Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "8ouJJOBFZwW_xgyvdZipyPOQjH0GY5g8gwx2TDtNrzY",
-    "key": "de4b0fb40e7079abbe1ec31a212d4253",
+    "hash": "sI4Q4y1U7nonX-hBMOGHdXEOtsj6vBDtviHtl4L0bIA",
+    "key": "81e8c12453c89907adfb6c8dfd12de6a",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-d08d5057d47e7bfa2f3e614522252126.hbc"
+    "url": "./_expo/static/js/ios/index-aa12e20af1334c5f426adbc22c37d410.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.e8ea165",
+      "otaVersion": "1.6.5-ota.ba422c2",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "e8ea165",
-      "title": "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
+      "commitSha": "ba422c2",
+      "title": "fix(audio): stop silent keep-alive AVPlayer from stealing WKWebView audio focus (restore mixWithOthers) and remove premature WebView remount stalls",
       "highlights": [
-        "fix(audio): restore iOS Control Center white badge via doNotMix keep-alive and auto-recover frozen background WebView playback",
+        "fix(audio): stop silent keep-alive AVPlayer from stealing WKWebView audio focus (restore mixWithOthers) and remove premature WebView remount stalls",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-26T23:10:06.299Z",
-      "bundleSizeBytes": 6831208
+      "publishedAt": "2026-11-26T23:18:31.486Z",
+      "bundleSizeBytes": 6831624
     }
   }
 }
