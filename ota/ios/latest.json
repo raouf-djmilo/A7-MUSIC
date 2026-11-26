@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.49b0444",
-  "updateId": "5b18ebfa-8684-4976-8baf-c752ea7bdf38",
-  "publishedAt": "2026-11-26T23:42:24.335Z",
-  "title": "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
+  "otaVersion": "1.6.5-ota.f05114d",
+  "updateId": "52ac91b5-8fae-42b0-86cb-c51bb6b4a91d",
+  "publishedAt": "2026-11-26T23:58:49.091Z",
+  "title": "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
   "highlights": [
-    "fix(artist): match search/profile HD avatar, add seamless soft bottom blur, remove Latest Release bar, and drop hardcoded artist overrides",
+    "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6837103,
+  "bundleSizeBytes": 6842610,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
