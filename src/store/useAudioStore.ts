@@ -46,6 +46,8 @@ export interface Track {
   isOfficial?: boolean;
   channelId?: string;
   artistAvatar?: string;
+  album?: string;
+  year?: string;
 }
 
 export type RepeatMode = 'off' | 'all' | 'one';
