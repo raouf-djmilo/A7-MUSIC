@@ -31,11 +31,11 @@ rules_version = '2';
 // Subcollection: users/{userId}/liked_songs
 // Document ID: {videoId}
 // Fields:
-//   - videoId: string (required, 1..64 chars, must match {videoId})
+//   - videoId: string (required, 1..128 chars, must match {videoId})
 //   - title: string (required, 1..300 chars)
 //   - artist: string (optional, 0..200 chars)
 //   - thumbnail: string (optional, valid http/https URL or empty, <= 2048 chars)
-//   - duration: number (0..86400) | string (0..20 chars) (optional)
+//   - duration: number (0..86400000) | string (0..20 chars) (optional)
 //   - likedAt: timestamp | ISO-8601 string (optional)
 //
 // Subcollection: users/{userId}/playlists
@@ -51,11 +51,11 @@ rules_version = '2';
 // Subcollection (optional): users/{userId}/playlists/{playlistId}/tracks
 // Document ID: {trackId}
 // Fields:
-//   - videoId: string (required, 1..64 chars)
+//   - videoId: string (required, 1..128 chars)
 //   - title: string (required, 1..300 chars)
 //   - artist: string (optional, 0..200 chars)
 //   - thumbnail: string (optional, valid http/https URL or empty, <= 2048 chars)
-//   - duration: number (0..86400) | string (0..20 chars) (optional)
+//   - duration: number (0..86400000) | string (0..20 chars) (optional)
 //   - addedAt: timestamp | ISO-8601 string (optional)
 //   - order: number (optional, 0..10000)
 //
@@ -140,7 +140,7 @@ service cloud.firestore {
 
     function isValidOptionalDuration(data, field) {
       return !(field in data) ||
-        (data[field] is number && data[field] >= 0 && data[field] <= 86400) ||
+        (data[field] is number && data[field] >= 0 && data[field] <= 86400000) ||
         isValidString(data[field], 0, 20);
     }
 
@@ -188,7 +188,7 @@ service cloud.firestore {
         hasOnlyAllowedFields([
           'videoId', 'title', 'artist', 'thumbnail', 'duration', 'likedAt'
         ]) &&
-        isValidString(data.videoId, 1, 64) &&
+        isValidString(data.videoId, 1, 128) &&
         data.videoId == videoId &&
         isValidString(data.title, 1, 300) &&
         isValidOptionalString(data, 'artist', 0, 200) &&
@@ -215,7 +215,7 @@ service cloud.firestore {
         hasOnlyAllowedFields([
           'videoId', 'title', 'artist', 'thumbnail', 'duration', 'addedAt', 'order'
         ]) &&
-        isValidString(data.videoId, 1, 64) &&
+        isValidString(data.videoId, 1, 128) &&
         isValidString(data.title, 1, 300) &&
         isValidOptionalString(data, 'artist', 0, 200) &&
         isValidOptionalUrl(data, 'thumbnail') &&
@@ -247,7 +247,7 @@ service cloud.firestore {
         (!('top_track_ids' in data) ||
           (data.top_track_ids is list &&
            data.top_track_ids.size() <= 50 &&
-           (data.top_track_ids.size() == 0 || isValidString(data.top_track_ids[0], 1, 64)))) &&
+           (data.top_track_ids.size() == 0 || isValidString(data.top_track_ids[0], 1, 128)))) &&
         isValidOptionalTimestampOrDate(data, 'updated_at');
     }
 

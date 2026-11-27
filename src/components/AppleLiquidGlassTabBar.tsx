@@ -20,6 +20,7 @@ import Animated, {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeContext';
+import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { LiquidGlassBubble } from './liquidGlass/LiquidGlassBubble';
 import {
@@ -177,8 +178,23 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
 }) => {
   const { isDark } = useTheme();
   const language = useLanguageStore((s) => s.language);
+  const isDockMinimized = useAudioStore((s) => s.isDockMinimized);
   const insets = useSafeAreaInsets();
   const colors = isDark ? APPLE_LIQUID_COLORS.dark : APPLE_LIQUID_COLORS.light;
+
+  const dockCollapse = useSharedValue(isDockMinimized ? 1 : 0);
+  useEffect(() => {
+    dockCollapse.value = withSpring(isDockMinimized ? 1 : 0, {
+      damping: 32,
+      stiffness: 420,
+      mass: 0.65,
+    });
+  }, [isDockMinimized, dockCollapse]);
+
+  const animatedDockStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dockCollapse.value * 96 }],
+    opacity: 1 - dockCollapse.value,
+  }));
 
   const routes = state?.routes || DEFAULT_ROUTES;
   const numTabs = routes.length || 3;
@@ -324,7 +340,7 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
   }, [indicatorX, bubbleScaleX, bubbleScaleY, maxTravel, tabWidth, numTabs, handleTabSelect]);
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.outerContainer,
         {
@@ -332,8 +348,9 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
           right: APPLE_BAR_METRICS.horizontalMargin,
           bottom: bottomOffset,
         },
+        animatedDockStyle,
       ]}
-      pointerEvents="box-none"
+      pointerEvents={isDockMinimized ? 'none' : 'box-none'}
     >
       <GestureDetector gesture={panGesture}>
         <View
@@ -395,7 +412,7 @@ export const AppleLiquidGlassTabBar: React.FC<AppleLiquidGlassTabBarProps> = ({
           </View>
         </View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 };
 

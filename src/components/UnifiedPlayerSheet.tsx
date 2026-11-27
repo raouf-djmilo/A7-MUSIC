@@ -50,7 +50,7 @@ import {
   STUDIO_IMAGE_PROPS,
 } from '../utils/artworkHelper';
 import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
-import { USE_NATIVE_LIQUID_TABS } from '../navigation/navigationConfig';
+import { isNativeLiquidTabsAvailable } from '../navigation/navigationConfig';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
 import { MarqueeText } from './MarqueeText';
 import { PlayerArtworkStage } from '../features/player/components/PlayerArtworkStage';
@@ -868,7 +868,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   // ── Precise Dynamic Geometry Offsets (Apple Music Standard) ──
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
   const tabBarTop = Math.max(insets.bottom + 6, 22) + 60;
-  const baseMiniBottom = USE_NATIVE_LIQUID_TABS
+  const useNativeTabs = isNativeLiquidTabsAvailable();
+  const baseMiniBottom = useNativeTabs
     ? (Platform.OS === 'ios' ? Math.max(insets.bottom + 49 + 12, 95) : 95)
     : tabBarTop + 8; // Exactly 8px safety clearance above tab bar
   const stackDockBottom = Math.max(insets.bottom + 8, 22);

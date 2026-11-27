@@ -66,9 +66,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Instant 0ms local cache restore
+    // 1. Instant 0ms local UI cache restore (Firebase Sync activates once auth.currentUser hydrates)
     AsyncStorage.multiGet(['userToken', 'userData'])
-      .then((pairs) => {
+      .then(async (pairs) => {
         if (!isMounted) return;
         const storedToken = pairs[0]?.[1];
         const storedUser = pairs[1]?.[1];
@@ -77,8 +77,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setSession(storedToken);
           setUser(parsedUser);
           if (parsedUser?.id) {
-            useAudioStore.getState().setActiveUserId(parsedUser.id);
-            useAudioStore.getState().fetchInitialLikes(parsedUser.id);
+            await auth.authStateReady();
+            if (isMounted && auth.currentUser?.uid === parsedUser.id) {
+              useAudioStore.getState().setActiveUserId(parsedUser.id);
+              useAudioStore.getState().fetchInitialLikes(parsedUser.id);
+            }
           }
         }
       })
@@ -184,6 +187,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setSession(token);
       setUser(loggedInUser);
+      useAudioStore.getState().setActiveUserId(fbUser.uid);
       await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(loggedInUser));
       await useNetworkStore.getState().recordSuccessfulLogin();
@@ -236,6 +240,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setSession(token);
       setUser(registeredUser);
+      useAudioStore.getState().setActiveUserId(fbUser.uid);
       await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(registeredUser));
       await useNetworkStore.getState().recordSuccessfulLogin();

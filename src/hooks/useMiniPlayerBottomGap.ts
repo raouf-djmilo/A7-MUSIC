@@ -2,7 +2,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '../store/useAudioStore';
 import { Platform } from 'react-native';
 import { APPLE_BAR_METRICS } from '../theme/AppleLiquidTokens';
-import { USE_NATIVE_LIQUID_TABS } from '../navigation/navigationConfig';
+import { isNativeLiquidTabsAvailable } from '../navigation/navigationConfig';
 
 const MINI_PLAYER_HEIGHT = 52;
 const MINI_TAB_GAP = 8;
@@ -17,9 +17,10 @@ export const useMiniPlayerBottomGap = () => {
   const isMiniPlayerSuppressed = useAudioStore((s) => s.isMiniPlayerSuppressed);
   const currentRouteName = useAudioStore((s) => s.currentRouteName);
   const insets = useSafeAreaInsets();
+  const useNativeTabs = isNativeLiquidTabsAvailable();
   
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
-  const tabBarTotalHeight = USE_NATIVE_LIQUID_TABS
+  const tabBarTotalHeight = useNativeTabs
     ? (Platform.OS === 'ios' ? Math.max(insets.bottom + 49, 83) : 60)
     : Math.max(insets.bottom + 6, APPLE_BAR_METRICS.bottomOffset) + APPLE_BAR_METRICS.barHeight;
   

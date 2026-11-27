@@ -10,8 +10,51 @@ import {
   orderBy,
   limit,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import type { Track } from '../store/useAudioStore';
+
+const MAX_DURATION_MS = 86400000;
+
+async function ensureAuthenticatedUid(expectedUid?: string): Promise<string | null> {
+  await auth.authStateReady();
+  const currentUid = auth.currentUser?.uid || null;
+  if (!currentUid) return null;
+  if (expectedUid && currentUid !== expectedUid) return null;
+  return currentUid;
+}
+
+function sanitizeHttpUrl(raw?: string | null): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 2048 || /[\r\n]/.test(trimmed)) return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+}
+
+function sanitizeDurationMs(raw: unknown): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.max(0, Math.min(MAX_DURATION_MS, Math.round(raw)));
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.includes(':')) {
+      const parts = trimmed.split(':').map((p) => Number(p));
+      if (parts.length >= 2 && parts.every((n) => Number.isFinite(n) && n >= 0)) {
+        const totalSec = parts.reduce((acc, val) => acc * 60 + val, 0);
+        return Math.max(0, Math.min(MAX_DURATION_MS, Math.round(totalSec * 1000)));
+      }
+    }
+    const parsed = Number(trimmed);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, Math.min(MAX_DURATION_MS, Math.round(parsed)));
+    }
+  }
+  return 0;
+}
+
+function sanitizeVideoId(rawId?: string | null): string {
+  if (typeof rawId !== 'string') return '';
+  return rawId.trim().replace(/\//g, '_').slice(0, 128);
+}
 
 export interface FirebaseUserProfile {
   id: string;
@@ -72,8 +115,9 @@ export async function claimFirebaseUsername(
 
 // ── 1. Account Profile ──
 export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserProfile | null> {
-  if (!uid) return null;
-  const snap = await getDoc(doc(db, 'users', uid));
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return null;
+  const snap = await getDoc(doc(db, 'users', authUid));
   return snap.exists() ? (snap.data() as FirebaseUserProfile) : null;
 }
 
@@ -81,18 +125,22 @@ export async function upsertFirebaseUserProfile(
   uid: string,
   data: Partial<FirebaseUserProfile>
 ): Promise<void> {
-  if (!uid) return;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
   const cleanData = Object.fromEntries(
     Object.entries(data).filter(([, value]) => value !== undefined)
   );
-  const ref = doc(db, 'users', uid);
+  if ('avatar_url' in cleanData) {
+    cleanData.avatar_url = sanitizeHttpUrl(cleanData.avatar_url as string);
+  }
+  const ref = doc(db, 'users', authUid);
   const existing = await getDoc(ref);
   const now = new Date().toISOString();
   if (existing.exists()) {
     await updateDoc(ref, { ...cleanData, updated_at: now });
   } else {
     await setDoc(ref, {
-      id: uid,
+      id: authUid,
       email: (cleanData.email as string) || '',
       created_at: now,
       updated_at: now,
@@ -104,9 +152,10 @@ export async function upsertFirebaseUserProfile(
 
 // ── 2. Liked Songs ──
 export async function getFirebaseLikedSongs(uid: string): Promise<Track[]> {
-  if (!uid) return [];
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return [];
   const q = query(
-    collection(db, 'users', uid, 'liked_songs'),
+    collection(db, 'users', authUid, 'liked_songs'),
     orderBy('likedAt', 'desc'),
     limit(200)
   );
@@ -118,34 +167,45 @@ export async function getFirebaseLikedSongs(uid: string): Promise<Track[]> {
       title: item.title || 'Untitled',
       artist: item.artist || 'Artist',
       thumbnail: item.thumbnail || '',
-      duration: Number(item.duration || 0),
+      duration: sanitizeDurationMs(item.duration),
       isOfficial: true,
     };
   });
 }
 
 export async function addFirebaseLikedSong(uid: string, track: Track): Promise<void> {
-  if (!uid || !track?.videoId) return;
-  await setDoc(doc(db, 'users', uid, 'liked_songs', track.videoId), {
-    videoId: track.videoId,
-    title: (track.title || 'Untitled').slice(0, 300),
-    artist: (track.artist || 'Artist').slice(0, 200),
-    thumbnail: track.thumbnail || '',
-    duration: Math.max(0, Number(track.duration || 0)),
+  const cleanVideoId = sanitizeVideoId(track?.videoId);
+  if (!uid || !cleanVideoId) return;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
+
+  const cleanTitle = String(track.title || 'Untitled').trim().slice(0, 300) || 'Untitled';
+  const cleanArtist = String(track.artist ?? 'Artist').trim().slice(0, 200);
+
+  await setDoc(doc(db, 'users', authUid, 'liked_songs', cleanVideoId), {
+    videoId: cleanVideoId,
+    title: cleanTitle,
+    artist: cleanArtist,
+    thumbnail: sanitizeHttpUrl(track.thumbnail),
+    duration: sanitizeDurationMs(track.duration),
     likedAt: new Date().toISOString(),
   });
 }
 
 export async function removeFirebaseLikedSong(uid: string, videoId: string): Promise<void> {
-  if (!uid || !videoId) return;
-  await deleteDoc(doc(db, 'users', uid, 'liked_songs', videoId));
+  const cleanVideoId = sanitizeVideoId(videoId);
+  if (!uid || !cleanVideoId) return;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
+  await deleteDoc(doc(db, 'users', authUid, 'liked_songs', cleanVideoId));
 }
 
 // ── 3. User Playlists (Create, Add Track, Remove Track, Delete) ──
 export async function getFirebasePlaylists(uid: string): Promise<UserPlaylist[]> {
-  if (!uid) return [];
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return [];
   const q = query(
-    collection(db, 'users', uid, 'playlists'),
+    collection(db, 'users', authUid, 'playlists'),
     orderBy('updatedAt', 'desc'),
     limit(50)
   );
@@ -162,14 +222,15 @@ export async function createFirebasePlaylist(
   description: string = '',
   initialTrack?: Track
 ): Promise<UserPlaylist | null> {
-  if (!uid || !name.trim()) return null;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid || !name.trim()) return null;
   const now = new Date().toISOString();
-  const ref = doc(collection(db, 'users', uid, 'playlists'));
+  const ref = doc(collection(db, 'users', authUid, 'playlists'));
   const tracks = initialTrack?.videoId ? [initialTrack] : [];
   const payload = {
     name: name.trim().slice(0, 100),
     description: description.trim().slice(0, 300),
-    cover: initialTrack?.thumbnail || '',
+    cover: sanitizeHttpUrl(initialTrack?.thumbnail),
     tracks,
     createdAt: now,
     updatedAt: now,
@@ -183,8 +244,9 @@ export async function addTrackToFirebasePlaylist(
   playlistId: string,
   track: Track
 ): Promise<UserPlaylist | null> {
-  if (!uid || !playlistId || !track?.videoId) return null;
-  const ref = doc(db, 'users', uid, 'playlists', playlistId);
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid || !playlistId || !track?.videoId) return null;
+  const ref = doc(db, 'users', authUid, 'playlists', playlistId);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   const data = snap.data() as Omit<UserPlaylist, 'id'>;
@@ -194,7 +256,7 @@ export async function addTrackToFirebasePlaylist(
   }
   const updatedTracks = [track, ...existingTracks].slice(0, 200);
   const updatedAt = new Date().toISOString();
-  const cover = data.cover || track.thumbnail || '';
+  const cover = sanitizeHttpUrl(data.cover) || sanitizeHttpUrl(track.thumbnail);
   await updateDoc(ref, { tracks: updatedTracks, cover, updatedAt });
   return { id: playlistId, ...data, tracks: updatedTracks, cover, updatedAt };
 }
@@ -204,8 +266,9 @@ export async function removeTrackFromFirebasePlaylist(
   playlistId: string,
   videoId: string
 ): Promise<void> {
-  if (!uid || !playlistId || !videoId) return;
-  const ref = doc(db, 'users', uid, 'playlists', playlistId);
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid || !playlistId || !videoId) return;
+  const ref = doc(db, 'users', authUid, 'playlists', playlistId);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   const data = snap.data() as Omit<UserPlaylist, 'id'>;
@@ -217,14 +280,16 @@ export async function removeTrackFromFirebasePlaylist(
 }
 
 export async function deleteFirebasePlaylist(uid: string, playlistId: string): Promise<void> {
-  if (!uid || !playlistId) return;
-  await deleteDoc(doc(db, 'users', uid, 'playlists', playlistId));
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid || !playlistId) return;
+  await deleteDoc(doc(db, 'users', authUid, 'playlists', playlistId));
 }
 
 // ── 4. Favorite Artists ──
 export async function getFirebaseFavoriteArtists(uid: string): Promise<FavoriteArtistDoc[]> {
-  if (!uid) return [];
-  const snap = await getDocs(collection(db, 'users', uid, 'favorite_artists'));
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return [];
+  const snap = await getDocs(collection(db, 'users', authUid, 'favorite_artists'));
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FavoriteArtistDoc, 'id'>) }));
 }
 
@@ -232,18 +297,19 @@ export async function toggleFirebaseFavoriteArtist(
   uid: string,
   artist: { name: string; avatar?: string; channelId?: string }
 ): Promise<boolean> {
-  if (!uid || !artist?.name) return false;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid || !artist?.name) return false;
   const key = normalizeArtistKey(artist.name);
-  const ref = doc(db, 'users', uid, 'favorite_artists', key);
+  const ref = doc(db, 'users', authUid, 'favorite_artists', key);
   const snap = await getDoc(ref);
   if (snap.exists()) {
     await deleteDoc(ref);
     return false;
   }
   await setDoc(ref, {
-    name: artist.name.slice(0, 200),
-    avatar: artist.avatar || '',
-    channelId: artist.channelId || '',
+    name: artist.name.trim().slice(0, 200) || 'Artist',
+    avatar: sanitizeHttpUrl(artist.avatar),
+    channelId: String(artist.channelId || '').slice(0, 128),
     addedAt: new Date().toISOString(),
   });
   return true;
@@ -258,11 +324,18 @@ export async function saveFirebaseMusicDna(
     top_track_ids: string[];
   }
 ): Promise<void> {
-  if (!uid) return;
-  await setDoc(doc(db, 'users', uid, 'music_dna', 'profile'), {
-    telemetry: payload.telemetry.slice(0, 200),
-    top_artist_ids: payload.top_artist_ids.slice(0, 20),
-    top_track_ids: payload.top_track_ids.slice(0, 50),
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
+  await setDoc(doc(db, 'users', authUid, 'music_dna', 'profile'), {
+    telemetry: (payload.telemetry || []).slice(0, 200),
+    top_artist_ids: (payload.top_artist_ids || [])
+      .map((s) => String(s || '').trim().slice(0, 128))
+      .filter(Boolean)
+      .slice(0, 20),
+    top_track_ids: (payload.top_track_ids || [])
+      .map((s) => String(s || '').trim().slice(0, 128))
+      .filter(Boolean)
+      .slice(0, 50),
     updated_at: new Date().toISOString(),
   });
 }
@@ -272,7 +345,8 @@ export async function getFirebaseMusicDna(uid: string): Promise<{
   top_artist_ids: string[];
   top_track_ids: string[];
 } | null> {
-  if (!uid) return null;
-  const snap = await getDoc(doc(db, 'users', uid, 'music_dna', 'profile'));
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return null;
+  const snap = await getDoc(doc(db, 'users', authUid, 'music_dna', 'profile'));
   return snap.exists() ? (snap.data() as any) : null;
 }

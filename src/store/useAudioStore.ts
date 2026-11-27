@@ -496,7 +496,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const nextIds = nextTracks.map((t) => t.videoId);
 
     set({ savedLibraryTracks: nextTracks, savedLibraryTrackIds: nextIds });
-    AsyncStorage.setItem('@a7_saved_library_tracks_v1', JSON.stringify(nextTracks)).catch(() => {});
+    AsyncStorage.setItem('@a7_saved_library_tracks_v1', JSON.stringify(nextTracks)).catch(() => { });
     return !exists;
   },
 
@@ -629,8 +629,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
       const mergedTracks = Array.from(mapByVid.values());
       set({ likedTrackIds: mergedIds, guestLikedTracks: mergedTracks });
-      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(mergedIds)).catch(() => {});
-      AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(mergedTracks)).catch(() => {});
+      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(mergedIds)).catch(() => { });
+      AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(mergedTracks)).catch(() => { });
     } catch (e) {
       console.warn('[AudioStore] Fetch likes error:', e);
     }
@@ -766,7 +766,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       // If valid YouTube track without explicit URL, start YoutubePlayer immediately at 0ms
       if (!streamUrl && hasValidYtId) {
-        nativeAudioService.stop().catch(() => {});
+        nativeAudioService.stop().catch(() => { });
         set({
           playRequestId: newRequestId,
           currentTrack: optimisticTrack,
@@ -876,15 +876,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             .then((idx) => {
               if (idx !== null && idx !== undefined) {
                 beginTrackPlayerTransition(800);
-                TrackPlayer.reset().catch(() => {});
+                TrackPlayer.reset().catch(() => { });
               }
             })
-            .catch(() => {});
+            .catch(() => { });
         }
-        nativeAudioService.stop().catch(() => {});
+        nativeAudioService.stop().catch(() => { });
 
         if (get().backgroundAudioEnabled) {
-          startSilentBackgroundKeepAlive().catch(() => {});
+          startSilentBackgroundKeepAlive().catch(() => { });
         } else {
           pauseSilentBackgroundKeepAlive();
         }
@@ -940,7 +940,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 updateNowPlayingLockScreen(upgradedTrack, get().positionMillis, get().durationMillis, true);
               }
             })
-            .catch(() => {});
+            .catch(() => { });
         } else {
           resolveLockScreenSquareArtworkAsync(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId)
             .then((sqArt) => {
@@ -950,16 +950,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                   artist: finalTrack.artist,
                   artwork: sqArt,
                   duration: Math.floor(get().durationMillis / 1000),
-                }).catch(() => {});
+                }).catch(() => { });
                 TrackPlayer.updateNowPlayingMetadata({
                   title: finalTrack.title,
                   artist: finalTrack.artist,
                   artwork: sqArt,
                   duration: Math.floor(get().durationMillis / 1000),
-                }).catch(() => {});
+                }).catch(() => { });
               }
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       } catch (error: any) {
         console.warn('[AudioStore] Background Play Metadata Error:', error);
@@ -1187,6 +1187,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   toggleLike: async (track) => {
+    if (!track?.videoId) return;
     const { activeUserId, likedTrackIds, guestLikedTracks } = get();
     const isLiked = likedTrackIds.includes(track.videoId);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1199,8 +1200,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       : [track, ...guestLikedTracks.filter((t) => t.videoId !== track.videoId)];
 
     set({ likedTrackIds: newLikedIds, guestLikedTracks: newGuestTracks });
-    AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => {});
-    AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(newGuestTracks)).catch(() => {});
+    AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => { });
+    AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(newGuestTracks)).catch(() => { });
 
     if (!activeUserId) {
       return;
@@ -1215,7 +1216,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         await addFirebaseLikedSong(activeUserId, track);
       }
     } catch (e) {
-      set({ likedTrackIds });
+      // Keep local Favorite persisted cleanly even when offline or transient network error occurs
       console.warn('[AudioStore] Like sync failed:', e);
     }
   },
@@ -1238,9 +1239,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       if (NativeModules.TrackPlayerModule) {
         try {
           TrackPlayer.pause();
-        } catch {}
+        } catch { }
       } else {
-        nativeAudioService.pause().catch(() => {});
+        nativeAudioService.pause().catch(() => { });
       }
     } else if (activeEngine === 'youtube') {
       getActivePlayerBridge()?.pause?.();
@@ -1277,7 +1278,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
               const lockArt = getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist, currentTrack.videoId) || undefined;
               await startNativeEnginePlayback(currentTrack, urlToLoad, posSec, lockArt, Math.floor((currentTrack.duration || 180000) / 1000));
             } else if (hasValidYtId) {
-              if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => {});
+              if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => { });
               set({
                 activeEngine: 'youtube',
                 isOfflinePlayback: false,
@@ -1296,13 +1297,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         } catch {
           try {
             await TrackPlayer.play();
-          } catch {}
+          } catch { }
         }
       } else {
         // Expo Go: if nativeAudioService lost its player (e.g. previous 403/stop), self-heal back to YoutubePlayer
         if (nativeAudioService && hasValidYtId && !currentTrack.audioUrl?.startsWith('file://')) {
           const posSec = Math.max(0, Math.floor(positionMillis / 1000));
-          if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => {});
+          if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => { });
           set({
             activeEngine: 'youtube',
             isOfflinePlayback: false,
@@ -1314,11 +1315,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           });
           return;
         }
-        nativeAudioService.resume().catch(() => {});
+        nativeAudioService.resume().catch(() => { });
       }
     } else if (activeEngine === 'youtube') {
       if (backgroundAudioEnabled) {
-        startSilentBackgroundKeepAlive().catch(() => {});
+        startSilentBackgroundKeepAlive().catch(() => { });
       }
       getActivePlayerBridge()?.play?.();
     }
@@ -1340,9 +1341,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       if (NativeModules.TrackPlayerModule) {
         try {
           await TrackPlayer.seekTo(validPos / 1000);
-        } catch {}
+        } catch { }
       } else {
-        nativeAudioService.seekTo(validPos).catch(() => {});
+        nativeAudioService.seekTo(validPos).catch(() => { });
       }
     } else if (activeEngine === 'youtube') {
       getActivePlayerBridge()?.seekTo?.(validPos / 1000);
@@ -1533,7 +1534,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (hasValidYtId) {
       const posSec = Math.max(0, Math.floor(state.positionMillis / 1000));
       if (state.backgroundAudioEnabled) {
-        startSilentBackgroundKeepAlive().catch(() => {});
+        startSilentBackgroundKeepAlive().catch(() => { });
       }
       set({
         activeEngine: 'youtube',
