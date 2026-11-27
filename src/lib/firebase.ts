@@ -7,7 +7,7 @@ import {
   // @ts-ignore: getReactNativePersistence is exported in RN bundle of firebase/auth
   getReactNativePersistence,
 } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyAEU3BZteq_OvKEWmK7GKJZAZH5zV4WTNs',
@@ -32,6 +32,15 @@ try {
   authInstance = getAuth(app);
 }
 
+let dbInstance: Firestore;
+try {
+  dbInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  });
+} catch {
+  dbInstance = getFirestore(app);
+}
+
 export const firebaseApp = app;
 export const auth = authInstance;
-export const db: Firestore = getFirestore(app);
+export const db: Firestore = dbInstance;
