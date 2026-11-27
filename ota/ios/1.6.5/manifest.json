@@ -1,13 +1,13 @@
 {
-  "id": "89d3491a-082e-488f-b3c0-38e5c5d1f5ba",
-  "createdAt": "2026-11-27T00:24:12.867Z",
+  "id": "c61e1cba-e066-4a78-83fa-0f20e7945d8b",
+  "createdAt": "2026-11-27T00:40:57.256Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "i92tdJ_Fgx7MQkztfNEPKXwKqZcz3prYUKIQvI1XVxs",
-    "key": "64ba529f3a9af5d251e81aa125c55067",
+    "hash": "14vBKhFT4HSEClV8QxChoc3jo4BXYFF6kPgsgmfTQx8",
+    "key": "c55a320b248ab06493895489998d6a49",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-c40d980010fb0823721fdd51e5e9f6dc.hbc"
+    "url": "./_expo/static/js/ios/index-73c72e30f96965ebdae88118290f043e.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.411fa57",
+      "otaVersion": "1.6.5-ota.fdca312",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "411fa57",
-      "title": "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
+      "commitSha": "fdca312",
+      "title": "feat(music): redesign universal Apple Music Liquid Glass AlbumDetailsScreen and persistent library save",
       "highlights": [
-        "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
+        "feat(music): redesign universal Apple Music Liquid Glass AlbumDetailsScreen and persistent library save",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T00:24:12.867Z",
-      "bundleSizeBytes": 6872406
+      "publishedAt": "2026-11-27T00:40:57.256Z",
+      "bundleSizeBytes": 6890848
     }
   }
 }
