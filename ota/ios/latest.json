@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.42f2c6b",
-  "updateId": "d7a52f52-fc9f-47f4-a68c-41c666d8d383",
-  "publishedAt": "2026-11-27T00:09:23.524Z",
-  "title": "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
+  "otaVersion": "1.6.5-ota.411fa57",
+  "updateId": "89d3491a-082e-488f-b3c0-38e5c5d1f5ba",
+  "publishedAt": "2026-11-27T00:24:12.867Z",
+  "title": "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
   "highlights": [
-    "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
+    "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6862403,
+  "bundleSizeBytes": 6872406,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

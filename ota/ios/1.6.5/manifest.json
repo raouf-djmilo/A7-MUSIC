@@ -1,13 +1,13 @@
 {
-  "id": "d7a52f52-fc9f-47f4-a68c-41c666d8d383",
-  "createdAt": "2026-11-27T00:09:23.524Z",
+  "id": "89d3491a-082e-488f-b3c0-38e5c5d1f5ba",
+  "createdAt": "2026-11-27T00:24:12.867Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "3GeRE9N1PZw8nMwSY-wmWL2XWP5EIJ9TxUB3RC6KvYk",
-    "key": "070a12b3f515416c04572fb7d5bed95c",
+    "hash": "i92tdJ_Fgx7MQkztfNEPKXwKqZcz3prYUKIQvI1XVxs",
+    "key": "64ba529f3a9af5d251e81aa125c55067",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-06c1372dd978e1ec32de1f8042f172c1.hbc"
+    "url": "./_expo/static/js/ios/index-c40d980010fb0823721fdd51e5e9f6dc.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.42f2c6b",
+      "otaVersion": "1.6.5-ota.411fa57",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "42f2c6b",
-      "title": "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
+      "commitSha": "411fa57",
+      "title": "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
       "highlights": [
-        "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
+        "fix(search,artwork): add 3D Liquid Glass circular avatars & badges, eliminate stretched avatars (-s), and guarantee 1:1 cover parity between lists and music player",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T00:09:23.524Z",
-      "bundleSizeBytes": 6862403
+      "publishedAt": "2026-11-27T00:24:12.867Z",
+      "bundleSizeBytes": 6872406
     }
   }
 }
