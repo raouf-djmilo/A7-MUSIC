@@ -1,9 +1,9 @@
 /**
- * InAppToast — مكون إشعار منسدل مخصص (بدون مكتبة خارجية)
+ * InAppToast — إشعار زجاجي سائل متناسق مع أسلوب Apple Liquid Glass
  * يُستخدم عبر ToastManager.show() من أي مكان في التطبيق
  */
 
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useState, useImperativeHandle, forwardRef, useMemo } from 'react';
 import {
   Animated,
   Text,
@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 // ─── Global reference ─────────────────────────────────────────────────────────
 type ToastRef = {
@@ -37,64 +38,120 @@ export const ToastManager = {
   },
 };
 
+function resolveToastAccent(icon?: string): { color: string; tint: string; badgeBg: string } {
+  switch (icon) {
+    case 'checkmark-circle':
+    case 'checkmark-done':
+      return {
+        color: '#30D158',
+        tint: 'rgba(48, 209, 88, 0.14)',
+        badgeBg: 'rgba(48, 209, 88, 0.18)',
+      };
+    case 'alert-circle':
+    case 'warning':
+    case 'close-circle':
+      return {
+        color: '#FF453A',
+        tint: 'rgba(255, 69, 58, 0.16)',
+        badgeBg: 'rgba(255, 69, 58, 0.18)',
+      };
+    case 'cloud-offline-outline':
+    case 'cloud-offline':
+      return {
+        color: '#FF9F0A',
+        tint: 'rgba(255, 159, 10, 0.15)',
+        badgeBg: 'rgba(255, 159, 10, 0.18)',
+      };
+    default:
+      return {
+        color: '#0A84FF',
+        tint: 'rgba(10, 132, 255, 0.13)',
+        badgeBg: 'rgba(10, 132, 255, 0.16)',
+      };
+  }
+}
+
 // ─── Toast Component ─────────────────────────────────────────────────────────
 export const InAppToast = forwardRef<ToastRef>((_, ref) => {
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const [visible, setVisible] = useState(false);
   const [options, setOptions] = useState<ToastOptions>({ title: '' });
-  const translateY = useRef(new Animated.Value(-200)).current;
+  const translateY = useRef(new Animated.Value(-160)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const timeoutRef = useRef<any>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const showTokenRef = useRef(0);
 
-  useImperativeHandle(ref, () => ({
-    show: (opts: ToastOptions) => {
-      // Clear any existing timeout
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  const dismiss = (expectedToken?: number) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const token = expectedToken ?? showTokenRef.current;
+    activeAnimRef.current?.stop();
 
-      setOptions(opts);
-      setVisible(true);
-
-      // Slide in
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 18,
-          stiffness: 220,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Auto-dismiss
-      timeoutRef.current = setTimeout(() => {
-        dismiss();
-      }, opts.duration || 4000);
-    },
-  }));
-
-  const dismiss = () => {
-    Animated.parallel([
+    const anim = Animated.parallel([
       Animated.timing(translateY, {
-        toValue: -200,
-        duration: 300,
+        toValue: -160,
+        duration: 240,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 300,
+        duration: 220,
         useNativeDriver: true,
       }),
-    ]).start(() => setVisible(false));
+    ]);
+    activeAnimRef.current = anim;
+    anim.start(({ finished }) => {
+      if (finished && showTokenRef.current === token) {
+        setVisible(false);
+      }
+    });
   };
+
+  useImperativeHandle(ref, () => ({
+    show: (opts: ToastOptions) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      activeAnimRef.current?.stop();
+
+      const token = ++showTokenRef.current;
+      setOptions(opts);
+      setVisible(true);
+
+      const enterAnim = Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 20,
+          stiffness: 240,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]);
+      activeAnimRef.current = enterAnim;
+      enterAnim.start();
+
+      timeoutRef.current = setTimeout(() => {
+        dismiss(token);
+      }, opts.duration || 3600);
+    },
+  }));
+
+  const accent = useMemo(() => resolveToastAccent(options.icon), [options.icon]);
 
   if (!visible) return null;
 
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={[
         styles.container,
         {
@@ -105,38 +162,75 @@ export const InAppToast = forwardRef<ToastRef>((_, ref) => {
       ]}
     >
       <TouchableOpacity
-        style={styles.toast}
-        activeOpacity={0.92}
+        activeOpacity={0.9}
         onPress={() => {
           dismiss();
           options.onPress?.();
         }}
+        style={styles.touchWrap}
       >
-        {/* Icon */}
-        <View style={styles.iconWrap}>
-          <Ionicons
-            name={(options.icon as any) || 'chatbubble-ellipses'}
-            size={22}
-            color={colors.primary}
-          />
-        </View>
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isDark={isDark}
+          isInteractive
+          tintColor={accent.tint}
+          borderRadius={22}
+          style={[
+            styles.toast,
+            {
+              borderColor: isDark
+                ? 'rgba(255, 255, 255, 0.22)'
+                : 'rgba(15, 23, 42, 0.10)',
+            },
+          ]}
+        >
+          <View style={[styles.iconWrap, { backgroundColor: accent.badgeBg }]}>
+            <Ionicons
+              name={(options.icon as any) || 'notifications'}
+              size={20}
+              color={accent.color}
+            />
+          </View>
 
-        {/* Text */}
-        <View style={styles.textWrap}>
-          <Text style={styles.title} numberOfLines={1}>
-            {options.title}
-          </Text>
-          {options.subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {options.subtitle}
+          <View style={styles.textWrap}>
+            <Text
+              style={[
+                styles.title,
+                { color: isDark ? '#FFFFFF' : '#0F172A' },
+              ]}
+              numberOfLines={1}
+            >
+              {options.title}
             </Text>
-          ) : null}
-        </View>
+            {options.subtitle ? (
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: isDark
+                      ? 'rgba(255, 255, 255, 0.68)'
+                      : 'rgba(15, 23, 42, 0.65)',
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {options.subtitle}
+              </Text>
+            ) : null}
+          </View>
 
-        {/* Close */}
-        <TouchableOpacity onPress={dismiss} hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}>
-          <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => dismiss()}
+            hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}
+            style={styles.closeBtn}
+          >
+            <Ionicons
+              name="close"
+              size={17}
+              color={isDark ? 'rgba(255,255,255,0.52)' : 'rgba(15,23,42,0.45)'}
+            />
+          </TouchableOpacity>
+        </LiquidGlassSurface>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -153,39 +247,37 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    zIndex: 9999,
-    elevation: 999,
+    zIndex: 9999999,
+    elevation: 9999,
+  },
+  touchWrap: {
+    borderRadius: 22,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.24,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(28,28,30,0.97)',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.1)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 20,
-      },
-      web: {
-        boxShadow: '0px 8px 16px rgba(0,0,0,0.5)',
-      },
-    }),
+    borderRadius: 22,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    gap: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,200,0,0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -193,13 +285,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '700',
+    letterSpacing: -0.1,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 12.5,
+    marginTop: 1.5,
+    lineHeight: 16,
+  },
+  closeBtn: {
+    padding: 4,
   },
 });

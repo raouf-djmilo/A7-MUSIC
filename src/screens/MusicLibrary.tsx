@@ -40,6 +40,7 @@ import { useNetworkStore } from '../services/networkService';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { DynamicBottomSheet } from '../components/DynamicBottomSheet';
 import { ToastManager } from '../components/InAppToast';
+import { CircularDownloadProgress } from '../components/CircularDownloadProgress';
 import { useDockScrollTracker } from '../utils/scrollDockTracker';
 
 const CURATED_MIX_PRESETS = [
@@ -1655,7 +1656,13 @@ export const MusicLibrary = () => {
                             </Text>
                           </View>
                           {isItemDownloading ? (
-                            <ActivityIndicator size="small" color="#10B981" />
+                            <CircularDownloadProgress
+                              status={(dlState?.status as 'probing' | 'downloading') || 'downloading'}
+                              progress={dlState?.progress || 0}
+                              size={22}
+                              activeColor="#0A84FF"
+                              trackColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.16)'}
+                            />
                           ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                               <TouchableOpacity

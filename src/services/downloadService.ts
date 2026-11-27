@@ -115,6 +115,8 @@ function isValidYouTubeId(id?: string | null): boolean {
 
 interface ResolvedStreamCandidate {
   url: string;
+  kind?: 'direct' | 'hls_m4a' | 'hls_mp3';
+  ext?: 'm4a' | 'mp3';
   headers?: Record<string, string>;
 }
 
@@ -127,6 +129,366 @@ const BROWSER_WATCH_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const MOBILE_SAFARI_USER_AGENT =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  const len = bytes.length;
+  const parts: string[] = [];
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i];
+    const hasB1 = i + 1 < len;
+    const hasB2 = i + 2 < len;
+    const b1 = hasB1 ? bytes[i + 1] : 0;
+    const b2 = hasB2 ? bytes[i + 2] : 0;
+
+    const c0 = b0 >> 2;
+    const c1 = ((b0 & 0x03) << 4) | (b1 >> 4);
+    const c2 = ((b1 & 0x0f) << 2) | (b2 >> 6);
+    const c3 = b2 & 0x3f;
+
+    parts.push(
+      BASE64_CHARS[c0] +
+        BASE64_CHARS[c1] +
+        (hasB1 ? BASE64_CHARS[c2] : '=') +
+        (hasB2 ? BASE64_CHARS[c3] : '=')
+    );
+  }
+  return parts.join('');
+}
+
+let cachedScClientId: { clientId: string; fetchedAt: number } | null = null;
+
+async function fetchSoundCloudClientId(forceRefresh = false): Promise<string | null> {
+  if (
+    !forceRefresh &&
+    cachedScClientId &&
+    Date.now() - cachedScClientId.fetchedAt < 30 * 60 * 1000
+  ) {
+    return cachedScClientId.clientId;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5500);
+  try {
+    const homeRes = await fetch('https://soundcloud.com/', {
+      signal: controller.signal,
+      headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+    });
+    if (!homeRes.ok) return cachedScClientId?.clientId || null;
+    const html = await homeRes.text();
+    const scriptMatches = Array.from(
+      html.matchAll(/src="(https:\/\/a-v2\.sndcdn\.com\/assets\/[^"]+\.js)"/g)
+    ).map((m) => m[1]);
+
+    for (const scriptUrl of scriptMatches.slice(-4).reverse()) {
+      const sController = new AbortController();
+      const sTimeout = setTimeout(() => sController.abort(), 4500);
+      try {
+        const jsRes = await fetch(scriptUrl, {
+          signal: sController.signal,
+          headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+        });
+        if (!jsRes.ok) continue;
+        const js = await jsRes.text();
+        const match = js.match(/client_id\s*:\s*"([a-zA-Z0-9]{20,40})"/);
+        if (match?.[1]) {
+          cachedScClientId = { clientId: match[1], fetchedAt: Date.now() };
+          return match[1];
+        }
+      } finally {
+        clearTimeout(sTimeout);
+      }
+    }
+    return cachedScClientId?.clientId || null;
+  } catch {
+    return cachedScClientId?.clientId || null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function cleanTrackSearchText(raw?: string | null): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\(.*?official.*?\)|\[.*?official.*?\]|\(audio\)|\[audio\]|\(lyrics.*?\)|\[lyrics.*?\]|\(feat\..*?\)|\(ft\..*?\)/gi, ' ')
+    .replace(/official music video|official video|official audio|hq audio|hd/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scoreSoundCloudMatch(
+  sc: any,
+  targetTitle: string,
+  targetArtist: string,
+  targetDurMs: number
+): number {
+  const dur = sc?.duration || 0;
+  if (dur < 45000 || sc?.policy === 'SNIP' || sc?.policy === 'BLOCK') return -9999;
+  const trs: any[] = sc?.media?.transcodings || [];
+  if (trs.length === 0) return -9999;
+
+  const hay = `${sc?.title || ''} ${sc?.user?.username || ''}`.toLowerCase();
+  const orig = `${targetTitle} ${targetArtist}`.toLowerCase();
+  let score = 0;
+
+  const badKeywords = [
+    'instrumental',
+    'karaoke',
+    'remix',
+    'slowed',
+    'reverb',
+    'nightcore',
+    '8d ',
+    'type beat',
+    'cover',
+    'acapella',
+    'speed up',
+    'sped up',
+  ];
+  for (const kw of badKeywords) {
+    if (hay.includes(kw) && !orig.includes(kw)) score -= 420;
+  }
+  if (hay.includes(' live') && !orig.includes('live')) score -= 90;
+
+  const tokenize = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/\(.*?\)|\[.*?\]/g, ' ')
+      .replace(/[^a-z0-9\u0600-\u06FF\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2);
+
+  const cleanTitle = cleanTrackSearchText(targetTitle).toLowerCase();
+  if (cleanTitle.length >= 3 && hay.includes(cleanTitle)) {
+    score += 140;
+  }
+
+  const titleWords = tokenize(targetTitle);
+  const artistWords = tokenize(targetArtist);
+  if (titleWords.length > 0) {
+    const titleHits = titleWords.filter((w) => hay.includes(w)).length;
+    score += Math.round((titleHits / titleWords.length) * 180);
+  }
+  if (artistWords.length > 0) {
+    const artistHits = artistWords.filter((w) => hay.includes(w)).length;
+    score += Math.round((artistHits / artistWords.length) * 120);
+  }
+
+  if (targetDurMs > 30000) {
+    const diffRatio = Math.abs(dur - targetDurMs) / targetDurMs;
+    if (diffRatio <= 0.08) score += 130;
+    else if (diffRatio <= 0.2) score += 75;
+    else if (diffRatio > 0.55) score -= 200;
+  }
+
+  if (trs.some((tr) => tr?.format?.protocol === 'progressive' && !tr?.snipped)) score += 65;
+  else if (trs.some((tr) => `${tr?.format?.mime_type || ''}`.includes('mp4') && !tr?.snipped)) score += 50;
+
+  return score;
+}
+
+/**
+ * ⚡ Stage 1 (Primary Reliable Full-Song Engine): Smart Audio Stream Extractor
+ * Fetches complete MP3 progressive or fMP4 (M4A) segmented audio streams with zero HTTP 403 throttling.
+ */
+async function extractSoundCloudAudioCandidates(track: Track): Promise<ResolvedStreamCandidate[]> {
+  const clientId = await fetchSoundCloudClientId(false);
+  if (!clientId) return [];
+
+  const cleanTitle = cleanTrackSearchText(track.title);
+  const cleanArtist = cleanTrackSearchText(track.artist);
+  if (!cleanTitle) return [];
+
+  const queries = Array.from(
+    new Set(
+      [`${cleanArtist} ${cleanTitle}`.trim(), cleanTitle].filter((q) => q.length >= 2)
+    )
+  );
+
+  const collected: any[] = [];
+  const seenScIds = new Set<number | string>();
+
+  for (const q of queries) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(
+        `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(q)}&client_id=${encodeURIComponent(clientId)}&limit=15`,
+        { signal: controller.signal, headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT } }
+      );
+      if (res.status === 401 || res.status === 403) {
+        const refreshed = await fetchSoundCloudClientId(true);
+        if (!refreshed) return [];
+      }
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const item of data?.collection || []) {
+        if (item?.id && !seenScIds.has(item.id)) {
+          seenScIds.add(item.id);
+          collected.push(item);
+        }
+      }
+      if (collected.length >= 10) break;
+    } catch {
+      // Try next query
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const ranked = collected
+    .map((sc) => ({ sc, score: scoreSoundCloudMatch(sc, cleanTitle, cleanArtist, track.duration || 0) }))
+    .filter((entry) => entry.score > 40)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2);
+
+  const candidates: ResolvedStreamCandidate[] = [];
+  const activeClientId = cachedScClientId?.clientId || clientId;
+
+  for (const { sc } of ranked) {
+    const trs: any[] = sc.media?.transcodings || [];
+    const orderedTrs = [
+      ...trs.filter((tr) => tr?.format?.protocol === 'progressive' && !tr?.snipped),
+      ...trs.filter(
+        (tr) =>
+          tr?.format?.protocol === 'hls' &&
+          `${tr?.format?.mime_type || ''}`.includes('mp4') &&
+          !tr?.snipped
+      ),
+      ...trs.filter(
+        (tr) =>
+          tr?.format?.protocol === 'hls' &&
+          `${tr?.format?.mime_type || ''}`.includes('mpeg') &&
+          !tr?.snipped &&
+          !`${tr?.preset || ''}`.includes('abr')
+      ),
+    ];
+
+    for (const tr of orderedTrs) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4500);
+      try {
+        const authParam = sc.track_authorization
+          ? `&track_authorization=${encodeURIComponent(sc.track_authorization)}`
+          : '';
+        const res = await fetch(
+          `${tr.url}?client_id=${encodeURIComponent(activeClientId)}${authParam}`,
+          { signal: controller.signal, headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT } }
+        );
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (typeof json?.url !== 'string' || !json.url.startsWith('http')) continue;
+
+        if (tr.format?.protocol === 'progressive') {
+          candidates.push({
+            url: json.url,
+            kind: 'direct',
+            ext: 'mp3',
+            headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+          });
+        } else if (`${tr.format?.mime_type || ''}`.includes('mp4')) {
+          candidates.push({
+            url: json.url,
+            kind: 'hls_m4a',
+            ext: 'm4a',
+            headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+          });
+        } else {
+          candidates.push({
+            url: json.url,
+            kind: 'hls_mp3',
+            ext: 'mp3',
+            headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+          });
+        }
+      } catch {
+        // Try next transcoding
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+async function downloadHlsSegmentsToFile(
+  m3u8Url: string,
+  tempPartUri: string,
+  onProgress: (ratio: number, writtenBytes: number, totalBytes: number) => void
+): Promise<void> {
+  const m3u8Res = await fetch(m3u8Url, {
+    headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+  });
+  if (!m3u8Res.ok) throw new Error(`Playlist HTTP ${m3u8Res.status}`);
+  const playlistText = await m3u8Res.text();
+  const lines = playlistText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const mapMatch = playlistText.match(/#EXT-X-MAP:URI="([^"]+)"/);
+  const initUrl = mapMatch?.[1] || null;
+  const segUrls = lines.filter((l) => l.startsWith('http'));
+  if (segUrls.length === 0) {
+    throw new Error('No audio segments in HLS stream');
+  }
+
+  const allUrls = initUrl ? [initUrl, ...segUrls] : segUrls;
+  const buffers: Array<Uint8Array | null> = new Array(allUrls.length).fill(null);
+  let completedCount = 0;
+  let downloadedBytes = 0;
+
+  const CONCURRENCY = 3;
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= allUrls.length) break;
+      const segUrl = allUrls[idx];
+      const segRes = await fetch(segUrl, {
+        headers: { 'User-Agent': BROWSER_WATCH_USER_AGENT },
+      });
+      if (!segRes.ok) {
+        throw new Error(`Segment ${idx + 1} HTTP ${segRes.status}`);
+      }
+      const arrBuf = await segRes.arrayBuffer();
+      const u8 = new Uint8Array(arrBuf);
+      buffers[idx] = u8;
+      completedCount += 1;
+      downloadedBytes += u8.byteLength;
+
+      const avgBytes = downloadedBytes / completedCount;
+      const estTotal = Math.round(avgBytes * allUrls.length);
+      const ratio = 0.35 + (completedCount / allUrls.length) * 0.61;
+      onProgress(Math.min(0.96, ratio), downloadedBytes, estTotal);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, allUrls.length) }, () => worker())
+  );
+
+  let totalLength = 0;
+  for (const b of buffers) {
+    if (!b) throw new Error('Incomplete audio segment');
+    totalLength += b.byteLength;
+  }
+
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const b of buffers) {
+    merged.set(b!, offset);
+    offset += b!.byteLength;
+  }
+
+  const b64 = uint8ToBase64(merged);
+  await FileSystem.writeAsStringAsync(tempPartUri, b64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+}
 
 interface InnerTubeSessionContext {
   apiKey: string;
@@ -468,7 +830,8 @@ async function verifyAudioFileIntegrity(uri: string): Promise<{ ok: boolean; siz
       lower.startsWith('<!doctype') ||
       lower.startsWith('<html') ||
       lower.startsWith('<head') ||
-      lower.startsWith('{"error"')
+      lower.startsWith('{"error"') ||
+      lower.startsWith('#extm3u')
     ) {
       return { ok: false, size };
     }
@@ -652,36 +1015,43 @@ class AudioDownloadService {
       (track.audioUrl.startsWith('http') || track.audioUrl.startsWith('file://')) &&
       !track.audioUrl.includes('soundhelix.com')
     ) {
-      addCandidate({ url: track.audioUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
+      const explicitExt: 'm4a' | 'mp3' = track.audioUrl.toLowerCase().includes('.mp3') ? 'mp3' : 'm4a';
+      addCandidate({
+        url: track.audioUrl,
+        kind: 'direct',
+        ext: explicitExt,
+        headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+      });
     }
 
-    if (isValidYouTubeId(track.videoId)) {
-      const cleanId = track.videoId.trim();
-      const innerTubeCandidates = await extractInnerTubeAudioCandidates(cleanId);
-      for (const c of innerTubeCandidates) {
+    // Primary Full-Song Source: Smart SoundCloud Resolver (Progressive MP3 & AAC fMP4 HLS)
+    if (candidates.length === 0) {
+      onProgress?.(0.14, 'جاري البحث عن أعلى جودة صوتية...');
+      const scCandidates = await extractSoundCloudAudioCandidates(track).catch(() => []);
+      for (const c of scCandidates) {
         addCandidate(c);
       }
+    }
 
-      if (candidates.length === 0) {
-        const pipedUrl = await extractPipedDirectAudioStream(cleanId);
-        if (pipedUrl) {
-          addCandidate({ url: pipedUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
-        }
-      }
-
-      if (candidates.length === 0) {
-        const mirrorUrl = await extractMirrorAudioStream(cleanId, onProgress);
-        if (mirrorUrl) {
-          addCandidate({ url: mirrorUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
-        }
-      } else {
-        onProgress?.(0.32, 'تم تجهيز مصادر الصوت الأصلية');
+    // Secondary Fast Mirror Check: Piped & Invidious (if reachable)
+    if (candidates.length === 0 && isValidYouTubeId(track.videoId)) {
+      const cleanId = track.videoId.trim();
+      const pipedUrl = await extractPipedDirectAudioStream(cleanId);
+      if (pipedUrl) {
+        addCandidate({
+          url: pipedUrl,
+          kind: 'direct',
+          ext: 'm4a',
+          headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+        });
       }
     }
 
     if (candidates.length === 0) {
-      throw new Error('تعذر العثور على رابط الصوت الأصلي لهذا المقطع.');
+      throw new Error('تعذر العثور على مصدر صوت متاح للتحميل حالياً.');
     }
+
+    onProgress?.(0.32, 'تم تجهيز مصادر الصوت الأصلية');
 
     return {
       streamUrl: candidates[0].url,
@@ -781,15 +1151,18 @@ class AudioDownloadService {
         }
       })();
 
-      const audioLocalUri = `${TRACKS_DIR}${cleanId}.m4a`;
-      const tempPartUri = `${TRACKS_DIR}${cleanId}.m4a.part`;
+      let audioLocalUri = `${TRACKS_DIR}${cleanId}.m4a`;
+      const tempPartUri = `${TRACKS_DIR}${cleanId}.audio.part`;
 
       let finalSizeBytes = 0;
       let downloadSucceeded = false;
       let lastError: any = null;
 
       for (let i = 0; i < candidates.length; i++) {
-        const { url: streamUrl, headers: candidateHeaders } = candidates[i];
+        const { url: streamUrl, kind = 'direct', ext, headers: candidateHeaders } = candidates[i];
+        const targetExt = ext || (streamUrl.toLowerCase().includes('.mp3') ? 'mp3' : 'm4a');
+        const targetLocalUri = `${TRACKS_DIR}${cleanId}.${targetExt}`;
+
         updateStoreProgress({
           videoId,
           progress: 0.35,
@@ -803,6 +1176,16 @@ class AudioDownloadService {
 
           if (streamUrl.startsWith('file://')) {
             await FileSystem.copyAsync({ from: streamUrl, to: tempPartUri });
+          } else if (kind === 'hls_m4a' || kind === 'hls_mp3') {
+            await downloadHlsSegmentsToFile(streamUrl, tempPartUri, (pct, written, total) => {
+              updateStoreProgress({
+                videoId,
+                progress: pct,
+                totalBytes: total,
+                writtenBytes: written,
+                status: 'downloading',
+              });
+            });
           } else {
             const resumable = FileSystem.createDownloadResumable(
               streamUrl,
@@ -841,9 +1224,11 @@ class AudioDownloadService {
             continue;
           }
 
-          // Atomic swap temp -> final path
-          await FileSystem.deleteAsync(audioLocalUri, { idempotent: true }).catch(() => {});
-          await FileSystem.moveAsync({ from: tempPartUri, to: audioLocalUri });
+          // Atomic swap temp -> final path (remove any alternate .m4a / .mp3 extension first)
+          await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.m4a`, { idempotent: true }).catch(() => {});
+          await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.mp3`, { idempotent: true }).catch(() => {});
+          await FileSystem.moveAsync({ from: tempPartUri, to: targetLocalUri });
+          audioLocalUri = targetLocalUri;
           finalSizeBytes = size;
           downloadSucceeded = true;
           break;

@@ -7,6 +7,7 @@ import { useNetworkStore } from '../services/networkService';
 import { useTheme } from '../theme/ThemeContext';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { ToastManager } from './InAppToast';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 /**
  * Simple, non-blocking Apple Liquid Glass offline notification pill.
@@ -52,34 +53,44 @@ export const OfflineStatusBanner: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setDismissedOffline(true)}
-          style={[
-            styles.pill,
-            {
-              backgroundColor: isDark ? 'rgba(28, 30, 42, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-              borderColor: isDark ? 'rgba(255, 159, 10, 0.45)' : 'rgba(255, 149, 0, 0.35)',
-              flexDirection: isAr ? 'row-reverse' : 'row',
-            },
-          ]}
+          style={styles.pillTouch}
         >
-          <View style={styles.iconBadge}>
-            <Ionicons name="cloud-offline" size={14} color="#FF9F0A" />
-          </View>
-          <Text
+          <LiquidGlassSurface
+            glassStyle="regular"
+            isDark={isDark}
+            isInteractive
+            tintColor="rgba(255, 159, 10, 0.14)"
+            borderRadius={20}
             style={[
-              styles.text,
-              { color: isDark ? '#F8FAFC' : '#0F172A', writingDirection: isAr ? 'rtl' : 'ltr' },
+              styles.pill,
+              {
+                borderColor: isDark
+                  ? 'rgba(255, 159, 10, 0.36)'
+                  : 'rgba(255, 149, 0, 0.25)',
+                flexDirection: isAr ? 'row-reverse' : 'row',
+              },
             ]}
-            numberOfLines={1}
           >
-            {isAr
-              ? 'وضع الأوفلاين • يمكن تشغيل المحمّل فقط'
-              : 'Offline Mode • Downloaded music only'}
-          </Text>
-          <Ionicons
-            name="close"
-            size={14}
-            color={isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.45)'}
-          />
+            <View style={styles.iconBadge}>
+              <Ionicons name="cloud-offline" size={14} color="#FF9F0A" />
+            </View>
+            <Text
+              style={[
+                styles.text,
+                { color: isDark ? '#F8FAFC' : '#0F172A', writingDirection: isAr ? 'rtl' : 'ltr' },
+              ]}
+              numberOfLines={1}
+            >
+              {isAr
+                ? 'وضع الأوفلاين • يمكن تشغيل المحمّل فقط'
+                : 'Offline Mode • Downloaded music only'}
+            </Text>
+            <Ionicons
+              name="close"
+              size={14}
+              color={isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.45)'}
+            />
+          </LiquidGlassSurface>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -94,18 +105,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 999999,
   },
+  pillTouch: {
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   pill: {
     alignItems: 'center',
     gap: 8,
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   iconBadge: {
     width: 22,

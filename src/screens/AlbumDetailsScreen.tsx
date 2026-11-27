@@ -33,6 +33,7 @@ import { useDockScrollTracker } from '../utils/scrollDockTracker';
 import { downloadService, useDownloadStore } from '../services/downloadService';
 import { useNetworkStore } from '../services/networkService';
 import { ToastManager } from '../components/InAppToast';
+import { CircularDownloadProgress } from '../components/CircularDownloadProgress';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_COVER_SIZE = Math.min(256, Math.round(SCREEN_WIDTH * 0.64));
@@ -832,6 +833,11 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                 ? `${tr.artist} • ${durationText}`
                 : durationText;
 
+              const rowDlState = activeDownloads[tr.videoId];
+              const isRowDownloading =
+                rowDlState?.status === 'probing' || rowDlState?.status === 'downloading';
+              const isRowDownloaded = downloadedTracks.some((d) => d.videoId === tr.videoId);
+
               return (
                 <View key={`${tr.videoId}-${idx}`}>
                   <TouchableOpacity
@@ -901,7 +907,24 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                       </Text>
                     </View>
 
-                    {/* Quick Favorite Heart + Options Menu (...) */}
+                    {/* Quick Download Progress Ring + Favorite Heart + Options Menu (...) */}
+                    {(isRowDownloading || isRowDownloaded) && (
+                      <View style={styles.rowIconBtn}>
+                        <CircularDownloadProgress
+                          status={
+                            isRowDownloading
+                              ? ((rowDlState?.status as 'probing' | 'downloading') || 'downloading')
+                              : 'completed'
+                          }
+                          progress={rowDlState?.progress || 0}
+                          size={18}
+                          activeColor="#0A84FF"
+                          completedColor="#30D158"
+                          trackColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.16)'}
+                        />
+                      </View>
+                    )}
+
                     <TouchableOpacity
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1230,12 +1253,20 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                     }}
                   >
                     {isTrackDownloading ? (
-                      <ActivityIndicator size="small" color="#10B981" />
+                      <CircularDownloadProgress
+                        status={(dlState?.status as 'probing' | 'downloading') || 'downloading'}
+                        progress={dlState?.progress || 0}
+                        size={22}
+                        activeColor="#0A84FF"
+                        trackColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.16)'}
+                      />
+                    ) : isTrackDownloaded ? (
+                      <CircularDownloadProgress status="completed" size={22} completedColor="#30D158" />
                     ) : (
                       <Ionicons
-                        name={isTrackDownloaded ? 'checkmark-circle' : 'cloud-download-outline'}
+                        name="cloud-download-outline"
                         size={22}
-                        color={isTrackDownloaded ? '#10B981' : uiColors.primaryText}
+                        color={uiColors.primaryText}
                       />
                     )}
                     <Text style={[styles.sheetActionTxt, { color: uiColors.primaryText }]}>

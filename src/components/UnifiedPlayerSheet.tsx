@@ -54,6 +54,7 @@ import { useNetworkStore } from '../services/networkService';
 import { isNativeLiquidTabsAvailable } from '../navigation/navigationConfig';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
 import { MarqueeText } from './MarqueeText';
+import { CircularDownloadProgress } from './CircularDownloadProgress';
 import { PlayerArtworkStage } from '../features/player/components/PlayerArtworkStage';
 import { AppleTimelineScrubber } from '../features/player/components/AppleTimelineScrubber';
 import { FullscreenVideoModal } from '../features/player/components/FullscreenVideoModal';
@@ -1951,6 +1952,36 @@ return (
                   />
                 </TouchableOpacity>
 
+                {(isDownloading || isDownloaded) && (
+                  <TouchableOpacity
+                    activeOpacity={0.78}
+                    hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                    onPress={handleDownloadPress}
+                    style={[
+                      styles.metaGlassCircle,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                        borderColor: isDownloading
+                          ? 'rgba(10, 132, 255, 0.5)'
+                          : 'rgba(48, 209, 88, 0.45)',
+                      },
+                    ]}
+                  >
+                    <CircularDownloadProgress
+                      status={
+                        isDownloading
+                          ? ((downloadProgress?.status as 'probing' | 'downloading') || 'downloading')
+                          : 'completed'
+                      }
+                      progress={downloadProgress?.progress || 0}
+                      size={20}
+                      activeColor="#0A84FF"
+                      completedColor="#30D158"
+                      trackColor={isDark ? 'rgba(255,255,255,0.25)' : 'rgba(15,23,42,0.18)'}
+                    />
+                  </TouchableOpacity>
+                )}
+
                 {/* ⋯ Three-Dot Apple Music Options Menu */}
                 <TouchableOpacity
                   activeOpacity={0.78}
@@ -2698,12 +2729,20 @@ return (
                   }}
                 >
                   {isDownloading ? (
-                    <ActivityIndicator size="small" color="#10B981" />
+                    <CircularDownloadProgress
+                      status={(downloadProgress?.status as 'probing' | 'downloading') || 'downloading'}
+                      progress={downloadProgress?.progress || 0}
+                      size={22}
+                      activeColor="#0A84FF"
+                      trackColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.16)'}
+                    />
+                  ) : isDownloaded ? (
+                    <CircularDownloadProgress status="completed" size={22} completedColor="#30D158" />
                   ) : (
                     <Ionicons
-                      name={isDownloaded ? 'checkmark-circle' : 'cloud-download-outline'}
+                      name="cloud-download-outline"
                       size={22}
-                      color={isDownloaded ? '#10B981' : isDark ? '#FFFFFF' : '#0F172A'}
+                      color={isDark ? '#FFFFFF' : '#0F172A'}
                     />
                   )}
                   <Text
