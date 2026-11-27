@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.e0da435",
-  "updateId": "b5b894af-6af5-4ff6-8794-8328ec44a148",
-  "publishedAt": "2026-11-27T01:38:27.318Z",
-  "title": "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
+  "otaVersion": "1.6.5-ota.8021f28",
+  "updateId": "637854ac-6fb2-4142-9ece-2d230e62f0b7",
+  "publishedAt": "2026-11-27T13:27:40.735Z",
+  "title": "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
   "highlights": [
-    "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
+    "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6928646,
+  "bundleSizeBytes": 6935966,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
