@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.abd6a5b",
-  "updateId": "dcf52ca0-9927-403e-8559-6057998d9f9f",
-  "publishedAt": "2026-11-27T14:17:18.803Z",
-  "title": "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
+  "otaVersion": "1.6.5-ota.0c6bf01",
+  "updateId": "ca1f5f1b-6026-4049-b13b-d494069a7cdb",
+  "publishedAt": "2026-11-27T14:36:27.301Z",
+  "title": "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
   "highlights": [
-    "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
+    "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6968192,
+  "bundleSizeBytes": 7176784,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

@@ -1,13 +1,13 @@
 {
-  "id": "dcf52ca0-9927-403e-8559-6057998d9f9f",
-  "createdAt": "2026-11-27T14:17:18.803Z",
+  "id": "ca1f5f1b-6026-4049-b13b-d494069a7cdb",
+  "createdAt": "2026-11-27T14:36:27.301Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "rasVfUJWeZRvBqGHn7gb7hAY4Iy5JAzcGQKVfR8elME",
-    "key": "112d99cd4b6d6a7502da207aa404969f",
+    "hash": "PnB8sAL3arsxJaUlNrXm9Nud_Kp8AZKfFF3Ii9DrPh8",
+    "key": "e6a5155efa02e58493157358a79e8fdd",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-ba629965c65f9f4bf0e1523f14b36350.hbc"
+    "url": "./_expo/static/js/ios/index-4e1e22b2ba3936d2394e7adcb6d0e894.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.abd6a5b",
+      "otaVersion": "1.6.5-ota.0c6bf01",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "abd6a5b",
-      "title": "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
+      "commitSha": "0c6bf01",
+      "title": "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
       "highlights": [
-        "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
+        "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T14:17:18.803Z",
-      "bundleSizeBytes": 6968192
+      "publishedAt": "2026-11-27T14:36:27.301Z",
+      "bundleSizeBytes": 7176784
     }
   }
 }
