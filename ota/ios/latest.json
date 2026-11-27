@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.f05114d",
-  "updateId": "52ac91b5-8fae-42b0-86cb-c51bb6b4a91d",
-  "publishedAt": "2026-11-26T23:58:49.091Z",
-  "title": "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
+  "otaVersion": "1.6.5-ota.42f2c6b",
+  "updateId": "d7a52f52-fc9f-47f4-a68c-41c666d8d383",
+  "publishedAt": "2026-11-27T00:09:23.524Z",
+  "title": "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
   "highlights": [
-    "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
+    "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6842610,
+  "bundleSizeBytes": 6862403,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

@@ -1,13 +1,13 @@
 {
-  "id": "52ac91b5-8fae-42b0-86cb-c51bb6b4a91d",
-  "createdAt": "2026-11-26T23:58:49.091Z",
+  "id": "d7a52f52-fc9f-47f4-a68c-41c666d8d383",
+  "createdAt": "2026-11-27T00:09:23.524Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "GzT1m9En6gLC5eO3moLUBai0XBV2fwtcS6KreoBr8R4",
-    "key": "881b3d4608d9a3a4b034429cd9f7f3ae",
+    "hash": "3GeRE9N1PZw8nMwSY-wmWL2XWP5EIJ9TxUB3RC6KvYk",
+    "key": "070a12b3f515416c04572fb7d5bed95c",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-27c660cf4b3f0fead7a166cf2cd3839a.hbc"
+    "url": "./_expo/static/js/ios/index-06c1372dd978e1ec32de1f8042f172c1.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.f05114d",
+      "otaVersion": "1.6.5-ota.42f2c6b",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "f05114d",
-      "title": "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
+      "commitSha": "42f2c6b",
+      "title": "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
       "highlights": [
-        "feat(artist): enforce YouTube Music official artist catalog purity, view-ranked Essential Albums, seamless stretchy hero blur, and pull-to-refresh",
+        "feat(search): upgrade unified search with multi-type accounts (Official Artist, Music Studio, Verified & Normal Channels), YouTube Music albums, and Apple/YouTube Liquid Glass UI",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-26T23:58:49.091Z",
-      "bundleSizeBytes": 6842610
+      "publishedAt": "2026-11-27T00:09:23.524Z",
+      "bundleSizeBytes": 6862403
     }
   }
 }
