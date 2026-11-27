@@ -1,22 +1,39 @@
 {
-  "latest": "1.5.2",
-  "version": "1.5.2",
+  "latest": "1.6.11",
+  "version": "1.6.11",
   "min_supported_version": "1.4.0",
-  "title": "A7 MUSIC v1.5.2",
-  "publishedAt": "2026-09-25T03:30:00Z",
-  "notes": "## 🎵 A7 MUSIC v1.5.2 (Artist Discography, Album View & Enhanced Music Service)\n\n**The ultimate Music + Sport app — Spotify meets Strava. 100% Free. No ads.**\n\n- Full Artist Discography Profiles with categorized tabs (All, Popular, Albums, Singles & EPs, Playlists)\n- Album & Playlist Details Screen with track count, total playback duration and instant playback\n- Enhanced YouTube Music Service with rich album extraction and artist profile enrichment\n- Studio-Grade 800x800 Artwork & Avatar resolution\n- Streamlined YouTube Player engine & zero-latency audio synchronization",
+  "title": "A7 MUSIC v1.6.11",
+  "publishedAt": "2026-11-27T14:47:00Z",
+  "notes": "## 🎵 A7 MUSIC v1.6.11 (Offline Mode Pro, Zero-403 Downloads & Liquid Glass UI)\n\n**The ultimate Music app — 100% Free. No ads.**\n\n- Complete Offline Mode across Home, Music, Search, and Library Downloads\n- Reliable MP3 & fMP4 (M4A) Download Engine eliminating YouTube HTTP 403 errors\n- Apple Music & Spotify style Circular Download Progress Rings on track rows & Full Player\n- Native Apple Liquid Glass Notification Toasts & Offline Banner\n- Instant song playback fix (`playTrack` request token) and Fabric Codegen stability",
   "ipa": {
     "name": "A7-MUSIC.ipa",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.ipa",
-    "size": 19800000
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.6.11/A7-MUSIC.ipa",
+    "size": 21500000
   },
   "apk": {
     "name": "A7-MUSIC.apk",
-    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.5.2/A7-MUSIC.apk",
-    "size": 42500000
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.6.11/A7-MUSIC.apk",
+    "size": 44000000
   },
-  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.5.2",
+  "htmlUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/tag/v1.6.11",
   "releases": [
+    {
+      "version": "1.6.11",
+      "date": "2026-11-27",
+      "type": "minor",
+      "title": "وضع الأوفلاين الشامل، محرك تحميل جديد بدون 403، حلقات التقدم الدائرية وواجهة Liquid Glass",
+      "highlights": [
+        "إصلاح جذري لمحرك التحميل وتجاوز أخطاء HTTP 403 عبر تنزيل MP3 و M4A المباشر على ذاكرة الهاتف",
+        "حلقات تقدم دائرية احترافية (Circular Progress Rings) على صفوف الألبومات وشاشة المشغّل الكامل والمكتبة",
+        "ترقية شريط الإشعارات وشريط وضع الأوفلاين إلى تصميم Apple Liquid Glass الشفاف المتناسق مع الوضعين",
+        "تجربة أوفلاين متكاملة وسريعة عبر الرئيسية والموسيقى والبحث والمكتبة بدون انتظار أو تقطيع",
+        "إصلاح فوري لاستجابة تشغيل أي أغنية وتوافق كامل مع React Native Screens Fabric"
+      ],
+      "apk_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.6.11/A7-MUSIC.apk",
+      "ipa_url": "https://github.com/raouf-djmilo/A7-MUSIC/releases/download/v1.6.11/A7-MUSIC.ipa",
+      "apk_size": 44000000,
+      "ipa_size": 21500000
+    },
     {
       "version": "1.5.2",
       "date": "2026-09-25",

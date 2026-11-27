@@ -4,7 +4,7 @@ import * as Application from 'expo-application';
  * 🏷️ Single Source of Truth for Application Versioning
  */
 export const APP_VERSION = '1.6.5';
-export const APP_BUILD_NAME = 'A7 MUSIC — Fast iOS OTA Engine';
+export const APP_BUILD_NAME = 'A7 MUSIC v1.6.11 — Liquid Glass & Offline Pro';
 export const APP_RELEASE_YEAR = '2026';
 
 export const GITHUB_REPO_OWNER = 'raouf-djmilo';
