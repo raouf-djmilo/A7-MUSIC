@@ -146,32 +146,34 @@ export const getUniversalStudioArtwork = (
   const cleanArtist = (artist || '').toLowerCase().trim();
   const resolvedVid = videoId || (url && url.includes('/vi/') ? url.split('/vi/')[1]?.split('/')[0] : null);
 
-  // 1. Check studio album art cache dynamically discovered for this exact song
+  // 1. Check studio album art cache ONLY when no original thumbnail URL is present
   const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
-  if (cacheKey && studioArtworkCache.has(cacheKey)) {
+  if ((!url || url.trim() === '') && cacheKey && studioArtworkCache.has(cacheKey)) {
     return studioArtworkCache.get(cacheKey)!;
   }
 
   if (!url || typeof url !== 'string' || url.trim() === '') {
     if (resolvedVid && resolvedVid.length >= 8) {
-      return `https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`;
+      return `https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`;
     }
     return '';
   }
 
   const clean = url.trim();
 
-  // 2. YouTube Channel Avatars: upgrade to studio 800x800
+  // 2. YouTube Channel Avatars: upgrade cleanly to strict 1:1 800x800 (preserving -p face-crop when present, else -c)
   if (clean.includes('yt3.googleusercontent.com') || clean.includes('yt3.ggpht.com')) {
+    const hasPortrait = /=w\d+-h\d+[^?&]*-p\b/.test(clean);
     return clean
-      .replace(/=s\d+(-c-k-c0x[0-9a-fA-F]+-no-rj)?/g, '=s800-c-k-c0x00ffffff-no-rj')
-      .replace(/=w\d+-h\d+(-[a-z0-9-]+)?/g, '=w800-h800-s-no-rj');
+      .replace(/=s\d+(-c-k-c0x[0-9a-fA-F]+-no-rj)?[^?&]*/g, '=s800-c-k-c0x00ffffff-no-rj')
+      .replace(/=w\d+-h\d+[^?&]*/g, hasPortrait ? '=w800-h800-p-l90-rj' : '=w800-h800-c-k-c0x00ffffff-no-rj');
   }
 
   // 3. YouTube Music Official Square Album Covers: crisp & fast 800x800 master
   if (clean.includes('googleusercontent.com') || clean.includes('ytimg.com/image/')) {
     if (/=w\d+-h\d+[^?&]*/.test(clean)) {
-      return clean.replace(/=w\d+-h\d+[^?&]*/, '=w800-h800-l90-rj');
+      const hasPortrait = /=w\d+-h\d+[^?&]*-p\b/.test(clean);
+      return clean.replace(/=w\d+-h\d+[^?&]*/, hasPortrait ? '=w800-h800-p-l90-rj' : '=w800-h800-l90-rj');
     }
     if (/=s\d+[^?&]*/.test(clean)) {
       return clean.replace(/=s\d+[^?&]*/, '=s800-c-k-c0x00ffffff-no-rj');
@@ -180,15 +182,15 @@ export const getUniversalStudioArtwork = (
     return `${clean}${separator}w800-h800-l90-rj`;
   }
 
-  // 4. YouTube Video Thumbnails: Upgrade cleanly to reliable hq720 / hqdefault (never 404-prone maxresdefault)
+  // 4. YouTube Video Thumbnails: keep consistent clean HD thumbnail (16:9 hq720 avoids 4:3 black bars)
   if (clean.includes('ytimg.com/vi/') || clean.includes('/vi/')) {
     const vid = clean.split('/vi/')[1]?.split('/')[0];
     if (vid && vid.length >= 8) {
-      return `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+      return `https://i.ytimg.com/vi/${vid}/hq720.jpg`;
     }
   }
 
-  // 5. If we have a video ID, return reliable hq720.jpg (maxresdefault 404s on many tracks)
+  // 5. Fallback with videoId
   if (resolvedVid && resolvedVid.length >= 8) {
     return `https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`;
   }
@@ -198,8 +200,7 @@ export const getUniversalStudioArtwork = (
 
 /**
  * 🛡️ Native Resolution Cascade Engine for `expo-image`
- * Prioritizes authentic YouTube Music official album art first, then reliable HD YouTube thumbnails
- * (never leading with 404-prone maxresdefault when an official YTM cover exists).
+ * Guarantees 100% cover identity parity between lists/search, MiniPlayer, and FullPlayer.
  */
 export const getUniversalStudioArtworkSource = (
   url?: string | null,
@@ -225,28 +226,27 @@ export const getUniversalStudioArtworkSource = (
   const isOfficialYtmSquare =
     Boolean(url && (url.includes('googleusercontent.com') || url.includes('ytimg.com/image/')));
 
-  // 1. Official YouTube Music Square Album Cover (800x800, fast & authentic)
+  // 1. Official YouTube Music Square Album Cover (800x800) OR Track's exact cover URL (ensures List === Player parity)
   if (isOfficialYtmSquare && url) {
     pushSource(getUniversalStudioArtwork(url, title, artist, videoId));
+  } else if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('file://'))) {
+    if (resolvedVid && resolvedVid.length >= 8 && url.includes('ytimg.com/vi/')) {
+      pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
+      pushSource(url);
+    } else {
+      pushSource(url);
+    }
   }
 
-  // 2. Studio official square album cover from verified dynamic cache
+  // 2. Reliable YouTube Video Thumbnail Fallback (zero black bars -> hqdefault fallback)
+  if (resolvedVid && resolvedVid.length >= 8) {
+    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
+  }
+
+  // 3. Cached studio cover ONLY as last-resort fallback if no track cover loaded
   const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
   if (cacheKey && studioArtworkCache.has(cacheKey)) {
     pushSource(studioArtworkCache.get(cacheKey));
-  }
-
-  // 3. Track's original thumbnail URL if valid
-  if (url && typeof url === 'string' && url.startsWith('http')) {
-    pushSource(url);
-  }
-
-  // 4. Reliable YouTube Video Thumbnail Cascade (hq720 -> hqdefault guaranteed never 404)
-  if (resolvedVid && resolvedVid.length >= 8) {
-    if (!isOfficialYtmSquare) {
-      pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hq720.jpg`);
-    }
-    pushSource(`https://i.ytimg.com/vi/${resolvedVid}/hqdefault.jpg`);
   }
 
   return sources;
@@ -254,14 +254,13 @@ export const getUniversalStudioArtworkSource = (
 
 /**
  * 👤 Official Artist Avatar Resolver (100% DYNAMIC)
- * Returns the authentic YouTube channel avatar or artist portrait.
- * Never overrides with static or fixed placeholders.
+ * Uses strict 1:1 crop (-p / -c) — NEVER stretches/distorts avatars with -s.
  */
 export const getUniversalArtistAvatar = (
   url?: string | null,
   artistName?: string | null
 ): string => {
-  // 1. If a genuine YouTube channel avatar URL is provided, enhance to 800x800 and return immediately!
+  // 1. If a genuine YouTube channel avatar URL is provided, enhance to strict 1:1 square 800x800
   if (url && typeof url === 'string' && url.trim().length > 10) {
     let cleanUrl = url.trim();
     if (cleanUrl.startsWith('//')) {
@@ -273,10 +272,14 @@ export const getUniversalArtistAvatar = (
       cleanUrl.includes('ytimg.com/')
     ) {
       let highRes = cleanUrl;
+      const hasPortrait = /=w\d+-h\d+[^?&]*-p\b/.test(highRes);
       if (highRes.includes('=s')) {
         highRes = highRes.replace(/=s\d+[^?&]*/, '=s800-c-k-c0x00ffffff-no-rj');
       } else if (highRes.includes('=w')) {
-        highRes = highRes.replace(/=w\d+-h\d+[^?&]*/, '=w800-h800-s-no-rj');
+        highRes = highRes.replace(
+          /=w\d+-h\d+[^?&]*/,
+          hasPortrait ? '=w800-h800-p-l90-rj' : '=w800-h800-c-k-c0x00ffffff-no-rj'
+        );
       }
       return highRes;
     }

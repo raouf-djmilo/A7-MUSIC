@@ -61,35 +61,131 @@ function getAccountBadgeMeta(kind: AccountKind | undefined, isAr: boolean) {
         label: isAr ? 'فنان رسمي' : 'Official Artist',
         icon: 'musical-note' as const,
         color: '#38BDF8',
-        bg: 'rgba(56, 189, 248, 0.16)',
-        border: 'rgba(56, 189, 248, 0.42)',
+        tint: 'rgba(56, 189, 248, 0.24)',
+        border: 'rgba(56, 189, 248, 0.50)',
       };
     case 'music_studio':
       return {
         label: isAr ? 'ستوديو / إنتاج' : 'Music Studio',
         icon: 'disc' as const,
-        color: '#A78BFA',
-        bg: 'rgba(167, 139, 250, 0.16)',
-        border: 'rgba(167, 139, 250, 0.42)',
+        color: '#C084FC',
+        tint: 'rgba(167, 139, 250, 0.24)',
+        border: 'rgba(192, 132, 252, 0.50)',
       };
     case 'verified_channel':
       return {
         label: isAr ? 'قناة موثّقة' : 'Verified Channel',
         icon: 'checkmark-circle' as const,
         color: '#34D399',
-        bg: 'rgba(52, 211, 153, 0.16)',
-        border: 'rgba(52, 211, 153, 0.42)',
+        tint: 'rgba(52, 211, 153, 0.22)',
+        border: 'rgba(52, 211, 153, 0.48)',
       };
     default:
       return {
         label: isAr ? 'قناة يوتيوب' : 'YouTube Channel',
         icon: 'logo-youtube' as const,
-        color: '#94A3B8',
-        bg: 'rgba(148, 163, 184, 0.16)',
-        border: 'rgba(148, 163, 184, 0.35)',
+        color: '#E2E8F0',
+        tint: 'rgba(148, 163, 184, 0.20)',
+        border: 'rgba(255, 255, 255, 0.28)',
       };
   }
 }
+
+/** 3D Liquid Glass Circular Avatar Ring — strict 1:1 aspect ratio, zero distortion */
+const LiquidGlassCircleAvatar: React.FC<{
+  uri?: string | null;
+  name?: string;
+  size: number;
+  ringColor?: string;
+  isDark: boolean;
+}> = ({ uri, name, size, ringColor = 'rgba(255,255,255,0.34)', isDark }) => {
+  const resolvedUri = getUniversalArtistAvatar(uri, name) || uri || '';
+  const radius = size / 2;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        padding: 2,
+        backgroundColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.68)',
+        borderWidth: 1.25,
+        borderColor: ringColor,
+        borderTopColor: 'rgba(255,255,255,0.72)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: isDark ? 0.42 : 0.16,
+        shadowRadius: 10,
+        elevation: 6,
+      }}
+    >
+      <View
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: radius - 2,
+          overflow: 'hidden',
+          backgroundColor: isDark ? '#151B28' : '#E2E8F0',
+        }}
+      >
+        {resolvedUri ? (
+          <Image
+            source={{ uri: resolvedUri }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+            contentPosition="top"
+            cachePolicy="memory-disk"
+            transition={150}
+          />
+        ) : null}
+        <LinearGradient
+          colors={['rgba(255,255,255,0.28)', 'transparent']}
+          locations={[0, 0.45]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      </View>
+    </View>
+  );
+};
+
+/** 3D Liquid Glass Account Badge Pill */
+const LiquidGlassAccountBadge: React.FC<{
+  kind?: AccountKind;
+  isAr: boolean;
+  isDark: boolean;
+  compact?: boolean;
+}> = ({ kind, isAr, isDark, compact = false }) => {
+  const meta = getAccountBadgeMeta(kind, isAr);
+  return (
+    <LiquidGlassSurface
+      glassStyle="regular"
+      isDark={isDark}
+      isInteractive={false}
+      tintColor={meta.tint}
+      borderRadius={12}
+      style={[
+        compact ? styles.accountMiniBadgeGlass : styles.accountTypeBadgeGlass,
+        {
+          borderColor: meta.border,
+          borderTopColor: 'rgba(255,255,255,0.52)',
+          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.48)',
+        },
+      ]}
+    >
+      <Ionicons name={meta.icon} size={compact ? 10 : 12} color={meta.color} />
+      <Text
+        style={[
+          compact ? styles.accountMiniBadgeText : styles.accountTypeBadgeText,
+          { color: isDark ? '#FFFFFF' : '#0F172A' },
+        ]}
+        numberOfLines={1}
+      >
+        {meta.label}
+      </Text>
+    </LiquidGlassSurface>
+  );
+};
 
 export const MusicSearch = ({ route }: any) => {
   const navigation = useNavigation<any>();
@@ -541,13 +637,12 @@ export const MusicSearch = ({ route }: any) => {
             },
           ]}
         >
-          <Image
-            source={{
-              uri: getUniversalArtistAvatar(acc.avatar, acc.name) || acc.avatar,
-            }}
-            style={styles.accountRowAvatar}
-            contentFit="cover"
-            cachePolicy="memory-disk"
+          <LiquidGlassCircleAvatar
+            uri={acc.avatar}
+            name={acc.name}
+            size={58}
+            ringColor={meta.border}
+            isDark={isDark}
           />
           <View style={styles.artistMeta}>
             <View style={[styles.artistTitleRow, { flexDirection: rowDirection }]}>
@@ -560,11 +655,7 @@ export const MusicSearch = ({ route }: any) => {
               <Ionicons name={meta.icon} size={16} color={meta.color} />
             </View>
             <View style={[styles.accountSubRow, { flexDirection: rowDirection }]}>
-              <View style={[styles.accountTypeBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
-                <Text style={[styles.accountTypeBadgeText, { color: meta.color }]}>
-                  {meta.label}
-                </Text>
-              </View>
+              <LiquidGlassAccountBadge kind={acc.accountKind} isAr={isAr} isDark={isDark} />
               {acc.subscriberCount ? (
                 <Text style={[styles.accountAudienceTxt, { color: palette.textSecondary }]} numberOfLines={1}>
                   {acc.subscriberCount}
@@ -613,12 +704,22 @@ export const MusicSearch = ({ route }: any) => {
             },
           ]}
         >
-          <Image
-            source={getUniversalStudioArtworkSource(item.thumbnail, item.title, item.artist, item.videoId)}
-            style={styles.trackThumb}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-          />
+          <View
+            style={[
+              styles.trackThumbFrame,
+              {
+                borderColor: isDark ? 'rgba(255,255,255,0.20)' : 'rgba(15,23,42,0.10)',
+                backgroundColor: isDark ? '#151B28' : '#E2E8F0',
+              },
+            ]}
+          >
+            <Image
+              source={getUniversalStudioArtworkSource(item.thumbnail, item.title, item.artist, item.videoId)}
+              style={styles.trackThumbImg}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          </View>
           <View style={styles.trackInfo}>
             <Text
               style={[
@@ -924,12 +1025,12 @@ export const MusicSearch = ({ route }: any) => {
                           },
                         ]}
                       >
-                        <Image
-                          source={{
-                            uri: getUniversalArtistAvatar(topAcc.avatar, topAcc.name) || topAcc.avatar,
-                          }}
-                          style={styles.artistAvatar}
-                          contentFit="cover"
+                        <LiquidGlassCircleAvatar
+                          uri={topAcc.avatar}
+                          name={topAcc.name}
+                          size={70}
+                          ringColor={meta.border}
+                          isDark={isDark}
                         />
                         <View style={styles.artistMeta}>
                           <View style={[styles.artistTitleRow, { flexDirection: rowDirection }]}>
@@ -943,11 +1044,7 @@ export const MusicSearch = ({ route }: any) => {
                           </View>
 
                           <View style={[styles.accountSubRow, { flexDirection: rowDirection }]}>
-                            <View style={[styles.accountTypeBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
-                              <Text style={[styles.accountTypeBadgeText, { color: meta.color }]}>
-                                {meta.label}
-                              </Text>
-                            </View>
+                            <LiquidGlassAccountBadge kind={topAcc.accountKind} isAr={isAr} isDark={isDark} />
                             {topAcc.subscriberCount ? (
                               <Text style={[styles.accountAudienceTxt, { color: palette.textSecondary }]} numberOfLines={1}>
                                 {topAcc.subscriberCount}
@@ -1007,7 +1104,7 @@ export const MusicSearch = ({ route }: any) => {
                             glassStyle="regular"
                             isDark={isDark}
                             isInteractive
-                            borderRadius={18}
+                            borderRadius={20}
                             style={[
                               styles.accountCarouselCard,
                               {
@@ -1017,13 +1114,12 @@ export const MusicSearch = ({ route }: any) => {
                               },
                             ]}
                           >
-                            <Image
-                              source={{
-                                uri: getUniversalArtistAvatar(acc.avatar, acc.name) || acc.avatar,
-                              }}
-                              style={styles.accountCarouselAvatar}
-                              contentFit="cover"
-                              cachePolicy="memory-disk"
+                            <LiquidGlassCircleAvatar
+                              uri={acc.avatar}
+                              name={acc.name}
+                              size={76}
+                              ringColor={meta.border}
+                              isDark={isDark}
                             />
                             <Text
                               style={[styles.accountCarouselName, { color: palette.textPrimary }]}
@@ -1031,12 +1127,7 @@ export const MusicSearch = ({ route }: any) => {
                             >
                               {acc.name}
                             </Text>
-                            <View style={[styles.accountMiniBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
-                              <Ionicons name={meta.icon} size={10} color={meta.color} />
-                              <Text style={[styles.accountMiniBadgeText, { color: meta.color }]} numberOfLines={1}>
-                                {meta.label}
-                              </Text>
-                            </View>
+                            <LiquidGlassAccountBadge kind={acc.accountKind} isAr={isAr} isDark={isDark} compact />
                           </LiquidGlassSurface>
                         </TouchableOpacity>
                       );
@@ -1521,11 +1612,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
     flexWrap: 'wrap',
   },
-  accountTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+  accountTypeBadgeGlass: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   accountTypeBadgeText: {
     fontSize: 11,
@@ -1545,34 +1640,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   accountCarouselCard: {
-    width: 136,
-    padding: 12,
-    borderRadius: 18,
+    width: 142,
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     overflow: 'hidden',
-  },
-  accountCarouselAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 8,
   },
   accountCarouselName: {
     fontSize: 13.5,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 5,
+    marginTop: 9,
+    marginBottom: 6,
   },
-  accountMiniBadge: {
+  accountMiniBadgeGlass: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 12,
     borderWidth: 1,
-    maxWidth: 118,
+    maxWidth: 122,
+    overflow: 'hidden',
   },
   accountMiniBadgeText: {
     fontSize: 10,
@@ -1586,11 +1678,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     overflow: 'hidden',
-  },
-  accountRowAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
   },
   searchAlbumCard: {
     width: 136,
@@ -1633,10 +1720,16 @@ const styles = StyleSheet.create({
     gap: 12,
     overflow: 'hidden',
   },
-  trackThumb: {
-    width: 50,
-    height: 50,
+  trackThumbFrame: {
+    width: 52,
+    height: 52,
     borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  trackThumbImg: {
+    width: '100%',
+    height: '100%',
   },
   trackInfo: {
     flex: 1,

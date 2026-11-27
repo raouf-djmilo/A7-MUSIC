@@ -761,45 +761,40 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         configureAudioSession(get().backgroundAudioEnabled);
         updateNowPlayingLockScreen(finalTrack, initialPosition * 1000, totalDurationSec * 1000, true);
 
-        fetchStudioAlbumArtAsync(finalTrack.artist, finalTrack.title, finalTrack.videoId)
-          .then((studioArt) => {
-            if (studioArt) {
+        // Preserve the exact cover shown in lists/search so list cover === MiniPlayer === FullPlayer.
+        // Only look up missing cover art if track has no thumbnail at all.
+        if (!finalTrack.thumbnail) {
+          fetchStudioAlbumArtAsync(finalTrack.artist, finalTrack.title, finalTrack.videoId)
+            .then((studioArt) => {
+              if (!studioArt) return;
               const current = get().currentTrack;
-              if (current && current.videoId === finalTrack.videoId && current.thumbnail !== studioArt) {
+              if (current && current.videoId === finalTrack.videoId && !current.thumbnail) {
                 const upgradedTrack: Track = { ...current, thumbnail: studioArt };
                 set({ currentTrack: upgradedTrack });
                 updateNowPlayingLockScreen(upgradedTrack, get().positionMillis, get().durationMillis, true);
-                if (NativeModules.TrackPlayerModule && get().activeEngine === 'native') {
-                  TrackPlayer.updateMetadataForTrack(0, {
-                    title: upgradedTrack.title,
-                    artist: upgradedTrack.artist,
-                    artwork: studioArt,
-                    duration: Math.floor(get().durationMillis / 1000),
-                  }).catch(() => { });
-                }
               }
-            } else {
-              resolveLockScreenSquareArtworkAsync(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId)
-                .then((sqArt) => {
-                  if (sqArt && NativeModules.TrackPlayerModule && get().activeEngine === 'native') {
-                    TrackPlayer.updateMetadataForTrack(0, {
-                      title: finalTrack.title,
-                      artist: finalTrack.artist,
-                      artwork: sqArt,
-                      duration: Math.floor(get().durationMillis / 1000),
-                    }).catch(() => { });
-                    TrackPlayer.updateNowPlayingMetadata({
-                      title: finalTrack.title,
-                      artist: finalTrack.artist,
-                      artwork: sqArt,
-                      duration: Math.floor(get().durationMillis / 1000),
-                    }).catch(() => { });
-                  }
-                })
-                .catch(() => { });
-            }
-          })
-          .catch(() => { });
+            })
+            .catch(() => {});
+        } else {
+          resolveLockScreenSquareArtworkAsync(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId)
+            .then((sqArt) => {
+              if (sqArt && NativeModules.TrackPlayerModule && get().activeEngine === 'native') {
+                TrackPlayer.updateMetadataForTrack(0, {
+                  title: finalTrack.title,
+                  artist: finalTrack.artist,
+                  artwork: sqArt,
+                  duration: Math.floor(get().durationMillis / 1000),
+                }).catch(() => {});
+                TrackPlayer.updateNowPlayingMetadata({
+                  title: finalTrack.title,
+                  artist: finalTrack.artist,
+                  artwork: sqArt,
+                  duration: Math.floor(get().durationMillis / 1000),
+                }).catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
       } catch (error: any) {
         console.warn('[AudioStore] Background Play Metadata Error:', error);
       }

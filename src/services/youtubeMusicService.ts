@@ -87,7 +87,7 @@ export function getHighResYouTubeAvatar(url?: string | null): string {
   } else if (highRes.includes('=w')) {
     highRes = highRes.replace(
       /=w\d+-h\d+[^?&]*/,
-      hasPortraitCrop ? '=w1200-h1200-p-l90-rj' : '=w1200-h1200-l90-rj'
+      hasPortraitCrop ? '=w1200-h1200-p-l90-rj' : '=w1200-h1200-c-k-c0x00ffffff-no-rj'
     );
   }
   return highRes;
@@ -469,6 +469,86 @@ export async function searchYouTubeMusicAlbums(
   }
 }
 
+export async function searchYouTubeMusicSongs(
+  query: string,
+  limit: number = 14
+): Promise<Track[]> {
+  const clean = (query || '').trim();
+  if (clean.length < 2) return [];
+  try {
+    const res = await fetch('https://music.youtube.com/youtubei/v1/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Referer': 'https://music.youtube.com/',
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
+        query: clean,
+        params: 'EgWKAQIIAWoKEAkQChADEAUQBA%3D%3D',
+      }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const out: Track[] = [];
+    const seen = new Set<string>();
+
+    const walk = (o: any) => {
+      if (!o || typeof o !== 'object' || out.length >= limit) return;
+      if (o.musicResponsiveListItemRenderer) {
+        const it = o.musicResponsiveListItemRenderer;
+        const vid =
+          it.playlistItemData?.videoId ||
+          it.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
+        if (vid && !seen.has(vid)) {
+          seen.add(vid);
+          const cols = it.flexColumns || [];
+          const title = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+          const col1Runs = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const artistRun = col1Runs.find(
+            (r: any) =>
+              r.text &&
+              !/^(song|video|•|,|\s)+$/i.test(r.text) &&
+              !/^\d+:\d+$/.test(r.text.trim()) &&
+              !/\b(plays?|views?)\b/i.test(r.text)
+          );
+          const artistName = cleanArtistName(artistRun?.text || clean);
+          const channelId = artistRun?.navigationEndpoint?.browseEndpoint?.browseId;
+          const durRun = col1Runs.find((r: any) => /^\d+:\d+$/.test((r.text || '').trim()));
+          const albumRun = col1Runs.find((r: any) =>
+            r.navigationEndpoint?.browseEndpoint?.browseId?.startsWith('MPREb_')
+          );
+          const thumbs = it.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+          const rawCover = thumbs.length > 0 ? thumbs[thumbs.length - 1]?.url : '';
+          const thumbnail = rawCover ? getHighResYouTubeAvatar(rawCover) : getHighResThumbnail(vid);
+
+          if (title) {
+            out.push({
+              videoId: vid,
+              title,
+              artist: artistName,
+              thumbnail,
+              duration: parseDurationText(durRun?.text),
+              album: albumRun?.text || undefined,
+              channelId: channelId || undefined,
+              category: 'youtube',
+              type: 'track',
+              isOfficial: true,
+            });
+          }
+        }
+      }
+      for (const k of Object.keys(o)) walk(o[k]);
+    };
+
+    walk(data);
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export async function searchUnifiedMusicCatalog(query: string): Promise<SearchResultWithArtist> {
   const cleanQuery = (query || '').trim();
   if (!cleanQuery) return { artist: null, accounts: [], albums: [], tracks: [] };
@@ -479,8 +559,9 @@ export async function searchUnifiedMusicCatalog(query: string): Promise<SearchRe
     return cached.data;
   }
 
-  const [baseRes, ytmArtists, ytChannels, ytmAlbums, ytPlaylists] = await Promise.all([
+  const [baseRes, ytmSongs, ytmArtists, ytChannels, ytmAlbums, ytPlaylists] = await Promise.all([
     searchYouTubeMusicWithArtist(cleanQuery),
+    searchYouTubeMusicSongs(cleanQuery, 14),
     searchYouTubeMusicArtistCandidates(cleanQuery, 6),
     searchYouTubeChannelsList(cleanQuery, 8),
     searchYouTubeMusicAlbums(cleanQuery, 12),
@@ -516,6 +597,15 @@ export async function searchUnifiedMusicCatalog(query: string): Promise<SearchRe
     baseRes.artist ||
     null;
 
+  // Merge official 1:1 square YTM songs first + YouTube video results (deduped by videoId)
+  const seenVids = new Set<string>();
+  const mergedTracks: Track[] = [];
+  for (const tr of [...ytmSongs, ...(baseRes.tracks || [])]) {
+    if (!tr.videoId || seenVids.has(tr.videoId)) continue;
+    seenVids.add(tr.videoId);
+    mergedTracks.push(tr);
+  }
+
   // Merge official YouTube Music Albums + Playlists
   const seenAlb = new Set<string>();
   const mergedAlbums: ArtistAlbumItem[] = [];
@@ -530,7 +620,7 @@ export async function searchUnifiedMusicCatalog(query: string): Promise<SearchRe
     artist: topArtist,
     accounts,
     albums: mergedAlbums,
-    tracks: baseRes.tracks || [],
+    tracks: mergedTracks,
   };
 
   if (accounts.length > 0 || result.tracks.length > 0 || mergedAlbums.length > 0) {
@@ -1810,8 +1900,10 @@ export async function fetchYouTubeMusicOfficialArtist(
       searchSub ||
       'Official Artist';
 
-    let topSongsEndpoint: { browseId: string; params?: string } | null = null;
-    let albumsMoreEndpoint: { browseId: string; params?: string } | null = null;
+    const endpoints: {
+      topSongs?: { browseId: string; params?: string };
+      albumsMore?: { browseId: string; params?: string };
+    } = {};
 
     const shelfTracks: Array<Track & { _plays: number; _isPrimary: boolean; _albumId?: string }> = [];
     const albums: ArtistAlbumItem[] = [];
@@ -1882,8 +1974,8 @@ export async function fetchYouTubeMusicOfficialArtist(
       if (obj.musicShelfRenderer) {
         const ms = obj.musicShelfRenderer;
         const ep = ms.bottomEndpoint?.browseEndpoint;
-        if (ep?.browseId && !topSongsEndpoint) {
-          topSongsEndpoint = { browseId: ep.browseId, params: ep.params };
+        if (ep?.browseId && !endpoints.topSongs) {
+          endpoints.topSongs = { browseId: ep.browseId, params: ep.params };
         }
         for (const item of ms.contents || []) {
           if (item.musicResponsiveListItemRenderer) {
@@ -1897,8 +1989,8 @@ export async function fetchYouTubeMusicOfficialArtist(
         const headerRenderer = shelf.header?.musicCarouselShelfBasicHeaderRenderer;
         const shelfTitle = (headerRenderer?.title?.runs?.[0]?.text || '').toLowerCase();
         const moreEp = headerRenderer?.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint;
-        if (shelfTitle.includes('album') && !shelfTitle.includes('single') && moreEp?.browseId && !albumsMoreEndpoint) {
-          albumsMoreEndpoint = { browseId: moreEp.browseId, params: moreEp.params };
+        if (shelfTitle.includes('album') && !shelfTitle.includes('single') && moreEp?.browseId && !endpoints.albumsMore) {
+          endpoints.albumsMore = { browseId: moreEp.browseId, params: moreEp.params };
         }
         for (const item of shelf.contents || []) {
           const tr = item.musicTwoRowItemRenderer;
@@ -1941,15 +2033,16 @@ export async function fetchYouTubeMusicOfficialArtist(
 
     const extraCalls: Promise<void>[] = [];
 
-    if (topSongsEndpoint?.browseId) {
+    if (endpoints.topSongs?.browseId) {
+      const ep = endpoints.topSongs;
       extraCalls.push(
         fetch('https://music.youtube.com/youtubei/v1/browse', {
           method: 'POST',
           headers: ytHeaders,
           body: JSON.stringify({
             context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
-            browseId: topSongsEndpoint.browseId,
-            ...(topSongsEndpoint.params ? { params: topSongsEndpoint.params } : {}),
+            browseId: ep.browseId,
+            ...(ep.params ? { params: ep.params } : {}),
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
@@ -1968,15 +2061,16 @@ export async function fetchYouTubeMusicOfficialArtist(
       );
     }
 
-    if (albumsMoreEndpoint?.browseId) {
+    if (endpoints.albumsMore?.browseId) {
+      const ep = endpoints.albumsMore;
       extraCalls.push(
         fetch('https://music.youtube.com/youtubei/v1/browse', {
           method: 'POST',
           headers: ytHeaders,
           body: JSON.stringify({
             context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
-            browseId: albumsMoreEndpoint.browseId,
-            ...(albumsMoreEndpoint.params ? { params: albumsMoreEndpoint.params } : {}),
+            browseId: ep.browseId,
+            ...(ep.params ? { params: ep.params } : {}),
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
