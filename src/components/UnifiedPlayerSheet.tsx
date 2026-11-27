@@ -72,8 +72,6 @@ import { AtmosphericPalette, getTrackAtmosphericTint } from '../services/atmosph
 export { AtmosphericPalette, getTrackAtmosphericTint };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IS_IOS_26_OR_HIGHER = Platform.OS === 'ios' && parseInt(String(Platform.Version), 10) >= 26;
-
 // ── Docking & Layout Constants ──
 const TAB_BAR_HEIGHT = 56;
 const MINI_PLAYER_HEIGHT = 50;
@@ -82,11 +80,11 @@ const DOCK_CIRCLE_SIZE = 46;
 const DOCK_MARGIN = 10;
 const MINI_MARGIN_H = 14;
 
-// ── Optimal Snappy Spring Configuration (Pure 120 FPS GPU) ──
+// ── Optimal Snappy 120 FPS Spring Configuration (Zero Sluggish Lag) ──
 const SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 320,
-  mass: 0.7,
+  damping: 32,
+  stiffness: 420,
+  mass: 0.65,
 };
 
 function formatTime(millis: number): string {
@@ -658,7 +656,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           startSilentBackgroundKeepAlive().catch(() => { });
           try {
             (youtubePlayerRef.current as any)?.playVideo?.();
-          } catch {}
+          } catch { }
           clearTimers();
           timers.push(
             setTimeout(() => {
@@ -723,7 +721,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                               setYoutubeRemountKey((k) => k + 1);
                             }
                           })
-                          .catch(() => {});
+                          .catch(() => { });
                       }, 2200)
                     );
                   }
@@ -876,22 +874,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const stackDockBottom = Math.max(insets.bottom + 8, 22);
   const HIDDEN_OFFSET = DEFAULT_HIDDEN_OFFSET;
 
-  // On iOS 26+ Tab screens, native UIKit UITabAccessory renders the regular & inline MiniPlayer directly.
-  const isNativeAccessoryHandlingMiniPlayer =
-    IS_IOS_26_OR_HIGHER && USE_NATIVE_LIQUID_TABS && isTabBarVisible;
-  const isNativeHandlingSV = useSharedValue(isNativeAccessoryHandlingMiniPlayer);
-  useEffect(() => {
-    isNativeHandlingSV.value = isNativeAccessoryHandlingMiniPlayer;
-  }, [isNativeAccessoryHandlingMiniPlayer]);
-
   // ── UI-Thread Shared Values (GPU Transform Only) ──
   // playerModalTranslateY coordinates both the player sheet and the GlobalAudioBridge video in 120 FPS hardware lockstep
   const fullTranslateY = playerModalTranslateY;
   const fullStartY = useSharedValue(0);
+  const shouldDockAtBottom = !isTabBarVisible || isDockMinimized;
   const dockTranslateY = useSharedValue(
-    isTabBarVisible ? 0 : Math.max(0, baseMiniBottom - stackDockBottom)
+    shouldDockAtBottom ? Math.max(0, baseMiniBottom - stackDockBottom) : 0
   );
-  const miniDockMorph = useSharedValue(!isTabBarVisible && isDockMinimized ? 1 : 0);
+  const miniDockMorph = useSharedValue(isDockMinimized ? 1 : 0);
   const isScrubbingTimeline = useSharedValue(false);
 
   // Smooth segmented control indicator with Apple spring physics (0 = Cover, 1 = Video)
@@ -956,573 +947,570 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     setPlayerMediaMode('video');
   }, [setPlayerMediaMode]);
 
-  // Smooth 250ms glide when navigating between Tab screens and Stack screens
+  // Smooth 220ms glide synchronized with native tab bar minimize/show across Tabs & Stack screens
   useEffect(() => {
-    const targetOffset = isTabBarVisible ? 0 : Math.max(0, baseMiniBottom - stackDockBottom);
+    const targetOffset = shouldDockAtBottom ? Math.max(0, baseMiniBottom - stackDockBottom) : 0;
     dockTranslateY.value = withTiming(targetOffset, {
-      duration: 250,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      duration: 220,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
     });
-  }, [isTabBarVisible, baseMiniBottom, stackDockBottom]);
+  }, [shouldDockAtBottom, baseMiniBottom, stackDockBottom]);
 
-  // Smooth spring morph into slim [Home Circle] [MiniPlayer] [Search Circle] when scrolled down on Stack screens
-  const isCompactDockActive = !isTabBarVisible && isDockMinimized;
+  // Smooth spring morph into slim [Home Circle] [MiniPlayer] [Search Circle] whenever scrolled down or at bottom
+  const isCompactDockActive = isDockMinimized;
   useEffect(() => {
     miniDockMorph.value = withSpring(isCompactDockActive ? 1 : 0, {
-      stiffness: 340,
-      damping: 28,
-      mass: 0.75,
+      stiffness: 360,
+      damping: 30,
+      mass: 0.7,
     });
   }, [isCompactDockActive]);
 
-  // ── Player Action Menu (... Liquid Glass Sheet) & Album Resolution State ──
-  const [trackMenuVisible, setTrackMenuVisible] = useState(false);
-  const [resolvingAlbum, setResolvingAlbum] = useState(false);
-  const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>([]);
-  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
-  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
+// ── Player Action Menu (... Liquid Glass Sheet) & Album Resolution State ──
+const [trackMenuVisible, setTrackMenuVisible] = useState(false);
+const [resolvingAlbum, setResolvingAlbum] = useState(false);
+const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>([]);
+const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
-  // ── Download & Hardware Offline Storage State ──
-  const [qualityModalVisible, setQualityModalVisible] = useState(false);
-  const isDownloaded = useDownloadStore((s) => s.isTrackDownloaded(currentTrack?.videoId));
-  const downloadProgress = useDownloadStore((s) => s.getTrackProgress(currentTrack?.videoId));
-  const isDownloading = downloadProgress?.status === 'downloading' || downloadProgress?.status === 'probing';
+// ── Download & Hardware Offline Storage State ──
+const [qualityModalVisible, setQualityModalVisible] = useState(false);
+const isDownloaded = useDownloadStore((s) => s.isTrackDownloaded(currentTrack?.videoId));
+const downloadProgress = useDownloadStore((s) => s.getTrackProgress(currentTrack?.videoId));
+const isDownloading = downloadProgress?.status === 'downloading' || downloadProgress?.status === 'probing';
 
-  // ── Dynamic Real Storage Calculation per Track & Quality ──
-  const effectiveDurationMs = useMemo(() => {
-    if (durationMillis && durationMillis > 1000) return durationMillis;
-    if (currentTrack?.duration && currentTrack.duration > 1000) return currentTrack.duration;
-    return 210000; // 3:30 fallback
-  }, [durationMillis, currentTrack?.duration]);
+// ── Dynamic Real Storage Calculation per Track & Quality ──
+const effectiveDurationMs = useMemo(() => {
+  if (durationMillis && durationMillis > 1000) return durationMillis;
+  if (currentTrack?.duration && currentTrack.duration > 1000) return currentTrack.duration;
+  return 210000; // 3:30 fallback
+}, [durationMillis, currentTrack?.duration]);
 
-  const durationSec = Math.max(30, Math.round(effectiveDurationMs / 1000));
-  const durationFormatted = useMemo(() => {
-    const mins = Math.floor(durationSec / 60);
-    const secs = durationSec % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  }, [durationSec]);
+const durationSec = Math.max(30, Math.round(effectiveDurationMs / 1000));
+const durationFormatted = useMemo(() => {
+  const mins = Math.floor(durationSec / 60);
+  const secs = durationSec % 60;
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}, [durationSec]);
 
-  // Real formula: (Bitrate kbps * 1000 * seconds) / (8 * 1024 * 1024)
-  const autoSizeMB = useMemo(
-    () => ((320 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-    [durationSec]
-  );
-  const highSizeMB = useMemo(
-    () => ((256 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-    [durationSec]
-  );
-  const mediumSizeMB = useMemo(
-    () => ((128 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-    [durationSec]
-  );
+// Real formula: (Bitrate kbps * 1000 * seconds) / (8 * 1024 * 1024)
+const autoSizeMB = useMemo(
+  () => ((320 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
+  [durationSec]
+);
+const highSizeMB = useMemo(
+  () => ((256 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
+  [durationSec]
+);
+const mediumSizeMB = useMemo(
+  () => ((128 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
+  [durationSec]
+);
 
-  const handleDownloadPress = () => {
-    if (!currentTrack) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+const handleDownloadPress = () => {
+  if (!currentTrack) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    if (isDownloaded) {
-      Alert.alert(
-        'المقطع محفوظ على الهاتف',
-        `تم تنزيل "${currentTrack.title}" في ذاكرة الجهاز وهو متاح بدون إنترنت دائماً وعابر للحسابات.\n\nهل تريد حذفه لتفريغ مساحة الذاكرة؟`,
-        [
-          { text: 'إغلاق', style: 'cancel' },
-          {
-            text: 'حذف من الهاتف',
-            style: 'destructive',
-            onPress: async () => {
-              if (currentTrack.videoId) {
-                await downloadService.deleteDownloadedTrack(currentTrack.videoId);
-                ToastManager.show({
-                  title: 'تم حذف المقطع',
-                  subtitle: 'تم تفريغ مساحة التخزين على الهاتف',
-                  icon: 'trash-outline',
-                  duration: 2500,
-                });
-              }
-            },
+  if (isDownloaded) {
+    Alert.alert(
+      'المقطع محفوظ على الهاتف',
+      `تم تنزيل "${currentTrack.title}" في ذاكرة الجهاز وهو متاح بدون إنترنت دائماً وعابر للحسابات.\n\nهل تريد حذفه لتفريغ مساحة الذاكرة؟`,
+      [
+        { text: 'إغلاق', style: 'cancel' },
+        {
+          text: 'حذف من الهاتف',
+          style: 'destructive',
+          onPress: async () => {
+            if (currentTrack.videoId) {
+              await downloadService.deleteDownloadedTrack(currentTrack.videoId);
+              ToastManager.show({
+                title: 'تم حذف المقطع',
+                subtitle: 'تم تفريغ مساحة التخزين على الهاتف',
+                icon: 'trash-outline',
+                duration: 2500,
+              });
+            }
           },
-        ]
-      );
-    } else {
-      setQualityModalVisible(true);
-    }
-  };
+        },
+      ]
+    );
+  } else {
+    setQualityModalVisible(true);
+  }
+};
 
-  const startDownloadWithQuality = async (quality: AudioQualityOption) => {
-    if (!currentTrack) return;
-    setQualityModalVisible(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+const startDownloadWithQuality = async (quality: AudioQualityOption) => {
+  if (!currentTrack) return;
+  setQualityModalVisible(false);
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+  ToastManager.show({
+    title: 'بدأ تنزيل المقطع',
+    subtitle: `جاري الحفظ بجودة ${quality === 'medium' ? '128 kbps' : '320 kbps HD'}`,
+    icon: 'arrow-down-circle',
+    duration: 2500,
+  });
+
+  try {
+    await downloadService.downloadTrack(currentTrack, quality);
     ToastManager.show({
-      title: 'بدأ تنزيل المقطع',
-      subtitle: `جاري الحفظ بجودة ${quality === 'medium' ? '128 kbps' : '320 kbps HD'}`,
-      icon: 'arrow-down-circle',
-      duration: 2500,
+      title: 'تم التنزيل بنجاح!',
+      subtitle: 'المقطع متاح الآن بدون إنترنت وفي وضع الطيران 0ms',
+      icon: 'checkmark-circle',
+      duration: 3500,
     });
+  } catch (e: any) {
+    ToastManager.show({
+      title: 'تعذر التنزيل',
+      subtitle: e?.message || 'يرجى التحقق من الاتصال والمحاولة لاحقاً',
+      icon: 'alert-circle',
+      duration: 3500,
+    });
+  }
+};
 
-    try {
-      await downloadService.downloadTrack(currentTrack, quality);
-      ToastManager.show({
-        title: 'تم التنزيل بنجاح!',
-        subtitle: 'المقطع متاح الآن بدون إنترنت وفي وضع الطيران 0ms',
-        icon: 'checkmark-circle',
-        duration: 3500,
-      });
-    } catch (e: any) {
-      ToastManager.show({
-        title: 'تعذر التنزيل',
-        subtitle: e?.message || 'يرجى التحقق من الاتصال والمحاولة لاحقاً',
-        icon: 'alert-circle',
-        duration: 3500,
+const syncModalState = useCallback(
+  (expanded: boolean) => {
+    if (isPlayerModalVisible !== expanded) {
+      setPlayerModalVisible(expanded);
+    }
+  },
+  [isPlayerModalVisible, setPlayerModalVisible]
+);
+
+// Sync FullPlayer visibility with useAudioStore isPlayerModalVisible
+useEffect(() => {
+  if (isPlayerModalVisible && currentTrack) {
+    fullTranslateY.value = withSpring(0, SPRING_CONFIG);
+  } else {
+    fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
+  }
+}, [isPlayerModalVisible, currentTrack, HIDDEN_OFFSET]);
+
+const expandToFull = useCallback(() => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Start 120 FPS UI-thread spring IMMEDIATELY before syncing React visibility state
+  fullTranslateY.value = withSpring(0, SPRING_CONFIG);
+  requestAnimationFrame(() => {
+    setPlayerModalVisible(true);
+  });
+}, [setPlayerModalVisible]);
+
+// ── Intelligent Zero-Cut Collapse Handover ──
+// Keeps UnifiedPlayerSheet persistent audio uninterrupted when collapsing to mini player
+const triggerCollapseHandover = useCallback(() => {
+  isSwitchingModeRef.current = true;
+  setPlayerModalVisible(false);
+  setTimeout(() => {
+    isSwitchingModeRef.current = false;
+  }, 450);
+}, [setPlayerModalVisible]);
+
+const collapseToMini = useCallback(() => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Launch closing spring on GPU thread first, deferring React tree updates so closing never drops frames
+  fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
+  setTimeout(() => {
+    triggerCollapseHandover();
+  }, 170);
+}, [triggerCollapseHandover, HIDDEN_OFFSET]);
+
+// ── FullPlayer Downward Pan Dismiss Gesture (Full Viewport Coverage) ──
+const fullPanGesture = Gesture.Pan()
+  .activeOffsetY([8, 8])
+  .failOffsetX([-24, 24])
+  .onStart(() => {
+    'worklet';
+    fullStartY.value = fullTranslateY.value;
+  })
+  .onUpdate((event) => {
+    'worklet';
+    if (isScrubbingTimeline.value || isVideoFullscreenSV.value) return;
+    if (event.translationY > 0) {
+      fullTranslateY.value = event.translationY;
+    }
+  })
+  .onEnd((event) => {
+    'worklet';
+    if (isScrubbingTimeline.value || isVideoFullscreenSV.value) {
+      fullTranslateY.value = withSpring(0, SPRING_CONFIG);
+      return;
+    }
+    if (event.translationY > 95 || event.velocityY > 320) {
+      fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
+      runOnJS(triggerCollapseHandover)();
+    } else {
+      fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
+        if (finished) {
+          runOnJS(syncModalState)(true);
+        }
       });
     }
-  };
+  });
 
-  const syncModalState = useCallback(
-    (expanded: boolean) => {
-      if (isPlayerModalVisible !== expanded) {
-        setPlayerModalVisible(expanded);
-      }
-    },
-    [isPlayerModalVisible, setPlayerModalVisible]
-  );
-
-  // Sync FullPlayer visibility with useAudioStore isPlayerModalVisible
-  useEffect(() => {
-    if (isPlayerModalVisible && currentTrack) {
-      fullTranslateY.value = withSpring(0, SPRING_CONFIG);
+// ── MiniPlayer Upward Pan Expand Gesture (Continuous 120 FPS Touch Tracking) ──
+const miniPanGesture = Gesture.Pan()
+  .activeOffsetY([-12, 12])
+  .failOffsetX([-25, 25])
+  .onStart(() => {
+    'worklet';
+    fullStartY.value = fullTranslateY.value;
+  })
+  .onUpdate((event) => {
+    'worklet';
+    if (event.translationY < 0) {
+      // Dragging UP towards full screen
+      const currentY = Math.max(0, HIDDEN_OFFSET + event.translationY * 1.25);
+      fullTranslateY.value = currentY;
+    }
+  })
+  .onEnd((event) => {
+    'worklet';
+    if (event.translationY < -45 || event.velocityY < -280) {
+      fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
+        if (finished) {
+          runOnJS(syncModalState)(true);
+        }
+      });
     } else {
       fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
+      runOnJS(triggerCollapseHandover)();
     }
-  }, [isPlayerModalVisible, currentTrack, HIDDEN_OFFSET]);
-
-  const expandToFull = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPlayerModalVisible(true);
-    fullTranslateY.value = withSpring(0, SPRING_CONFIG);
-  }, [setPlayerModalVisible]);
-
-  // ── Intelligent Zero-Cut Collapse Handover ──
-  // Keeps UnifiedPlayerSheet persistent audio uninterrupted when collapsing to mini player
-  const triggerCollapseHandover = useCallback(() => {
-    isSwitchingModeRef.current = true;
-    setPlayerModalVisible(false);
-    setTimeout(() => {
-      isSwitchingModeRef.current = false;
-    }, 500);
-  }, [setPlayerModalVisible]);
-
-  const collapseToMini = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    triggerCollapseHandover();
-    fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
-  }, [triggerCollapseHandover, HIDDEN_OFFSET]);
-
-  // ── FullPlayer Downward Pan Dismiss Gesture (Full Viewport Coverage) ──
-  const fullPanGesture = Gesture.Pan()
-    .activeOffsetY([8, 8])
-    .failOffsetX([-24, 24])
-    .onStart(() => {
-      'worklet';
-      fullStartY.value = fullTranslateY.value;
-    })
-    .onUpdate((event) => {
-      'worklet';
-      if (isScrubbingTimeline.value || isVideoFullscreenSV.value) return;
-      if (event.translationY > 0) {
-        fullTranslateY.value = event.translationY;
-      }
-    })
-    .onEnd((event) => {
-      'worklet';
-      if (isScrubbingTimeline.value || isVideoFullscreenSV.value) {
-        fullTranslateY.value = withSpring(0, SPRING_CONFIG);
-        return;
-      }
-      if (event.translationY > 100 || event.velocityY > 350) {
-        runOnJS(triggerCollapseHandover)();
-        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
-      } else {
-        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
-          if (finished) {
-            runOnJS(syncModalState)(true);
-          }
-        });
-      }
-    });
-
-  // ── MiniPlayer Upward Pan Expand Gesture (Continuous 120 FPS Touch Tracking) ──
-  const miniPanGesture = Gesture.Pan()
-    .activeOffsetY([-12, 12])
-    .failOffsetX([-25, 25])
-    .onStart(() => {
-      'worklet';
-      fullStartY.value = fullTranslateY.value;
-    })
-    .onUpdate((event) => {
-      'worklet';
-      if (event.translationY < 0) {
-        // Dragging UP towards full screen
-        const currentY = Math.max(0, HIDDEN_OFFSET + event.translationY * 1.25);
-        fullTranslateY.value = currentY;
-      }
-    })
-    .onEnd((event) => {
-      'worklet';
-      if (event.translationY < -50 || event.velocityY < -300) {
-        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
-          if (finished) {
-            runOnJS(syncModalState)(true);
-          }
-        });
-      } else {
-        runOnJS(triggerCollapseHandover)();
-        fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
-      }
-    });
-
-  // ── 120 FPS GPU FullPlayer Animated Style (Hardware Display & Z-Index Guard) ──
-  const animatedFullStyle = useAnimatedStyle(() => {
-    const isVisible = fullTranslateY.value < (SCREEN_HEIGHT > 0 ? SCREEN_HEIGHT * 0.92 : 750);
-    return {
-      transform: [{ translateY: fullTranslateY.value }],
-      opacity: 1, // 🛡️ Keep opacity 1 so WebKit never suspends/freezes media decoding when sheet is collapsed
-      zIndex: isVisible ? 100000 : -10, // 🛡️ Send far behind when collapsed so it never shows behind mini player
-    };
   });
 
-  // ── Full Player Ambient Canvas Backdrop Fade (Smooth entrance, 0 opacity when collapsed) ──
-  const animatedBackdropStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      fullTranslateY.value,
-      [SCREEN_HEIGHT * 0.5, 0],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity: progress,
-    };
-  });
-
-  // ── Zero-Unmount 120 FPS GPU MiniPlayer Animated Style ──
-  const animatedMiniStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      fullTranslateY.value,
-      [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
-      [0, 0.25, 1],
-      Extrapolation.CLAMP
-    );
-    const horizontalEdge = interpolate(
-      miniDockMorph.value,
-      [0, 1],
-      [MINI_MARGIN_H, MINI_MARGIN_H + DOCK_CIRCLE_SIZE + 8],
-      Extrapolation.CLAMP
-    );
-    const dynamicHeight = interpolate(
-      miniDockMorph.value,
-      [0, 1],
-      [MINI_PLAYER_HEIGHT, COMPACT_DOCK_HEIGHT],
-      Extrapolation.CLAMP
-    );
-
-    return {
-      opacity: isNativeHandlingSV.value ? 0 : progress,
-      left: horizontalEdge,
-      right: horizontalEdge,
-      height: dynamicHeight,
-      borderRadius: dynamicHeight / 2,
-      transform: [
-        { translateY: dockTranslateY.value },
-        {
-          scale: interpolate(
-            progress,
-            [0, 1],
-            [0.92, 1],
-            Extrapolation.CLAMP
-          ),
-        },
-      ],
-    };
-  });
-
-  const animatedSideCircleLeftStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      fullTranslateY.value,
-      [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
-      [0, 0, 1],
-      Extrapolation.CLAMP
-    );
-    const morph = miniDockMorph.value;
-    return {
-      opacity: isNativeHandlingSV.value ? 0 : progress * morph,
-      transform: [
-        { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
-        { translateX: interpolate(morph, [0, 1], [-22, 0], Extrapolation.CLAMP) },
-      ],
-    };
-  });
-
-  const animatedSideCircleRightStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      fullTranslateY.value,
-      [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
-      [0, 0, 1],
-      Extrapolation.CLAMP
-    );
-    const morph = miniDockMorph.value;
-    return {
-      opacity: isNativeHandlingSV.value ? 0 : progress * morph,
-      transform: [
-        { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
-        { translateX: interpolate(morph, [0, 1], [22, 0], Extrapolation.CLAMP) },
-      ],
-    };
-  });
-
-  const animatedMiniNextStyle = useAnimatedStyle(() => {
-    const morph = miniDockMorph.value;
-    return {
-      opacity: interpolate(morph, [0, 0.55], [1, 0], Extrapolation.CLAMP),
-      width: interpolate(morph, [0, 0.7], [30, 0], Extrapolation.CLAMP),
-      marginLeft: interpolate(morph, [0, 0.7], [6, 0], Extrapolation.CLAMP),
-      overflow: 'hidden' as const,
-    };
-  });
-
-  const tint = useMemo(() => getTrackAtmosphericTint(currentTrack, isDark), [currentTrack, isDark]);
-
-  // ── YouTube Music Ultra-HD Studio Artwork Cascade (1200x1200bb / 1080p HD, zero black bars) ──
-  const heroArtworkSources = useMemo(() => {
-    return getUniversalStudioArtworkSource(
-      currentTrack?.thumbnail,
-      currentTrack?.title,
-      currentTrack?.artist,
-      currentTrack?.videoId
-    );
-  }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
-
-  const heroArtworkUrl = useMemo(() => {
-    return getUniversalStudioArtwork(
-      currentTrack?.thumbnail,
-      currentTrack?.title,
-      currentTrack?.artist,
-      currentTrack?.videoId
-    );
-  }, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
-
-  const handleShare = async () => {
-    if (!currentTrack) return;
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await Share.share({
-        title: currentTrack.title,
-        message: `${currentTrack.title} — ${currentTrack.artist}\nhttps://music.youtube.com/watch?v=${currentTrack.videoId}`,
-      });
-    } catch (e) { }
+// ── 120 FPS GPU FullPlayer Animated Style (Hardware Display & Z-Index Guard) ──
+const animatedFullStyle = useAnimatedStyle(() => {
+  const isVisible = fullTranslateY.value < (SCREEN_HEIGHT > 0 ? SCREEN_HEIGHT * 0.92 : 750);
+  return {
+    transform: [{ translateY: fullTranslateY.value }],
+    opacity: 1, // 🛡️ Keep opacity 1 so WebKit never suspends/freezes media decoding when sheet is collapsed
+    zIndex: isVisible ? 100000 : -10, // 🛡️ Send far behind when collapsed so it never shows behind mini player
   };
+});
 
-  const navigateToStackOrTab = useCallback(
-    (screen: string, params?: any) => {
-      if (navigationRef.isReady()) {
-        navigationRef.navigate('MainTabs', { screen, params });
-      } else {
-        navigation.navigate(screen, params);
-      }
-    },
-    [navigation]
+// ── Zero-Unmount 120 FPS GPU MiniPlayer Animated Style ──
+const animatedMiniStyle = useAnimatedStyle(() => {
+  const progress = interpolate(
+    fullTranslateY.value,
+    [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
+    [0, 0.25, 1],
+    Extrapolation.CLAMP
+  );
+  const horizontalEdge = interpolate(
+    miniDockMorph.value,
+    [0, 1],
+    [MINI_MARGIN_H, MINI_MARGIN_H + DOCK_CIRCLE_SIZE + 8],
+    Extrapolation.CLAMP
+  );
+  const dynamicHeight = interpolate(
+    miniDockMorph.value,
+    [0, 1],
+    [MINI_PLAYER_HEIGHT, COMPACT_DOCK_HEIGHT],
+    Extrapolation.CLAMP
   );
 
-  const handleDockNavigateTab = useCallback(
-    (tabKey: 'DashboardTab' | 'SearchTab') => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      useAudioStore.getState().setCurrentRouteName(tabKey);
-      if (navigationRef.isReady()) {
-        navigationRef.navigate('MainTabs', {
-          screen: 'Tabs',
-          params: { screen: tabKey },
-        });
-      } else {
-        navigation.navigate('Tabs', { screen: tabKey });
-      }
-    },
-    [navigation]
-  );
+  return {
+    opacity: progress,
+    left: horizontalEdge,
+    right: horizontalEdge,
+    height: dynamicHeight,
+    borderRadius: dynamicHeight / 2,
+    transform: [
+      { translateY: dockTranslateY.value },
+      {
+        scale: interpolate(
+          progress,
+          [0, 1],
+          [0.92, 1],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  };
+});
 
-  const handleAddToLibraryPress = useCallback(async () => {
-    if (!currentTrack) return;
-    const savedNow = await toggleSaveTrackToLibrary(currentTrack);
-    ToastManager.show({
-      title: savedNow
-        ? isAr
-          ? 'تمت الإضافة إلى مكتبتك'
-          : 'Added to Library'
-        : isAr
+const animatedSideCircleLeftStyle = useAnimatedStyle(() => {
+  const progress = interpolate(
+    fullTranslateY.value,
+    [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
+    [0, 0, 1],
+    Extrapolation.CLAMP
+  );
+  const morph = miniDockMorph.value;
+  return {
+    opacity: progress * morph,
+    transform: [
+      { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+      { translateX: interpolate(morph, [0, 1], [-22, 0], Extrapolation.CLAMP) },
+    ],
+  };
+});
+
+const animatedSideCircleRightStyle = useAnimatedStyle(() => {
+  const progress = interpolate(
+    fullTranslateY.value,
+    [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
+    [0, 0, 1],
+    Extrapolation.CLAMP
+  );
+  const morph = miniDockMorph.value;
+  return {
+    opacity: progress * morph,
+    transform: [
+      { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+      { translateX: interpolate(morph, [0, 1], [22, 0], Extrapolation.CLAMP) },
+    ],
+  };
+});
+
+const animatedMiniNextStyle = useAnimatedStyle(() => {
+  const morph = miniDockMorph.value;
+  return {
+    opacity: interpolate(morph, [0, 0.55], [1, 0], Extrapolation.CLAMP),
+    width: interpolate(morph, [0, 0.7], [30, 0], Extrapolation.CLAMP),
+    marginLeft: interpolate(morph, [0, 0.7], [6, 0], Extrapolation.CLAMP),
+    overflow: 'hidden' as const,
+  };
+});
+
+const tint = useMemo(() => getTrackAtmosphericTint(currentTrack, isDark), [currentTrack, isDark]);
+
+// ── YouTube Music Ultra-HD Studio Artwork Cascade (1200x1200bb / 1080p HD, zero black bars) ──
+const heroArtworkSources = useMemo(() => {
+  return getUniversalStudioArtworkSource(
+    currentTrack?.thumbnail,
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.videoId
+  );
+}, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
+
+const heroArtworkUrl = useMemo(() => {
+  return getUniversalStudioArtwork(
+    currentTrack?.thumbnail,
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.videoId
+  );
+}, [currentTrack?.videoId, currentTrack?.thumbnail, currentTrack?.title, currentTrack?.artist]);
+
+const handleShare = async () => {
+  if (!currentTrack) return;
+  try {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await Share.share({
+      title: currentTrack.title,
+      message: `${currentTrack.title} — ${currentTrack.artist}\nhttps://music.youtube.com/watch?v=${currentTrack.videoId}`,
+    });
+  } catch (e) { }
+};
+
+const navigateToStackOrTab = useCallback(
+  (screen: string, params?: any) => {
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('MainTabs', { screen, params });
+    } else {
+      navigation.navigate(screen, params);
+    }
+  },
+  [navigation]
+);
+
+const handleDockNavigateTab = useCallback(
+  (tabKey: 'DashboardTab' | 'SearchTab') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    useAudioStore.getState().setCurrentRouteName(tabKey);
+    useAudioStore.getState().requestTabSwitch(tabKey);
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('MainTabs', {
+        screen: 'Tabs',
+        params: { screen: tabKey },
+      });
+    } else {
+      navigation.navigate('Tabs', { screen: tabKey });
+    }
+  },
+  [navigation]
+);
+
+const handleAddToLibraryPress = useCallback(async () => {
+  if (!currentTrack) return;
+  const savedNow = await toggleSaveTrackToLibrary(currentTrack);
+  ToastManager.show({
+    title: savedNow
+      ? isAr
+        ? 'تمت الإضافة إلى مكتبتك'
+        : 'Added to Library'
+      : isAr
         ? 'تمت الإزالة من مكتبتك'
         : 'Removed from Library',
-      subtitle: currentTrack.title,
-      icon: savedNow ? 'checkmark-circle' : 'remove-circle-outline',
-      duration: 2200,
-    });
-  }, [currentTrack, toggleSaveTrackToLibrary, isAr]);
+    subtitle: currentTrack.title,
+    icon: savedNow ? 'checkmark-circle' : 'remove-circle-outline',
+    duration: 2200,
+  });
+}, [currentTrack, toggleSaveTrackToLibrary, isAr]);
 
-  const handleOpenTrackMenu = useCallback(() => {
-    if (!currentTrack) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowPlaylistPicker(false);
-    setTrackMenuVisible(true);
-    if (user?.id) {
-      setLoadingPlaylists(true);
-      getFirebasePlaylists(user.id)
-        .then((pls) => setUserPlaylists(pls))
-        .catch(() => {})
-        .finally(() => setLoadingPlaylists(false));
-    }
-  }, [currentTrack, user?.id]);
+const handleOpenTrackMenu = useCallback(() => {
+  if (!currentTrack) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  setShowPlaylistPicker(false);
+  setTrackMenuVisible(true);
+  if (user?.id) {
+    setLoadingPlaylists(true);
+    getFirebasePlaylists(user.id)
+      .then((pls) => setUserPlaylists(pls))
+      .catch(() => { })
+      .finally(() => setLoadingPlaylists(false));
+  }
+}, [currentTrack, user?.id]);
 
-  const handleGoToArtist = useCallback(() => {
-    if (!currentTrack?.artist) return;
+const handleGoToArtist = useCallback(() => {
+  if (!currentTrack?.artist) return;
+  setTrackMenuVisible(false);
+  collapseToMini();
+  navigateToStackOrTab('ArtistDetail', {
+    artistName: currentTrack.artist,
+    artistAvatar: currentTrack.artistAvatar,
+  });
+}, [currentTrack, collapseToMini, navigateToStackOrTab]);
+
+const handleGoToAlbum = useCallback(async () => {
+  if (!currentTrack) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  setResolvingAlbum(true);
+  try {
+    const resolved = await resolveTrackAlbumAsync(currentTrack);
     setTrackMenuVisible(false);
     collapseToMini();
-    navigateToStackOrTab('ArtistDetail', {
-      artistName: currentTrack.artist,
-      artistAvatar: currentTrack.artistAvatar,
-    });
-  }, [currentTrack, collapseToMini, navigateToStackOrTab]);
-
-  const handleGoToAlbum = useCallback(async () => {
-    if (!currentTrack) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setResolvingAlbum(true);
-    try {
-      const resolved = await resolveTrackAlbumAsync(currentTrack);
-      setTrackMenuVisible(false);
-      collapseToMini();
-      if (resolved) {
-        navigateToStackOrTab('AlbumDetails', {
-          playlistId: resolved.id,
-          albumTitle: resolved.title,
-          artistName: resolved.artist,
-          cover: resolved.cover || currentTrack.thumbnail || '',
-          type: resolved.type || 'album',
-        });
-      } else {
-        const fallbackTitle = currentTrack.album || currentContextName || currentTrack.title;
-        navigateToStackOrTab('AlbumDetails', {
-          albumTitle: fallbackTitle,
-          artistName: currentTrack.artist || 'Artist',
-          cover: currentTrack.thumbnail || '',
-          type: 'single',
-          album: {
-            id: `sng-${currentTrack.videoId}`,
-            title: fallbackTitle,
-            artist: currentTrack.artist || 'Artist',
-            thumbnail: currentTrack.thumbnail || '',
-            tracks: [currentTrack],
-          },
-        });
-      }
-    } finally {
-      setResolvingAlbum(false);
+    if (resolved) {
+      navigateToStackOrTab('AlbumDetails', {
+        playlistId: resolved.id,
+        albumTitle: resolved.title,
+        artistName: resolved.artist,
+        cover: resolved.cover || currentTrack.thumbnail || '',
+        type: resolved.type || 'album',
+      });
+    } else {
+      const fallbackTitle = currentTrack.album || currentContextName || currentTrack.title;
+      navigateToStackOrTab('AlbumDetails', {
+        albumTitle: fallbackTitle,
+        artistName: currentTrack.artist || 'Artist',
+        cover: currentTrack.thumbnail || '',
+        type: 'single',
+        album: {
+          id: `sng-${currentTrack.videoId}`,
+          title: fallbackTitle,
+          artist: currentTrack.artist || 'Artist',
+          thumbnail: currentTrack.thumbnail || '',
+          tracks: [currentTrack],
+        },
+      });
     }
-  }, [currentTrack, currentContextName, collapseToMini, navigateToStackOrTab]);
+  } finally {
+    setResolvingAlbum(false);
+  }
+}, [currentTrack, currentContextName, collapseToMini, navigateToStackOrTab]);
 
-  const handleAddTrackToPlaylist = useCallback(
-    async (pl: UserPlaylist) => {
-      if (!user?.id || !currentTrack) return;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const ok = await addTrackToFirebasePlaylist(user.id, pl.id, currentTrack);
-      if (ok) {
-        setTrackMenuVisible(false);
-        ToastManager.show({
-          title: isAr ? `تمت الإضافة إلى "${pl.name}"` : `Added to "${pl.name}"`,
-          subtitle: currentTrack.title,
-          icon: 'checkmark-circle',
-          duration: 2400,
-        });
-      }
-    },
-    [user?.id, currentTrack, isAr]
-  );
+const handleAddTrackToPlaylist = useCallback(
+  async (pl: UserPlaylist) => {
+    if (!user?.id || !currentTrack) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const ok = await addTrackToFirebasePlaylist(user.id, pl.id, currentTrack);
+    if (ok) {
+      setTrackMenuVisible(false);
+      ToastManager.show({
+        title: isAr ? `تمت الإضافة إلى "${pl.name}"` : `Added to "${pl.name}"`,
+        subtitle: currentTrack.title,
+        icon: 'checkmark-circle',
+        duration: 2400,
+      });
+    }
+  },
+  [user?.id, currentTrack, isAr]
+);
 
-  const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
-  if (!currentTrack || isMiniPlayerSuppressed || isAuthScreen) return null;
+const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
+if (isMiniPlayerSuppressed || isAuthScreen) return null;
 
-  const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
-  const isSavedInLibrary = currentTrack ? savedLibraryTrackIds.includes(currentTrack.videoId) : false;
-  const resolvedArtistAvatar = getUniversalArtistAvatar(
-    currentTrack.artistAvatar,
-    currentTrack.artist
-  );
+// Render at minimum the scroll-collapsed [Home] & [Search] quick dock on Artist/Album/Music screens even when no song is queued
+const showQuickDockWithoutTrack =
+  !currentTrack && isCompactDockActive && currentRouteName !== 'DashboardTab';
+if (!currentTrack && !showQuickDockWithoutTrack) return null;
 
-  return (
-    <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* ── Flanking Liquid Glass Home Circle (Scroll-Collapsed Stack Dock) ── */}
-      {!isNativeAccessoryHandlingMiniPlayer && (
-        <Animated.View
+const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
+const isSavedInLibrary = currentTrack ? savedLibraryTrackIds.includes(currentTrack.videoId) : false;
+const resolvedArtistAvatar = getUniversalArtistAvatar(
+  currentTrack?.artistAvatar,
+  currentTrack?.artist
+);
+
+return (
+  <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    {/* ── Flanking Liquid Glass Home Circle (Scroll-Collapsed Dock on Tabs & Stack Screens) ── */}
+    <Animated.View
+      style={[
+        styles.dockSideCircleLeft,
+        { bottom: stackDockBottom },
+        animatedSideCircleLeftStyle,
+      ]}
+      pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
+    >
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => handleDockNavigateTab('DashboardTab')}
+      >
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isInteractive
+          isDark={isDark}
+          borderRadius={DOCK_CIRCLE_SIZE / 2}
           style={[
-            styles.dockSideCircleLeft,
-            { bottom: stackDockBottom },
-            animatedSideCircleLeftStyle,
+            styles.dockCircleSurface,
+            {
+              borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+            },
           ]}
-          pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
         >
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => handleDockNavigateTab('DashboardTab')}
-          >
-            <LiquidGlassSurface
-              glassStyle="regular"
-              isInteractive
-              isDark={isDark}
-              borderRadius={DOCK_CIRCLE_SIZE / 2}
-              style={[
-                styles.dockCircleSurface,
-                {
-                  borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
-                },
-              ]}
-            >
-              <Ionicons name="home" size={20} color={isDark ? '#FFFFFF' : '#0F172A'} />
-            </LiquidGlassSurface>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+          <Ionicons name="home" size={20} color={isDark ? '#FFFFFF' : '#0F172A'} />
+        </LiquidGlassSurface>
+      </TouchableOpacity>
+    </Animated.View>
 
-      {/* ── Flanking Liquid Glass Search Circle (Scroll-Collapsed Stack Dock) ── */}
-      {!isNativeAccessoryHandlingMiniPlayer && (
-        <Animated.View
+    {/* ── Flanking Liquid Glass Search Circle (Scroll-Collapsed Dock on Tabs & Stack Screens) ── */}
+    <Animated.View
+      style={[
+        styles.dockSideCircleRight,
+        { bottom: stackDockBottom },
+        animatedSideCircleRightStyle,
+      ]}
+      pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
+    >
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => handleDockNavigateTab('SearchTab')}
+      >
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isInteractive
+          isDark={isDark}
+          borderRadius={DOCK_CIRCLE_SIZE / 2}
           style={[
-            styles.dockSideCircleRight,
-            { bottom: stackDockBottom },
-            animatedSideCircleRightStyle,
+            styles.dockCircleSurface,
+            {
+              borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+            },
           ]}
-          pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
         >
-          <TouchableOpacity
-            activeOpacity={0.82}
-            onPress={() => handleDockNavigateTab('SearchTab')}
-          >
-            <LiquidGlassSurface
-              glassStyle="regular"
-              isInteractive
-              isDark={isDark}
-              borderRadius={DOCK_CIRCLE_SIZE / 2}
-              style={[
-                styles.dockCircleSurface,
-                {
-                  borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
-                },
-              ]}
-            >
-              <Ionicons name="search" size={20} color="#0A84FF" />
-            </LiquidGlassSurface>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+          <Ionicons name="search" size={20} color="#0A84FF" />
+        </LiquidGlassSurface>
+      </TouchableOpacity>
+    </Animated.View>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          1. FLOATING PILL MINIPLAYER (Scroll-Reactive Liquid Glass Pill)
-         ════════════════════════════════════════════════════════════════════════ */}
+    {currentTrack && (
+      <>
+        {/* ════════════════════════════════════════════════════════════════════════
+            1. FLOATING PILL MINIPLAYER (Scroll-Reactive Liquid Glass Pill)
+           ════════════════════════════════════════════════════════════════════════ */}
       <Animated.View
         style={[
           styles.miniFloatingContainer,
@@ -1538,7 +1526,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           },
           animatedMiniStyle,
         ]}
-        pointerEvents={isPlayerModalVisible || isNativeAccessoryHandlingMiniPlayer ? 'none' : 'box-none'}
+        pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
       >
         {/* Apple Native Liquid Glass Surface (Metal GPU UIGlassEffect) */}
         <LiquidGlassSurface
@@ -1657,8 +1645,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         ]}
         pointerEvents={isPlayerModalVisible ? 'auto' : 'none'}
       >
-        {/* ── 1. YouTube Music & Apple Music Ambient Canvas Backdrop Mesh (Radiates across the WHOLE screen) ── */}
-        <Animated.View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }, animatedBackdropStyle]} pointerEvents="none">
+        {/* ── 1. High-FPS Pre-Blurred Ambient Cover Backdrop (Zero Real-Time Framebuffer Lag) ── */}
+        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]} pointerEvents="none">
           {/* Deep Base Ground */}
           <View
             style={[
@@ -1667,7 +1655,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             ]}
           />
 
-          {/* Layer A: Pure GPU Blurred Cover Art (100% True Authentic Colors of the Album Art across the entire viewport) */}
+          {/* Layer A: Pre-Blurred Cover Art */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
@@ -1675,49 +1663,42 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 StyleSheet.absoluteFill,
                 {
                   transform: [{ scale: 1.45 }],
-                  opacity: 1, // 🛡️ 100% full authentic vibrancy of the real cover image!
+                  opacity: isDark ? 0.88 : 0.65,
                 },
               ]}
               contentFit="cover"
-              blurRadius={Platform.OS === 'ios' ? 42 : 28}
+              blurRadius={Platform.OS === 'ios' ? 54 : 32}
               priority="high"
               cachePolicy="memory-disk"
-              transition={400}
+              transition={220}
             />
           )}
 
-          {/* Layer B: Cinematic Vignette & Atmospheric Contrast Mesh (Transparent Center so Real Cover Glows 100%) */}
+          {/* Layer B: Calibrated Vignette & Contrast Veil */}
           <LinearGradient
             colors={
               isDark
                 ? [
-                  'rgba(0, 0, 0, 0.42)',     // Top: Protects header icons & status bar
-                  'rgba(0, 0, 0, 0.05)',     // Upper center: pure cover colors shine
-                  'rgba(0, 0, 0, 0.00)',     // Dead center: 100% pure authentic cover art colors!
-                  'rgba(6, 8, 12, 0.50)',    // Lower center: subtle cinematic transition
-                  'rgba(6, 8, 12, 0.94)',    // Bottom: solid velvet contrast for electric buttons & scrubber!
-                ]
+                    'rgba(8, 10, 14, 0.52)',
+                    'rgba(8, 10, 14, 0.24)',
+                    'rgba(8, 10, 14, 0.32)',
+                    'rgba(6, 8, 12, 0.68)',
+                    'rgba(6, 8, 12, 0.94)',
+                  ]
                 : [
-                  'rgba(255, 255, 255, 0.55)',
-                  'rgba(255, 255, 255, 0.10)',
-                  'rgba(255, 255, 255, 0.00)',
-                  'rgba(240, 242, 245, 0.45)',
-                  'rgba(240, 242, 245, 0.94)',
-                ]
+                    'rgba(248, 250, 252, 0.64)',
+                    'rgba(248, 250, 252, 0.38)',
+                    'rgba(245, 247, 250, 0.44)',
+                    'rgba(240, 242, 245, 0.72)',
+                    'rgba(240, 242, 245, 0.94)',
+                  ]
             }
-            locations={[0, 0.22, 0.48, 0.75, 1]}
+            locations={[0, 0.24, 0.48, 0.76, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-
-          {/* Layer C: Subtle Apple Music Glass Diffusion (feathered so colors glow smoothly) */}
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 30 : 18}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+        </View>
 
         {/* Viewport-Locked Fixed Content - Full Viewport Swipe-to-Dismiss */}
         <GestureDetector gesture={fullPanGesture}>
@@ -1739,33 +1720,27 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 <View
                   style={[
                     styles.grabBar,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)' },
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.22)' },
                   ]}
                 />
               </View>
 
-              {/* 1. Balanced 3-Slot Liquid Glass Header */}
+              {/* 1. Balanced 3-Slot Specular Glass Header */}
               <View style={styles.fullHeaderThreeSlot}>
                 <View style={styles.headerSlotSide}>
                   <TouchableOpacity
                     onPress={collapseToMini}
-                    activeOpacity={0.8}
+                    activeOpacity={0.78}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={[
+                      styles.headerGlassCircle,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
                   >
-                    <LiquidGlassSurface
-                      glassStyle="regular"
-                      isInteractive
-                      isDark={isDark}
-                      borderRadius={19}
-                      style={[
-                        styles.headerGlassCircle,
-                        {
-                          borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="chevron-down" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
-                    </LiquidGlassSurface>
+                    <Ionicons name="chevron-down" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
@@ -1857,35 +1832,29 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                   <TouchableOpacity
                     onPress={handleDownloadPress}
                     disabled={isDownloading}
-                    activeOpacity={0.8}
+                    activeOpacity={0.78}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={[
+                      styles.headerGlassCircle,
+                      {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
                   >
-                    <LiquidGlassSurface
-                      glassStyle="regular"
-                      isInteractive
-                      isDark={isDark}
-                      borderRadius={19}
-                      style={[
-                        styles.headerGlassCircle,
-                        {
-                          borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
-                        },
-                      ]}
-                    >
-                      {isDownloading ? (
-                        <View style={styles.downloadSpinnerWrap}>
-                          <ActivityIndicator size="small" color="#10B981" />
-                        </View>
-                      ) : isDownloaded ? (
-                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                      ) : (
-                        <Ionicons
-                          name="arrow-down-outline"
-                          size={19}
-                          color={isDark ? '#FFFFFF' : theme.textPrimary}
-                        />
-                      )}
-                    </LiquidGlassSurface>
+                    {isDownloading ? (
+                      <View style={styles.downloadSpinnerWrap}>
+                        <ActivityIndicator size="small" color="#10B981" />
+                      </View>
+                    ) : isDownloaded ? (
+                      <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                    ) : (
+                      <Ionicons
+                        name="arrow-down-outline"
+                        size={19}
+                        color={isDark ? '#FFFFFF' : theme.textPrimary}
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1955,101 +1924,89 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               </View>
 
               <View style={styles.metaActionsRow}>
-                {/* + Add to Library Liquid Glass Button */}
+                {/* + Add to Library Specular Glass Button */}
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={0.78}
                   hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                   onPress={handleAddToLibraryPress}
-                >
-                  <LiquidGlassSurface
-                    glassStyle="regular"
-                    isInteractive
-                    isDark={isDark}
-                    tintColor={isSavedInLibrary ? 'rgba(52, 211, 153, 0.24)' : undefined}
-                    borderRadius={18}
-                    style={[
-                      styles.metaGlassCircle,
-                      {
-                        borderColor: isSavedInLibrary
-                          ? 'rgba(52, 211, 153, 0.55)'
-                          : isDark
-                          ? 'rgba(255,255,255,0.18)'
+                  style={[
+                    styles.metaGlassCircle,
+                    {
+                      backgroundColor: isSavedInLibrary
+                        ? 'rgba(52, 211, 153, 0.24)'
+                        : isDark
+                          ? 'rgba(255,255,255,0.14)'
+                          : 'rgba(15,23,42,0.08)',
+                      borderColor: isSavedInLibrary
+                        ? 'rgba(52, 211, 153, 0.55)'
+                        : isDark
+                          ? 'rgba(255,255,255,0.22)'
                           : 'rgba(0,0,0,0.08)',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={isSavedInLibrary ? 'checkmark' : 'add'}
-                      size={20}
-                      color={
-                        isSavedInLibrary
-                          ? '#34D399'
-                          : isDark
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isSavedInLibrary ? 'checkmark' : 'add'}
+                    size={20}
+                    color={
+                      isSavedInLibrary
+                        ? '#34D399'
+                        : isDark
                           ? '#FFFFFF'
                           : theme.textPrimary
-                      }
-                    />
-                  </LiquidGlassSurface>
+                    }
+                  />
                 </TouchableOpacity>
 
-                {/* ♥ Favorite Liquid Glass Button */}
+                {/* ♥ Favorite Specular Glass Button */}
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={0.78}
                   hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     toggleLike(currentTrack);
                   }}
-                >
-                  <LiquidGlassSurface
-                    glassStyle="regular"
-                    isInteractive
-                    isDark={isDark}
-                    tintColor={isLiked ? 'rgba(255, 55, 95, 0.22)' : undefined}
-                    borderRadius={18}
-                    style={[
-                      styles.metaGlassCircle,
-                      {
-                        borderColor: isLiked
-                          ? 'rgba(255, 55, 95, 0.55)'
-                          : isDark
-                          ? 'rgba(255,255,255,0.18)'
+                  style={[
+                    styles.metaGlassCircle,
+                    {
+                      backgroundColor: isLiked
+                        ? 'rgba(255, 55, 95, 0.22)'
+                        : isDark
+                          ? 'rgba(255,255,255,0.14)'
+                          : 'rgba(15,23,42,0.08)',
+                      borderColor: isLiked
+                        ? 'rgba(255, 55, 95, 0.55)'
+                        : isDark
+                          ? 'rgba(255,255,255,0.22)'
                           : 'rgba(0,0,0,0.08)',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={isLiked ? 'heart' : 'heart-outline'}
-                      size={18}
-                      color={isLiked ? '#FF375F' : isDark ? '#FFFFFF' : theme.textPrimary}
-                    />
-                  </LiquidGlassSurface>
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={isLiked ? 'heart' : 'heart-outline'}
+                    size={18}
+                    color={isLiked ? '#FF375F' : isDark ? '#FFFFFF' : theme.textPrimary}
+                  />
                 </TouchableOpacity>
 
                 {/* ⋯ Three-Dot Apple Music Options Menu */}
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={0.78}
                   hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
                   onPress={handleOpenTrackMenu}
+                  style={[
+                    styles.metaGlassCircle,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+                    },
+                  ]}
                 >
-                  <LiquidGlassSurface
-                    glassStyle="regular"
-                    isInteractive
-                    isDark={isDark}
-                    borderRadius={18}
-                    style={[
-                      styles.metaGlassCircle,
-                      {
-                        borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name="ellipsis-horizontal"
-                      size={18}
-                      color={isDark ? '#FFFFFF' : theme.textPrimary}
-                    />
-                  </LiquidGlassSurface>
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={18}
+                    color={isDark ? '#FFFFFF' : theme.textPrimary}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -2268,8 +2225,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                           ? 'تتابع'
                           : 'Following'
                         : isAr
-                        ? '+ متابعة'
-                        : '+ Follow'}
+                          ? '+ متابعة'
+                          : '+ Follow'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2799,8 +2756,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         ? 'مضافة في مكتبتك (إزالة)'
                         : 'Saved in Library (Remove)'
                       : isAr
-                      ? 'إضافة إلى المكتبة'
-                      : 'Add to Library'}
+                        ? 'إضافة إلى المكتبة'
+                        : 'Add to Library'}
                   </Text>
                 </TouchableOpacity>
 
@@ -2907,8 +2864,8 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         ? 'إزالة من المفضلة'
                         : 'Remove from Favorites'
                       : isAr
-                      ? 'إضافة إلى المفضلة'
-                      : 'Favorite'}
+                        ? 'إضافة إلى المفضلة'
+                        : 'Favorite'}
                   </Text>
                 </TouchableOpacity>
 
@@ -2954,7 +2911,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           </TouchableOpacity>
         </Modal>
       </Animated.View>
-    </GestureHandlerRootView>
+    </>
+  )
+}
+    </GestureHandlerRootView >
   );
 });
 

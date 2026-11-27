@@ -45,6 +45,7 @@ const TabNavigator = ({ route }: any) => {
   }, [route?.params?.screen]);
 
   const [activeTab, setActiveTab] = useState(initialIndex);
+  const requestedTabSwitch = useAudioStore((s) => s.requestedTabSwitch);
 
   // Sync only when external route.params.screen changes (never snap back on manual tab switch)
   useEffect(() => {
@@ -56,6 +57,16 @@ const TabNavigator = ({ route }: any) => {
       }
     }
   }, [route?.params?.screen]);
+
+  // Sync immediate tab switches triggered from Quick Dock Home/Search circles
+  useEffect(() => {
+    if (requestedTabSwitch?.key) {
+      const idx = TAB_ROUTES.indexOf(requestedTabSwitch.key);
+      if (idx !== -1) {
+        setActiveTab(idx);
+      }
+    }
+  }, [requestedTabSwitch]);
 
   const tabs = useMemo(
     () => [

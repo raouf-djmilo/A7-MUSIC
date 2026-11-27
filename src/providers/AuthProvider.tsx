@@ -73,8 +73,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const storedToken = pairs[0]?.[1];
         const storedUser = pairs[1]?.[1];
         if (storedToken && storedUser) {
+          const parsedUser = JSON.parse(storedUser);
           setSession(storedToken);
-          setUser(JSON.parse(storedUser));
+          setUser(parsedUser);
+          if (parsedUser?.id) {
+            useAudioStore.getState().setActiveUserId(parsedUser.id);
+            useAudioStore.getState().fetchInitialLikes(parsedUser.id);
+          }
         }
       })
       .catch(() => {})
@@ -88,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!fbUser) {
         setSession(null);
         setUser(null);
+        useAudioStore.getState().setActiveUserId(null);
         await AsyncStorage.multiRemove(['userToken', 'userData']).catch(() => {});
         return;
       }
@@ -96,6 +102,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const token = await fbUser.getIdToken();
         setSession(token);
         await AsyncStorage.setItem('userToken', token);
+        useAudioStore.getState().setActiveUserId(fbUser.uid);
+        useAudioStore.getState().fetchInitialLikes(fbUser.uid);
 
         const profile = await getFirebaseUserProfile(fbUser.uid).catch(() => null);
         if (!isMounted) return;

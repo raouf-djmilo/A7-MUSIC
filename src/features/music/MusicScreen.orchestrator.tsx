@@ -180,7 +180,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
       onScroll={onDockScroll}
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior="never"
       removeClippedSubviews={true}
       refreshControl={
         <RefreshControl

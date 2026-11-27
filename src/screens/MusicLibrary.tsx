@@ -142,6 +142,7 @@ export const MusicLibrary = () => {
 
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
   const [firebaseSavedTracks, setFirebaseSavedTracks] = useState<any[]>([]);
+  const [firebaseLikesSynced, setFirebaseLikesSynced] = useState(false);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [cachedDnaMixes, setCachedDnaMixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -310,6 +311,14 @@ export const MusicLibrary = () => {
           duration: Math.floor((item.duration || 0) / 1000),
         }))
       );
+      if (likes.length > 0) {
+        const curIds = useAudioStore.getState().likedTrackIds;
+        const merged = Array.from(new Set([...likes.map((l) => l.videoId), ...curIds]));
+        if (merged.length !== curIds.length) {
+          useAudioStore.setState({ likedTrackIds: merged });
+        }
+      }
+      setFirebaseLikesSynced(true);
       setPlaylists(userPlaylists);
     } catch {
       // Preserve state
@@ -352,14 +361,14 @@ export const MusicLibrary = () => {
 
     for (const fb of firebaseSavedTracks) {
       if (!fb?.video_id) continue;
-      if (likedTrackIds.length > 0 && !likedTrackIds.includes(fb.video_id)) continue;
+      if ((firebaseLikesSynced || likedTrackIds.length > 0) && !likedTrackIds.includes(fb.video_id)) continue;
       if (!map.has(fb.video_id)) {
         map.set(fb.video_id, fb);
       }
     }
 
     return Array.from(map.values());
-  }, [savedLibraryTracks, guestLikedTracks, firebaseSavedTracks, likedTrackIds]);
+  }, [savedLibraryTracks, guestLikedTracks, firebaseSavedTracks, likedTrackIds, firebaseLikesSynced]);
 
   useEffect(() => {
     fetchLibrary();

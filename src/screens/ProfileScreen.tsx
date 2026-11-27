@@ -35,6 +35,7 @@ import {
 import { DynamicBottomSheet, DynamicBottomSheetRef } from '../components/DynamicBottomSheet';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { useDockScrollTracker } from '../utils/scrollDockTracker';
 
 const APPLE_AVATAR_PRESETS: Array<{ emoji: string; colors: readonly [string, string] }> = [
   { emoji: '🎧', colors: ['#38BDF8', '#007AFF'] },
@@ -67,6 +68,7 @@ export const ProfileScreen = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
   const { isDark, toggleTheme } = useTheme();
   const language = useLanguageStore((s) => s.language);
@@ -77,53 +79,53 @@ export const ProfileScreen = () => {
 
   const t = isAr
     ? {
-        title: 'حسابي',
-        guestProfile: 'حساب ضيف',
-        guestMode: 'وضع الضيف',
-        signIn: 'تسجيل الدخول',
-        signUp: 'إنشاء حساب جديد',
-        editNameBtn: 'تعديل الاسم المعروض',
-        listeningTime: 'وقت الاستماع',
-        likes: 'الإعجابات',
-        songUnit: 'أغنية',
-        accountStatus: 'حالة الحساب',
-        guestStatus: 'حساب ضيف',
-        signedInStatus: 'مسجل',
-        editSheetTitle: 'تعديل الملف الشخصي',
-        fullNameLabel: 'الاسم الكامل',
-        fullNamePlaceholder: 'الاسم المعروض',
-        usernameFixedLabel: 'اسم المستخدم (ثابت)',
-        saveChanges: 'حفظ التغييرات',
-        saving: 'جاري الحفظ...',
-        missingNameTitle: 'تنبيه',
-        missingNameBody: 'يرجى إدخال الاسم الكامل.',
-        saveErrorTitle: 'تعذر الحفظ',
-        saveErrorBody: 'حدث خطأ أثناء تحديث الاسم، يرجى المحاولة مرة أخرى.',
-      }
+      title: 'حسابي',
+      guestProfile: 'حساب ضيف',
+      guestMode: 'وضع الضيف',
+      signIn: 'تسجيل الدخول',
+      signUp: 'إنشاء حساب جديد',
+      editNameBtn: 'تعديل الاسم المعروض',
+      listeningTime: 'وقت الاستماع',
+      likes: 'الإعجابات',
+      songUnit: 'أغنية',
+      accountStatus: 'حالة الحساب',
+      guestStatus: 'حساب ضيف',
+      signedInStatus: 'مسجل',
+      editSheetTitle: 'تعديل الملف الشخصي',
+      fullNameLabel: 'الاسم الكامل',
+      fullNamePlaceholder: 'الاسم المعروض',
+      usernameFixedLabel: 'اسم المستخدم (ثابت)',
+      saveChanges: 'حفظ التغييرات',
+      saving: 'جاري الحفظ...',
+      missingNameTitle: 'تنبيه',
+      missingNameBody: 'يرجى إدخال الاسم الكامل.',
+      saveErrorTitle: 'تعذر الحفظ',
+      saveErrorBody: 'حدث خطأ أثناء تحديث الاسم، يرجى المحاولة مرة أخرى.',
+    }
     : {
-        title: 'Profile',
-        guestProfile: 'Guest Profile',
-        guestMode: 'Guest Mode',
-        signIn: 'Sign In',
-        signUp: 'Create Account',
-        editNameBtn: 'Edit Display Name',
-        listeningTime: 'Listening Time',
-        likes: 'Likes',
-        songUnit: 'songs',
-        accountStatus: 'Account Status',
-        guestStatus: 'Guest Profile',
-        signedInStatus: 'Signed In',
-        editSheetTitle: 'Edit Profile',
-        fullNameLabel: 'Full Name',
-        fullNamePlaceholder: 'Display Name',
-        usernameFixedLabel: 'Username (Fixed)',
-        saveChanges: 'Save Changes',
-        saving: 'Saving...',
-        missingNameTitle: 'Notice',
-        missingNameBody: 'Please enter your full name.',
-        saveErrorTitle: 'Save Failed',
-        saveErrorBody: 'Could not update your name, please try again.',
-      };
+      title: 'Profile',
+      guestProfile: 'Guest Profile',
+      guestMode: 'Guest Mode',
+      signIn: 'Sign In',
+      signUp: 'Create Account',
+      editNameBtn: 'Edit Display Name',
+      listeningTime: 'Listening Time',
+      likes: 'Likes',
+      songUnit: 'songs',
+      accountStatus: 'Account Status',
+      guestStatus: 'Guest Profile',
+      signedInStatus: 'Signed In',
+      editSheetTitle: 'Edit Profile',
+      fullNameLabel: 'Full Name',
+      fullNamePlaceholder: 'Display Name',
+      usernameFixedLabel: 'Username (Fixed)',
+      saveChanges: 'Save Changes',
+      saving: 'Saving...',
+      missingNameTitle: 'Notice',
+      missingNameBody: 'Please enter your full name.',
+      saveErrorTitle: 'Save Failed',
+      saveErrorBody: 'Could not update your name, please try again.',
+    };
 
   const [profile, setProfile] = useState<any>(null);
   const [firestoreLikesCount, setFirestoreLikesCount] = useState<number>(0);
@@ -326,6 +328,8 @@ export const ProfileScreen = () => {
       </View>
 
       <ScrollView
+        scrollEventThrottle={16}
+        onScroll={onDockScroll}
         contentContainerStyle={[
           styles.scrollContainer,
           { paddingBottom: miniPlayerBottomGap + 24 },

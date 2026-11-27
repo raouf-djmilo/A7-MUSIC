@@ -105,6 +105,8 @@ export interface AudioState {
   setCurrentRouteName: (name: string) => void;
   isDockMinimized: boolean;
   setDockMinimized: (minimized: boolean) => void;
+  requestedTabSwitch: { key: string; nonce: number } | null;
+  requestTabSwitch: (key: string) => void;
 
   // Saved individual tracks added via '+' (Add to Library)
   savedLibraryTracks: Track[];
@@ -320,6 +322,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ isDockMinimized: minimized });
     }
   },
+  requestedTabSwitch: null,
+  requestTabSwitch: (key: string) =>
+    set({
+      requestedTabSwitch: { key, nonce: Date.now() },
+      currentRouteName: key,
+      isDockMinimized: false,
+    }),
   savedLibraryTracks: [],
   savedLibraryTrackIds: [],
   guestLikedTracks: [],
@@ -512,6 +521,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
       if (!get().activeUserId && Array.isArray(parsedGuestIds) && get().likedTrackIds.length === 0) {
         updateObj.likedTrackIds = parsedGuestIds;
+      } else if (Array.isArray(parsedGuestIds) && get().likedTrackIds.length === 0 && parsedGuestIds.length > 0) {
+        updateObj.likedTrackIds = parsedGuestIds;
       }
       set(updateObj);
     } catch (e) {
@@ -606,7 +617,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   fetchInitialLikes: async (userId) => {
     try {
       const liked = await getFirebaseLikedSongs(userId);
-      set({ likedTrackIds: liked.map((d) => d.videoId) });
+      const { likedTrackIds, guestLikedTracks } = get();
+      const mergedIds = Array.from(
+        new Set([...liked.map((d) => d.videoId), ...likedTrackIds])
+      );
+      const mapByVid = new Map<string, Track>();
+      for (const tr of [...liked, ...guestLikedTracks]) {
+        if (tr?.videoId && !mapByVid.has(tr.videoId)) {
+          mapByVid.set(tr.videoId, tr);
+        }
+      }
+      const mergedTracks = Array.from(mapByVid.values());
+      set({ likedTrackIds: mergedIds, guestLikedTracks: mergedTracks });
+      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(mergedIds)).catch(() => {});
+      AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(mergedTracks)).catch(() => {});
     } catch (e) {
       console.warn('[AudioStore] Fetch likes error:', e);
     }

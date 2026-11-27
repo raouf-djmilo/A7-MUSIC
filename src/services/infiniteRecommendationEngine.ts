@@ -292,6 +292,7 @@ export function analyzeUserVibe(
   }
 
   if (related.length === 0) {
+    related = ['Soolking', 'Djalil Palermo', 'Didine Canon 16', 'Cheb Khaled', 'Mouh Milano'];
     // Derive related artists dynamically from user's history + learned taste cache (zero hardcoded artists)
     const historyArtists = Array.from(
       new Set(
@@ -302,9 +303,9 @@ export function analyzeUserVibe(
     ).slice(0, 5);
     const learnedTop = inMemoryTasteCache
       ? Object.entries(inMemoryTasteCache.artistScores)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([name]) => name)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name]) => name)
       : [];
     related = Array.from(new Set([...historyArtists, ...learnedTop]));
   }
