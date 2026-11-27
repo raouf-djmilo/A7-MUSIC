@@ -1,13 +1,13 @@
 {
-  "id": "ca1f5f1b-6026-4049-b13b-d494069a7cdb",
-  "createdAt": "2026-11-27T14:36:27.301Z",
+  "id": "7e1bf48d-1f4f-459f-a70d-bbd211ecd4b8",
+  "createdAt": "2026-11-27T14:48:51.394Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "PnB8sAL3arsxJaUlNrXm9Nud_Kp8AZKfFF3Ii9DrPh8",
-    "key": "e6a5155efa02e58493157358a79e8fdd",
+    "hash": "LROn_9AYkWGMgmKP5KSB8xnEo2vnvNRZzdEwPq7jM8M",
+    "key": "44cc42a3b5de6d253af4999f569767f0",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-4e1e22b2ba3936d2394e7adcb6d0e894.hbc"
+    "url": "./_expo/static/js/ios/index-56b0c0d2a7d228791fd4afdaf4515164.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.0c6bf01",
+      "otaVersion": "1.6.5-ota.dc7a4bb",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "0c6bf01",
-      "title": "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
+      "commitSha": "dc7a4bb",
+      "title": "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
       "highlights": [
-        "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
+        "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T14:36:27.301Z",
-      "bundleSizeBytes": 7176784
+      "publishedAt": "2026-11-27T14:48:51.394Z",
+      "bundleSizeBytes": 7176811
     }
   }
 }

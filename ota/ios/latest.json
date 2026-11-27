@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.0c6bf01",
-  "updateId": "ca1f5f1b-6026-4049-b13b-d494069a7cdb",
-  "publishedAt": "2026-11-27T14:36:27.301Z",
-  "title": "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
+  "otaVersion": "1.6.5-ota.dc7a4bb",
+  "updateId": "7e1bf48d-1f4f-459f-a70d-bbd211ecd4b8",
+  "publishedAt": "2026-11-27T14:48:51.394Z",
+  "title": "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
   "highlights": [
-    "fix(downloads,ui): replace 403 YT downloads with SoundCloud MP3/fMP4 engine, Liquid Glass toast & circular progress rings",
+    "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 7176784,
+  "bundleSizeBytes": 7176811,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
