@@ -63,6 +63,17 @@ export interface AudioEngineAction {
   id: number;
 }
 
+export interface SavedCollection {
+  id: string;
+  title: string;
+  artist: string;
+  cover: string;
+  year?: string;
+  type: 'album' | 'single' | 'ep' | 'playlist' | 'mix';
+  tracks: Track[];
+  savedAt: string;
+}
+
 export interface AudioState {
   currentTrack: Track | null;
   isPlaying: boolean;
@@ -97,6 +108,12 @@ export interface AudioState {
   followedArtists: { id: string; name: string; avatar: string }[];
   toggleFollowArtist: (artist: { id: string; name: string; avatar: string }) => Promise<void>;
   loadFollowedArtists: () => Promise<void>;
+
+  // Saved Albums, Playlists, Singles & Mixes (+ Library persistence)
+  savedCollections: SavedCollection[];
+  savedCollectionIds: string[];
+  toggleSaveCollection: (collection: Omit<SavedCollection, 'savedAt'>) => Promise<boolean>;
+  loadSavedCollections: () => Promise<void>;
 
   // Mini-player suppression flag (e.g. for full-screen workout recording screens)
   isMiniPlayerSuppressed: boolean;
@@ -374,6 +391,68 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     } catch (e) {
       console.warn('[AudioStore] Load followed artists error:', e);
+    }
+  },
+
+  savedCollections: [],
+  savedCollectionIds: [],
+
+  toggleSaveCollection: async (collection) => {
+    const { savedCollections } = get();
+    const normTitle = (collection.title || '').toLowerCase().trim();
+    const normArtist = (collection.artist || '').toLowerCase().trim();
+    const existingIdx = savedCollections.findIndex(
+      (c) =>
+        c.id === collection.id ||
+        (c.type === collection.type &&
+          c.title.toLowerCase().trim() === normTitle &&
+          c.artist.toLowerCase().trim() === normArtist)
+    );
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    let nextCollections: SavedCollection[];
+    let isNowSaved = false;
+
+    if (existingIdx >= 0) {
+      nextCollections = savedCollections.filter((_, i) => i !== existingIdx);
+      isNowSaved = false;
+    } else {
+      const newEntry: SavedCollection = {
+        ...collection,
+        tracks: Array.isArray(collection.tracks) ? collection.tracks.slice(0, 150) : [],
+        savedAt: new Date().toISOString(),
+      };
+      nextCollections = [newEntry, ...savedCollections];
+      isNowSaved = true;
+    }
+
+    const nextIds = nextCollections.map((c) => c.id);
+    set({ savedCollections: nextCollections, savedCollectionIds: nextIds });
+
+    try {
+      await AsyncStorage.setItem('@a7_saved_collections_v1', JSON.stringify(nextCollections));
+    } catch (e) {
+      console.warn('[AudioStore] AsyncStorage save collections error:', e);
+    }
+
+    return isNowSaved;
+  },
+
+  loadSavedCollections: async () => {
+    try {
+      const raw = await AsyncStorage.getItem('@a7_saved_collections_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          set({
+            savedCollections: parsed,
+            savedCollectionIds: parsed.map((c: any) => c.id).filter(Boolean),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[AudioStore] Load saved collections error:', e);
     }
   },
 
@@ -1434,4 +1513,5 @@ useAudioStore.subscribe((state) => {
 // Hydrate listening history and followed artists on startup
 useAudioStore.getState().loadHistory();
 useAudioStore.getState().loadFollowedArtists();
+useAudioStore.getState().loadSavedCollections();
 useAudioStore.getState().loadPlayerMediaMode();

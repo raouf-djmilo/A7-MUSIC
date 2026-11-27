@@ -127,6 +127,7 @@ export const MusicLibrary = () => {
   const playAlbumContext = useAudioStore((s) => s.playAlbumContext);
   const toggleLike = useAudioStore((s) => s.toggleLike);
   const followedArtists = useAudioStore((s) => s.followedArtists);
+  const savedCollections = useAudioStore((s) => s.savedCollections);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
 
   const isOnline = useNetworkStore((s) => s.isOnline);
@@ -153,111 +154,111 @@ export const MusicLibrary = () => {
 
   const palette = isDark
     ? {
-        baseBg: '#070A12',
-        orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
-        orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
-        textPrimary: '#FFFFFF',
-        textSecondary: 'rgba(255, 255, 255, 0.62)',
-        textMuted: 'rgba(255, 255, 255, 0.42)',
-        cardBg: 'rgba(18, 22, 30, 0.48)',
-        cardBorder: 'rgba(255, 255, 255, 0.14)',
-        cardTopBorder: 'rgba(255, 255, 255, 0.34)',
-        pillBorder: 'rgba(255, 255, 255, 0.22)',
-        inputBg: 'rgba(255, 255, 255, 0.06)',
-        inputBorder: 'rgba(255, 255, 255, 0.12)',
-        accentBlue: '#38BDF8',
-      }
+      baseBg: '#070A12',
+      orbTop: ['rgba(0, 122, 255, 0.2)', 'rgba(56, 189, 248, 0.06)', 'transparent'] as const,
+      orbBottom: ['transparent', 'rgba(139, 92, 246, 0.1)', 'rgba(0, 80, 200, 0.14)'] as const,
+      textPrimary: '#FFFFFF',
+      textSecondary: 'rgba(255, 255, 255, 0.62)',
+      textMuted: 'rgba(255, 255, 255, 0.42)',
+      cardBg: 'rgba(18, 22, 30, 0.48)',
+      cardBorder: 'rgba(255, 255, 255, 0.14)',
+      cardTopBorder: 'rgba(255, 255, 255, 0.34)',
+      pillBorder: 'rgba(255, 255, 255, 0.22)',
+      inputBg: 'rgba(255, 255, 255, 0.06)',
+      inputBorder: 'rgba(255, 255, 255, 0.12)',
+      accentBlue: '#38BDF8',
+    }
     : {
-        baseBg: '#F2F5FA',
-        orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
-        orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
-        textPrimary: '#0F172A',
-        textSecondary: 'rgba(15, 23, 42, 0.65)',
-        textMuted: 'rgba(15, 23, 42, 0.44)',
-        cardBg: 'rgba(255, 255, 255, 0.68)',
-        cardBorder: 'rgba(15, 23, 42, 0.08)',
-        cardTopBorder: 'rgba(255, 255, 255, 0.95)',
-        pillBorder: 'rgba(15, 23, 42, 0.12)',
-        inputBg: 'rgba(15, 23, 42, 0.045)',
-        inputBorder: 'rgba(15, 23, 42, 0.1)',
-        accentBlue: '#007AFF',
-      };
+      baseBg: '#F2F5FA',
+      orbTop: ['rgba(0, 122, 255, 0.16)', 'rgba(56, 189, 248, 0.07)', 'transparent'] as const,
+      orbBottom: ['transparent', 'rgba(99, 102, 241, 0.09)', 'rgba(0, 122, 255, 0.12)'] as const,
+      textPrimary: '#0F172A',
+      textSecondary: 'rgba(15, 23, 42, 0.65)',
+      textMuted: 'rgba(15, 23, 42, 0.44)',
+      cardBg: 'rgba(255, 255, 255, 0.68)',
+      cardBorder: 'rgba(15, 23, 42, 0.08)',
+      cardTopBorder: 'rgba(255, 255, 255, 0.95)',
+      pillBorder: 'rgba(15, 23, 42, 0.12)',
+      inputBg: 'rgba(15, 23, 42, 0.045)',
+      inputBorder: 'rgba(15, 23, 42, 0.1)',
+      accentBlue: '#007AFF',
+    };
 
   const t = isAr
     ? {
-        title: 'المكتبة',
-        favoritesTab: 'المفضلة',
-        downloadsTab: 'المحمّلة',
-        playlistsTitle: 'قوائم التشغيل',
-        newPlaylist: 'قائمة جديدة',
-        viewAll: 'عرض الكل',
-        favoriteSongsTitle: 'الأغاني المفضلة',
-        followedArtistsTitle: 'الفنانون المتابعون',
-        favoriteAlbumsTitle: 'الألبومات المفضلة',
-        mixedMusicTitle: 'موسيقى متنوعة',
-        artistRadioTitle: 'راديو الفنانين',
-        downloadsHeroTitle: 'الموسيقى المحمّلة',
-        downloadsEmptyTitle: 'لا توجد مقاطع محمّلة',
-        downloadsEmptySub: 'قم بتنزيل أغانيك المفضلة للاستماع بدون إنترنت.',
-        favoritesEmptyTitle: 'لا توجد أغانٍ مفضلة بعد',
-        favoritesEmptySub: 'أضف الأغاني التي تعجبك لتظهر هنا في مكتبتك.',
-        searchDownloadsPlaceholder: 'ابحث في المقاطع المحمّلة...',
-        searchFavoritesPlaceholder: 'ابحث في المفضلة...',
-        trackUnit: 'أغنية',
-        artistTag: 'فنان',
-        albumTag: 'ألبوم',
-        radioTag: 'راديو',
-        playAll: 'تشغيل الكل',
-        createPlaylistTitle: 'إنشاء قائمة تشغيل',
-        playlistNameLabel: 'اسم القائمة',
-        playlistNamePlaceholder: 'مثال: أغاني المساء',
-        pickFavLabel: 'أضف من أغانيك المفضلة (اختياري)',
-        createBtn: 'إنشاء القائمة',
-        creating: 'جاري الإنشاء...',
-        loginNeededTitle: 'تسجيل الدخول مطلوب',
-        loginNeededBody: 'سجّل الدخول لإنشاء قوائم تشغيل وحفظها في حسابك.',
-        playlistCreated: 'تم إنشاء القائمة بنجاح ✨',
-        deleteFromPhoneTitle: 'حذف من الهاتف',
-        deleteBtn: 'حذف',
-        cancelBtn: 'إلغاء',
-      }
+      title: 'المكتبة',
+      favoritesTab: 'المفضلة',
+      downloadsTab: 'المحمّلة',
+      playlistsTitle: 'قوائم التشغيل',
+      newPlaylist: 'قائمة جديدة',
+      viewAll: 'عرض الكل',
+      favoriteSongsTitle: 'الأغاني المفضلة',
+      followedArtistsTitle: 'الفنانون المتابعون',
+      favoriteAlbumsTitle: 'الألبومات المفضلة',
+      mixedMusicTitle: 'موسيقى متنوعة',
+      artistRadioTitle: 'راديو الفنانين',
+      downloadsHeroTitle: 'الموسيقى المحمّلة',
+      downloadsEmptyTitle: 'لا توجد مقاطع محمّلة',
+      downloadsEmptySub: 'قم بتنزيل أغانيك المفضلة للاستماع بدون إنترنت.',
+      favoritesEmptyTitle: 'لا توجد أغانٍ مفضلة بعد',
+      favoritesEmptySub: 'أضف الأغاني التي تعجبك لتظهر هنا في مكتبتك.',
+      searchDownloadsPlaceholder: 'ابحث في المقاطع المحمّلة...',
+      searchFavoritesPlaceholder: 'ابحث في المفضلة...',
+      trackUnit: 'أغنية',
+      artistTag: 'فنان',
+      albumTag: 'ألبوم',
+      radioTag: 'راديو',
+      playAll: 'تشغيل الكل',
+      createPlaylistTitle: 'إنشاء قائمة تشغيل',
+      playlistNameLabel: 'اسم القائمة',
+      playlistNamePlaceholder: 'مثال: أغاني المساء',
+      pickFavLabel: 'أضف من أغانيك المفضلة (اختياري)',
+      createBtn: 'إنشاء القائمة',
+      creating: 'جاري الإنشاء...',
+      loginNeededTitle: 'تسجيل الدخول مطلوب',
+      loginNeededBody: 'سجّل الدخول لإنشاء قوائم تشغيل وحفظها في حسابك.',
+      playlistCreated: 'تم إنشاء القائمة بنجاح ✨',
+      deleteFromPhoneTitle: 'حذف من الهاتف',
+      deleteBtn: 'حذف',
+      cancelBtn: 'إلغاء',
+    }
     : {
-        title: 'Library',
-        favoritesTab: 'Favorites',
-        downloadsTab: 'Downloaded',
-        playlistsTitle: 'Your Playlists',
-        newPlaylist: 'New Playlist',
-        viewAll: 'View All',
-        favoriteSongsTitle: 'Favorite Songs',
-        followedArtistsTitle: 'Followed Artists',
-        favoriteAlbumsTitle: 'Favorite Albums',
-        mixedMusicTitle: 'Mixed Music',
-        artistRadioTitle: 'Artist Radio',
-        downloadsHeroTitle: 'Downloaded Music',
-        downloadsEmptyTitle: 'No Downloaded Tracks',
-        downloadsEmptySub: 'Download your favorite tracks to listen offline.',
-        favoritesEmptyTitle: 'No Favorite Songs Yet',
-        favoritesEmptySub: 'Like tracks while listening to build your library.',
-        searchDownloadsPlaceholder: 'Search downloaded tracks...',
-        searchFavoritesPlaceholder: 'Search favorites...',
-        trackUnit: 'tracks',
-        artistTag: 'Artist',
-        albumTag: 'Album',
-        radioTag: 'Radio',
-        playAll: 'Play All',
-        createPlaylistTitle: 'Create Playlist',
-        playlistNameLabel: 'Playlist Name',
-        playlistNamePlaceholder: 'e.g. Evening Vibes',
-        pickFavLabel: 'Add from Favorite Songs (optional)',
-        createBtn: 'Create Playlist',
-        creating: 'Creating...',
-        loginNeededTitle: 'Sign In Required',
-        loginNeededBody: 'Sign in to create and save custom playlists.',
-        playlistCreated: 'Playlist created ✨',
-        deleteFromPhoneTitle: 'Remove Download',
-        deleteBtn: 'Remove',
-        cancelBtn: 'Cancel',
-      };
+      title: 'Library',
+      favoritesTab: 'Favorites',
+      downloadsTab: 'Downloaded',
+      playlistsTitle: 'Your Playlists',
+      newPlaylist: 'New Playlist',
+      viewAll: 'View All',
+      favoriteSongsTitle: 'Favorite Songs',
+      followedArtistsTitle: 'Followed Artists',
+      favoriteAlbumsTitle: 'Favorite Albums',
+      mixedMusicTitle: 'Mixed Music',
+      artistRadioTitle: 'Artist Radio',
+      downloadsHeroTitle: 'Downloaded Music',
+      downloadsEmptyTitle: 'No Downloaded Tracks',
+      downloadsEmptySub: 'Download your favorite tracks to listen offline.',
+      favoritesEmptyTitle: 'No Favorite Songs Yet',
+      favoritesEmptySub: 'Like tracks while listening to build your library.',
+      searchDownloadsPlaceholder: 'Search downloaded tracks...',
+      searchFavoritesPlaceholder: 'Search favorites...',
+      trackUnit: 'tracks',
+      artistTag: 'Artist',
+      albumTag: 'Album',
+      radioTag: 'Radio',
+      playAll: 'Play All',
+      createPlaylistTitle: 'Create Playlist',
+      playlistNameLabel: 'Playlist Name',
+      playlistNamePlaceholder: 'e.g. Evening Vibes',
+      pickFavLabel: 'Add from Favorite Songs (optional)',
+      createBtn: 'Create Playlist',
+      creating: 'Creating...',
+      loginNeededTitle: 'Sign In Required',
+      loginNeededBody: 'Sign in to create and save custom playlists.',
+      playlistCreated: 'Playlist created ✨',
+      deleteFromPhoneTitle: 'Remove Download',
+      deleteBtn: 'Remove',
+      cancelBtn: 'Cancel',
+    };
 
   useEffect(() => {
     if (!isOnline) {
@@ -323,9 +324,72 @@ export const MusicLibrary = () => {
     loadManifest();
   };
 
-  // Derived Favorite Albums (grouped by artist from liked tracks)
+  // Merged Playlists: user '+' saved playlists + Firebase custom playlists
+  const allPlaylists = useMemo(() => {
+    const seenIds = new Set<string>();
+    const merged: Array<{ id: string; name: string; artist?: string; cover?: string; tracks: Track[] }> = [];
+
+    for (const sc of savedCollections) {
+      if (sc.type !== 'playlist') continue;
+      if (seenIds.has(sc.id)) continue;
+      seenIds.add(sc.id);
+      merged.push({
+        id: sc.id,
+        name: sc.title,
+        artist: sc.artist,
+        cover: sc.cover || sc.tracks?.[0]?.thumbnail || '',
+        tracks: Array.isArray(sc.tracks) ? sc.tracks : [],
+      });
+    }
+
+    for (const pl of playlists) {
+      if (seenIds.has(pl.id)) continue;
+      seenIds.add(pl.id);
+      merged.push({
+        id: pl.id,
+        name: pl.name,
+        cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
+        tracks: Array.isArray(pl.tracks) ? pl.tracks : [],
+      });
+    }
+
+    return merged;
+  }, [savedCollections, playlists]);
+
+  // Derived Favorite Albums: explicitly '+' saved albums/singles/EPs first, then grouped from liked tracks
   const favoriteAlbums = useMemo(() => {
-    const map = new Map<string, { id: string; title: string; artist: string; cover: string; tracks: Track[] }>();
+    const items: Array<{
+      id: string;
+      title: string;
+      artist: string;
+      cover: string;
+      type: 'album' | 'single' | 'ep';
+      year?: string;
+      tracks: Track[];
+    }> = [];
+    const seenKeys = new Set<string>();
+
+    for (const sc of savedCollections) {
+      if (sc.type !== 'album' && sc.type !== 'single' && sc.type !== 'ep') continue;
+      const normKey = `${sc.title.toLowerCase().trim()}::${sc.artist.toLowerCase().trim()}`;
+      if (seenKeys.has(sc.id) || seenKeys.has(normKey)) continue;
+      seenKeys.add(sc.id);
+      seenKeys.add(normKey);
+      items.push({
+        id: sc.id,
+        title: sc.title,
+        artist: sc.artist,
+        cover: sc.cover || sc.tracks?.[0]?.thumbnail || '',
+        type: sc.type,
+        year: sc.year,
+        tracks: Array.isArray(sc.tracks) ? sc.tracks : [],
+      });
+    }
+
+    const map = new Map<
+      string,
+      { id: string; title: string; artist: string; cover: string; type: 'album'; tracks: Track[] }
+    >();
     for (const item of savedTracks) {
       const artistName = (item.artist || 'A7 Music').trim();
       const key = artistName.toLowerCase();
@@ -342,17 +406,35 @@ export const MusicLibrary = () => {
           title: isAr ? `ألبوم ${artistName}` : `${artistName} Essentials`,
           artist: artistName,
           cover: item.thumbnail || '',
+          type: 'album',
           tracks: [trackObj],
         });
       } else {
         map.get(key)!.tracks.push(trackObj);
       }
     }
-    return Array.from(map.values());
-  }, [savedTracks, isAr]);
 
-  // Derived Mixed Music (from user's Music DNA mixes + curated presets)
+    for (const derived of map.values()) {
+      const normKey = `${derived.title.toLowerCase().trim()}::${derived.artist.toLowerCase().trim()}`;
+      if (seenKeys.has(derived.id) || seenKeys.has(normKey)) continue;
+      items.push(derived);
+    }
+
+    return items;
+  }, [savedCollections, savedTracks, isAr]);
+
+  // Derived Mixed Music (saved '+' mixes + user's Music DNA mixes + curated presets)
   const mixedMusicList = useMemo(() => {
+    const savedMixes = savedCollections
+      .filter((sc) => sc.type === 'mix')
+      .map((sc) => ({
+        id: sc.id,
+        title: sc.title,
+        subtitle: sc.artist || (isAr ? 'ميكس محفوظ' : 'Saved Mix'),
+        cover: sc.cover || sc.tracks?.[0]?.thumbnail || '',
+        colors: ['#6366F1', '#EC4899'] as const,
+        tracks: Array.isArray(sc.tracks) ? sc.tracks : [],
+      }));
     const dnaItems = (cachedDnaMixes || []).map((m: any, idx: number) => ({
       id: m.id || `dna-mix-${idx}`,
       title: m.title || (isAr ? 'ميكس مخصص' : 'Custom Mix'),
@@ -369,8 +451,13 @@ export const MusicLibrary = () => {
       colors: p.colors,
       tracks: p.tracks,
     }));
-    return [...dnaItems, ...presetItems];
-  }, [cachedDnaMixes, isAr]);
+    const seen = new Set<string>();
+    return [...savedMixes, ...dnaItems, ...presetItems].filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [savedCollections, cachedDnaMixes, isAr]);
 
   // Derived Artist Radio Stations (from followedArtists + savedTracks artists)
   const artistRadios = useMemo(() => {
@@ -697,10 +784,10 @@ export const MusicLibrary = () => {
 
             {/* ── 1. Your Playlists Carousel + Create Button ── */}
             {renderSectionHeader(
-              `${t.playlistsTitle} (${playlists.length})`,
-              playlists.length > 0 ? () => setViewAllType('playlists') : undefined,
+              `${t.playlistsTitle} (${allPlaylists.length})`,
+              allPlaylists.length > 0 ? () => setViewAllType('playlists') : undefined,
               <View style={{ flexDirection: rowDirection, alignItems: 'center', gap: 8 }}>
-                {playlists.length > 0 && (
+                {allPlaylists.length > 0 && (
                   <TouchableOpacity onPress={() => setViewAllType('playlists')} activeOpacity={0.75}>
                     <LiquidGlassSurface
                       glassStyle="regular"
@@ -729,26 +816,27 @@ export const MusicLibrary = () => {
               </View>
             )}
 
-            {playlists.length > 0 && (
+            {allPlaylists.length > 0 && (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.carouselContainer}
               >
-                {playlists.map((pl) => (
+                {allPlaylists.map((pl) => (
                   <TouchableOpacity
                     key={pl.id}
                     activeOpacity={0.85}
                     onPress={() =>
                       navigation.navigate('AlbumDetails', {
+                        playlistId: pl.id,
                         albumTitle: pl.name,
-                        artistName: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                        artistName: pl.artist || `${pl.tracks?.length || 0} ${t.trackUnit}`,
                         cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                         type: 'playlist',
                         album: {
                           id: pl.id,
                           title: pl.name,
-                          artist: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                          artist: pl.artist || `${pl.tracks?.length || 0} ${t.trackUnit}`,
                           thumbnail: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                           tracks: pl.tracks || [],
                         },
@@ -977,15 +1065,17 @@ export const MusicLibrary = () => {
                       activeOpacity={0.85}
                       onPress={() =>
                         navigation.navigate('AlbumDetails', {
+                          playlistId: alb.id,
                           albumTitle: alb.title,
                           artistName: alb.artist,
                           cover: alb.cover,
-                          type: 'album',
+                          type: alb.type || 'album',
                           album: {
                             id: alb.id,
                             title: alb.title,
                             artist: alb.artist,
                             thumbnail: alb.cover,
+                            year: alb.year,
                             tracks: alb.tracks,
                           },
                         })
@@ -1041,9 +1131,21 @@ export const MusicLibrary = () => {
                   key={mix.id}
                   activeOpacity={0.85}
                   onPress={() => {
-                    if (mix.tracks.length > 0) {
-                      playAlbumContext(mix.tracks, 0, mix.title);
-                    }
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('AlbumDetails', {
+                      playlistId: mix.id,
+                      albumTitle: mix.title,
+                      artistName: mix.subtitle,
+                      cover: mix.cover || mix.tracks?.[0]?.thumbnail || '',
+                      type: 'mix',
+                      album: {
+                        id: mix.id,
+                        title: mix.title,
+                        artist: mix.subtitle,
+                        thumbnail: mix.cover || mix.tracks?.[0]?.thumbnail || '',
+                        tracks: mix.tracks,
+                      },
+                    });
                   }}
                 >
                   <LiquidGlassSurface
@@ -1060,14 +1162,22 @@ export const MusicLibrary = () => {
                       },
                     ]}
                   >
-                    <LinearGradient
-                      colors={mix.colors as any}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.squareCover, styles.coverCenter]}
-                    >
-                      <Ionicons name="sparkles" size={28} color="#FFFFFF" />
-                    </LinearGradient>
+                    {mix.cover ? (
+                      <Image
+                        source={{ uri: getUniversalStudioArtwork(mix.cover) }}
+                        style={styles.squareCover}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={mix.colors as any}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.squareCover, styles.coverCenter]}
+                      >
+                        <Ionicons name="sparkles" size={28} color="#FFFFFF" />
+                      </LinearGradient>
+                    )}
                     <Text
                       style={[styles.cardTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
                       numberOfLines={1}
@@ -1318,14 +1428,14 @@ export const MusicLibrary = () => {
           viewAllType === 'songs'
             ? t.favoriteSongsTitle
             : viewAllType === 'artists'
-            ? t.followedArtistsTitle
-            : viewAllType === 'albums'
-            ? t.favoriteAlbumsTitle
-            : viewAllType === 'mixes'
-            ? t.mixedMusicTitle
-            : viewAllType === 'radios'
-            ? t.artistRadioTitle
-            : t.playlistsTitle
+              ? t.followedArtistsTitle
+              : viewAllType === 'albums'
+                ? t.favoriteAlbumsTitle
+                : viewAllType === 'mixes'
+                  ? t.mixedMusicTitle
+                  : viewAllType === 'radios'
+                    ? t.artistRadioTitle
+                    : t.playlistsTitle
         }
         initialSnap={0.78}
       >
@@ -1425,11 +1535,19 @@ export const MusicLibrary = () => {
                 onPress={() => {
                   setViewAllType(null);
                   navigation.navigate('AlbumDetails', {
+                    playlistId: alb.id,
                     albumTitle: alb.title,
                     artistName: alb.artist,
                     cover: alb.cover,
-                    type: 'album',
-                    album: { id: alb.id, title: alb.title, artist: alb.artist, thumbnail: alb.cover, tracks: alb.tracks },
+                    type: alb.type || 'album',
+                    album: {
+                      id: alb.id,
+                      title: alb.title,
+                      artist: alb.artist,
+                      thumbnail: alb.cover,
+                      year: alb.year,
+                      tracks: alb.tracks,
+                    },
                   });
                 }}
               >
@@ -1461,7 +1579,20 @@ export const MusicLibrary = () => {
                 activeOpacity={0.8}
                 onPress={() => {
                   setViewAllType(null);
-                  if (mix.tracks.length > 0) playAlbumContext(mix.tracks, 0, mix.title);
+                  navigation.navigate('AlbumDetails', {
+                    playlistId: mix.id,
+                    albumTitle: mix.title,
+                    artistName: mix.subtitle,
+                    cover: mix.cover || mix.tracks?.[0]?.thumbnail || '',
+                    type: 'mix',
+                    album: {
+                      id: mix.id,
+                      title: mix.title,
+                      artist: mix.subtitle,
+                      thumbnail: mix.cover || mix.tracks?.[0]?.thumbnail || '',
+                      tracks: mix.tracks,
+                    },
+                  });
                 }}
               >
                 <LiquidGlassSurface
@@ -1471,9 +1602,13 @@ export const MusicLibrary = () => {
                   borderRadius={16}
                   style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
                 >
-                  <LinearGradient colors={mix.colors as any} style={[styles.rowThumb, styles.coverCenter]}>
-                    <Ionicons name="sparkles" size={20} color="#FFF" />
-                  </LinearGradient>
+                  {mix.cover ? (
+                    <Image source={{ uri: getUniversalStudioArtwork(mix.cover) }} style={styles.rowThumb} contentFit="cover" />
+                  ) : (
+                    <LinearGradient colors={mix.colors as any} style={[styles.rowThumb, styles.coverCenter]}>
+                      <Ionicons name="sparkles" size={20} color="#FFF" />
+                    </LinearGradient>
+                  )}
                   <View style={styles.rowTexts}>
                     <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
                       {mix.title}
@@ -1482,7 +1617,7 @@ export const MusicLibrary = () => {
                       {mix.subtitle}
                     </Text>
                   </View>
-                  <Ionicons name="play-circle" size={24} color={palette.accentBlue} />
+                  <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={18} color={palette.textMuted} />
                 </LiquidGlassSurface>
               </TouchableOpacity>
             ))}
@@ -1523,21 +1658,22 @@ export const MusicLibrary = () => {
             ))}
 
           {viewAllType === 'playlists' &&
-            playlists.map((pl) => (
+            allPlaylists.map((pl) => (
               <TouchableOpacity
                 key={`va-pl-${pl.id}`}
                 activeOpacity={0.8}
                 onPress={() => {
                   setViewAllType(null);
                   navigation.navigate('AlbumDetails', {
+                    playlistId: pl.id,
                     albumTitle: pl.name,
-                    artistName: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                    artistName: pl.artist || `${pl.tracks?.length || 0} ${t.trackUnit}`,
                     cover: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                     type: 'playlist',
                     album: {
                       id: pl.id,
                       title: pl.name,
-                      artist: `${pl.tracks?.length || 0} ${t.trackUnit}`,
+                      artist: pl.artist || `${pl.tracks?.length || 0} ${t.trackUnit}`,
                       thumbnail: pl.cover || pl.tracks?.[0]?.thumbnail || '',
                       tracks: pl.tracks || [],
                     },
@@ -1551,9 +1687,17 @@ export const MusicLibrary = () => {
                   borderRadius={16}
                   style={[styles.listTrackRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder, flexDirection: rowDirection }]}
                 >
-                  <LinearGradient colors={['#007AFF', '#6366F1']} style={[styles.rowThumb, styles.coverCenter]}>
-                    <Ionicons name="musical-notes" size={20} color="#FFF" />
-                  </LinearGradient>
+                  {pl.cover || pl.tracks?.[0]?.thumbnail ? (
+                    <Image
+                      source={{ uri: getUniversalStudioArtwork(pl.cover || pl.tracks?.[0]?.thumbnail) }}
+                      style={styles.rowThumb}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <LinearGradient colors={['#007AFF', '#6366F1']} style={[styles.rowThumb, styles.coverCenter]}>
+                      <Ionicons name="musical-notes" size={20} color="#FFF" />
+                    </LinearGradient>
+                  )}
                   <View style={styles.rowTexts}>
                     <Text style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]} numberOfLines={1}>
                       {pl.name}
