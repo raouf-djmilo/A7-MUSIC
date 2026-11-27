@@ -1,13 +1,13 @@
 {
-  "id": "e4eb4249-8c03-4d8b-b286-525cf1d1dbeb",
-  "createdAt": "2026-11-27T01:14:50.815Z",
+  "id": "b5b894af-6af5-4ff6-8794-8328ec44a148",
+  "createdAt": "2026-11-27T01:38:27.318Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "TSI73CwVqWjHPpsQYTNboSR-iKplREvZsdVL2aF4NQA",
-    "key": "569b52381e44c48a134d54724fdafe74",
+    "hash": "_os-7JbC4BHloozg9z-ZQ_1t09aG1E39wy36uZXOdKk",
+    "key": "31a4970f9b95535f6ae19a0677ae89f9",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-123cac98839bbddf8f05210069f3c730.hbc"
+    "url": "./_expo/static/js/ios/index-3bd62b88ec45c26c65c318557694acf3.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.edade0d",
+      "otaVersion": "1.6.5-ota.e0da435",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "edade0d",
-      "title": "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
+      "commitSha": "e0da435",
+      "title": "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
       "highlights": [
-        "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
+        "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T01:14:50.815Z",
-      "bundleSizeBytes": 6925901
+      "publishedAt": "2026-11-27T01:38:27.318Z",
+      "bundleSizeBytes": 6928646
     }
   }
 }

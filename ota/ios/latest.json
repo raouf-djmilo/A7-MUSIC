@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.edade0d",
-  "updateId": "e4eb4249-8c03-4d8b-b286-525cf1d1dbeb",
-  "publishedAt": "2026-11-27T01:14:50.815Z",
-  "title": "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
+  "otaVersion": "1.6.5-ota.e0da435",
+  "updateId": "b5b894af-6af5-4ff6-8794-8328ec44a148",
+  "publishedAt": "2026-11-27T01:38:27.318Z",
+  "title": "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
   "highlights": [
-    "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
+    "fix(player,tabs,likes): unified scroll dock collapse, instant favorite sync, 120fps player sheet",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6925901,
+  "bundleSizeBytes": 6928646,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
