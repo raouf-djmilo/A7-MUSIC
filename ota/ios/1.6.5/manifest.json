@@ -1,13 +1,13 @@
 {
-  "id": "59a3e209-2624-4266-9ce8-0860d2800899",
-  "createdAt": "2026-11-27T13:42:57.467Z",
+  "id": "32d5a675-f46f-4f97-be19-0b9920aaa857",
+  "createdAt": "2026-11-27T13:59:26.651Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "CH9XLr-p_q335nC1yxGqp_pQ6X4JjehWBqYVpaFrh4E",
-    "key": "bbc6f76e21fb16f516375231e1c57de3",
+    "hash": "vJk4yfSoKUZCGxsT63detHDtyQs6s_f9M7aB7Gcg74U",
+    "key": "4045a2935919a6aab4240a3695371401",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-0809c22d41df84fde25fabbf181f2f51.hbc"
+    "url": "./_expo/static/js/ios/index-5f06fbd7514013f3a05bca8d81dea4ae.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.2ed614e",
+      "otaVersion": "1.6.5-ota.5210172",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "2ed614e",
-      "title": "fix(firestore): force long polling transport for React Native / Expo Go",
+      "commitSha": "5210172",
+      "title": "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
       "highlights": [
-        "fix(firestore): force long polling transport for React Native / Expo Go",
+        "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T13:42:57.467Z",
-      "bundleSizeBytes": 6935934
+      "publishedAt": "2026-11-27T13:59:26.651Z",
+      "bundleSizeBytes": 6945807
     }
   }
 }

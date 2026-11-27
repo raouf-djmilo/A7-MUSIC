@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.2ed614e",
-  "updateId": "59a3e209-2624-4266-9ce8-0860d2800899",
-  "publishedAt": "2026-11-27T13:42:57.467Z",
-  "title": "fix(firestore): force long polling transport for React Native / Expo Go",
+  "otaVersion": "1.6.5-ota.5210172",
+  "updateId": "32d5a675-f46f-4f97-be19-0b9920aaa857",
+  "publishedAt": "2026-11-27T13:59:26.651Z",
+  "title": "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
   "highlights": [
-    "fix(firestore): force long polling transport for React Native / Expo Go",
+    "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6935934,
+  "bundleSizeBytes": 6945807,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
