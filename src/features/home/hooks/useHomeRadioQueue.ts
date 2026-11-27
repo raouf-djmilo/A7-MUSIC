@@ -7,8 +7,21 @@ import {
   recordUserSignal,
 } from '../../../services/infiniteRecommendationEngine';
 import { musicDnaService } from '../../../services/musicDnaService';
+import { useNetworkStore } from '../../../services/networkService';
+import { useDownloadStore, DownloadedTrack } from '../../../services/downloadService';
 import type { HomeTrack } from '../types/home.types';
 import { buildInitialHomeQueue } from '../utils/homeTrackUtils';
+
+function mapDownloadedToHomeTracks(list: DownloadedTrack[]): HomeTrack[] {
+  return list
+    .filter((d) => Boolean(d?.videoId && d?.audioLocalUri))
+    .map((d) => ({
+      ...d,
+      id: d.videoId,
+      thumbnail: d.artworkLocalUri || d.thumbnail,
+      audioUrl: d.audioLocalUri,
+    }));
+}
 
 /**
  * Manages the Home screen's dynamic infinite radio queue and bidirectional sync
@@ -21,6 +34,8 @@ export const useHomeRadioQueue = () => {
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
   const playTrack = useAudioStore((s) => s.playTrack);
   const history = useAudioStore((s) => s.history);
+  const isOnline = useNetworkStore((s) => s.isOnline);
+  const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
 
   const [tracks, setTracks] = useState<HomeTrack[]>(() =>
     buildInitialHomeQueue(currentTrack, history)
@@ -35,8 +50,37 @@ export const useHomeRadioQueue = () => {
   currentTrackRef.current = currentTrack;
   const lastFocusedRef = useRef<{ track: Track; focusedAt: number } | null>(null);
 
+  const wasOfflineRef = useRef(!isOnline);
+
   const loadDynamicRadio = useCallback(async () => {
     try {
+      const onlineNow = useNetworkStore.getState().isOnline;
+      if (!onlineNow) {
+        await useDownloadStore.getState().loadManifest().catch(() => {});
+        const localHomeTracks = mapDownloadedToHomeTracks(
+          useDownloadStore.getState().downloadedTracks
+        );
+        const cached = await getCachedInfiniteRadio().catch(() => [] as Track[]);
+        const storeState = useAudioStore.getState();
+
+        setTracks((prev) => {
+          const seen = new Set<string>();
+          const merged: HomeTrack[] = [];
+          const pushUnique = (item?: Track | HomeTrack | null) => {
+            if (!item?.videoId || seen.has(item.videoId)) return;
+            seen.add(item.videoId);
+            merged.push({ ...item, id: item.videoId });
+          };
+
+          if (storeState.currentTrack?.videoId) pushUnique(storeState.currentTrack);
+          localHomeTracks.forEach(pushUnique);
+          prev.forEach(pushUnique);
+          (cached || []).forEach(pushUnique);
+          return merged.length > 0 ? merged : prev;
+        });
+        return;
+      }
+
       const cached = await getCachedInfiniteRadio();
       if (cached && cached.length > 0) {
         setTracks((prev) => {
@@ -91,7 +135,38 @@ export const useHomeRadioQueue = () => {
     loadDynamicRadio();
   }, [loadDynamicRadio]);
 
+  // Keep downloaded tracks prioritized at the front when offline, and auto-refresh on reconnect
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+      const localHomeTracks = mapDownloadedToHomeTracks(downloadedTracks);
+      if (localHomeTracks.length > 0) {
+        setTracks((prev) => {
+          const seen = new Set<string>();
+          const merged: HomeTrack[] = [];
+          localHomeTracks.forEach((t) => {
+            if (t.videoId && !seen.has(t.videoId)) {
+              seen.add(t.videoId);
+              merged.push(t);
+            }
+          });
+          prev.forEach((t) => {
+            if (t.videoId && !seen.has(t.videoId)) {
+              seen.add(t.videoId);
+              merged.push(t);
+            }
+          });
+          return merged;
+        });
+      }
+    } else if (wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      loadDynamicRadio();
+    }
+  }, [isOnline, downloadedTracks, loadDynamicRadio]);
+
   const handleLoadMoreTracks = useCallback(async () => {
+    if (!useNetworkStore.getState().isOnline) return;
     if (isFetchingMoreRef.current) return;
     isFetchingMoreRef.current = true;
 

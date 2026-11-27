@@ -113,8 +113,75 @@ function isValidYouTubeId(id?: string | null): boolean {
   return Boolean(id && /^[a-zA-Z0-9_-]{11}$/.test(id.trim()));
 }
 
+interface ResolvedStreamCandidate {
+  url: string;
+  headers?: Record<string, string>;
+}
+
+const IOS_CLIENT_VERSION = '20.03.2';
+const IOS_CLIENT_USER_AGENT =
+  'com.google.ios.youtube/20.03.2 (iPhone16,2; U; CPU iOS 18_2_0 like Mac OS X; en_US)';
+const ANDROID_VR_USER_AGENT =
+  'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 14; en_US; Quest 3 Build/SQ3A.220605.009.A1) gzip';
+const BROWSER_WATCH_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const MOBILE_SAFARI_USER_AGENT =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+
+interface InnerTubeSessionContext {
+  apiKey: string;
+  visitorData: string;
+  fetchedAt: number;
+}
+
+let cachedInnerTubeSession: InnerTubeSessionContext | null = null;
+
+async function fetchInnerTubeSession(cleanId: string, forceRefresh = false): Promise<InnerTubeSessionContext | null> {
+  if (
+    !forceRefresh &&
+    cachedInnerTubeSession &&
+    Date.now() - cachedInnerTubeSession.fetchedAt < 15 * 60 * 1000
+  ) {
+    return cachedInnerTubeSession;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${cleanId}`, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': BROWSER_WATCH_USER_AGENT,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    if (!res.ok) return cachedInnerTubeSession;
+    const html = await res.text();
+    const apiKeyMatch = html.match(/"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/);
+    const visitorMatch = html.match(/"VISITOR_DATA"\s*:\s*"([^"]+)"/);
+    if (apiKeyMatch?.[1]) {
+      cachedInnerTubeSession = {
+        apiKey: apiKeyMatch[1],
+        visitorData: visitorMatch?.[1] || cachedInnerTubeSession?.visitorData || '',
+        fetchedAt: Date.now(),
+      };
+      return cachedInnerTubeSession;
+    }
+    return cachedInnerTubeSession;
+  } catch {
+    return cachedInnerTubeSession;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function pickBestAudioUrls(streams: Array<{ url?: string; mimeType?: string; type?: string; format?: string; bitrate?: number | string }>): string[] {
-  const valid = streams.filter((s) => typeof s?.url === 'string' && s.url.startsWith('http'));
+  const valid = streams.filter(
+    (s) =>
+      typeof s?.url === 'string' &&
+      s.url.startsWith('http') &&
+      !s.url.includes('.m3u8')
+  );
   const ranked = [...valid].sort((a, b) => {
     const aMime = `${a.mimeType || a.type || a.format || ''}`.toLowerCase();
     const bMime = `${b.mimeType || b.type || b.format || ''}`.toLowerCase();
@@ -127,76 +194,116 @@ function pickBestAudioUrls(streams: Array<{ url?: string; mimeType?: string; typ
 }
 
 /**
- * ⚡ Stage 1: Direct YouTube InnerTube Player API (iOS & Android VR native audio streams)
+ * ⚡ Stage 1: Verified YouTube InnerTube Player API (iOS 20.03.2 with live API key & visitorData + Android VR)
  */
-async function extractInnerTubeAudioCandidates(cleanId: string): Promise<string[]> {
-  const clients = [
-    {
-      clientName: 'IOS',
-      clientVersion: '19.45.4',
-      deviceModel: 'iPhone16,2',
-      osVersion: '18.1.0.22B83',
-      hl: 'en',
-      gl: 'US',
-      ua: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X; en_US)',
-    },
-    {
-      clientName: 'ANDROID_VR',
-      clientVersion: '1.60.19',
-      androidSdkVersion: 34,
-      hl: 'en',
-      gl: 'US',
-      ua: 'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 14; en_US; Quest 3 Build/SQ3A.220605.009.A1) gzip',
-    },
-  ];
+async function extractInnerTubeAudioCandidates(cleanId: string): Promise<ResolvedStreamCandidate[]> {
+  const queryWithSession = async (session: InnerTubeSessionContext | null): Promise<ResolvedStreamCandidate[]> => {
+    const clients = [
+      {
+        priority: 0,
+        clientName: 'IOS',
+        clientVersion: IOS_CLIENT_VERSION,
+        clientNameId: '5',
+        deviceMake: 'Apple',
+        deviceModel: 'iPhone16,2',
+        osName: 'iPhone',
+        osVersion: '18.2.0.22C152',
+        hl: 'en',
+        gl: 'US',
+        ua: IOS_CLIENT_USER_AGENT,
+      },
+      {
+        priority: 1,
+        clientName: 'ANDROID_VR',
+        clientVersion: '1.60.19',
+        clientNameId: '28',
+        androidSdkVersion: 34,
+        hl: 'en',
+        gl: 'US',
+        ua: ANDROID_VR_USER_AGENT,
+      },
+    ];
 
-  const tasks = clients.map(async (c) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
-    try {
-      const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': c.ua,
-        },
-        body: JSON.stringify({
-          videoId: cleanId,
-          context: {
-            client: {
-              clientName: c.clientName,
-              clientVersion: c.clientVersion,
-              ...(c.deviceModel ? { deviceModel: c.deviceModel } : {}),
-              ...(c.osVersion ? { osVersion: c.osVersion } : {}),
-              ...(c.androidSdkVersion ? { androidSdkVersion: c.androidSdkVersion } : {}),
-              hl: c.hl,
-              gl: c.gl,
-            },
-          },
-          contentCheckOk: true,
-          racyCheckOk: true,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const formats = json?.streamingData?.adaptiveFormats || [];
-      const audioFormats = formats.filter(
-        (f: any) => typeof f?.url === 'string' && `${f?.mimeType || ''}`.startsWith('audio/')
-      );
-      const urls = pickBestAudioUrls(audioFormats);
-      if (urls.length === 0) throw new Error('No direct audio formats');
-      return urls;
-    } finally {
-      clearTimeout(timeout);
+    const playerEndpoint = session?.apiKey
+      ? `https://www.youtube.com/youtubei/v1/player?key=${encodeURIComponent(session.apiKey)}&prettyPrint=false`
+      : 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+
+    const settled = await Promise.allSettled(
+      clients.map(async (c) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        try {
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'User-Agent': c.ua,
+            'X-YouTube-Client-Name': c.clientNameId,
+            'X-YouTube-Client-Version': c.clientVersion,
+          };
+          if (session?.visitorData) {
+            headers['X-Goog-Visitor-Id'] = session.visitorData;
+          }
+          const res = await fetch(playerEndpoint, {
+            method: 'POST',
+            signal: controller.signal,
+            headers,
+            body: JSON.stringify({
+              videoId: cleanId,
+              context: {
+                client: {
+                  clientName: c.clientName,
+                  clientVersion: c.clientVersion,
+                  ...(c.deviceMake ? { deviceMake: c.deviceMake } : {}),
+                  ...(c.deviceModel ? { deviceModel: c.deviceModel } : {}),
+                  ...(c.osName ? { osName: c.osName } : {}),
+                  ...(c.osVersion ? { osVersion: c.osVersion } : {}),
+                  ...(c.androidSdkVersion ? { androidSdkVersion: c.androidSdkVersion } : {}),
+                  ...(session?.visitorData ? { visitorData: session.visitorData } : {}),
+                  hl: c.hl,
+                  gl: c.gl,
+                },
+              },
+              contentCheckOk: true,
+              racyCheckOk: true,
+            }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          const formats = json?.streamingData?.adaptiveFormats || [];
+          const audioFormats = formats.filter(
+            (f: any) => typeof f?.url === 'string' && `${f?.mimeType || ''}`.startsWith('audio/')
+          );
+          const urls = pickBestAudioUrls(audioFormats);
+          if (urls.length === 0) throw new Error('No direct audio formats');
+          return {
+            priority: c.priority,
+            candidates: urls.map((url) => ({ url, headers: { 'User-Agent': c.ua } })),
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
+      })
+    );
+
+    const groups: Array<{ priority: number; candidates: ResolvedStreamCandidate[] }> = [];
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value.candidates.length > 0) {
+        groups.push(r.value);
+      }
     }
-  });
+    groups.sort((a, b) => a.priority - b.priority);
+    return groups.flatMap((g) => g.candidates);
+  };
 
-  try {
-    return await Promise.any(tasks);
-  } catch {
-    return [];
+  const session = await fetchInnerTubeSession(cleanId, false);
+  const firstPass = await queryWithSession(session);
+  if (firstPass.length > 0) return firstPass;
+
+  // Retry once with a fresh watch-page InnerTube API key & visitorData if cached session expired
+  const refreshedSession = await fetchInnerTubeSession(cleanId, true);
+  if (refreshedSession && refreshedSession !== session) {
+    return queryWithSession(refreshedSession);
   }
+  return [];
 }
 
 /**
@@ -328,10 +435,10 @@ export async function extractRealYouTubeAudioStream(
   const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
 
   // 1. Direct InnerTube (fastest native bitrate match)
-  const innerTubeUrls = await extractInnerTubeAudioCandidates(cleanId);
-  if (innerTubeUrls.length > 0) {
+  const innerTubeCandidates = await extractInnerTubeAudioCandidates(cleanId);
+  if (innerTubeCandidates.length > 0) {
     onProgress?.(0.32, 'تم العثور على البث الصوتي الأصلي');
-    return innerTubeUrls[0];
+    return innerTubeCandidates[0].url;
   }
 
   // 2. Piped + Invidious parallel race
@@ -386,7 +493,15 @@ export const inspectOfflineStorage = async (): Promise<void> => {
 };
 
 class AudioDownloadService {
-  private inFlightProbes = new Map<string, Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }>>();
+  private inFlightProbes = new Map<
+    string,
+    Promise<{
+      streamUrl: string;
+      candidateUrls: string[];
+      candidates: ResolvedStreamCandidate[];
+      bitrateLabel: string;
+    }>
+  >();
   private inFlightDownloads = new Map<string, Promise<DownloadedTrack>>();
 
   async ensureDirectories(): Promise<void> {
@@ -493,7 +608,12 @@ class AudioDownloadService {
     track: Track,
     quality: AudioQualityOption = 'auto',
     onProgress?: (progressRatio: number, statusText: string) => void
-  ): Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }> {
+  ): Promise<{
+    streamUrl: string;
+    candidateUrls: string[];
+    candidates: ResolvedStreamCandidate[];
+    bitrateLabel: string;
+  }> {
     const probeKey = track.videoId || track.audioUrl || 'unknown';
     if (this.inFlightProbes.has(probeKey)) {
       return this.inFlightProbes.get(probeKey)!;
@@ -512,8 +632,19 @@ class AudioDownloadService {
     track: Track,
     _quality: AudioQualityOption = 'auto',
     onProgress?: (progressRatio: number, statusText: string) => void
-  ): Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }> {
-    const candidates: string[] = [];
+  ): Promise<{
+    streamUrl: string;
+    candidateUrls: string[];
+    candidates: ResolvedStreamCandidate[];
+    bitrateLabel: string;
+  }> {
+    const candidates: ResolvedStreamCandidate[] = [];
+    const seenUrls = new Set<string>();
+    const addCandidate = (candidate: ResolvedStreamCandidate) => {
+      if (!candidate.url || seenUrls.has(candidate.url)) return;
+      seenUrls.add(candidate.url);
+      candidates.push(candidate);
+    };
     const bitrateLabel = 'AAC Master';
 
     if (
@@ -521,26 +652,28 @@ class AudioDownloadService {
       (track.audioUrl.startsWith('http') || track.audioUrl.startsWith('file://')) &&
       !track.audioUrl.includes('soundhelix.com')
     ) {
-      candidates.push(track.audioUrl);
+      addCandidate({ url: track.audioUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
     }
 
     if (isValidYouTubeId(track.videoId)) {
       const cleanId = track.videoId.trim();
-      const innerTubeUrls = await extractInnerTubeAudioCandidates(cleanId);
-      for (const u of innerTubeUrls) {
-        if (!candidates.includes(u)) candidates.push(u);
+      const innerTubeCandidates = await extractInnerTubeAudioCandidates(cleanId);
+      for (const c of innerTubeCandidates) {
+        addCandidate(c);
       }
 
-      if (candidates.length < 2) {
+      if (candidates.length === 0) {
         const pipedUrl = await extractPipedDirectAudioStream(cleanId);
-        if (pipedUrl && !candidates.includes(pipedUrl)) {
-          candidates.push(pipedUrl);
+        if (pipedUrl) {
+          addCandidate({ url: pipedUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
         }
       }
 
       if (candidates.length === 0) {
         const mirrorUrl = await extractMirrorAudioStream(cleanId, onProgress);
-        if (mirrorUrl) candidates.push(mirrorUrl);
+        if (mirrorUrl) {
+          addCandidate({ url: mirrorUrl, headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } });
+        }
       } else {
         onProgress?.(0.32, 'تم تجهيز مصادر الصوت الأصلية');
       }
@@ -551,8 +684,9 @@ class AudioDownloadService {
     }
 
     return {
-      streamUrl: candidates[0],
-      candidateUrls: candidates,
+      streamUrl: candidates[0].url,
+      candidateUrls: candidates.map((c) => c.url),
+      candidates,
       bitrateLabel,
     };
   }
@@ -611,7 +745,7 @@ class AudioDownloadService {
     });
 
     try {
-      const { candidateUrls, bitrateLabel } = await this.probeAudioStream(
+      const { candidates, bitrateLabel } = await this.probeAudioStream(
         track,
         quality,
         (ratio) => {
@@ -654,8 +788,8 @@ class AudioDownloadService {
       let downloadSucceeded = false;
       let lastError: any = null;
 
-      for (let i = 0; i < candidateUrls.length; i++) {
-        const streamUrl = candidateUrls[i];
+      for (let i = 0; i < candidates.length; i++) {
+        const { url: streamUrl, headers: candidateHeaders } = candidates[i];
         updateStoreProgress({
           videoId,
           progress: 0.35,
@@ -674,8 +808,8 @@ class AudioDownloadService {
               streamUrl,
               tempPartUri,
               {
-                headers: {
-                  'User-Agent': 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X; en_US)',
+                headers: candidateHeaders || {
+                  'User-Agent': MOBILE_SAFARI_USER_AGENT,
                 },
               },
               (downloadProgress) => {
@@ -694,6 +828,9 @@ class AudioDownloadService {
             const result = await resumable.downloadAsync();
             if (!result?.uri) {
               throw new Error(`Empty response from source #${i + 1}`);
+            }
+            if ((result as any).status && (result as any).status >= 400) {
+              throw new Error(`HTTP ${(result as any).status} from source #${i + 1}`);
             }
           }
 

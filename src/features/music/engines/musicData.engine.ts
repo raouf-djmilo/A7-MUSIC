@@ -1,4 +1,5 @@
 import { musicDnaService, DynamicHomeSections } from '../../../services/musicDnaService';
+import { useNetworkStore } from '../../../services/networkService';
 import { Track } from '../../../store/useAudioStore';
 import { imagePreloadEngine } from './imagePreload.engine';
 import { deduplicateArtists } from './artistDedupe.helper';
@@ -59,6 +60,7 @@ export class MusicDataEngine {
    * without blocking UI frames.
    */
   public static scheduleArtworkPreload(sections: DynamicHomeSections) {
+    if (!useNetworkStore.getState().isOnline) return;
     const urls: (string | null | undefined)[] = [];
 
     // Quick jump thumbnails

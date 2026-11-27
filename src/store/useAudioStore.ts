@@ -671,7 +671,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         ((track as any).id && (state.currentTrack as any).id === (track as any).id))
     );
 
-    if (isSameTrack) {
+    const canReuseSameTrack = useNetworkStore.getState().isOnline || state.isOfflinePlayback;
+    if (isSameTrack && canReuseSameTrack) {
       if (!state.isPlaying) {
         if (targetQueue.length > 0 && targetQueue !== state.queue) {
           const foundIdx = (targetIndex >= 0 && targetIndex < targetQueue.length)
@@ -696,6 +697,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     // ── 1. Atomic Request Token (Supersedes all prior in-flight starts cleanly) ──
     const newRequestId = state.playRequestId + 1;
+    set({ playRequestId: newRequestId });
     lastUserToggleTimestamp = Date.now();
     fallbackInProgressVideoId = null;
     lastNativeErrorRecoveryKey = null;
@@ -709,6 +711,50 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }, 6500);
 
     try {
+      let streamUrl: string | undefined = track.audioUrl;
+      const finalTitle = track.title || 'Unknown Title';
+      const finalArtist = track.artist || 'Unknown Artist';
+      let finalArtwork = track.thumbnail;
+      let totalDurationSec = track.duration ? Math.floor(track.duration / 1000) : 180;
+      let isOffline = false;
+      const hasValidYtId = Boolean(track.videoId && !track.videoId.startsWith('http') && track.videoId.length >= 5);
+      const isVideoMode = get().playerMediaMode === 'video';
+      const hasTrackPlayer = Boolean(NativeModules.TrackPlayerModule);
+
+      // ── Step A: Check Local Offline Storage (Downloads) FIRST (0ms local hit & offline guard) ──
+      let hasOfflineCandidate = Boolean(streamUrl && streamUrl.startsWith('file://'));
+      try {
+        const localTrack = await downloadService.getLocalTrack(track.videoId);
+        if (get().playRequestId !== newRequestId) return;
+        if (localTrack && localTrack.audioLocalUri) {
+          streamUrl = localTrack.audioLocalUri;
+          isOffline = true;
+          hasOfflineCandidate = true;
+          if (localTrack.artworkLocalUri) {
+            finalArtwork = localTrack.artworkLocalUri;
+          }
+          if (localTrack.duration && localTrack.duration > 1000) {
+            totalDurationSec = Math.floor(localTrack.duration / 1000);
+          }
+        }
+      } catch (localErr) {
+        console.warn('[AudioStore] Local track check non-fatal error:', localErr);
+      }
+
+      // Block non-downloaded tracks cleanly BEFORE touching the active queue when offline
+      const isOnlineNow = useNetworkStore.getState().isOnline;
+      if (!isOnlineNow && !hasOfflineCandidate) {
+        set({ isLoading: false, loadingTrackId: null });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        ToastManager.show({
+          title: 'أنت في وضع الأوفلاين',
+          subtitle: 'يمكن تشغيل المقاطع المحمّلة فقط بدون إنترنت',
+          icon: 'cloud-offline-outline',
+          duration: 2800,
+        });
+        return;
+      }
+
       // ── Context Queue & Index Calibration ──
       let calibratedQueue = state.queue;
       let calibratedIndex = state.currentIndex;
@@ -745,49 +791,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      let streamUrl: string | undefined = track.audioUrl;
-      const finalTitle = track.title || 'Unknown Title';
-      const finalArtist = track.artist || 'Unknown Artist';
-      let finalArtwork = track.thumbnail;
-      let totalDurationSec = track.duration ? Math.floor(track.duration / 1000) : 180;
-      let isOffline = false;
-      const hasValidYtId = Boolean(track.videoId && !track.videoId.startsWith('http') && track.videoId.length >= 5);
-      const isVideoMode = get().playerMediaMode === 'video';
-      const hasTrackPlayer = Boolean(NativeModules.TrackPlayerModule);
-
-      // ── Step A: Check Local Offline Storage (Downloads) FIRST (0ms local hit & offline guard) ──
-      let hasOfflineCandidate = Boolean(streamUrl && streamUrl.startsWith('file://'));
-      try {
-        const localTrack = await downloadService.getLocalTrack(track.videoId);
-        if (get().playRequestId !== newRequestId) return;
-        if (localTrack && localTrack.audioLocalUri) {
-          streamUrl = localTrack.audioLocalUri;
-          isOffline = true;
-          hasOfflineCandidate = true;
-          if (localTrack.artworkLocalUri) {
-            finalArtwork = localTrack.artworkLocalUri;
-          }
-          if (localTrack.duration && localTrack.duration > 1000) {
-            totalDurationSec = Math.floor(localTrack.duration / 1000);
-          }
-        }
-      } catch (localErr) {
-        console.warn('[AudioStore] Local track check non-fatal error:', localErr);
-      }
-
-      // Block non-downloaded tracks cleanly when the device has no Internet connection
-      const isOnlineNow = useNetworkStore.getState().isOnline;
-      if (!isOnlineNow && !hasOfflineCandidate) {
-        set({ isLoading: false, loadingTrackId: null });
-        ToastManager.show({
-          title: 'أنت في وضع الأوفلاين',
-          subtitle: 'يمكن تشغيل المقاطع المحمّلة فقط بدون إنترنت',
-          icon: 'cloud-offline-outline',
-          duration: 2800,
-        });
-        return;
-      }
 
       // Optimistically render MiniPlayer & FullPlayer
       const optimisticTrack: Track = {

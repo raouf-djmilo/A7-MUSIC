@@ -2,18 +2,27 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, startTransiti
 import {
   ScrollView,
   View,
+  Text,
+  TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
-import { useAudioStore } from '../../store/useAudioStore';
+import { useAudioStore, Track } from '../../store/useAudioStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
 import { useTheme } from '../../theme/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMiniPlayerBottomGap } from '../../hooks/useMiniPlayerBottomGap';
 import { useDockScrollTracker } from '../../utils/scrollDockTracker';
 import { ToastManager } from '../../components/InAppToast';
+import { LiquidGlassSurface } from '../../components/LiquidGlassSurface';
 import { DynamicHomeSections, musicDnaService } from '../../services/musicDnaService';
 import { promptForRegionAccessIfNeeded } from '../../services/regionService';
+import { useNetworkStore } from '../../services/networkService';
+import { useDownloadStore } from '../../services/downloadService';
+import { getUniversalStudioArtworkSource } from '../../utils/artworkHelper';
 
 import { MusicDataEngine, TimeContextInfo } from './engines/musicData.engine';
 import { createMusicThemedStyles } from './styles/musicThemedStyles';
@@ -51,6 +60,19 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   // Stable static data selectors (does NOT subscribe to isPlaying / currentTrack)
   const history = useAudioStore((s) => s.history);
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
+  const isOnline = useNetworkStore((s) => s.isOnline);
+  const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
+  const isAr = useLanguageStore((s) => s.language) === 'ar';
+
+  const offlineReadyTracks: Track[] = useMemo(
+    () =>
+      downloadedTracks.map((d) => ({
+        ...d,
+        thumbnail: d.artworkLocalUri || d.thumbnail,
+        audioUrl: d.audioLocalUri,
+      })),
+    [downloadedTracks]
+  );
 
   const [activeFilter, setActiveFilter] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
@@ -108,14 +130,30 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   );
 
   const isInitialFetchDone = useRef(false);
+  const wasOfflineRef = useRef(!isOnline);
   useEffect(() => {
     if (!isInitialFetchDone.current) {
       isInitialFetchDone.current = true;
+      if (!useNetworkStore.getState().isOnline) {
+        loadDynamicFeeds(activeFilter);
+        return;
+      }
       promptForRegionAccessIfNeeded()
         .then(() => loadDynamicFeeds(activeFilter))
         .catch(() => loadDynamicFeeds(activeFilter));
     }
   }, [loadDynamicFeeds, activeFilter]);
+
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+    } else if (wasOfflineRef.current) {
+      wasOfflineRef.current = false;
+      promptForRegionAccessIfNeeded()
+        .then(() => loadDynamicFeeds(activeFilter))
+        .catch(() => loadDynamicFeeds(activeFilter));
+    }
+  }, [isOnline, loadDynamicFeeds, activeFilter]);
 
   const handleSelectFilter = useCallback(
     (pill: string) => {
@@ -131,6 +169,17 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!useNetworkStore.getState().isOnline) {
+      await useDownloadStore.getState().loadManifest().catch(() => {});
+      setRefreshing(false);
+      ToastManager.show({
+        title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+        subtitle: isAr ? 'تم تحديث المقاطع المحمّلة محلياً' : 'Local downloaded tracks refreshed',
+        icon: 'cloud-offline-outline',
+        duration: 2400,
+      });
+      return;
+    }
     try {
       const refreshed = await MusicDataEngine.refreshFeeds(activeFilter);
       setSections(refreshed);
@@ -144,7 +193,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
     } finally {
       setRefreshing(false);
     }
-  }, [activeFilter]);
+  }, [activeFilter, isAr]);
 
   const handleNavigateArtist = useCallback(
     (artistName: string, artistId?: string) => {
@@ -195,6 +244,147 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
         activeFilter={activeFilter}
         onSelectFilter={handleSelectFilter}
       />
+
+      {!isOnline && (
+        <View style={{ marginBottom: 18 }}>
+          <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isDark={isDark}
+              isInteractive={false}
+              borderRadius={20}
+              style={{
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                overflow: 'hidden',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: 'rgba(10, 132, 255, 0.16)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="cloud-offline-outline" size={18} color="#0A84FF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textPrimary, fontSize: 14.5, fontWeight: '800' }} numberOfLines={1}>
+                    {isAr
+                      ? `المحمّل أوفلاين (${offlineReadyTracks.length})`
+                      : `Offline Downloads (${offlineReadyTracks.length})`}
+                  </Text>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+                    {offlineReadyTracks.length > 0
+                      ? isAr
+                        ? 'جاهز للتشغيل بدون إنترنت'
+                        : 'Ready to play without internet'
+                      : isAr
+                        ? 'حمّل مقاطعك لتشغيلها أوفلاين'
+                        : 'Download tracks to play offline'}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (offlineReadyTracks.length > 0) {
+                    useAudioStore
+                      .getState()
+                      .playTrack(offlineReadyTracks[0], offlineReadyTracks, 0, 'Downloads');
+                  } else {
+                    navigation.navigate('LibraryTab');
+                  }
+                }}
+                style={{
+                  backgroundColor: '#0A84FF',
+                  paddingHorizontal: 13,
+                  paddingVertical: 7,
+                  borderRadius: 16,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 12.5, fontWeight: '700' }}>
+                  {offlineReadyTracks.length > 0
+                    ? isAr
+                      ? 'تشغيل الكل'
+                      : 'Play All'
+                    : isAr
+                      ? 'التحميلات'
+                      : 'Downloads'}
+                </Text>
+              </TouchableOpacity>
+            </LiquidGlassSurface>
+          </View>
+
+          {offlineReadyTracks.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            >
+              {offlineReadyTracks.map((item, idx) => (
+                <TouchableOpacity
+                  key={`offline-rail-${item.videoId}-${idx}`}
+                  activeOpacity={0.84}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    useAudioStore.getState().playTrack(item, offlineReadyTracks, idx, 'Downloads');
+                  }}
+                  style={{ width: 132 }}
+                >
+                  <View
+                    style={{
+                      width: 132,
+                      height: 132,
+                      borderRadius: 16,
+                      overflow: 'hidden',
+                      marginBottom: 7,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <Image
+                      source={getUniversalStudioArtworkSource(
+                        item.thumbnail,
+                        item.title,
+                        item.artist,
+                        item.videoId
+                      )}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                    />
+                  </View>
+                  <Text
+                    style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '700' }}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                  <Text
+                    style={{ color: theme.textSecondary, fontSize: 11.5, marginTop: 1 }}
+                    numberOfLines={1}
+                  >
+                    {item.artist}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
 
       <QuickGridSection
         tracks={sections.quickJump}

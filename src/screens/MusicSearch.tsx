@@ -24,6 +24,8 @@ import { useAuth } from '../providers/AuthProvider';
 import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useTheme } from '../theme/ThemeContext';
+import { useNetworkStore } from '../services/networkService';
+import { useDownloadStore } from '../services/downloadService';
 import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
 import {
   searchUnifiedMusicCatalog,
@@ -234,6 +236,21 @@ export const MusicSearch = ({ route }: any) => {
   const playTrack = useAudioStore((s) => s.playTrack);
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
+  const isOnline = useNetworkStore((s) => s.isOnline);
+  const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
+
+  const offlineReadyTracks = useMemo(
+    () =>
+      downloadedTracks.map((d) => ({
+        ...d,
+        thumbnail: d.artworkLocalUri || d.thumbnail,
+        audioUrl: d.audioLocalUri,
+        durationFormatted: `${Math.floor((d.duration || 180000) / 60000)}:${String(
+          Math.floor(((d.duration || 180000) % 60000) / 1000)
+        ).padStart(2, '0')}`,
+      })),
+    [downloadedTracks]
+  );
 
   const isSearchTabActive = isScreenFocused && currentRouteName === 'SearchTab';
 
@@ -272,6 +289,7 @@ export const MusicSearch = ({ route }: any) => {
   const t = isAr
     ? {
         searchPlaceholder: 'ماذا تريد أن تسمع؟',
+        searchPlaceholderOffline: 'ابحث في المقاطع المحمّلة...',
         recentSearches: 'عمليات البحث الأخيرة',
         clear: 'مسح',
         discoverShorts: 'اكتشف مقاطع الفنانين',
@@ -288,10 +306,18 @@ export const MusicSearch = ({ route }: any) => {
         songsHeader: 'الأغاني',
         nothingFound: `لا توجد نتائج لـ "${query}"`,
         tryAnother: 'جرّب البحث عن فنان أو استوديو أو أغنية أخرى.',
+        tryAnotherOffline: 'أنت في وضع الأوفلاين — يتم البحث داخل المقاطع المحمّلة فقط.',
         shortsSubtitle: 'مقاطع موسيقية قصيرة من القنوات الرسمية',
+        offlineTitle: `أغانيك المحمّلة (${downloadedTracks.length})`,
+        offlineSubtitle: 'جاهزة للبحث والتشغيل الفوري بدون إنترنت',
+        offlineEmptyTitle: 'لا توجد مقاطع محمّلة بعد',
+        offlineEmptySub: 'عند عودة الإنترنت يمكنك تحميل أغانيك لتشغيلها والبحث فيها أوفلاين.',
+        playAll: 'تشغيل الكل',
+        openDownloads: 'التحميلات',
       }
     : {
         searchPlaceholder: 'Artists, Studios, Songs, or Albums...',
+        searchPlaceholderOffline: 'Search downloaded tracks...',
         recentSearches: 'Recent Searches',
         clear: 'Clear',
         discoverShorts: 'Discover something new',
@@ -308,7 +334,14 @@ export const MusicSearch = ({ route }: any) => {
         songsHeader: 'Songs',
         nothingFound: `Nothing found for "${query}"`,
         tryAnother: 'Try searching for another artist, channel, or song.',
+        tryAnotherOffline: "You're offline — searching downloaded tracks only.",
         shortsSubtitle: 'Official artist music shorts',
+        offlineTitle: `Downloaded Music (${downloadedTracks.length})`,
+        offlineSubtitle: 'Ready to search and play offline',
+        offlineEmptyTitle: 'No downloaded tracks yet',
+        offlineEmptySub: 'Download songs while online to search and play without Wi-Fi.',
+        playAll: 'Play All',
+        openDownloads: 'Downloads',
       };
 
   useEffect(() => {
@@ -337,6 +370,11 @@ export const MusicSearch = ({ route }: any) => {
   );
 
   useEffect(() => {
+    if (!isOnline) {
+      setLoadingShorts(false);
+      setActiveFilter('all');
+      return;
+    }
     let active = true;
     setLoadingShorts(true);
     const names = followedNamesKey ? followedNamesKey.split('|').filter(Boolean) : [];
@@ -351,7 +389,7 @@ export const MusicSearch = ({ route }: any) => {
     return () => {
       active = false;
     };
-  }, [followedNamesKey, user?.id]);
+  }, [followedNamesKey, user?.id, isOnline]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -380,10 +418,40 @@ export const MusicSearch = ({ route }: any) => {
       return;
     }
     performSearch(debouncedQuery);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, isOnline, offlineReadyTracks]);
 
   const performSearch = async (searchTerm: string) => {
     if (!searchTerm.trim()) return;
+
+    if (!useNetworkStore.getState().isOnline) {
+      const needle = searchTerm.trim().toLowerCase();
+      const localList = useDownloadStore.getState().downloadedTracks;
+      const offlineMatches = localList
+        .filter((item) => {
+          const title = (item.title || '').toLowerCase();
+          const artist = (item.artist || '').toLowerCase();
+          const album = (item.album || '').toLowerCase();
+          return title.includes(needle) || artist.includes(needle) || album.includes(needle);
+        })
+        .map((item) => ({
+          ...item,
+          thumbnail: item.artworkLocalUri || item.thumbnail,
+          audioUrl: item.audioLocalUri,
+          durationFormatted: `${Math.floor((item.duration || 180000) / 60000)}:${String(
+            Math.floor(((item.duration || 180000) % 60000) / 1000)
+          ).padStart(2, '0')}`,
+        }));
+
+      setResults({
+        artist: null,
+        accounts: [],
+        tracks: offlineMatches,
+        albums: [],
+      });
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const unified = await searchUnifiedMusicCatalog(searchTerm);
@@ -829,7 +897,7 @@ export const MusicSearch = ({ route }: any) => {
           <Ionicons name="search" size={20} color={palette.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: palette.textPrimary, textAlign, writingDirection }]}
-            placeholder={t.searchPlaceholder}
+            placeholder={isOnline ? t.searchPlaceholder : t.searchPlaceholderOffline}
             placeholderTextColor={palette.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -850,8 +918,8 @@ export const MusicSearch = ({ route }: any) => {
           )}
         </LiquidGlassSurface>
 
-        {/* Filter Pills when searching */}
-        {query.trim().length > 0 && (
+        {/* Filter Pills when searching online */}
+        {query.trim().length > 0 && isOnline && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -958,36 +1026,172 @@ export const MusicSearch = ({ route }: any) => {
             </View>
           )}
 
-          {/* ── Discover Something New: Official Artist Music Shorts Carousel ── */}
-          <View style={styles.shortsSectionHeader}>
-            <Text style={[styles.discoverTitle, { color: palette.textPrimary, textAlign, writingDirection }]}>
-              {t.discoverShorts}
-            </Text>
-            <Text style={[styles.discoverSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
-              {t.shortsSubtitle}
-            </Text>
-          </View>
+          {!isOnline ? (
+            <View style={styles.offlineSearchSection}>
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isDark={isDark}
+                isInteractive={false}
+                borderRadius={20}
+                style={[
+                  styles.offlineSearchCard,
+                  {
+                    backgroundColor: palette.cardBg,
+                    borderColor: palette.cardBorder,
+                    borderTopColor: palette.cardTopBorder,
+                    flexDirection: rowDirection,
+                  },
+                ]}
+              >
+                <View style={styles.offlineBadgeCircle}>
+                  <Ionicons name="cloud-offline-outline" size={20} color={palette.accentBlue} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.offlineCardTitle,
+                      { color: palette.textPrimary, textAlign, writingDirection },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {t.offlineTitle}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.offlineCardSub,
+                      { color: palette.textSecondary, textAlign, writingDirection },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {t.offlineSubtitle}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.offlineCtaPill}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (offlineReadyTracks.length > 0) {
+                      playTrack(offlineReadyTracks[0], offlineReadyTracks, 0, 'Downloads');
+                    } else {
+                      navigation.navigate('LibraryTab');
+                    }
+                  }}
+                >
+                  <Text style={styles.offlineCtaText}>
+                    {offlineReadyTracks.length > 0 ? t.playAll : t.openDownloads}
+                  </Text>
+                </TouchableOpacity>
+              </LiquidGlassSurface>
 
-          {loadingShorts && shorts.length === 0 ? (
-            <View style={styles.shortsLoader}>
-              <ActivityIndicator size="small" color={palette.accentBlue} />
-              <Text style={[styles.loadingSubText, { color: palette.textSecondary, writingDirection }]}>
-                {t.loadingShorts}
-              </Text>
+              {offlineReadyTracks.length > 0 ? (
+                <View style={{ gap: 10, marginTop: 12 }}>
+                  {offlineReadyTracks.map((item, idx) => (
+                    <TouchableOpacity
+                      key={`offline-srch-${item.videoId}-${idx}`}
+                      activeOpacity={0.82}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        playTrack(item, offlineReadyTracks, idx, 'Downloads');
+                      }}
+                    >
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={18}
+                        style={[
+                          styles.trackRowGlass,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: palette.cardBorder,
+                            borderTopColor: palette.cardTopBorder,
+                            flexDirection: rowDirection,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.trackThumbFrame, { borderColor: palette.pillBorder }]}>
+                          <Image
+                            source={getUniversalStudioArtworkSource(
+                              item.thumbnail,
+                              item.title,
+                              item.artist,
+                              item.videoId
+                            )}
+                            style={styles.trackThumbImg}
+                            contentFit="cover"
+                          />
+                        </View>
+                        <View style={styles.trackInfo}>
+                          <Text
+                            style={[styles.trackTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                            numberOfLines={1}
+                          >
+                            {item.title}
+                          </Text>
+                          <View style={[styles.artistRow, { flexDirection: rowDirection }]}>
+                            <Ionicons name="checkmark-circle" size={13} color="#30D158" />
+                            <Text
+                              style={[styles.clickableArtist, { color: palette.textSecondary, textAlign, writingDirection }]}
+                              numberOfLines={1}
+                            >
+                              {item.artist}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.trackDuration, { color: palette.textMuted }]}>
+                          {item.durationFormatted}
+                        </Text>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.centerEmpty}>
+                  <Ionicons name="download-outline" size={48} color={palette.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: palette.textPrimary, writingDirection }]}>
+                    {t.offlineEmptyTitle}
+                  </Text>
+                  <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
+                    {t.offlineEmptySub}
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
-            <FlatList
-              data={shorts.slice(0, 10)}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, idx) => `short-card-${item.videoId}-${idx}`}
-              renderItem={renderShortCard}
-              contentContainerStyle={styles.shortsCarouselList}
-              snapToInterval={SHORT_CARD_WIDTH + SHORT_CARD_GAP}
-              decelerationRate="fast"
-              onViewableItemsChanged={onCarouselViewableChanged}
-              viewabilityConfig={carouselViewabilityConfig}
-            />
+            <>
+              {/* ── Discover Something New: Official Artist Music Shorts Carousel ── */}
+              <View style={styles.shortsSectionHeader}>
+                <Text style={[styles.discoverTitle, { color: palette.textPrimary, textAlign, writingDirection }]}>
+                  {t.discoverShorts}
+                </Text>
+                <Text style={[styles.discoverSub, { color: palette.textSecondary, textAlign, writingDirection }]}>
+                  {t.shortsSubtitle}
+                </Text>
+              </View>
+
+              {loadingShorts && shorts.length === 0 ? (
+                <View style={styles.shortsLoader}>
+                  <ActivityIndicator size="small" color={palette.accentBlue} />
+                  <Text style={[styles.loadingSubText, { color: palette.textSecondary, writingDirection }]}>
+                    {t.loadingShorts}
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={shorts.slice(0, 10)}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item, idx) => `short-card-${item.videoId}-${idx}`}
+                  renderItem={renderShortCard}
+                  contentContainerStyle={styles.shortsCarouselList}
+                  snapToInterval={SHORT_CARD_WIDTH + SHORT_CARD_GAP}
+                  decelerationRate="fast"
+                  onViewableItemsChanged={onCarouselViewableChanged}
+                  viewabilityConfig={carouselViewabilityConfig}
+                />
+              )}
+            </>
           )}
         </ScrollView>
       ) : results ? (
@@ -1343,7 +1547,7 @@ export const MusicSearch = ({ route }: any) => {
                   {t.nothingFound}
                 </Text>
                 <Text style={[styles.emptySub, { color: palette.textSecondary, writingDirection }]}>
-                  {t.tryAnother}
+                  {isOnline ? t.tryAnother : t.tryAnotherOffline}
                 </Text>
               </View>
             )
@@ -1578,6 +1782,45 @@ const styles = StyleSheet.create({
   emptySub: {
     fontSize: 13,
     textAlign: 'center',
+  },
+  offlineSearchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+  },
+  offlineSearchCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    alignItems: 'center',
+    gap: 12,
+    overflow: 'hidden',
+  },
+  offlineBadgeCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(10, 132, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offlineCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  offlineCardSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  offlineCtaPill: {
+    backgroundColor: '#0A84FF',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 16,
+  },
+  offlineCtaText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   artistSection: {
     marginBottom: 16,

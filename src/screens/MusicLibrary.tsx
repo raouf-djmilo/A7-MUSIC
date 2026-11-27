@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -296,7 +296,7 @@ export const MusicLibrary = () => {
         }
       }
 
-      if (!user?.id) {
+      if (!user?.id || !useNetworkStore.getState().isOnline) {
         setLoading(false);
         setRefreshing(false);
         return;
@@ -334,6 +334,16 @@ export const MusicLibrary = () => {
       setRefreshing(false);
     }
   }, [user?.id]);
+
+  const wasOfflineLibRef = useRef(!isOnline);
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineLibRef.current = true;
+    } else if (wasOfflineLibRef.current && user?.id) {
+      wasOfflineLibRef.current = false;
+      fetchLibrary();
+    }
+  }, [isOnline, user?.id, fetchLibrary]);
 
   // Unified live library songs: '+' library-saved tracks + liked tracks (guest & Firebase live sync)
   const savedTracks = useMemo(() => {

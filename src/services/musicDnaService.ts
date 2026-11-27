@@ -10,6 +10,7 @@ import {
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
 import { CURATED_TRACKS } from '../data/curatedMusic';
 import { getRegionProfile, getRegionSeedQueries } from './regionService';
+import { useNetworkStore } from './networkService';
 
 // ── Dynamic Rotating Seed Pools (Zero Fixed Artists, Zero Sport/Gym Bias!) ──
 const SEED_POOLS = {
@@ -325,6 +326,16 @@ class MusicDnaEngine {
 
     if (this.cachedFeed && !forceRefresh && !isExpired && this.cachedFeed.topMixes.length > 0) {
       return this.filterSections(this.cachedFeed, activeFilter);
+    }
+
+    if (!useNetworkStore.getState().isOnline) {
+      if (forceRefresh) {
+        throw new Error('OFFLINE_MODE');
+      }
+      if (this.cachedFeed && this.cachedFeed.topMixes.length > 0) {
+        return this.filterSections(this.cachedFeed, activeFilter);
+      }
+      return this.getFallbackSections(activeFilter);
     }
 
     if (this.isDiscovering && this.cachedFeed) {
@@ -776,9 +787,10 @@ class MusicDnaEngine {
 
     const now = Date.now();
     const isStale = !this.lastFeedCachedAt || now - this.lastFeedCachedAt > CACHE_TTL_MS;
+    const isOnlineNow = useNetworkStore.getState().isOnline;
 
     if (this.cachedFeed && this.cachedFeed.topMixes.length > 0) {
-      if (isStale && !this.isDiscovering) {
+      if (isOnlineNow && isStale && !this.isDiscovering) {
         // Silently revalidate in background without interrupting user
         this.discoverLiveFeeds(activeFilter, true).catch((err) => {
           console.warn('[MusicDNA] Background SWR revalidation error:', err);
@@ -789,6 +801,10 @@ class MusicDnaEngine {
         filtered.recentlyPlayed = history.slice(0, 10);
       }
       return filtered;
+    }
+
+    if (!isOnlineNow) {
+      return this.getFallbackSections(activeFilter, history);
     }
 
     // First cold launch without cache: await network discovery
