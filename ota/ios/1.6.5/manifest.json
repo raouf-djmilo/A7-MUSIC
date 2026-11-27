@@ -1,13 +1,13 @@
 {
-  "id": "637854ac-6fb2-4142-9ece-2d230e62f0b7",
-  "createdAt": "2026-11-27T13:27:40.735Z",
+  "id": "ab5f7a16-0e8f-4567-b0da-40e7bdfc54fc",
+  "createdAt": "2026-11-27T13:37:22.102Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "ZkNDyXDlJ_hdbVsxQL_JpbkSWZpa01r7Jvbh16IsCuo",
-    "key": "15bec0ce49ade15a200fb978905e271e",
+    "hash": "eXOqynxRTBQKuwG-PkmYlF0hLQnVHjI0wXknrDKMsMI",
+    "key": "757fa79f6af5045cca2a4e173242d2ca",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-3882e50ef6e6604c141e328b8890be76.hbc"
+    "url": "./_expo/static/js/ios/index-a79bcaf9879fbf2f36d73d008ccd82d2.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.8021f28",
+      "otaVersion": "1.6.5-ota.a6e5d31",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "8021f28",
-      "title": "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
+      "commitSha": "a6e5d31",
+      "title": "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
       "highlights": [
-        "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
+        "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T13:27:40.735Z",
-      "bundleSizeBytes": 6935966
+      "publishedAt": "2026-11-27T13:37:22.102Z",
+      "bundleSizeBytes": 6935733
     }
   }
 }

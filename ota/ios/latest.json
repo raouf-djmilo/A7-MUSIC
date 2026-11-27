@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.8021f28",
-  "updateId": "637854ac-6fb2-4142-9ece-2d230e62f0b7",
-  "publishedAt": "2026-11-27T13:27:40.735Z",
-  "title": "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
+  "otaVersion": "1.6.5-ota.a6e5d31",
+  "updateId": "ab5f7a16-0e8f-4567-b0da-40e7bdfc54fc",
+  "publishedAt": "2026-11-27T13:37:22.102Z",
+  "title": "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
   "highlights": [
-    "fix(firestore,navigation): allow ms durations, guard RNSTabsScreenIOS in Expo Go",
+    "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6935966,
+  "bundleSizeBytes": 6935733,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"
