@@ -2,16 +2,16 @@
   "platform": "ios",
   "latestNativeVersion": "1.6.5",
   "runtimeVersion": "1.6.5",
-  "otaVersion": "1.6.5-ota.a6e5d31",
-  "updateId": "ab5f7a16-0e8f-4567-b0da-40e7bdfc54fc",
-  "publishedAt": "2026-11-27T13:37:22.102Z",
-  "title": "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
+  "otaVersion": "1.6.5-ota.2ed614e",
+  "updateId": "59a3e209-2624-4266-9ce8-0860d2800899",
+  "publishedAt": "2026-11-27T13:42:57.467Z",
+  "title": "fix(firestore): force long polling transport for React Native / Expo Go",
   "highlights": [
-    "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
+    "fix(firestore): force long polling transport for React Native / Expo Go",
     "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
     "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
   ],
-  "bundleSizeBytes": 6935733,
+  "bundleSizeBytes": 6935934,
   "manifestUrl": "https://raouf-djmilo.github.io/A7-MUSIC/ota/ios/1.6.5/manifest.json",
   "ipaUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases/latest/download/A7-MUSIC.ipa",
   "releasesPageUrl": "https://github.com/raouf-djmilo/A7-MUSIC/releases"

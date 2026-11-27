@@ -1,13 +1,13 @@
 {
-  "id": "ab5f7a16-0e8f-4567-b0da-40e7bdfc54fc",
-  "createdAt": "2026-11-27T13:37:22.102Z",
+  "id": "59a3e209-2624-4266-9ce8-0860d2800899",
+  "createdAt": "2026-11-27T13:42:57.467Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "eXOqynxRTBQKuwG-PkmYlF0hLQnVHjI0wXknrDKMsMI",
-    "key": "757fa79f6af5045cca2a4e173242d2ca",
+    "hash": "CH9XLr-p_q335nC1yxGqp_pQ6X4JjehWBqYVpaFrh4E",
+    "key": "bbc6f76e21fb16f516375231e1c57de3",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-a79bcaf9879fbf2f36d73d008ccd82d2.hbc"
+    "url": "./_expo/static/js/ios/index-0809c22d41df84fde25fabbf181f2f51.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.a6e5d31",
+      "otaVersion": "1.6.5-ota.2ed614e",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "a6e5d31",
-      "title": "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
+      "commitSha": "2ed614e",
+      "title": "fix(firestore): force long polling transport for React Native / Expo Go",
       "highlights": [
-        "fix(metro,screens): route react-native-screens via src for Fabric codegen view configs",
+        "fix(firestore): force long polling transport for React Native / Expo Go",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T13:37:22.102Z",
-      "bundleSizeBytes": 6935733
+      "publishedAt": "2026-11-27T13:42:57.467Z",
+      "bundleSizeBytes": 6935934
     }
   }
 }
