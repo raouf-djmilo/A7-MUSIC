@@ -29,6 +29,7 @@ import {
 } from '../utils/artworkHelper';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
+import { useDockScrollTracker } from '../utils/scrollDockTracker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_COVER_SIZE = Math.min(256, Math.round(SCREEN_WIDTH * 0.64));
@@ -92,6 +93,7 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
   const language = useLanguageStore((s) => s.language);
   const isAr = language === 'ar';
 
@@ -629,7 +631,7 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
+          { useNativeDriver: false, listener: onDockScroll }
         )}
         contentContainerStyle={{
           paddingTop: insets.top + 66,

@@ -52,6 +52,7 @@ import {
 import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
 import { USE_NATIVE_LIQUID_TABS } from '../navigation/navigationConfig';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
+import { MarqueeText } from './MarqueeText';
 import { PlayerArtworkStage } from '../features/player/components/PlayerArtworkStage';
 import { AppleTimelineScrubber } from '../features/player/components/AppleTimelineScrubber';
 import { FullscreenVideoModal } from '../features/player/components/FullscreenVideoModal';
@@ -59,16 +60,27 @@ import { InPlaceFullscreenHud } from '../features/player/components/InPlaceFulls
 import { ToastManager } from './InAppToast';
 import { playerModalTranslateY, PLAYER_SPRING_CONFIG, DEFAULT_HIDDEN_OFFSET } from '../utils/playerMotion';
 import { registerActivePlayerBridge } from '../services/audioSessionService';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { resolveTrackAlbumAsync } from '../services/youtubeMusicService';
+import {
+  getFirebasePlaylists,
+  addTrackToFirebasePlaylist,
+  UserPlaylist,
+} from '../services/firebaseMusicDb';
+import { navigationRef } from '../navigation/navigationService';
 import { AtmosphericPalette, getTrackAtmosphericTint } from '../services/atmosphericColorEngine';
 export { AtmosphericPalette, getTrackAtmosphericTint };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_IOS_26_OR_HIGHER = Platform.OS === 'ios' && parseInt(String(Platform.Version), 10) >= 26;
 
 // ── Docking & Layout Constants ──
 const TAB_BAR_HEIGHT = 56;
-const MINI_PLAYER_HEIGHT = 58;
+const MINI_PLAYER_HEIGHT = 50;
+const COMPACT_DOCK_HEIGHT = 46;
+const DOCK_CIRCLE_SIZE = 46;
 const DOCK_MARGIN = 10;
-const MINI_MARGIN_H = 12;
+const MINI_MARGIN_H = 14;
 
 // ── Optimal Snappy Spring Configuration (Pure 120 FPS GPU) ──
 const SPRING_CONFIG = {
@@ -214,7 +226,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   const navigation = useNavigation<any>();
   const { theme, isDark } = useTheme();
-  const { session } = useAuth();
+  const { user, session } = useAuth();
+  const language = useLanguageStore((s) => s.language);
+  const isAr = language === 'ar';
 
   const currentTrack = useAudioStore((s) => s.currentTrack);
   const isPlaying = useAudioStore((s) => s.isPlaying);
@@ -224,6 +238,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const stopTrack = useAudioStore((s) => s.stopTrack);
   const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
   const toggleLike = useAudioStore((s) => s.toggleLike);
+  const savedLibraryTrackIds = useAudioStore((s) => s.savedLibraryTrackIds);
+  const toggleSaveTrackToLibrary = useAudioStore((s) => s.toggleSaveTrackToLibrary);
+  const isDockMinimized = useAudioStore((s) => s.isDockMinimized);
+  const currentContextName = useAudioStore((s) => s.currentContextName);
   const isShuffle = useAudioStore((s) => s.isShuffle);
   const toggleShuffle = useAudioStore((s) => s.toggleShuffle);
   const repeatMode = useAudioStore((s) => s.repeatMode);
@@ -264,7 +282,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     }
   }, [currentTrack?.videoId]);
 
-  const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.42, 380);
+  const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.39, 360);
   const cardVideoHeight = Math.round((cardWidth * 9) / 16);
   const normalVideoLeft = Math.round((windowWidth - cardWidth) / 2);
   const [normalStageTop, setNormalStageTop] = useState(Math.max(insets.top, 16) + 68);
@@ -849,19 +867,31 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     prevRouteRef.current = currentRouteName;
   }, [currentRouteName, isPlayerModalVisible, setPlayerModalVisible]);
 
-  // ── Precise Dynamic Geometry Offsets (Spotify & Apple Music Standard) ──
+  // ── Precise Dynamic Geometry Offsets (Apple Music Standard) ──
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10);
   const tabBarTop = Math.max(insets.bottom + 6, 22) + 60;
   const baseMiniBottom = USE_NATIVE_LIQUID_TABS
     ? (Platform.OS === 'ios' ? Math.max(insets.bottom + 49 + 12, 95) : 95)
     : tabBarTop + 8; // Exactly 8px safety clearance above tab bar
+  const stackDockBottom = Math.max(insets.bottom + 8, 22);
   const HIDDEN_OFFSET = DEFAULT_HIDDEN_OFFSET;
+
+  // On iOS 26+ Tab screens, native UIKit UITabAccessory renders the regular & inline MiniPlayer directly.
+  const isNativeAccessoryHandlingMiniPlayer =
+    IS_IOS_26_OR_HIGHER && USE_NATIVE_LIQUID_TABS && isTabBarVisible;
+  const isNativeHandlingSV = useSharedValue(isNativeAccessoryHandlingMiniPlayer);
+  useEffect(() => {
+    isNativeHandlingSV.value = isNativeAccessoryHandlingMiniPlayer;
+  }, [isNativeAccessoryHandlingMiniPlayer]);
 
   // ── UI-Thread Shared Values (GPU Transform Only) ──
   // playerModalTranslateY coordinates both the player sheet and the GlobalAudioBridge video in 120 FPS hardware lockstep
   const fullTranslateY = playerModalTranslateY;
   const fullStartY = useSharedValue(0);
-  const dockTranslateY = useSharedValue(isTabBarVisible ? 0 : TAB_BAR_HEIGHT);
+  const dockTranslateY = useSharedValue(
+    isTabBarVisible ? 0 : Math.max(0, baseMiniBottom - stackDockBottom)
+  );
+  const miniDockMorph = useSharedValue(!isTabBarVisible && isDockMinimized ? 1 : 0);
   const isScrubbingTimeline = useSharedValue(false);
 
   // Smooth segmented control indicator with Apple spring physics (0 = Cover, 1 = Video)
@@ -928,12 +958,29 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   // Smooth 250ms glide when navigating between Tab screens and Stack screens
   useEffect(() => {
-    const targetOffset = isTabBarVisible ? 0 : 68;
+    const targetOffset = isTabBarVisible ? 0 : Math.max(0, baseMiniBottom - stackDockBottom);
     dockTranslateY.value = withTiming(targetOffset, {
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
-  }, [isTabBarVisible]);
+  }, [isTabBarVisible, baseMiniBottom, stackDockBottom]);
+
+  // Smooth spring morph into slim [Home Circle] [MiniPlayer] [Search Circle] when scrolled down on Stack screens
+  const isCompactDockActive = !isTabBarVisible && isDockMinimized;
+  useEffect(() => {
+    miniDockMorph.value = withSpring(isCompactDockActive ? 1 : 0, {
+      stiffness: 340,
+      damping: 28,
+      mass: 0.75,
+    });
+  }, [isCompactDockActive]);
+
+  // ── Player Action Menu (... Liquid Glass Sheet) & Album Resolution State ──
+  const [trackMenuVisible, setTrackMenuVisible] = useState(false);
+  const [resolvingAlbum, setResolvingAlbum] = useState(false);
+  const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
   // ── Download & Hardware Offline Storage State ──
   const [qualityModalVisible, setQualityModalVisible] = useState(false);
@@ -1096,7 +1143,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
         runOnJS(triggerCollapseHandover)();
         fullTranslateY.value = withSpring(HIDDEN_OFFSET, SPRING_CONFIG);
       } else {
-        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished) => {
+        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
           if (finished) {
             runOnJS(syncModalState)(true);
           }
@@ -1123,7 +1170,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     .onEnd((event) => {
       'worklet';
       if (event.translationY < -50 || event.velocityY < -300) {
-        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished) => {
+        fullTranslateY.value = withSpring(0, SPRING_CONFIG, (finished?: boolean) => {
           if (finished) {
             runOnJS(syncModalState)(true);
           }
@@ -1165,9 +1212,25 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       [0, 0.25, 1],
       Extrapolation.CLAMP
     );
+    const horizontalEdge = interpolate(
+      miniDockMorph.value,
+      [0, 1],
+      [MINI_MARGIN_H, MINI_MARGIN_H + DOCK_CIRCLE_SIZE + 8],
+      Extrapolation.CLAMP
+    );
+    const dynamicHeight = interpolate(
+      miniDockMorph.value,
+      [0, 1],
+      [MINI_PLAYER_HEIGHT, COMPACT_DOCK_HEIGHT],
+      Extrapolation.CLAMP
+    );
 
     return {
-      opacity: progress,
+      opacity: isNativeHandlingSV.value ? 0 : progress,
+      left: horizontalEdge,
+      right: horizontalEdge,
+      height: dynamicHeight,
+      borderRadius: dynamicHeight / 2,
       transform: [
         { translateY: dockTranslateY.value },
         {
@@ -1179,6 +1242,50 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           ),
         },
       ],
+    };
+  });
+
+  const animatedSideCircleLeftStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      fullTranslateY.value,
+      [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    const morph = miniDockMorph.value;
+    return {
+      opacity: isNativeHandlingSV.value ? 0 : progress * morph,
+      transform: [
+        { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+        { translateX: interpolate(morph, [0, 1], [-22, 0], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  const animatedSideCircleRightStyle = useAnimatedStyle(() => {
+    const progress = interpolate(
+      fullTranslateY.value,
+      [0, SCREEN_HEIGHT * 0.35, SCREEN_HEIGHT * 0.85],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    const morph = miniDockMorph.value;
+    return {
+      opacity: isNativeHandlingSV.value ? 0 : progress * morph,
+      transform: [
+        { scale: interpolate(morph, [0, 1], [0.55, 1], Extrapolation.CLAMP) },
+        { translateX: interpolate(morph, [0, 1], [22, 0], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  const animatedMiniNextStyle = useAnimatedStyle(() => {
+    const morph = miniDockMorph.value;
+    return {
+      opacity: interpolate(morph, [0, 0.55], [1, 0], Extrapolation.CLAMP),
+      width: interpolate(morph, [0, 0.7], [30, 0], Extrapolation.CLAMP),
+      marginLeft: interpolate(morph, [0, 0.7], [6, 0], Extrapolation.CLAMP),
+      overflow: 'hidden' as const,
     };
   });
 
@@ -1209,15 +1316,139 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await Share.share({
         title: currentTrack.title,
-        message: `Listen to "${currentTrack.title}" by ${currentTrack.artist} on Nouble Running! https://youtube.com/watch?v=${currentTrack.videoId}`,
+        message: `${currentTrack.title} — ${currentTrack.artist}\nhttps://music.youtube.com/watch?v=${currentTrack.videoId}`,
       });
     } catch (e) { }
   };
+
+  const navigateToStackOrTab = useCallback(
+    (screen: string, params?: any) => {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('MainTabs', { screen, params });
+      } else {
+        navigation.navigate(screen, params);
+      }
+    },
+    [navigation]
+  );
+
+  const handleDockNavigateTab = useCallback(
+    (tabKey: 'DashboardTab' | 'SearchTab') => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      useAudioStore.getState().setCurrentRouteName(tabKey);
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('MainTabs', {
+          screen: 'Tabs',
+          params: { screen: tabKey },
+        });
+      } else {
+        navigation.navigate('Tabs', { screen: tabKey });
+      }
+    },
+    [navigation]
+  );
+
+  const handleAddToLibraryPress = useCallback(async () => {
+    if (!currentTrack) return;
+    const savedNow = await toggleSaveTrackToLibrary(currentTrack);
+    ToastManager.show({
+      title: savedNow
+        ? isAr
+          ? 'تمت الإضافة إلى مكتبتك'
+          : 'Added to Library'
+        : isAr
+        ? 'تمت الإزالة من مكتبتك'
+        : 'Removed from Library',
+      subtitle: currentTrack.title,
+      icon: savedNow ? 'checkmark-circle' : 'remove-circle-outline',
+      duration: 2200,
+    });
+  }, [currentTrack, toggleSaveTrackToLibrary, isAr]);
+
+  const handleOpenTrackMenu = useCallback(() => {
+    if (!currentTrack) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowPlaylistPicker(false);
+    setTrackMenuVisible(true);
+    if (user?.id) {
+      setLoadingPlaylists(true);
+      getFirebasePlaylists(user.id)
+        .then((pls) => setUserPlaylists(pls))
+        .catch(() => {})
+        .finally(() => setLoadingPlaylists(false));
+    }
+  }, [currentTrack, user?.id]);
+
+  const handleGoToArtist = useCallback(() => {
+    if (!currentTrack?.artist) return;
+    setTrackMenuVisible(false);
+    collapseToMini();
+    navigateToStackOrTab('ArtistDetail', {
+      artistName: currentTrack.artist,
+      artistAvatar: currentTrack.artistAvatar,
+    });
+  }, [currentTrack, collapseToMini, navigateToStackOrTab]);
+
+  const handleGoToAlbum = useCallback(async () => {
+    if (!currentTrack) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setResolvingAlbum(true);
+    try {
+      const resolved = await resolveTrackAlbumAsync(currentTrack);
+      setTrackMenuVisible(false);
+      collapseToMini();
+      if (resolved) {
+        navigateToStackOrTab('AlbumDetails', {
+          playlistId: resolved.id,
+          albumTitle: resolved.title,
+          artistName: resolved.artist,
+          cover: resolved.cover || currentTrack.thumbnail || '',
+          type: resolved.type || 'album',
+        });
+      } else {
+        const fallbackTitle = currentTrack.album || currentContextName || currentTrack.title;
+        navigateToStackOrTab('AlbumDetails', {
+          albumTitle: fallbackTitle,
+          artistName: currentTrack.artist || 'Artist',
+          cover: currentTrack.thumbnail || '',
+          type: 'single',
+          album: {
+            id: `sng-${currentTrack.videoId}`,
+            title: fallbackTitle,
+            artist: currentTrack.artist || 'Artist',
+            thumbnail: currentTrack.thumbnail || '',
+            tracks: [currentTrack],
+          },
+        });
+      }
+    } finally {
+      setResolvingAlbum(false);
+    }
+  }, [currentTrack, currentContextName, collapseToMini, navigateToStackOrTab]);
+
+  const handleAddTrackToPlaylist = useCallback(
+    async (pl: UserPlaylist) => {
+      if (!user?.id || !currentTrack) return;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const ok = await addTrackToFirebasePlaylist(user.id, pl.id, currentTrack);
+      if (ok) {
+        setTrackMenuVisible(false);
+        ToastManager.show({
+          title: isAr ? `تمت الإضافة إلى "${pl.name}"` : `Added to "${pl.name}"`,
+          subtitle: currentTrack.title,
+          icon: 'checkmark-circle',
+          duration: 2400,
+        });
+      }
+    },
+    [user?.id, currentTrack, isAr]
+  );
 
   const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
   if (!currentTrack || isMiniPlayerSuppressed || isAuthScreen) return null;
 
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
+  const isSavedInLibrary = currentTrack ? savedLibraryTrackIds.includes(currentTrack.videoId) : false;
   const resolvedArtistAvatar = getUniversalArtistAvatar(
     currentTrack.artistAvatar,
     currentTrack.artist
@@ -1225,8 +1456,72 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
   return (
     <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {/* ── Flanking Liquid Glass Home Circle (Scroll-Collapsed Stack Dock) ── */}
+      {!isNativeAccessoryHandlingMiniPlayer && (
+        <Animated.View
+          style={[
+            styles.dockSideCircleLeft,
+            { bottom: stackDockBottom },
+            animatedSideCircleLeftStyle,
+          ]}
+          pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
+        >
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={() => handleDockNavigateTab('DashboardTab')}
+          >
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isInteractive
+              isDark={isDark}
+              borderRadius={DOCK_CIRCLE_SIZE / 2}
+              style={[
+                styles.dockCircleSurface,
+                {
+                  borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            >
+              <Ionicons name="home" size={20} color={isDark ? '#FFFFFF' : '#0F172A'} />
+            </LiquidGlassSurface>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* ── Flanking Liquid Glass Search Circle (Scroll-Collapsed Stack Dock) ── */}
+      {!isNativeAccessoryHandlingMiniPlayer && (
+        <Animated.View
+          style={[
+            styles.dockSideCircleRight,
+            { bottom: stackDockBottom },
+            animatedSideCircleRightStyle,
+          ]}
+          pointerEvents={isPlayerModalVisible || !isCompactDockActive ? 'none' : 'box-none'}
+        >
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={() => handleDockNavigateTab('SearchTab')}
+          >
+            <LiquidGlassSurface
+              glassStyle="regular"
+              isInteractive
+              isDark={isDark}
+              borderRadius={DOCK_CIRCLE_SIZE / 2}
+              style={[
+                styles.dockCircleSurface,
+                {
+                  borderColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            >
+              <Ionicons name="search" size={20} color="#0A84FF" />
+            </LiquidGlassSurface>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* ════════════════════════════════════════════════════════════════════════
-          1. FLOATING PILL MINIPLAYER (Zero-Unmount 120 FPS GPU Gliding Pill)
+          1. FLOATING PILL MINIPLAYER (Scroll-Reactive Liquid Glass Pill)
          ════════════════════════════════════════════════════════════════════════ */}
       <Animated.View
         style={[
@@ -1234,34 +1529,34 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
           {
             bottom: baseMiniBottom,
             backgroundColor: 'transparent',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(0, 0, 0, 0.08)',
-            borderTopColor: isDark ? 'rgba(255, 255, 255, 0.32)' : 'rgba(255, 255, 255, 0.90)',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)',
+            borderTopColor: isDark ? 'rgba(255, 255, 255, 0.34)' : 'rgba(255, 255, 255, 0.90)',
             shadowColor: '#000000',
-            shadowOpacity: isDark ? 0.40 : 0.12,
+            shadowOpacity: isDark ? 0.36 : 0.12,
             shadowOffset: { width: 0, height: 6 },
             shadowRadius: 16,
           },
           animatedMiniStyle,
         ]}
-        pointerEvents={isPlayerModalVisible ? 'none' : 'box-none'}
+        pointerEvents={isPlayerModalVisible || isNativeAccessoryHandlingMiniPlayer ? 'none' : 'box-none'}
       >
         {/* Apple Native Liquid Glass Surface (Metal GPU UIGlassEffect) */}
         <LiquidGlassSurface
           glassStyle="regular"
           isInteractive={true}
           isDark={isDark}
-          borderRadius={20}
+          borderRadius={25}
           style={StyleSheet.absoluteFill}
         >
-          {/* Layer A: Subtle blurred cover image reflection bloom */}
+          {/* Subtle blurred cover image reflection bloom */}
           {heroArtworkSources && heroArtworkSources.length > 0 && (
             <Image
               source={heroArtworkSources}
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  transform: [{ scale: 2.2 }],
-                  opacity: isDark ? 0.14 : 0.08,
+                  transform: [{ scale: 2.0 }],
+                  opacity: isDark ? 0.12 : 0.06,
                 },
               ]}
               contentFit="cover"
@@ -1270,18 +1565,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               transition={300}
             />
           )}
-
-          {/* Layer B: Delicate Luminous Top Sheen */}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                borderTopWidth: 1,
-                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.70)',
-                borderRadius: 20,
-              },
-            ]}
-          />
         </LiquidGlassSurface>
 
         <View style={styles.miniInnerRow} pointerEvents="auto">
@@ -1292,7 +1575,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               onPress={expandToFull}
               style={styles.miniDisplayArea}
             >
-              {/* 44x44 Square Thumbnail – Universal Studio Engine (zero black bars, retina sharp) */}
               <Image
                 source={heroArtworkSources}
                 style={styles.miniCover}
@@ -1303,28 +1585,26 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               />
 
               <View style={styles.miniInfo}>
-                <Text
+                <MarqueeText
+                  text={currentTrack.title || 'Track Title'}
                   style={[styles.miniTitle, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {currentTrack.title || 'Track Title'}
-                </Text>
+                  speedPxPerSec={26}
+                  pauseStartMs={1600}
+                  pauseEndMs={1400}
+                />
                 <View style={styles.miniArtistRow}>
                   <Text
-                    style={[styles.miniArtist, { color: isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted }]}
+                    style={[styles.miniArtist, { color: isDark ? 'rgba(255,255,255,0.68)' : theme.textMuted }]}
                     numberOfLines={1}
                   >
                     {currentTrack.artist || 'Artist'}
                   </Text>
-                  {currentTrack.isOfficial && (
-                    <Ionicons name="checkmark-circle" size={12} color="#458eff" style={{ marginLeft: 3 }} />
-                  )}
                 </View>
               </View>
             </TouchableOpacity>
           </GestureDetector>
 
-          {/* Right Isolated Controls - completely outside pan gesture so button clicks are NEVER cancelled */}
+          {/* Compact Apple Music Right Controls */}
           <View style={styles.miniControls}>
             <TouchableOpacity
               activeOpacity={0.75}
@@ -1332,50 +1612,33 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 e?.stopPropagation?.();
                 handlePlayPausePress();
               }}
-              style={[
-                styles.miniPlayBtn,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' },
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.miniIconActionBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             >
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
-                size={17}
+                size={19}
                 color={isDark ? '#FFFFFF' : theme.textPrimary}
                 style={{ marginLeft: isPlaying ? 0 : 1 }}
               />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={(e) => {
-                e?.stopPropagation?.();
-                handleNextPress();
-              }}
-              style={[
-                styles.miniNextBtn,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.04)' },
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="play-skip-forward" size={15} color={isDark ? '#FFFFFF' : theme.textPrimary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={(e) => {
-                e?.stopPropagation?.();
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                stopTrack();
-              }}
-              style={styles.miniCloseBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={17} color={isDark ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
-            </TouchableOpacity>
+            <Animated.View style={animatedMiniNextStyle}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  handleNextPress();
+                }}
+                style={styles.miniIconActionBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 6, right: 8 }}
+              >
+                <Ionicons name="play-forward" size={18} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+              </TouchableOpacity>
+            </Animated.View>
           </View>
 
-          {/* Bottom Subtle Progress Bar (Isolated Component) */}
+          {/* Ultra-thin Micro Progress Hairline */}
           <MiniProgressBar isDark={isDark} accentColor={tint.accent} />
         </View>
       </Animated.View>
@@ -1481,15 +1744,28 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                 />
               </View>
 
-              {/* 1. Balanced 3-Slot Header: Left (44pt) | Center (flex: 1) | Right (44pt) */}
+              {/* 1. Balanced 3-Slot Liquid Glass Header */}
               <View style={styles.fullHeaderThreeSlot}>
                 <View style={styles.headerSlotSide}>
                   <TouchableOpacity
                     onPress={collapseToMini}
-                    style={styles.fullHeaderBtn}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="chevron-down" size={28} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+                    <LiquidGlassSurface
+                      glassStyle="regular"
+                      isInteractive
+                      isDark={isDark}
+                      borderRadius={19}
+                      style={[
+                        styles.headerGlassCircle,
+                        {
+                          borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                        },
+                      ]}
+                    >
+                      <Ionicons name="chevron-down" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+                    </LiquidGlassSurface>
                   </TouchableOpacity>
                 </View>
 
@@ -1579,11 +1855,37 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
 
                 <View style={[styles.headerSlotSide, { alignItems: 'flex-end' }]}>
                   <TouchableOpacity
-                    onPress={handleShare}
-                    style={styles.fullHeaderBtn}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    onPress={handleDownloadPress}
+                    disabled={isDownloading}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="ellipsis-vertical" size={22} color={isDark ? '#FFFFFF' : theme.textPrimary} />
+                    <LiquidGlassSurface
+                      glassStyle="regular"
+                      isInteractive
+                      isDark={isDark}
+                      borderRadius={19}
+                      style={[
+                        styles.headerGlassCircle,
+                        {
+                          borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                        },
+                      ]}
+                    >
+                      {isDownloading ? (
+                        <View style={styles.downloadSpinnerWrap}>
+                          <ActivityIndicator size="small" color="#10B981" />
+                        </View>
+                      ) : isDownloaded ? (
+                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                      ) : (
+                        <Ionicons
+                          name="arrow-down-outline"
+                          size={19}
+                          color={isDark ? '#FFFFFF' : theme.textPrimary}
+                        />
+                      )}
+                    </LiquidGlassSurface>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1622,29 +1924,25 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               )}
             </View>
 
-            {/* 3. Track Metadata (Title, Artist, Like Heart) */}
+            {/* 3. Track Metadata + Apple Music Liquid Glass [ + ] [ ♥ ] [ ⋯ ] Row */}
             <View style={styles.metaRow}>
               <View style={styles.metaTextCol}>
-                <Text
+                <MarqueeText
+                  text={currentTrack.title || 'Track Title'}
                   style={[styles.fullTrackTitle, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {currentTrack.title || 'Track Title'}
-                </Text>
+                  speedPxPerSec={30}
+                  pauseStartMs={2000}
+                  pauseEndMs={1500}
+                />
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => {
-                    collapseToMini();
-                    if (currentTrack.artist) {
-                      navigation.navigate('ArtistDetail', { artistName: currentTrack.artist });
-                    }
-                  }}
+                  onPress={handleGoToArtist}
                   style={styles.fullArtistRow}
                 >
                   <Text
                     style={[
                       styles.fullArtistName,
-                      { color: isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0, 0, 0, 0.65)' },
+                      { color: isDark ? 'rgba(255,255,255,0.72)' : 'rgba(0, 0, 0, 0.68)' },
                     ]}
                     numberOfLines={1}
                   >
@@ -1657,45 +1955,101 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               </View>
 
               <View style={styles.metaActionsRow}>
-                {/* Download Button */}
+                {/* + Add to Library Liquid Glass Button */}
                 <TouchableOpacity
-                  style={styles.fullDownloadBtn}
-                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                  onPress={handleDownloadPress}
-                  disabled={isDownloading}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  onPress={handleAddToLibraryPress}
                 >
-                  {isDownloading ? (
-                    <View style={styles.downloadSpinnerWrap}>
-                      <ActivityIndicator size="small" color="#10B981" />
-                      <Text style={styles.downloadPctText}>
-                        {Math.round((downloadProgress?.progress || 0) * 100)}%
-                      </Text>
-                    </View>
-                  ) : isDownloaded ? (
-                    <Ionicons name="checkmark-circle" size={26} color="#10B981" />
-                  ) : (
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isInteractive
+                    isDark={isDark}
+                    tintColor={isSavedInLibrary ? 'rgba(52, 211, 153, 0.24)' : undefined}
+                    borderRadius={18}
+                    style={[
+                      styles.metaGlassCircle,
+                      {
+                        borderColor: isSavedInLibrary
+                          ? 'rgba(52, 211, 153, 0.55)'
+                          : isDark
+                          ? 'rgba(255,255,255,0.18)'
+                          : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                  >
                     <Ionicons
-                      name="arrow-down-circle-outline"
-                      size={26}
-                      color={isDark ? 'rgba(255,255,255,0.7)' : theme.textPrimary}
+                      name={isSavedInLibrary ? 'checkmark' : 'add'}
+                      size={20}
+                      color={
+                        isSavedInLibrary
+                          ? '#34D399'
+                          : isDark
+                          ? '#FFFFFF'
+                          : theme.textPrimary
+                      }
                     />
-                  )}
+                  </LiquidGlassSurface>
                 </TouchableOpacity>
 
-                {/* Like Button */}
+                {/* ♥ Favorite Liquid Glass Button */}
                 <TouchableOpacity
-                  style={styles.fullLikeBtn}
-                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     toggleLike(currentTrack);
                   }}
                 >
-                  <Ionicons
-                    name={isLiked ? 'heart' : 'heart-outline'}
-                    size={26}
-                    color={isLiked ? '#FF375F' : isDark ? 'rgba(255,255,255,0.7)' : theme.textPrimary}
-                  />
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isInteractive
+                    isDark={isDark}
+                    tintColor={isLiked ? 'rgba(255, 55, 95, 0.22)' : undefined}
+                    borderRadius={18}
+                    style={[
+                      styles.metaGlassCircle,
+                      {
+                        borderColor: isLiked
+                          ? 'rgba(255, 55, 95, 0.55)'
+                          : isDark
+                          ? 'rgba(255,255,255,0.18)'
+                          : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={isLiked ? 'heart' : 'heart-outline'}
+                      size={18}
+                      color={isLiked ? '#FF375F' : isDark ? '#FFFFFF' : theme.textPrimary}
+                    />
+                  </LiquidGlassSurface>
+                </TouchableOpacity>
+
+                {/* ⋯ Three-Dot Apple Music Options Menu */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+                  onPress={handleOpenTrackMenu}
+                >
+                  <LiquidGlassSurface
+                    glassStyle="regular"
+                    isInteractive
+                    isDark={isDark}
+                    borderRadius={18}
+                    style={[
+                      styles.metaGlassCircle,
+                      {
+                        borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="ellipsis-horizontal"
+                      size={18}
+                      color={isDark ? '#FFFFFF' : theme.textPrimary}
+                    />
+                  </LiquidGlassSurface>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1818,12 +2172,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             {/* 6. Liquid Glass Bottom Artist Card */}
             <TouchableOpacity
               activeOpacity={0.88}
-              onPress={() => {
-                collapseToMini();
-                if (currentTrack.artist) {
-                  navigation.navigate('ArtistDetail', { artistName: currentTrack.artist });
-                }
-              }}
+              onPress={handleGoToArtist}
               style={styles.compactArtistCardWrapper}
             >
               <LiquidGlassSurface
@@ -1840,10 +2189,10 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
               >
                 <View style={styles.compactArtistHeader}>
                   <Text style={[styles.compactArtistHeaderTitle, { color: isDark ? '#FFFFFF' : theme.textPrimary }]}>
-                    Artist
+                    {isAr ? 'الفنان' : 'Artist'}
                   </Text>
                   <Ionicons
-                    name="chevron-forward"
+                    name={isAr ? 'chevron-back' : 'chevron-forward'}
                     size={16}
                     color={isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted}
                   />
@@ -1878,7 +2227,7 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                       style={[styles.compactArtistSub, { color: isDark ? 'rgba(255,255,255,0.6)' : theme.textMuted }]}
                       numberOfLines={1}
                     >
-                      Verified Official Artist
+                      {isAr ? 'فنان رسمي موثق' : 'Verified Official Artist'}
                     </Text>
                   </View>
 
@@ -1914,7 +2263,13 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
                         },
                       ]}
                     >
-                      {currentTrack?.artist && followedArtistIds.includes(currentTrack.artist) ? 'Following' : '+ Follow'}
+                      {currentTrack?.artist && followedArtistIds.includes(currentTrack.artist)
+                        ? isAr
+                          ? 'تتابع'
+                          : 'Following'
+                        : isAr
+                        ? '+ متابعة'
+                        : '+ Follow'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2285,19 +2640,375 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* ════════════════════════════════════════════════════════════════════════
+            Apple Music Liquid Glass Options Sheet (... Context Menu)
+           ════════════════════════════════════════════════════════════════════════ */}
+        <Modal
+          visible={trackMenuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTrackMenuVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.trackMenuBackdrop}
+            activeOpacity={1}
+            onPress={() => setTrackMenuVisible(false)}
+          >
+            <BlurView
+              intensity={isDark ? 35 : 28}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={[styles.trackMenuCardWrap, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
+            >
+              <LiquidGlassSurface
+                glassStyle="regular"
+                isInteractive={false}
+                isDark={isDark}
+                borderRadius={26}
+                style={[
+                  styles.trackMenuCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(24, 26, 36, 0.88)' : 'rgba(255, 255, 255, 0.92)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.08)',
+                  },
+                ]}
+              >
+                {/* Track Preview Header */}
+                <View
+                  style={[
+                    styles.trackMenuHeader,
+                    {
+                      flexDirection: isAr ? 'row-reverse' : 'row',
+                      borderBottomColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={heroArtworkSources}
+                    style={styles.trackMenuThumb}
+                    {...STUDIO_IMAGE_PROPS}
+                  />
+                  <View style={[styles.trackMenuMeta, { marginHorizontal: 12 }]}>
+                    <MarqueeText
+                      text={currentTrack.title || 'Track'}
+                      style={[
+                        styles.trackMenuTitle,
+                        { color: isDark ? '#FFFFFF' : '#0F172A', writingDirection: isAr ? 'rtl' : 'ltr' },
+                      ]}
+                      speedPxPerSec={26}
+                    />
+                    <Text
+                      style={[
+                        styles.trackMenuArtist,
+                        {
+                          color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(15,23,42,0.65)',
+                          textAlign: isAr ? 'right' : 'left',
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {currentTrack.artist || 'Artist'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 1. Go to Artist */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  onPress={handleGoToArtist}
+                >
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={22}
+                    color={isDark ? '#FFFFFF' : '#0F172A'}
+                  />
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isAr ? 'الانتقال إلى الفنان' : 'Go to Artist'}
+                  </Text>
+                  <Ionicons
+                    name={isAr ? 'chevron-back' : 'chevron-forward'}
+                    size={16}
+                    color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
+                  />
+                </TouchableOpacity>
+
+                {/* 2. Go to Album */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  disabled={resolvingAlbum}
+                  onPress={handleGoToAlbum}
+                >
+                  {resolvingAlbum ? (
+                    <ActivityIndicator size="small" color={isDark ? '#FFFFFF' : '#0F172A'} />
+                  ) : (
+                    <Ionicons
+                      name="disc-outline"
+                      size={22}
+                      color={isDark ? '#FFFFFF' : '#0F172A'}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isAr ? 'الانتقال إلى الألبوم' : 'Go to Album'}
+                  </Text>
+                  <Ionicons
+                    name={isAr ? 'chevron-back' : 'chevron-forward'}
+                    size={16}
+                    color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
+                  />
+                </TouchableOpacity>
+
+                {/* 3. Add to Library + Quick Playlists */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  onPress={async () => {
+                    await handleAddToLibraryPress();
+                    setTrackMenuVisible(false);
+                  }}
+                >
+                  <Ionicons
+                    name={isSavedInLibrary ? 'checkmark-circle' : 'add-circle-outline'}
+                    size={22}
+                    color={isSavedInLibrary ? '#34D399' : isDark ? '#FFFFFF' : '#0F172A'}
+                  />
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isSavedInLibrary
+                      ? isAr
+                        ? 'مضافة في مكتبتك (إزالة)'
+                        : 'Saved in Library (Remove)'
+                      : isAr
+                      ? 'إضافة إلى المكتبة'
+                      : 'Add to Library'}
+                  </Text>
+                </TouchableOpacity>
+
+                {user?.id && (
+                  <TouchableOpacity
+                    style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                    activeOpacity={0.75}
+                    onPress={() => setShowPlaylistPicker((prev) => !prev)}
+                  >
+                    <Ionicons
+                      name="list-outline"
+                      size={22}
+                      color={isDark ? '#FFFFFF' : '#0F172A'}
+                    />
+                    <Text
+                      style={[
+                        styles.trackMenuRowText,
+                        { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                      ]}
+                    >
+                      {isAr ? 'إضافة إلى قائمة تشغيل' : 'Add to Playlist'}
+                    </Text>
+                    <Ionicons
+                      name={showPlaylistPicker ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {showPlaylistPicker && (
+                  <View style={styles.playlistSubList}>
+                    {loadingPlaylists ? (
+                      <ActivityIndicator size="small" color="#0A84FF" style={{ marginVertical: 8 }} />
+                    ) : userPlaylists.length === 0 ? (
+                      <Text
+                        style={{
+                          fontSize: 12.5,
+                          color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.55)',
+                          paddingVertical: 6,
+                          textAlign: isAr ? 'right' : 'left',
+                        }}
+                      >
+                        {isAr ? 'لا توجد قوائم تشغيل بعد — أنشئ واحدة من المكتبة' : 'No playlists yet — create one in Library'}
+                      </Text>
+                    ) : (
+                      userPlaylists.slice(0, 5).map((pl) => (
+                        <TouchableOpacity
+                          key={pl.id}
+                          activeOpacity={0.75}
+                          onPress={() => handleAddTrackToPlaylist(pl)}
+                          style={[
+                            styles.playlistSubRow,
+                            {
+                              flexDirection: isAr ? 'row-reverse' : 'row',
+                              backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.05)',
+                            },
+                          ]}
+                        >
+                          <Ionicons name="musical-notes" size={16} color="#0A84FF" />
+                          <Text
+                            style={{
+                              flex: 1,
+                              color: isDark ? '#FFFFFF' : '#0F172A',
+                              fontSize: 13.5,
+                              fontWeight: '600',
+                              marginHorizontal: 10,
+                              textAlign: isAr ? 'right' : 'left',
+                            }}
+                            numberOfLines={1}
+                          >
+                            {pl.name}
+                          </Text>
+                          <Ionicons name="add" size={18} color="#0A84FF" />
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </View>
+                )}
+
+                {/* 4. Favorite */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    toggleLike(currentTrack);
+                    setTrackMenuVisible(false);
+                  }}
+                >
+                  <Ionicons
+                    name={isLiked ? 'heart' : 'heart-outline'}
+                    size={22}
+                    color={isLiked ? '#FF375F' : isDark ? '#FFFFFF' : '#0F172A'}
+                  />
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isLiked
+                      ? isAr
+                        ? 'إزالة من المفضلة'
+                        : 'Remove from Favorites'
+                      : isAr
+                      ? 'إضافة إلى المفضلة'
+                      : 'Favorite'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 5. Share */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    setTrackMenuVisible(false);
+                    handleShare();
+                  }}
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={22}
+                    color={isDark ? '#FFFFFF' : '#0F172A'}
+                  />
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isAr ? 'مشاركة' : 'Share'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 6. Cancel */}
+                <TouchableOpacity
+                  style={[
+                    styles.trackMenuCancelBtn,
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)' },
+                  ]}
+                  activeOpacity={0.75}
+                  onPress={() => setTrackMenuVisible(false)}
+                >
+                  <Text style={[styles.trackMenuCancelTxt, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              </LiquidGlassSurface>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </Animated.View>
     </GestureHandlerRootView>
   );
 });
 
 const styles = StyleSheet.create({
-  // ── MiniPlayer Floating Capsule ──
+  // ── Scroll-Collapsed Stack Quick Dock Circles (Home & Search) ──
+  dockSideCircleLeft: {
+    position: 'absolute',
+    left: MINI_MARGIN_H,
+    width: DOCK_CIRCLE_SIZE,
+    height: DOCK_CIRCLE_SIZE,
+    zIndex: 99998,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  dockSideCircleRight: {
+    position: 'absolute',
+    right: MINI_MARGIN_H,
+    width: DOCK_CIRCLE_SIZE,
+    height: DOCK_CIRCLE_SIZE,
+    zIndex: 99998,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  dockCircleSurface: {
+    width: DOCK_CIRCLE_SIZE,
+    height: DOCK_CIRCLE_SIZE,
+    borderRadius: DOCK_CIRCLE_SIZE / 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+
+  // ── MiniPlayer Floating Capsule (Slim Apple Music Edition) ──
   miniFloatingContainer: {
     position: 'absolute',
     left: MINI_MARGIN_H,
     right: MINI_MARGIN_H,
     height: MINI_PLAYER_HEIGHT,
-    borderRadius: 20,
+    borderRadius: MINI_PLAYER_HEIGHT / 2,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     zIndex: 99999,
@@ -2328,15 +3039,15 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   miniCover: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.30,
-        shadowRadius: 5,
+        shadowOpacity: 0.26,
+        shadowRadius: 4,
       },
       android: {
         elevation: 3,
@@ -2349,55 +3060,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   miniTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   miniArtistRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 1,
   },
   miniArtist: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
   },
   miniControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingRight: 2,
+    paddingRight: 4,
   },
-  miniPlayBtn: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 16,
-  },
-  miniNextBtn: {
+  miniIconActionBtn: {
     width: 30,
     height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 15,
-  },
-  miniCloseBtn: {
-    width: 28,
-    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
   miniProgressBg: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+    left: 16,
+    right: 16,
+    height: 2,
+    borderRadius: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   miniProgressFill: {
     height: '100%',
+    borderRadius: 1,
   },
 
   // ── Viewport-Locked FullPlayer ──
@@ -2783,7 +3481,97 @@ const styles = StyleSheet.create({
   metaActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 9,
+  },
+  headerGlassCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  metaGlassCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  trackMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  trackMenuCardWrap: {
+    paddingHorizontal: 14,
+  },
+  trackMenuCard: {
+    borderRadius: 26,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 14,
+    overflow: 'hidden',
+  },
+  trackMenuHeader: {
+    alignItems: 'center',
+    paddingBottom: 14,
+    marginBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  trackMenuThumb: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+  },
+  trackMenuMeta: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  trackMenuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  trackMenuArtist: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  trackMenuRow: {
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 13,
+  },
+  trackMenuRowText: {
+    flex: 1,
+    fontSize: 15.5,
+    fontWeight: '600',
+  },
+  playlistSubList: {
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  playlistSubRow: {
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  trackMenuCancelBtn: {
+    marginTop: 8,
+    paddingVertical: 13,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  trackMenuCancelTxt: {
+    fontSize: 15.5,
+    fontWeight: '700',
   },
   fullDownloadBtn: {
     padding: 4,

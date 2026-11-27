@@ -43,6 +43,7 @@ import {
 } from '../utils/artworkHelper';
 import { addToSearchHistory, cleanSearchHistory } from '../features/music/engines/searchHistory.engine';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
+import { useDockScrollTracker } from '../utils/scrollDockTracker';
 import { ShortsReelsModal } from '../components/ShortsReelsModal';
 import { YouTubeShortWebView, YouTubeShortWebViewHandle } from '../components/YouTubeShortWebView';
 
@@ -198,6 +199,7 @@ export const MusicSearch = ({ route }: any) => {
   const textAlign = isAr ? 'right' : 'left';
   const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
 
   const { user } = useAuth();
   const [query, setQuery] = useState('');
@@ -907,6 +909,8 @@ export const MusicSearch = ({ route }: any) => {
         /* ── Default Search View: Compact Recent Searches + Official Artist Shorts Carousel ── */
         <ScrollView
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={onDockScroll}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: miniPlayerBottomGap + 24 }]}
           keyboardShouldPersistTaps="handled"
         >
@@ -992,6 +996,8 @@ export const MusicSearch = ({ route }: any) => {
           data={activeFilter === 'artists' || activeFilter === 'albums' ? [] : results.tracks}
           keyExtractor={(it, index) => `${it.videoId}-${index}`}
           renderItem={renderTrackItem}
+          scrollEventThrottle={16}
+          onScroll={onDockScroll}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: miniPlayerBottomGap + 24 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 6 }}>

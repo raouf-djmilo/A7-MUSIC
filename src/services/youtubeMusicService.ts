@@ -531,6 +531,7 @@ export async function searchYouTubeMusicSongs(
               thumbnail,
               duration: parseDurationText(durRun?.text),
               album: albumRun?.text || undefined,
+              albumId: albumRun?.navigationEndpoint?.browseEndpoint?.browseId || undefined,
               channelId: channelId || undefined,
               category: 'youtube',
               type: 'track',
@@ -1957,6 +1958,7 @@ export async function fetchYouTubeMusicOfficialArtist(
         artist: cleanArtistName(headerTitle),
         thumbnail: thumb,
         album: albumName || undefined,
+        albumId: albumId || undefined,
         isOfficial: true,
         channelId: browseId,
         artistAvatar: heroAvatar || undefined,
@@ -2349,5 +2351,152 @@ export async function fetchArtistMoreTracks(
     if (out.length >= 30) break;
   }
   return out;
+}
+
+export interface ResolvedTrackAlbum {
+  id?: string;
+  title: string;
+  artist: string;
+  cover: string;
+  type: 'album' | 'single';
+}
+
+/**
+ * Resolves the authentic YouTube Music Album (or Single fallback) for a playing track
+ * so "Go to Album" in Full Player works even when the track lacked an albumId.
+ */
+export async function resolveTrackAlbumAsync(track: {
+  title: string;
+  artist: string;
+  album?: string;
+  albumId?: string;
+  thumbnail?: string | null;
+}): Promise<ResolvedTrackAlbum | null> {
+  if (!track) return null;
+  const cleanArt = cleanArtistName(track.artist || '');
+  const cleanTitle = (track.title || '').trim();
+
+  if (track.albumId && (track.albumId.startsWith('MPREb_') || track.albumId.startsWith('OLAK5uy_'))) {
+    return {
+      id: track.albumId,
+      title: track.album || cleanTitle,
+      artist: cleanArt || track.artist || 'Artist',
+      cover: track.thumbnail || '',
+      type: track.albumId.startsWith('OLAK5uy_') ? 'single' : 'album',
+    };
+  }
+
+  try {
+    const query = track.album ? `${cleanArt} ${track.album}` : `${cleanArt} ${cleanTitle}`;
+    const res = await fetch('https://music.youtube.com/youtubei/v1/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Referer: 'https://music.youtube.com/',
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
+        query: query.trim(),
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      let foundAlbum: ResolvedTrackAlbum | null = null;
+      let fallbackSingle: ResolvedTrackAlbum | null = null;
+
+      const walk = (o: any) => {
+        if (!o || typeof o !== 'object' || foundAlbum) return;
+        if (o.musicResponsiveListItemRenderer) {
+          const it = o.musicResponsiveListItemRenderer;
+          const cols = it.flexColumns || [];
+          const col0 = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const col1 = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const allRuns = [...col0, ...col1];
+
+          let albId = '';
+          let albTitle = '';
+          for (const r of allRuns) {
+            const bid = r?.navigationEndpoint?.browseEndpoint?.browseId || it?.navigationEndpoint?.browseEndpoint?.browseId;
+            if (bid && (bid.startsWith('MPREb_') || bid.startsWith('OLAK5uy_'))) {
+              albId = bid;
+              albTitle = r?.text || col0[0]?.text || track.album || cleanTitle;
+              break;
+            }
+          }
+
+          if (!albId) {
+            const directBid = it?.navigationEndpoint?.browseEndpoint?.browseId;
+            if (directBid && (directBid.startsWith('MPREb_') || directBid.startsWith('OLAK5uy_'))) {
+              albId = directBid;
+              albTitle = col0[0]?.text || track.album || cleanTitle;
+            }
+          }
+
+          if (albId) {
+            const thumbs = it.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+            const rawCover = thumbs.length > 0 ? thumbs[thumbs.length - 1]?.url : '';
+            const cover = rawCover ? getHighResYouTubeAvatar(rawCover) : (track.thumbnail || '');
+            const candidate: ResolvedTrackAlbum = {
+              id: albId,
+              title: albTitle,
+              artist: cleanArt || track.artist || 'Artist',
+              cover,
+              type: albId.startsWith('OLAK5uy_') ? 'single' : 'album',
+            };
+            if (albId.startsWith('MPREb_')) {
+              foundAlbum = candidate;
+            } else if (!fallbackSingle) {
+              fallbackSingle = candidate;
+            }
+          }
+          return;
+        }
+        for (const k of Object.keys(o)) walk(o[k]);
+      };
+
+      walk(data);
+      if (foundAlbum || fallbackSingle) {
+        return foundAlbum || fallbackSingle;
+      }
+    }
+  } catch {
+    // Non-fatal fallback below
+  }
+
+  // Fallback to artist official catalog or track album metadata if present
+  if (cleanArt) {
+    try {
+      const profile = await fetchYouTubeMusicOfficialArtist(cleanArt);
+      if (profile?.albums && profile.albums.length > 0) {
+        const matched =
+          (track.album &&
+            profile.albums.find((a) => a.title.toLowerCase().includes(track.album!.toLowerCase()))) ||
+          profile.albums[0];
+        if (matched) {
+          return {
+            id: matched.id,
+            title: matched.title,
+            artist: profile.name || cleanArt,
+            cover: matched.cover || track.thumbnail || '',
+            type: 'album',
+          };
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  if (track.album) {
+    return {
+      title: track.album,
+      artist: cleanArt || track.artist || 'Artist',
+      cover: track.thumbnail || '',
+      type: 'album',
+    };
+  }
+  return null;
 }
 

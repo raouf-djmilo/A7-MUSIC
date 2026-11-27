@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { APPLE_BAR_METRICS } from '../theme/AppleLiquidTokens';
 import { USE_NATIVE_LIQUID_TABS } from '../navigation/navigationConfig';
 
-const MINI_PLAYER_HEIGHT = 58;
+const MINI_PLAYER_HEIGHT = 52;
 const MINI_TAB_GAP = 8;
 
 /**

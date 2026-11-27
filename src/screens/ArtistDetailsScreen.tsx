@@ -36,6 +36,7 @@ import {
   getUniversalArtistAvatar,
 } from '../utils/artworkHelper';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
+import { useDockScrollTracker } from '../utils/scrollDockTracker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 430;
@@ -68,6 +69,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   const textAlign = isAr ? 'right' : 'left';
   const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
 
   // Audio store
   const currentTrack = useAudioStore((s) => s.currentTrack);
@@ -524,7 +526,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
         }
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: true, listener: onDockScroll }
         )}
         contentContainerStyle={{ paddingBottom: miniPlayerBottomGap + 28 }}
       >

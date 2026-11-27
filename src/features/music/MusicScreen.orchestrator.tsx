@@ -10,6 +10,7 @@ import { useAudioStore } from '../../store/useAudioStore';
 import { useTheme } from '../../theme/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMiniPlayerBottomGap } from '../../hooks/useMiniPlayerBottomGap';
+import { useDockScrollTracker } from '../../utils/scrollDockTracker';
 import { ToastManager } from '../../components/InAppToast';
 import { DynamicHomeSections, musicDnaService } from '../../services/musicDnaService';
 import { promptForRegionAccessIfNeeded } from '../../services/regionService';
@@ -45,6 +46,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
 
   // Stable static data selectors (does NOT subscribe to isPlaying / currentTrack)
   const history = useAudioStore((s) => s.history);
@@ -176,6 +178,8 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
       style={styles.container}
       contentContainerStyle={{ paddingTop: insets.top + 12 }}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={onDockScroll}
       contentInsetAdjustmentBehavior="automatic"
       removeClippedSubviews={true}
       refreshControl={

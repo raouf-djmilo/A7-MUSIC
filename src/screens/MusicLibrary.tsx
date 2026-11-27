@@ -37,6 +37,7 @@ import { useNetworkStore } from '../services/networkService';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { DynamicBottomSheet } from '../components/DynamicBottomSheet';
 import { ToastManager } from '../components/InAppToast';
+import { useDockScrollTracker } from '../utils/scrollDockTracker';
 
 const CURATED_MIX_PRESETS = [
   {
@@ -119,6 +120,7 @@ export const MusicLibrary = () => {
   const textAlign = isAr ? 'right' : 'left';
   const writingDirection = isAr ? 'rtl' : 'ltr';
   const miniPlayerBottomGap = useMiniPlayerBottomGap();
+  const { onScroll: onDockScroll } = useDockScrollTracker();
 
   const currentTrack = useAudioStore((s) => s.currentTrack);
   const isPlaying = useAudioStore((s) => s.isPlaying);
@@ -126,6 +128,9 @@ export const MusicLibrary = () => {
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const playAlbumContext = useAudioStore((s) => s.playAlbumContext);
   const toggleLike = useAudioStore((s) => s.toggleLike);
+  const likedTrackIds = useAudioStore((s) => s.likedTrackIds);
+  const guestLikedTracks = useAudioStore((s) => s.guestLikedTracks);
+  const savedLibraryTracks = useAudioStore((s) => s.savedLibraryTracks);
   const followedArtists = useAudioStore((s) => s.followedArtists);
   const savedCollections = useAudioStore((s) => s.savedCollections);
   const setPlayerModalVisible = useAudioStore((s) => s.setPlayerModalVisible);
@@ -136,7 +141,7 @@ export const MusicLibrary = () => {
   const loadManifest = useDownloadStore((s) => s.loadManifest);
 
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
-  const [savedTracks, setSavedTracks] = useState<any[]>([]);
+  const [firebaseSavedTracks, setFirebaseSavedTracks] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [cachedDnaMixes, setCachedDnaMixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -295,7 +300,7 @@ export const MusicLibrary = () => {
         getFirebaseLikedSongs(user.id),
         getFirebasePlaylists(user.id),
       ]);
-      setSavedTracks(
+      setFirebaseSavedTracks(
         likes.map((item) => ({
           id: item.videoId,
           video_id: item.videoId,
@@ -313,6 +318,48 @@ export const MusicLibrary = () => {
       setRefreshing(false);
     }
   }, [user?.id]);
+
+  // Unified live library songs: '+' library-saved tracks + liked tracks (guest & Firebase live sync)
+  const savedTracks = useMemo(() => {
+    const map = new Map<string, any>();
+
+    for (const t of savedLibraryTracks) {
+      if (!t?.videoId) continue;
+      map.set(t.videoId, {
+        id: t.videoId,
+        video_id: t.videoId,
+        title: t.title,
+        artist: t.artist,
+        thumbnail: t.thumbnail,
+        duration: Math.floor((t.duration || 0) / 1000),
+      });
+    }
+
+    for (const g of guestLikedTracks) {
+      if (!g?.videoId) continue;
+      if (!likedTrackIds.includes(g.videoId)) continue;
+      if (!map.has(g.videoId)) {
+        map.set(g.videoId, {
+          id: g.videoId,
+          video_id: g.videoId,
+          title: g.title,
+          artist: g.artist,
+          thumbnail: g.thumbnail,
+          duration: Math.floor((g.duration || 0) / 1000),
+        });
+      }
+    }
+
+    for (const fb of firebaseSavedTracks) {
+      if (!fb?.video_id) continue;
+      if (likedTrackIds.length > 0 && !likedTrackIds.includes(fb.video_id)) continue;
+      if (!map.has(fb.video_id)) {
+        map.set(fb.video_id, fb);
+      }
+    }
+
+    return Array.from(map.values());
+  }, [savedLibraryTracks, guestLikedTracks, firebaseSavedTracks, likedTrackIds]);
 
   useEffect(() => {
     fetchLibrary();
@@ -745,6 +792,8 @@ export const MusicLibrary = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={onDockScroll}
         contentContainerStyle={{ paddingBottom: miniPlayerBottomGap + 28 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.textPrimary} />

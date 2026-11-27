@@ -47,6 +47,7 @@ export interface Track {
   channelId?: string;
   artistAvatar?: string;
   album?: string;
+  albumId?: string;
   year?: string;
 }
 
@@ -99,9 +100,18 @@ export interface AudioState {
   history: Track[];
   audioEngineAction?: AudioEngineAction | null;
 
-  // Route navigation tracking for dynamic UI and bar docking
+  // Route navigation tracking & scroll-reactive dock state
   currentRouteName: string;
   setCurrentRouteName: (name: string) => void;
+  isDockMinimized: boolean;
+  setDockMinimized: (minimized: boolean) => void;
+
+  // Saved individual tracks added via '+' (Add to Library)
+  savedLibraryTracks: Track[];
+  savedLibraryTrackIds: string[];
+  guestLikedTracks: Track[];
+  toggleSaveTrackToLibrary: (track: Track) => Promise<boolean>;
+  loadSavedLibraryTracks: () => Promise<void>;
 
   // Followed artists engine (Persistent with AsyncStorage & Supabase)
   followedArtistIds: string[];
@@ -303,7 +313,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isOfflinePlayback: false,
   history: [],
   currentRouteName: 'DashboardTab',
-  setCurrentRouteName: (name: string) => set({ currentRouteName: name }),
+  setCurrentRouteName: (name: string) => set({ currentRouteName: name, isDockMinimized: false }),
+  isDockMinimized: false,
+  setDockMinimized: (minimized: boolean) => {
+    if (get().isDockMinimized !== minimized) {
+      set({ isDockMinimized: minimized });
+    }
+  },
+  savedLibraryTracks: [],
+  savedLibraryTrackIds: [],
+  guestLikedTracks: [],
   backgroundAudioEnabled: true,
   setBackgroundAudioEnabled: (enabled: boolean) => {
     set({ backgroundAudioEnabled: enabled });
@@ -453,6 +472,50 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     } catch (e) {
       console.warn('[AudioStore] Load saved collections error:', e);
+    }
+  },
+
+  toggleSaveTrackToLibrary: async (track) => {
+    if (!track?.videoId) return false;
+    const { savedLibraryTracks, savedLibraryTrackIds } = get();
+    const exists = savedLibraryTrackIds.includes(track.videoId);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    const nextTracks = exists
+      ? savedLibraryTracks.filter((t) => t.videoId !== track.videoId)
+      : [track, ...savedLibraryTracks.filter((t) => t.videoId !== track.videoId)];
+    const nextIds = nextTracks.map((t) => t.videoId);
+
+    set({ savedLibraryTracks: nextTracks, savedLibraryTrackIds: nextIds });
+    AsyncStorage.setItem('@a7_saved_library_tracks_v1', JSON.stringify(nextTracks)).catch(() => {});
+    return !exists;
+  },
+
+  loadSavedLibraryTracks: async () => {
+    try {
+      const [rawLib, rawGuestLikes, rawGuestLikeIds] = await Promise.all([
+        AsyncStorage.getItem('@a7_saved_library_tracks_v1'),
+        AsyncStorage.getItem('@guest_liked_track_objects_v1'),
+        AsyncStorage.getItem('@guest_liked_tracks'),
+      ]);
+      const parsedLib = rawLib ? JSON.parse(rawLib) : [];
+      const parsedGuestLikes = rawGuestLikes ? JSON.parse(rawGuestLikes) : [];
+      const parsedGuestIds = rawGuestLikeIds ? JSON.parse(rawGuestLikeIds) : [];
+
+      const updateObj: Partial<AudioState> = {};
+      if (Array.isArray(parsedLib)) {
+        updateObj.savedLibraryTracks = parsedLib;
+        updateObj.savedLibraryTrackIds = parsedLib.map((t: any) => t?.videoId).filter(Boolean);
+      }
+      if (Array.isArray(parsedGuestLikes)) {
+        updateObj.guestLikedTracks = parsedGuestLikes;
+      }
+      if (!get().activeUserId && Array.isArray(parsedGuestIds) && get().likedTrackIds.length === 0) {
+        updateObj.likedTrackIds = parsedGuestIds;
+      }
+      set(updateObj);
+    } catch (e) {
+      console.warn('[AudioStore] Load saved library tracks error:', e);
     }
   },
 
@@ -1100,26 +1163,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   toggleLike: async (track) => {
-    const { activeUserId, likedTrackIds } = get();
-    if (!activeUserId) {
-      const isLiked = likedTrackIds.includes(track.videoId);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const newLikedIds = isLiked
-        ? likedTrackIds.filter((id) => id !== track.videoId)
-        : [...likedTrackIds, track.videoId];
-      set({ likedTrackIds: newLikedIds });
-      AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => { });
-      return;
-    }
-
+    const { activeUserId, likedTrackIds, guestLikedTracks } = get();
     const isLiked = likedTrackIds.includes(track.videoId);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const newLikedIds = isLiked
-      ? likedTrackIds.filter(id => id !== track.videoId)
+      ? likedTrackIds.filter((id) => id !== track.videoId)
       : [...likedTrackIds, track.videoId];
+    const newGuestTracks = isLiked
+      ? guestLikedTracks.filter((t) => t.videoId !== track.videoId)
+      : [track, ...guestLikedTracks.filter((t) => t.videoId !== track.videoId)];
 
-    set({ likedTrackIds: newLikedIds });
+    set({ likedTrackIds: newLikedIds, guestLikedTracks: newGuestTracks });
+    AsyncStorage.setItem('@guest_liked_tracks', JSON.stringify(newLikedIds)).catch(() => {});
+    AsyncStorage.setItem('@guest_liked_track_objects_v1', JSON.stringify(newGuestTracks)).catch(() => {});
+
+    if (!activeUserId) {
+      return;
+    }
 
     musicDnaService.recordListeningSignal(track, isLiked ? 'unlike' : 'like').catch(() => { });
 
@@ -1514,4 +1575,5 @@ useAudioStore.subscribe((state) => {
 useAudioStore.getState().loadHistory();
 useAudioStore.getState().loadFollowedArtists();
 useAudioStore.getState().loadSavedCollections();
+useAudioStore.getState().loadSavedLibraryTracks();
 useAudioStore.getState().loadPlayerMediaMode();
