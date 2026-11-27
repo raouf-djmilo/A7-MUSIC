@@ -263,6 +263,15 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
   );
   const allAlbums = useMemo(() => data?.albums || [], [data?.albums]);
   const isOfficialArtist = data?.isOfficialArtist ?? artist?.isOfficialArtist ?? true;
+  const channelBadgeLabel = useMemo(() => {
+    if (artist?.accountKind === 'music_studio') {
+      return isAr ? 'ستوديو / إنتاج موسيقي' : 'Music Studio';
+    }
+    if (artist?.accountKind === 'verified_channel') {
+      return isAr ? 'قناة موثّقة' : 'Verified Channel';
+    }
+    return isAr ? 'قناة يوتيوب' : 'YouTube Channel';
+  }, [artist?.accountKind, isAr]);
 
   const renderTopSongRow = useCallback(
     (track: Track, index: number, showDivider: boolean = true) => {
@@ -549,7 +558,7 @@ export const ArtistDetailsScreen = ({ route, navigation }: any) => {
           {!loading && !isOfficialArtist && (
             <View style={styles.normalChannelBadge}>
               <Text style={styles.normalChannelBadgeText}>
-                {isAr ? 'قناة يوتيوب' : 'YouTube Channel'}
+                {channelBadgeLabel}
               </Text>
             </View>
           )}

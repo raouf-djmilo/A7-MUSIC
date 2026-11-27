@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
@@ -25,10 +26,11 @@ import { useLanguageStore } from '../store/useLanguageStore';
 import { useTheme } from '../theme/ThemeContext';
 import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
 import {
-  searchYouTubeMusicWithArtist,
+  searchUnifiedMusicCatalog,
   searchYouTubePlaylists,
   ArtistMatch,
   ArtistAlbumItem,
+  AccountKind,
 } from '../services/youtubeMusicService';
 import {
   ArtistMusicShort,
@@ -44,12 +46,50 @@ import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { ShortsReelsModal } from '../components/ShortsReelsModal';
 import { YouTubeShortWebView, YouTubeShortWebViewHandle } from '../components/YouTubeShortWebView';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const RECENT_SEARCHES_KEY = '@nouble_recent_searches';
 const MAX_RECENT_CHIPS = 5;
 
 const SHORT_CARD_WIDTH = 152;
 const SHORT_CARD_HEIGHT = 248;
 const SHORT_CARD_GAP = 12;
+
+function getAccountBadgeMeta(kind: AccountKind | undefined, isAr: boolean) {
+  switch (kind) {
+    case 'official_artist':
+      return {
+        label: isAr ? 'فنان رسمي' : 'Official Artist',
+        icon: 'musical-note' as const,
+        color: '#38BDF8',
+        bg: 'rgba(56, 189, 248, 0.16)',
+        border: 'rgba(56, 189, 248, 0.42)',
+      };
+    case 'music_studio':
+      return {
+        label: isAr ? 'ستوديو / إنتاج' : 'Music Studio',
+        icon: 'disc' as const,
+        color: '#A78BFA',
+        bg: 'rgba(167, 139, 250, 0.16)',
+        border: 'rgba(167, 139, 250, 0.42)',
+      };
+    case 'verified_channel':
+      return {
+        label: isAr ? 'قناة موثّقة' : 'Verified Channel',
+        icon: 'checkmark-circle' as const,
+        color: '#34D399',
+        bg: 'rgba(52, 211, 153, 0.16)',
+        border: 'rgba(52, 211, 153, 0.42)',
+      };
+    default:
+      return {
+        label: isAr ? 'قناة يوتيوب' : 'YouTube Channel',
+        icon: 'logo-youtube' as const,
+        color: '#94A3B8',
+        bg: 'rgba(148, 163, 184, 0.16)',
+        border: 'rgba(148, 163, 184, 0.35)',
+      };
+  }
+}
 
 export const MusicSearch = ({ route }: any) => {
   const navigation = useNavigation<any>();
@@ -69,6 +109,7 @@ export const MusicSearch = ({ route }: any) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<{
     artist: ArtistMatch | null;
+    accounts: ArtistMatch[];
     tracks: any[];
     albums: ArtistAlbumItem[];
   } | null>(null);
@@ -140,18 +181,19 @@ export const MusicSearch = ({ route }: any) => {
         all: 'الكل',
         songs: 'الأغاني',
         albums: 'الألبومات',
-        artists: 'الفنانون',
+        artists: 'الفنانون والقنوات',
         searching: 'جاري البحث...',
-        verifiedArtist: 'فنان رسمي • قناة يوتيوب',
-        viewProfile: 'عرض القناة والموسيقى',
+        topResult: 'أفضل نتيجة',
+        artistsAndChannels: 'الفنانون والاستوديوهات والقنوات',
+        viewProfile: 'فتح البروفايل',
         albumsHeader: 'الألبومات والإصدارات',
         songsHeader: 'الأغاني',
         nothingFound: `لا توجد نتائج لـ "${query}"`,
-        tryAnother: 'جرّب البحث عن فنان أو أغنية أخرى.',
+        tryAnother: 'جرّب البحث عن فنان أو استوديو أو أغنية أخرى.',
         shortsSubtitle: 'مقاطع موسيقية قصيرة من القنوات الرسمية',
       }
     : {
-        searchPlaceholder: 'What do you want to listen to?',
+        searchPlaceholder: 'Artists, Studios, Songs, or Albums...',
         recentSearches: 'Recent Searches',
         clear: 'Clear',
         discoverShorts: 'Discover something new',
@@ -159,18 +201,18 @@ export const MusicSearch = ({ route }: any) => {
         all: 'All',
         songs: 'Songs',
         albums: 'Albums',
-        artists: 'Artists',
+        artists: 'Artists & Channels',
         searching: 'Searching Music...',
-        verifiedArtist: 'Official Artist Channel',
-        viewProfile: 'View Channel & Music',
+        topResult: 'Top Result',
+        artistsAndChannels: 'Artists, Studios & Channels',
+        viewProfile: 'Open Profile',
         albumsHeader: 'Albums & Releases',
         songsHeader: 'Songs',
         nothingFound: `Nothing found for "${query}"`,
-        tryAnother: 'Try searching for another artist or song.',
+        tryAnother: 'Try searching for another artist, channel, or song.',
         shortsSubtitle: 'Official artist music shorts',
       };
 
-  // Load Recent Searches (capped at MAX_RECENT_CHIPS = 5)
   useEffect(() => {
     const loadRecent = async () => {
       try {
@@ -187,7 +229,6 @@ export const MusicSearch = ({ route }: any) => {
     loadRecent();
   }, []);
 
-  // Fetch Official Artist Shorts tailored to user's followed artists & region
   const followedNamesList = useMemo(
     () => (followedArtists || []).map((a) => a.name).filter(Boolean),
     [followedArtists]
@@ -203,9 +244,7 @@ export const MusicSearch = ({ route }: any) => {
     const names = followedNamesKey ? followedNamesKey.split('|').filter(Boolean) : [];
     fetchOfficialArtistShorts(names, user?.id || 'guest')
       .then((list) => {
-        if (active) {
-          setShorts(list);
-        }
+        if (active) setShorts(list);
       })
       .catch(() => {})
       .finally(() => {
@@ -216,7 +255,6 @@ export const MusicSearch = ({ route }: any) => {
     };
   }, [followedNamesKey, user?.id]);
 
-  // 120ms debounce before mounting carousel WebView so horizontal scrolling stays 120fps
   useEffect(() => {
     const timer = setTimeout(() => {
       setSettledCarouselIndex(activeCarouselIndex);
@@ -224,7 +262,6 @@ export const MusicSearch = ({ route }: any) => {
     return () => clearTimeout(timer);
   }, [activeCarouselIndex]);
 
-  // Consume initialQuery from navigation params if any
   useEffect(() => {
     const initialQuery = route?.params?.initialQuery;
     if (initialQuery && typeof initialQuery === 'string' && initialQuery.trim()) {
@@ -232,7 +269,6 @@ export const MusicSearch = ({ route }: any) => {
     }
   }, [route?.params?.initialQuery]);
 
-  // Debounce live search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
@@ -252,11 +288,12 @@ export const MusicSearch = ({ route }: any) => {
     if (!searchTerm.trim()) return;
     setLoading(true);
     try {
-      const [{ artist, tracks }, albumsList] = await Promise.all([
-        searchYouTubeMusicWithArtist(searchTerm),
-        searchYouTubePlaylists(searchTerm).catch(() => [] as ArtistAlbumItem[]),
-      ]);
-      if (tracks && tracks.length > 0) {
+      const unified = await searchUnifiedMusicCatalog(searchTerm);
+      const tracks = unified.tracks || [];
+      const albumsList = unified.albums || (await searchYouTubePlaylists(searchTerm).catch(() => [] as ArtistAlbumItem[]));
+      const accountsList = unified.accounts || (unified.artist ? [unified.artist] : []);
+
+      if (tracks.length > 0 || accountsList.length > 0 || albumsList.length > 0) {
         const formatted = tracks.map((item) => ({
           ...item,
           durationFormatted: `${Math.floor((item.duration || 180000) / 60000)}:${String(
@@ -264,9 +301,10 @@ export const MusicSearch = ({ route }: any) => {
           ).padStart(2, '0')}`,
         }));
         setResults({
-          artist: artist || null,
+          artist: unified.artist || accountsList[0] || null,
+          accounts: accountsList,
           tracks: formatted,
-          albums: albumsList || [],
+          albums: albumsList,
         });
       } else {
         const localMatches = searchCuratedMusic(searchTerm);
@@ -280,8 +318,9 @@ export const MusicSearch = ({ route }: any) => {
         );
         setResults({
           artist: null,
+          accounts: [],
           tracks: fallbackList,
-          albums: albumsList || [],
+          albums: [],
         });
       }
     } catch {
@@ -306,7 +345,34 @@ export const MusicSearch = ({ route }: any) => {
     await AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // Track which Short card is centered/visible so ONLY ONE plays at a time
+  const openAccountProfile = useCallback(
+    (acc: ArtistMatch) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (query.trim()) handleCommitSearch(query);
+      navigation.navigate('ArtistDetail', {
+        artistName: acc.name,
+        artistId: acc.channelId,
+        artist: acc,
+      });
+    },
+    [query, handleCommitSearch, navigation]
+  );
+
+  const openAlbumDetails = useCallback(
+    (alb: ArtistAlbumItem) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (query.trim()) handleCommitSearch(query);
+      navigation.navigate('AlbumDetails', {
+        playlistId: alb.id,
+        albumTitle: alb.title,
+        artistName: alb.artist || results?.artist?.name || query.trim(),
+        cover: alb.cover,
+        type: alb.type || 'album',
+      });
+    },
+    [query, handleCommitSearch, navigation, results?.artist?.name]
+  );
+
   const onCarouselViewableChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
       const idx = viewableItems[0]?.index;
@@ -338,7 +404,6 @@ export const MusicSearch = ({ route }: any) => {
     });
   };
 
-  // Guarantee zero carousel audio leaks when leaving Search tab or opening Fullscreen Reels
   useEffect(() => {
     if (!isSearchTabActive || reelsOpen || query.trim().length > 0) {
       carouselWebViewRef.current?.pauseAndMute();
@@ -354,7 +419,6 @@ export const MusicSearch = ({ route }: any) => {
       index === settledCarouselIndex;
     const isEnded = endedCarouselVideoId === item.videoId;
     const isCardPlaying = isActive && !isEnded;
-
     const embedWidth = Math.ceil(SHORT_CARD_HEIGHT * (16 / 9));
 
     return (
@@ -381,7 +445,6 @@ export const MusicSearch = ({ route }: any) => {
             },
           ]}
         >
-          {/* Poster Cover */}
           <Image
             source={{ uri: item.thumbnail }}
             style={StyleSheet.absoluteFill}
@@ -389,7 +452,6 @@ export const MusicSearch = ({ route }: any) => {
             cachePolicy="memory-disk"
           />
 
-          {/* Active Card Video ONLY (Cropped clean, opacity:0 until PLAYING — zero YouTube chrome!) */}
           {isActive && (
             <View style={styles.shortVideoClip} pointerEvents="none">
               <YouTubeShortWebView
@@ -408,7 +470,6 @@ export const MusicSearch = ({ route }: any) => {
             </View>
           )}
 
-          {/* Glossy Liquid Glass Sheen & Vignette */}
           <LinearGradient
             colors={['rgba(255,255,255,0.14)', 'transparent', 'rgba(0,0,0,0.84)']}
             locations={[0, 0.42, 1]}
@@ -416,7 +477,6 @@ export const MusicSearch = ({ route }: any) => {
             pointerEvents="none"
           />
 
-          {/* Top-Right Working Sound Mute/Unmute Button ONLY */}
           <View style={styles.shortCardTop}>
             <View />
             {index === activeCarouselIndex && !query.trim() && (
@@ -445,7 +505,6 @@ export const MusicSearch = ({ route }: any) => {
             )}
           </View>
 
-          {/* Bottom Hashtag & Title Overlay */}
           <View style={styles.shortCardBottom}>
             <Text style={styles.shortHashtag} numberOfLines={1}>
               {item.hashtag}
@@ -454,6 +513,70 @@ export const MusicSearch = ({ route }: any) => {
               {item.title}
             </Text>
           </View>
+        </LiquidGlassSurface>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAccountRow = (acc: ArtistMatch, idx: number) => {
+    const meta = getAccountBadgeMeta(acc.accountKind, isAr);
+    return (
+      <TouchableOpacity
+        key={`acc-row-${acc.channelId || acc.name}-${idx}`}
+        activeOpacity={0.85}
+        onPress={() => openAccountProfile(acc)}
+      >
+        <LiquidGlassSurface
+          glassStyle="regular"
+          isDark={isDark}
+          isInteractive
+          borderRadius={20}
+          style={[
+            styles.accountRowGlass,
+            {
+              backgroundColor: palette.cardBg,
+              borderColor: palette.cardBorder,
+              borderTopColor: palette.cardTopBorder,
+              flexDirection: rowDirection,
+            },
+          ]}
+        >
+          <Image
+            source={{
+              uri: getUniversalArtistAvatar(acc.avatar, acc.name) || acc.avatar,
+            }}
+            style={styles.accountRowAvatar}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+          <View style={styles.artistMeta}>
+            <View style={[styles.artistTitleRow, { flexDirection: rowDirection }]}>
+              <Text
+                style={[styles.artistName, { color: palette.textPrimary, textAlign }]}
+                numberOfLines={1}
+              >
+                {acc.name}
+              </Text>
+              <Ionicons name={meta.icon} size={16} color={meta.color} />
+            </View>
+            <View style={[styles.accountSubRow, { flexDirection: rowDirection }]}>
+              <View style={[styles.accountTypeBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
+                <Text style={[styles.accountTypeBadgeText, { color: meta.color }]}>
+                  {meta.label}
+                </Text>
+              </View>
+              {acc.subscriberCount ? (
+                <Text style={[styles.accountAudienceTxt, { color: palette.textSecondary }]} numberOfLines={1}>
+                  {acc.subscriberCount}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          <Ionicons
+            name={isAr ? 'chevron-back' : 'chevron-forward'}
+            size={18}
+            color={palette.textMuted}
+          />
         </LiquidGlassSurface>
       </TouchableOpacity>
     );
@@ -521,7 +644,7 @@ export const MusicSearch = ({ route }: any) => {
                   {item.artist}
                 </Text>
               </TouchableOpacity>
-              {item.isOfficial && <Ionicons name="checkmark-circle" size={13} color="#38BDF8" />}
+              {item.isOfficial && <Ionicons name="musical-note" size={13} color="#38BDF8" />}
               <Text style={[styles.trackDuration, { color: palette.textMuted }]}>
                 {item.durationFormatted ? `• ${item.durationFormatted}` : ''}
               </Text>
@@ -550,6 +673,17 @@ export const MusicSearch = ({ route }: any) => {
       </TouchableOpacity>
     );
   };
+
+  const otherAccounts = useMemo(() => {
+    if (!results?.accounts) return [];
+    const primaryKey = results.artist?.channelId || results.artist?.name?.toLowerCase();
+    return results.accounts.filter((acc) => {
+      const k = acc.channelId || acc.name?.toLowerCase();
+      return k !== primaryKey;
+    });
+  }, [results?.accounts, results?.artist]);
+
+  const albumGridWidth = (SCREEN_WIDTH - 44) / 2;
 
   return (
     <View style={[styles.container, { backgroundColor: palette.baseBg }]}>
@@ -615,7 +749,11 @@ export const MusicSearch = ({ route }: any) => {
 
         {/* Filter Pills when searching */}
         {query.trim().length > 0 && (
-          <View style={[styles.filterRow, { flexDirection: rowDirection }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.filterRow, { flexDirection: rowDirection }]}
+          >
             {(
               [
                 { key: 'all', label: t.all },
@@ -653,7 +791,7 @@ export const MusicSearch = ({ route }: any) => {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
         )}
       </View>
 
@@ -671,7 +809,6 @@ export const MusicSearch = ({ route }: any) => {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: miniPlayerBottomGap + 24 }]}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Compact Recent Searches (Max 5) */}
           {recentSearches.length > 0 && (
             <View style={styles.recentSection}>
               <View style={[styles.sectionHeaderRow, { flexDirection: rowDirection }]}>
@@ -749,7 +886,7 @@ export const MusicSearch = ({ route }: any) => {
           )}
         </ScrollView>
       ) : results ? (
-        /* ── Search Results UI (Liquid Glass) ── */
+        /* ── Search Results UI (Apple Music + YouTube Multi-Type Display) ── */
         <FlatList
           data={activeFilter === 'artists' || activeFilter === 'albums' ? [] : results.tracks}
           keyExtractor={(it, index) => `${it.videoId}-${index}`}
@@ -757,89 +894,11 @@ export const MusicSearch = ({ route }: any) => {
           contentContainerStyle={{ paddingHorizontal: 16, gap: 10, paddingBottom: miniPlayerBottomGap + 24 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 6 }}>
-              {results.artist && (activeFilter === 'all' || activeFilter === 'artists') && (
-                <View style={styles.artistSection}>
-                  <Text
-                    style={[
-                      styles.sectionTitleHeader,
-                      { color: palette.textSecondary, textAlign, writingDirection },
-                    ]}
-                  >
-                    {t.verifiedArtist}
-                  </Text>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      if (query.trim()) handleCommitSearch(query);
-                      navigation.navigate('ArtistDetail', {
-                        artistName: results.artist?.name,
-                        artist: results.artist,
-                      });
-                    }}
-                  >
-                    <LiquidGlassSurface
-                      glassStyle="regular"
-                      isDark={isDark}
-                      isInteractive
-                      borderRadius={22}
-                      style={[
-                        styles.artistFeaturedGlass,
-                        {
-                          backgroundColor: palette.cardBg,
-                          borderColor: palette.cardBorder,
-                          borderTopColor: palette.cardTopBorder,
-                          flexDirection: rowDirection,
-                        },
-                      ]}
-                    >
-                      <Image
-                        source={{
-                          uri:
-                            getUniversalArtistAvatar(results.artist.avatar, results.artist.name) ||
-                            results.artist.avatar,
-                        }}
-                        style={styles.artistAvatar}
-                        contentFit="cover"
-                      />
-                      <View style={styles.artistMeta}>
-                        <View style={[styles.artistTitleRow, { flexDirection: rowDirection }]}>
-                          <Text
-                            style={[styles.artistName, { color: palette.textPrimary, textAlign }]}
-                            numberOfLines={1}
-                          >
-                            {results.artist.name}
-                          </Text>
-                          <Ionicons name="checkmark-circle" size={17} color="#38BDF8" />
-                        </View>
-                        <Text
-                          style={[
-                            styles.artistSubText,
-                            { color: palette.textSecondary, textAlign, writingDirection },
-                          ]}
-                        >
-                          {results.artist.subscriberCount || t.verifiedArtist}
-                        </Text>
-                        <View style={[styles.artistActionBtn, { flexDirection: rowDirection }]}>
-                          <Text style={[styles.artistActionText, { color: palette.accentBlue, writingDirection }]}>
-                            {t.viewProfile}
-                          </Text>
-                          <Ionicons
-                            name={isAr ? 'chevron-back' : 'chevron-forward'}
-                            size={14}
-                            color={palette.accentBlue}
-                          />
-                        </View>
-                      </View>
-                    </LiquidGlassSurface>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Search Albums & Releases Carousel */}
-              {results.albums &&
-                results.albums.length > 0 &&
-                (activeFilter === 'all' || activeFilter === 'albums') && (
+              {/* 1. Featured Top Result Account Card (All tab) */}
+              {results.artist && activeFilter === 'all' && (() => {
+                const topAcc = results.artist!;
+                const meta = getAccountBadgeMeta(topAcc.accountKind, isAr);
+                return (
                   <View style={styles.artistSection}>
                     <Text
                       style={[
@@ -847,28 +906,102 @@ export const MusicSearch = ({ route }: any) => {
                         { color: palette.textSecondary, textAlign, writingDirection },
                       ]}
                     >
-                      {t.albumsHeader}
+                      {t.topResult}
                     </Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
-                    >
-                      {results.albums.map((alb, idx) => (
-                        <TouchableOpacity
-                          key={`srch-alb-${alb.id}-${idx}`}
-                          activeOpacity={0.85}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            if (query.trim()) handleCommitSearch(query);
-                            navigation.navigate('AlbumDetails', {
-                              playlistId: alb.id,
-                              albumTitle: alb.title,
-                              artistName: results.artist?.name || query.trim(),
-                              cover: alb.cover,
-                              type: alb.type || 'album',
-                            });
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => openAccountProfile(topAcc)}>
+                      <LiquidGlassSurface
+                        glassStyle="regular"
+                        isDark={isDark}
+                        isInteractive
+                        borderRadius={22}
+                        style={[
+                          styles.artistFeaturedGlass,
+                          {
+                            backgroundColor: palette.cardBg,
+                            borderColor: meta.border,
+                            borderTopColor: palette.cardTopBorder,
+                            flexDirection: rowDirection,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{
+                            uri: getUniversalArtistAvatar(topAcc.avatar, topAcc.name) || topAcc.avatar,
                           }}
+                          style={styles.artistAvatar}
+                          contentFit="cover"
+                        />
+                        <View style={styles.artistMeta}>
+                          <View style={[styles.artistTitleRow, { flexDirection: rowDirection }]}>
+                            <Text
+                              style={[styles.artistName, { color: palette.textPrimary, textAlign }]}
+                              numberOfLines={1}
+                            >
+                              {topAcc.name}
+                            </Text>
+                            <Ionicons name={meta.icon} size={17} color={meta.color} />
+                          </View>
+
+                          <View style={[styles.accountSubRow, { flexDirection: rowDirection }]}>
+                            <View style={[styles.accountTypeBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
+                              <Text style={[styles.accountTypeBadgeText, { color: meta.color }]}>
+                                {meta.label}
+                              </Text>
+                            </View>
+                            {topAcc.subscriberCount ? (
+                              <Text style={[styles.accountAudienceTxt, { color: palette.textSecondary }]} numberOfLines={1}>
+                                {topAcc.subscriberCount}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <View style={[styles.artistActionBtn, { flexDirection: rowDirection }]}>
+                            <Text style={[styles.artistActionText, { color: palette.accentBlue, writingDirection }]}>
+                              {t.viewProfile}
+                            </Text>
+                            <Ionicons
+                              name={isAr ? 'chevron-back' : 'chevron-forward'}
+                              size={14}
+                              color={palette.accentBlue}
+                            />
+                          </View>
+                        </View>
+                      </LiquidGlassSurface>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })()}
+
+              {/* 2A. Matching Artists, Studios & YouTube Channels Carousel (All tab) */}
+              {activeFilter === 'all' && otherAccounts.length > 0 && (
+                <View style={styles.artistSection}>
+                  <View style={[styles.sectionHeaderRowInline, { flexDirection: rowDirection }]}>
+                    <Text
+                      style={[
+                        styles.sectionTitleHeader,
+                        { color: palette.textSecondary, textAlign, writingDirection, marginBottom: 0 },
+                      ]}
+                    >
+                      {t.artistsAndChannels}
+                    </Text>
+                    <TouchableOpacity onPress={() => setActiveFilter('artists')}>
+                      <Text style={{ color: palette.accentBlue, fontSize: 12.5, fontWeight: '700' }}>
+                        {isAr ? 'عرض الكل' : 'See all'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingVertical: 6 }}
+                  >
+                    {otherAccounts.map((acc, idx) => {
+                      const meta = getAccountBadgeMeta(acc.accountKind, isAr);
+                      return (
+                        <TouchableOpacity
+                          key={`acc-card-${acc.channelId || acc.name}-${idx}`}
+                          activeOpacity={0.85}
+                          onPress={() => openAccountProfile(acc)}
                         >
                           <LiquidGlassSurface
                             glassStyle="regular"
@@ -876,8 +1009,171 @@ export const MusicSearch = ({ route }: any) => {
                             isInteractive
                             borderRadius={18}
                             style={[
-                              styles.searchAlbumCard,
+                              styles.accountCarouselCard,
                               {
+                                backgroundColor: palette.cardBg,
+                                borderColor: palette.cardBorder,
+                                borderTopColor: palette.cardTopBorder,
+                              },
+                            ]}
+                          >
+                            <Image
+                              source={{
+                                uri: getUniversalArtistAvatar(acc.avatar, acc.name) || acc.avatar,
+                              }}
+                              style={styles.accountCarouselAvatar}
+                              contentFit="cover"
+                              cachePolicy="memory-disk"
+                            />
+                            <Text
+                              style={[styles.accountCarouselName, { color: palette.textPrimary }]}
+                              numberOfLines={1}
+                            >
+                              {acc.name}
+                            </Text>
+                            <View style={[styles.accountMiniBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
+                              <Ionicons name={meta.icon} size={10} color={meta.color} />
+                              <Text style={[styles.accountMiniBadgeText, { color: meta.color }]} numberOfLines={1}>
+                                {meta.label}
+                              </Text>
+                            </View>
+                          </LiquidGlassSurface>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* 2B. Full Artists, Studios & Channels List (Artists & Channels tab) */}
+              {activeFilter === 'artists' && (
+                <View style={{ gap: 10, marginTop: 4 }}>
+                  <Text
+                    style={[
+                      styles.sectionTitleHeader,
+                      { color: palette.textSecondary, textAlign, writingDirection },
+                    ]}
+                  >
+                    {t.artistsAndChannels} ({results.accounts.length})
+                  </Text>
+                  {results.accounts.length > 0 ? (
+                    results.accounts.map((acc, idx) => renderAccountRow(acc, idx))
+                  ) : (
+                    <View style={styles.centerEmpty}>
+                      <Ionicons name="people-outline" size={48} color={palette.textMuted} />
+                      <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>{t.nothingFound}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* 3A. Search Albums & Releases Carousel (All tab) */}
+              {results.albums && results.albums.length > 0 && activeFilter === 'all' && (
+                <View style={styles.artistSection}>
+                  <View style={[styles.sectionHeaderRowInline, { flexDirection: rowDirection }]}>
+                    <Text
+                      style={[
+                        styles.sectionTitleHeader,
+                        { color: palette.textSecondary, textAlign, writingDirection, marginBottom: 0 },
+                      ]}
+                    >
+                      {t.albumsHeader}
+                    </Text>
+                    <TouchableOpacity onPress={() => setActiveFilter('albums')}>
+                      <Text style={{ color: palette.accentBlue, fontSize: 12.5, fontWeight: '700' }}>
+                        {isAr ? 'عرض الكل' : 'See all'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 12, paddingVertical: 6 }}
+                  >
+                    {results.albums.map((alb, idx) => (
+                      <TouchableOpacity
+                        key={`srch-alb-${alb.id}-${idx}`}
+                        activeOpacity={0.85}
+                        onPress={() => openAlbumDetails(alb)}
+                      >
+                        <LiquidGlassSurface
+                          glassStyle="regular"
+                          isDark={isDark}
+                          isInteractive
+                          borderRadius={18}
+                          style={[
+                            styles.searchAlbumCard,
+                            {
+                              backgroundColor: palette.cardBg,
+                              borderColor: palette.cardBorder,
+                              borderTopColor: palette.cardTopBorder,
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={getUniversalStudioArtworkSource(
+                              alb.cover || results.tracks[0]?.thumbnail,
+                              alb.title,
+                              alb.artist || results.artist?.name || ''
+                            )}
+                            style={styles.searchAlbumCover}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                          />
+                          <Text
+                            style={[
+                              styles.searchAlbumTitle,
+                              { color: palette.textPrimary, textAlign, writingDirection },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {alb.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.searchAlbumYear,
+                              { color: palette.textSecondary, textAlign, writingDirection },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {alb.artist ? `${alb.artist} · ${alb.year}` : alb.year}
+                          </Text>
+                        </LiquidGlassSurface>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* 3B. Albums 2-Column Grid (Albums tab) */}
+              {activeFilter === 'albums' && (
+                <View style={{ marginTop: 4 }}>
+                  <Text
+                    style={[
+                      styles.sectionTitleHeader,
+                      { color: palette.textSecondary, textAlign, writingDirection },
+                    ]}
+                  >
+                    {t.albumsHeader} ({results.albums.length})
+                  </Text>
+                  {results.albums.length > 0 ? (
+                    <View style={styles.albumsGridWrap}>
+                      {results.albums.map((alb, idx) => (
+                        <TouchableOpacity
+                          key={`grid-alb-${alb.id}-${idx}`}
+                          style={{ width: albumGridWidth }}
+                          activeOpacity={0.85}
+                          onPress={() => openAlbumDetails(alb)}
+                        >
+                          <LiquidGlassSurface
+                            glassStyle="regular"
+                            isDark={isDark}
+                            isInteractive
+                            borderRadius={18}
+                            style={[
+                              styles.searchAlbumGridCard,
+                              {
+                                width: albumGridWidth,
                                 backgroundColor: palette.cardBg,
                                 borderColor: palette.cardBorder,
                                 borderTopColor: palette.cardTopBorder,
@@ -888,9 +1184,14 @@ export const MusicSearch = ({ route }: any) => {
                               source={getUniversalStudioArtworkSource(
                                 alb.cover || results.tracks[0]?.thumbnail,
                                 alb.title,
-                                results.artist?.name || ''
+                                alb.artist || results.artist?.name || ''
                               )}
-                              style={styles.searchAlbumCover}
+                              style={{
+                                width: albumGridWidth - 18,
+                                height: albumGridWidth - 18,
+                                borderRadius: 12,
+                                marginBottom: 8,
+                              }}
                               contentFit="cover"
                               cachePolicy="memory-disk"
                             />
@@ -910,14 +1211,20 @@ export const MusicSearch = ({ route }: any) => {
                               ]}
                               numberOfLines={1}
                             >
-                              {alb.year}
+                              {alb.artist ? `${alb.artist} · ${alb.year}` : alb.year}
                             </Text>
                           </LiquidGlassSurface>
                         </TouchableOpacity>
                       ))}
-                    </ScrollView>
-                  </View>
-                )}
+                    </View>
+                  ) : (
+                    <View style={styles.centerEmpty}>
+                      <Ionicons name="albums-outline" size={48} color={palette.textMuted} />
+                      <Text style={[styles.emptyTitle, { color: palette.textPrimary }]}>{t.nothingFound}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {activeFilter !== 'artists' && activeFilter !== 'albums' && (
                 <Text
@@ -965,6 +1272,8 @@ export const MusicSearch = ({ route }: any) => {
               avatar: artistObj.avatar,
               channelId: artistObj.id,
               isOfficial: artistObj.isOfficial,
+              isOfficialArtist: artistObj.isOfficial,
+              accountKind: artistObj.isOfficial ? 'official_artist' : 'channel',
             },
           });
         }}
@@ -1015,7 +1324,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterPill: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 7,
     borderRadius: 18,
     borderWidth: 1,
@@ -1036,6 +1345,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  sectionHeaderRowInline: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   sectionTitle: {
     fontSize: 16,
@@ -1120,22 +1434,6 @@ const styles = StyleSheet.create({
     padding: 8,
     zIndex: 4,
   },
-  artistTinyPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.52)',
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 10,
-    gap: 4,
-    maxWidth: 104,
-  },
-  artistTinyName: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
   cardMuteBtn: {
     width: 30,
     height: 30,
@@ -1201,9 +1499,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   artistAvatar: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
   },
   artistMeta: {
     flex: 1,
@@ -1217,18 +1515,82 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     flexShrink: 1,
   },
-  artistSubText: {
-    fontSize: 12.5,
-    marginTop: 2,
+  accountSubRow: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 5,
+    flexWrap: 'wrap',
+  },
+  accountTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  accountTypeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  accountAudienceTxt: {
+    fontSize: 12,
+    flexShrink: 1,
   },
   artistActionBtn: {
     alignItems: 'center',
     gap: 4,
-    marginTop: 6,
+    marginTop: 7,
   },
   artistActionText: {
     fontSize: 12.5,
     fontWeight: '700',
+  },
+  accountCarouselCard: {
+    width: 136,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  accountCarouselAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginBottom: 8,
+  },
+  accountCarouselName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  accountMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    maxWidth: 118,
+  },
+  accountMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    flexShrink: 1,
+  },
+  accountRowGlass: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: 'center',
+    gap: 12,
+    overflow: 'hidden',
+  },
+  accountRowAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   searchAlbumCard: {
     width: 136,
@@ -1242,6 +1604,17 @@ const styles = StyleSheet.create({
     height: 116,
     borderRadius: 12,
     marginBottom: 7,
+  },
+  albumsGridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  searchAlbumGridCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 9,
+    overflow: 'hidden',
   },
   searchAlbumTitle: {
     fontSize: 13,
