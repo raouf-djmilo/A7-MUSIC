@@ -24,6 +24,9 @@ import {
   getFirebasePlaylists,
   createFirebasePlaylist,
   addTrackToFirebasePlaylist,
+  getFirebaseDownloadedCatalog,
+  removeFirebaseDownloadedCatalogItem,
+  DownloadedCatalogItem,
   UserPlaylist,
 } from '../services/firebaseMusicDb';
 import { useTheme } from '../theme/ThemeContext';
@@ -137,12 +140,14 @@ export const MusicLibrary = () => {
 
   const isOnline = useNetworkStore((s) => s.isOnline);
   const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
+  const activeDownloads = useDownloadStore((s) => s.activeDownloads);
   const totalStorageMB = useDownloadStore((s) => s.totalStorageMB);
   const loadManifest = useDownloadStore((s) => s.loadManifest);
 
   const [activeTab, setActiveTab] = useState<'liked' | 'downloads'>('liked');
   const [firebaseSavedTracks, setFirebaseSavedTracks] = useState<any[]>([]);
   const [firebaseLikesSynced, setFirebaseLikesSynced] = useState(false);
+  const [cloudDownloadCatalog, setCloudDownloadCatalog] = useState<DownloadedCatalogItem[]>([]);
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [cachedDnaMixes, setCachedDnaMixes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -297,10 +302,12 @@ export const MusicLibrary = () => {
         return;
       }
 
-      const [likes, userPlaylists] = await Promise.all([
+      const [likes, userPlaylists, catalogItems] = await Promise.all([
         getFirebaseLikedSongs(user.id),
         getFirebasePlaylists(user.id),
+        getFirebaseDownloadedCatalog(user.id).catch(() => []),
       ]);
+      setCloudDownloadCatalog(catalogItems);
       setFirebaseSavedTracks(
         likes.map((item) => ({
           id: item.videoId,
@@ -564,6 +571,98 @@ export const MusicLibrary = () => {
         (item.artist && item.artist.toLowerCase().includes(q))
     );
   }, [downloadedTracks, searchQuery]);
+
+  // Tracks previously downloaded on another phone under this account, not yet on this device
+  const missingCloudDownloads = useMemo(() => {
+    const localIds = new Set(downloadedTracks.map((d) => d.videoId));
+    const q = searchQuery.trim().toLowerCase();
+    return cloudDownloadCatalog.filter((item) => {
+      if (!item?.videoId || localIds.has(item.videoId)) return false;
+      if (!q) return true;
+      return (
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.artist && item.artist.toLowerCase().includes(q))
+      );
+    });
+  }, [cloudDownloadCatalog, downloadedTracks, searchQuery]);
+
+  const handleRedownloadCatalogItem = useCallback(async (item: DownloadedCatalogItem) => {
+    if (!isOnline) {
+      ToastManager.show({
+        title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+        subtitle: isAr ? 'يتطلب التحميل اتصالاً بالإنترنت' : 'Internet connection required to download',
+        icon: 'cloud-offline-outline',
+        duration: 2600,
+      });
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await downloadService.downloadTrack(
+        {
+          videoId: item.videoId,
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          thumbnail: item.thumbnail,
+          duration: item.duration,
+        },
+        'auto'
+      );
+      ToastManager.show({
+        title: isAr ? 'تم التنزيل على الهاتف' : 'Downloaded to Device',
+        subtitle: item.title,
+        icon: 'checkmark-circle',
+        duration: 2400,
+      });
+    } catch (e: any) {
+      ToastManager.show({
+        title: isAr ? 'تعذر التحميل' : 'Download Failed',
+        subtitle: e?.message || '',
+        icon: 'alert-circle',
+        duration: 2600,
+      });
+    }
+  }, [isOnline, isAr]);
+
+  const handleRedownloadAllCloud = useCallback(async () => {
+    if (!isOnline) {
+      ToastManager.show({
+        title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+        subtitle: isAr ? 'يرجى الاتصال بالإنترنت لإعادة التحميل' : 'Connect to internet to re-download',
+        icon: 'cloud-offline-outline',
+        duration: 2600,
+      });
+      return;
+    }
+    if (missingCloudDownloads.length === 0) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    ToastManager.show({
+      title: isAr ? 'جاري تنزيل القائمة على هذا الهاتف' : 'Re-downloading Cloud List',
+      subtitle: `${missingCloudDownloads.length} ${t.trackUnit}`,
+      icon: 'cloud-download-outline',
+      duration: 2800,
+    });
+    for (const item of missingCloudDownloads) {
+      await downloadService.downloadTrack(
+        {
+          videoId: item.videoId,
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          thumbnail: item.thumbnail,
+          duration: item.duration,
+        },
+        'auto'
+      ).catch(() => {});
+    }
+  }, [isOnline, missingCloudDownloads, isAr, t.trackUnit]);
+
+  const handleRemoveFromCloudCatalog = useCallback(async (videoId: string) => {
+    if (!user?.id) return;
+    setCloudDownloadCatalog((prev) => prev.filter((x) => x.videoId !== videoId));
+    await removeFirebaseDownloadedCatalogItem(user.id, videoId).catch(() => {});
+  }, [user?.id]);
 
   const filteredLikedTracks = useMemo(() => {
     if (!searchQuery.trim()) return savedTracks;
@@ -1473,6 +1572,102 @@ export const MusicLibrary = () => {
                   {t.downloadsEmptySub}
                 </Text>
               </LiquidGlassSurface>
+            )}
+
+            {/* Account Download Catalog (Metadata Synced Across Devices — Re-download on New Phone) */}
+            {missingCloudDownloads.length > 0 && (
+              <View style={{ marginTop: 22 }}>
+                {renderSectionHeader(
+                  isAr ? 'مقاطع حسابك (متوفرة لإعادة التحميل)' : 'Account Downloads (Re-download)',
+                  undefined,
+                  <TouchableOpacity onPress={handleRedownloadAllCloud} activeOpacity={0.75}>
+                    <LiquidGlassSurface
+                      glassStyle="regular"
+                      isDark={isDark}
+                      isInteractive
+                      borderRadius={14}
+                      style={[styles.viewAllPill, { backgroundColor: palette.inputBg, borderColor: palette.pillBorder }]}
+                    >
+                      <Text style={[styles.viewAllTxt, { color: '#10B981', writingDirection }]}>
+                        {isAr ? 'تحميل الكل' : 'Download All'}
+                      </Text>
+                    </LiquidGlassSurface>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.downloadsListWrap}>
+                  {missingCloudDownloads.map((item) => {
+                    const dlState = activeDownloads[item.videoId];
+                    const isItemDownloading =
+                      dlState?.status === 'probing' || dlState?.status === 'downloading';
+                    return (
+                      <TouchableOpacity
+                        key={`cloud-${item.videoId}`}
+                        activeOpacity={0.82}
+                        disabled={isItemDownloading}
+                        onPress={() => handleRedownloadCatalogItem(item)}
+                      >
+                        <LiquidGlassSurface
+                          glassStyle="regular"
+                          isDark={isDark}
+                          isInteractive
+                          borderRadius={18}
+                          style={[
+                            styles.listTrackRow,
+                            {
+                              backgroundColor: palette.cardBg,
+                              borderColor: palette.cardBorder,
+                              flexDirection: rowDirection,
+                            },
+                          ]}
+                        >
+                          <Image
+                            source={{ uri: getUniversalStudioArtwork(item.thumbnail, item.title, item.artist, item.videoId) }}
+                            style={styles.rowThumb}
+                            contentFit="cover"
+                          />
+                          <View style={styles.rowTexts}>
+                            <Text
+                              style={[styles.rowTitle, { color: palette.textPrimary, textAlign, writingDirection }]}
+                              numberOfLines={1}
+                            >
+                              {item.title}
+                            </Text>
+                            <Text
+                              style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}
+                              numberOfLines={1}
+                            >
+                              {isItemDownloading
+                                ? isAr
+                                  ? `جاري التحميل... ${Math.round((dlState?.progress || 0) * 100)}%`
+                                  : `Downloading... ${Math.round((dlState?.progress || 0) * 100)}%`
+                                : item.artist}
+                            </Text>
+                          </View>
+                          {isItemDownloading ? (
+                            <ActivityIndicator size="small" color="#10B981" />
+                          ) : (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                              <TouchableOpacity
+                                onPress={() => handleRedownloadCatalogItem(item)}
+                                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="cloud-download-outline" size={21} color="#10B981" />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleRemoveFromCloudCatalog(item.videoId)}
+                                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="close-circle-outline" size={19} color={palette.textMuted} />
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </LiquidGlassSurface>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
             )}
           </View>
         )}

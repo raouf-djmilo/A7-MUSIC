@@ -350,3 +350,66 @@ export async function getFirebaseMusicDna(uid: string): Promise<{
   const snap = await getDoc(doc(db, 'users', authUid, 'music_dna', 'profile'));
   return snap.exists() ? (snap.data() as any) : null;
 }
+
+// ── 6. Account Downloaded Track Catalog (Lightweight Metadata Only; Audio Stays Local on Device) ──
+export interface DownloadedCatalogItem {
+  videoId: string;
+  title: string;
+  artist: string;
+  album?: string;
+  thumbnail: string;
+  duration: number; // ms
+  downloadedAt: string;
+}
+
+export async function getFirebaseDownloadedCatalog(uid: string): Promise<DownloadedCatalogItem[]> {
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return [];
+  const q = query(
+    collection(db, 'users', authUid, 'downloaded_catalog'),
+    orderBy('downloadedAt', 'desc'),
+    limit(300)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const item = d.data();
+    return {
+      videoId: item.videoId || d.id,
+      title: item.title || 'Untitled',
+      artist: item.artist || 'Artist',
+      album: item.album || undefined,
+      thumbnail: item.thumbnail || '',
+      duration: sanitizeDurationMs(item.duration),
+      downloadedAt: item.downloadedAt || new Date().toISOString(),
+    };
+  });
+}
+
+export async function addFirebaseDownloadedCatalogItem(uid: string, track: Track): Promise<void> {
+  const cleanVideoId = sanitizeVideoId(track?.videoId);
+  if (!uid || !cleanVideoId) return;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
+
+  const cleanTitle = String(track.title || 'Untitled').trim().slice(0, 300) || 'Untitled';
+  const cleanArtist = String(track.artist ?? 'Artist').trim().slice(0, 200);
+  const cleanAlbum = track.album ? String(track.album).trim().slice(0, 200) : '';
+
+  await setDoc(doc(db, 'users', authUid, 'downloaded_catalog', cleanVideoId), {
+    videoId: cleanVideoId,
+    title: cleanTitle,
+    artist: cleanArtist,
+    album: cleanAlbum,
+    thumbnail: sanitizeHttpUrl(track.thumbnail),
+    duration: sanitizeDurationMs(track.duration),
+    downloadedAt: new Date().toISOString(),
+  });
+}
+
+export async function removeFirebaseDownloadedCatalogItem(uid: string, videoId: string): Promise<void> {
+  const cleanVideoId = sanitizeVideoId(videoId);
+  if (!uid || !cleanVideoId) return;
+  const authUid = await ensureAuthenticatedUid(uid);
+  if (!authUid) return;
+  await deleteDoc(doc(db, 'users', authUid, 'downloaded_catalog', cleanVideoId));
+}

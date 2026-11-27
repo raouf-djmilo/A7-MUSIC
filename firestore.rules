@@ -75,6 +75,17 @@ rules_version = '2';
 //   - top_track_ids: list (optional, <= 50 items)
 //   - updated_at: timestamp | ISO-8601 string (optional)
 //
+// Subcollection: users/{userId}/downloaded_catalog
+// Document ID: {videoId}
+// Fields:
+//   - videoId: string (required, 1..128 chars, must match {videoId})
+//   - title: string (required, 1..300 chars)
+//   - artist: string (optional, 0..200 chars)
+//   - album: string (optional, 0..200 chars)
+//   - thumbnail: string (optional, valid http/https URL or empty, <= 2048 chars)
+//   - duration: number (0..86400000) | string (0..20 chars) (optional)
+//   - downloadedAt: timestamp | ISO-8601 string (optional)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -251,6 +262,21 @@ service cloud.firestore {
         isValidOptionalTimestampOrDate(data, 'updated_at');
     }
 
+    function isValidDownloadedCatalogItem(data, videoId) {
+      return hasRequiredFields(['videoId', 'title']) &&
+        hasOnlyAllowedFields([
+          'videoId', 'title', 'artist', 'thumbnail', 'album', 'duration', 'downloadedAt'
+        ]) &&
+        isValidString(data.videoId, 1, 128) &&
+        data.videoId == videoId &&
+        isValidString(data.title, 1, 300) &&
+        isValidOptionalString(data, 'artist', 0, 200) &&
+        isValidOptionalString(data, 'album', 0, 200) &&
+        isValidOptionalUrl(data, 'thumbnail') &&
+        isValidOptionalDuration(data, 'duration') &&
+        isValidOptionalTimestampOrDate(data, 'downloadedAt');
+    }
+
     // ===============================================================
     // Username Lookup Rules (Username + Password Login & Availability)
     // ===============================================================
@@ -313,6 +339,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidMusicDna(request.resource.data);
         allow update: if isOwner(userId) && isValidMusicDna(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /downloaded_catalog/{videoId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidDownloadedCatalogItem(request.resource.data, videoId);
+        allow update: if isOwner(userId) && isValidDownloadedCatalogItem(request.resource.data, videoId);
         allow delete: if isOwner(userId);
       }
     }

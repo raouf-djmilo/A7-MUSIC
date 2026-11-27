@@ -98,12 +98,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
       }
 
-      // Rule: If offline AND no cached session ever existed -> Hard Lock required!
-      const shouldBlock = !online && !hasSession;
-
+      // Allow opening & using the app completely offline (Downloads & Library remain accessible)
       set({
         hasCachedSession: hasSession,
-        isAuthBlockedDueToNoNetwork: shouldBlock,
+        isAuthBlockedDueToNoNetwork: false,
         isCheckingPrerequisite: false,
       });
     } catch (e) {

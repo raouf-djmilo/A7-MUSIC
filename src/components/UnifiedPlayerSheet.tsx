@@ -49,7 +49,8 @@ import {
   getUniversalArtistAvatar,
   STUDIO_IMAGE_PROPS,
 } from '../utils/artworkHelper';
-import { useDownloadStore, downloadService, AudioQualityOption } from '../services/downloadService';
+import { useDownloadStore, downloadService } from '../services/downloadService';
+import { useNetworkStore } from '../services/networkService';
 import { isNativeLiquidTabsAvailable } from '../navigation/navigationConfig';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
 import { MarqueeText } from './MarqueeText';
@@ -975,60 +976,78 @@ const [loadingPlaylists, setLoadingPlaylists] = useState(false);
 const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
 // ── Download & Hardware Offline Storage State ──
-const [qualityModalVisible, setQualityModalVisible] = useState(false);
 const isDownloaded = useDownloadStore((s) => s.isTrackDownloaded(currentTrack?.videoId));
 const downloadProgress = useDownloadStore((s) => s.getTrackProgress(currentTrack?.videoId));
 const isDownloading = downloadProgress?.status === 'downloading' || downloadProgress?.status === 'probing';
+const downloadPct = Math.round((downloadProgress?.progress || 0) * 100);
 
-// ── Dynamic Real Storage Calculation per Track & Quality ──
-const effectiveDurationMs = useMemo(() => {
-  if (durationMillis && durationMillis > 1000) return durationMillis;
-  if (currentTrack?.duration && currentTrack.duration > 1000) return currentTrack.duration;
-  return 210000; // 3:30 fallback
-}, [durationMillis, currentTrack?.duration]);
+const startDirectDownload = useCallback(async (trackToSave: Track) => {
+  if (!trackToSave) return;
+  if (!useNetworkStore.getState().isOnline) {
+    ToastManager.show({
+      title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+      subtitle: isAr
+        ? 'يرجى الاتصال بالإنترنت لتحميل المقطع على هاتفك'
+        : 'Connect to the internet to download this track',
+      icon: 'cloud-offline-outline',
+      duration: 2800,
+    });
+    return;
+  }
 
-const durationSec = Math.max(30, Math.round(effectiveDurationMs / 1000));
-const durationFormatted = useMemo(() => {
-  const mins = Math.floor(durationSec / 60);
-  const secs = durationSec % 60;
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}, [durationSec]);
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  ToastManager.show({
+    title: isAr ? 'بدأ تحميل المقطع' : 'Downloading Track',
+    subtitle: isAr
+      ? 'جاري الحفظ بنفس الجودة على ذاكرة الهاتف...'
+      : 'Saving native quality directly to your phone...',
+    icon: 'arrow-down-circle',
+    duration: 2400,
+  });
 
-// Real formula: (Bitrate kbps * 1000 * seconds) / (8 * 1024 * 1024)
-const autoSizeMB = useMemo(
-  () => ((320 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-  [durationSec]
-);
-const highSizeMB = useMemo(
-  () => ((256 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-  [durationSec]
-);
-const mediumSizeMB = useMemo(
-  () => ((128 * 1000 * durationSec) / (8 * 1024 * 1024)).toFixed(1),
-  [durationSec]
-);
+  try {
+    await downloadService.downloadTrack(trackToSave, 'auto');
+    ToastManager.show({
+      title: isAr ? 'تم التنزيل بنجاح!' : 'Downloaded!',
+      subtitle: isAr
+        ? 'المقطع محفوظ الآن في المكتبة وجاهز بدون إنترنت'
+        : 'Saved in Library • Downloads for offline listening',
+      icon: 'checkmark-circle',
+      duration: 3200,
+    });
+  } catch (e: any) {
+    ToastManager.show({
+      title: isAr ? 'تعذر التنزيل' : 'Download Failed',
+      subtitle: e?.message || (isAr ? 'يرجى المحاولة مجدداً' : 'Please try again'),
+      icon: 'alert-circle',
+      duration: 3200,
+    });
+  }
+}, [isAr]);
 
-const handleDownloadPress = () => {
-  if (!currentTrack) return;
+const handleDownloadPress = useCallback(() => {
+  if (!currentTrack || isDownloading) return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
   if (isDownloaded) {
     Alert.alert(
-      'المقطع محفوظ على الهاتف',
-      `تم تنزيل "${currentTrack.title}" في ذاكرة الجهاز وهو متاح بدون إنترنت دائماً وعابر للحسابات.\n\nهل تريد حذفه لتفريغ مساحة الذاكرة؟`,
+      isAr ? 'المقطع محمّل على الهاتف' : 'Downloaded on Device',
+      isAr
+        ? `تم تنزيل "${currentTrack.title}" على هذا الهاتف للاستماع بدون إنترنت.\n\nهل تريد حذفه من ذاكرة الهاتف؟`
+        : `"${currentTrack.title}" is saved on this phone for offline listening.\n\nRemove the downloaded file from this device?`,
       [
-        { text: 'إغلاق', style: 'cancel' },
+        { text: isAr ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
-          text: 'حذف من الهاتف',
+          text: isAr ? 'حذف من الهاتف' : 'Remove from Device',
           style: 'destructive',
           onPress: async () => {
             if (currentTrack.videoId) {
               await downloadService.deleteDownloadedTrack(currentTrack.videoId);
               ToastManager.show({
-                title: 'تم حذف المقطع',
-                subtitle: 'تم تفريغ مساحة التخزين على الهاتف',
+                title: isAr ? 'تم حذف المقطع' : 'Download Removed',
+                subtitle: isAr ? 'تم تفريغ مساحة التخزين على الهاتف' : 'Freed local device storage',
                 icon: 'trash-outline',
-                duration: 2500,
+                duration: 2400,
               });
             }
           },
@@ -1036,39 +1055,9 @@ const handleDownloadPress = () => {
       ]
     );
   } else {
-    setQualityModalVisible(true);
+    startDirectDownload(currentTrack);
   }
-};
-
-const startDownloadWithQuality = async (quality: AudioQualityOption) => {
-  if (!currentTrack) return;
-  setQualityModalVisible(false);
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-  ToastManager.show({
-    title: 'بدأ تنزيل المقطع',
-    subtitle: `جاري الحفظ بجودة ${quality === 'medium' ? '128 kbps' : '320 kbps HD'}`,
-    icon: 'arrow-down-circle',
-    duration: 2500,
-  });
-
-  try {
-    await downloadService.downloadTrack(currentTrack, quality);
-    ToastManager.show({
-      title: 'تم التنزيل بنجاح!',
-      subtitle: 'المقطع متاح الآن بدون إنترنت وفي وضع الطيران 0ms',
-      icon: 'checkmark-circle',
-      duration: 3500,
-    });
-  } catch (e: any) {
-    ToastManager.show({
-      title: 'تعذر التنزيل',
-      subtitle: e?.message || 'يرجى التحقق من الاتصال والمحاولة لاحقاً',
-      icon: 'alert-circle',
-      duration: 3500,
-    });
-  }
-};
+}, [currentTrack, isDownloaded, isDownloading, isAr, startDirectDownload]);
 
 const syncModalState = useCallback(
   (expanded: boolean) => {
@@ -1829,35 +1818,7 @@ return (
                   </LiquidGlassSurface>
                 </View>
 
-                <View style={[styles.headerSlotSide, { alignItems: 'flex-end' }]}>
-                  <TouchableOpacity
-                    onPress={handleDownloadPress}
-                    disabled={isDownloading}
-                    activeOpacity={0.78}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={[
-                      styles.headerGlassCircle,
-                      {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
-                        borderColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(0,0,0,0.08)',
-                      },
-                    ]}
-                  >
-                    {isDownloading ? (
-                      <View style={styles.downloadSpinnerWrap}>
-                        <ActivityIndicator size="small" color="#10B981" />
-                      </View>
-                    ) : isDownloaded ? (
-                      <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                    ) : (
-                      <Ionicons
-                        name="arrow-down-outline"
-                        size={19}
-                        color={isDark ? '#FFFFFF' : theme.textPrimary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <View style={styles.headerSlotSide} />
               </View>
             </View>
 
@@ -2456,150 +2417,6 @@ return (
           )}
         </View>
         {/* ════════════════════════════════════════════════════════════════════════
-            Audio Quality Selection Modal (Auto / High 320k / Normal 128k)
-           ════════════════════════════════════════════════════════════════════════ */}
-        <Modal
-          visible={qualityModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setQualityModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.qualityModalBackdrop}
-            activeOpacity={1}
-            onPress={() => setQualityModalVisible(false)}
-          >
-            <View style={styles.qualityModalCard}>
-              <View style={styles.qualityModalHeader}>
-                <View style={styles.qualityModalIndicator} />
-                <Text style={[styles.qualityModalTitle, { color: isDark ? '#FFF' : theme.textPrimary }]}>
-                  جودة التنزيل
-                </Text>
-                <Text style={styles.qualityModalSub}>
-                  اختر جودة الصوت لحفظ المقطع في ذاكرة الهاتف
-                </Text>
-              </View>
-
-              {/* Track Preview Pill */}
-              {currentTrack && (
-                <View style={styles.qualityTrackPill}>
-                  {heroArtworkSources && heroArtworkSources.length > 0 ? (
-                    <Image
-                      source={heroArtworkSources}
-                      style={styles.qualityTrackThumb}
-                      contentFit="cover"
-                      transition={150}
-                    />
-                  ) : (
-                    <View style={styles.qualityTrackThumbFallback}>
-                      <Ionicons name="musical-notes" size={16} color="#1DB954" />
-                    </View>
-                  )}
-                  <View style={styles.qualityTrackMeta}>
-                    <Text style={styles.qualityTrackTitle} numberOfLines={1}>
-                      {currentTrack.title || 'Track'}
-                    </Text>
-                    <Text style={styles.qualityTrackArtist} numberOfLines={1}>
-                      {currentTrack.artist || 'Artist'}
-                    </Text>
-                  </View>
-                  <View style={styles.qualityDurationBadge}>
-                    <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.7)" style={{ marginRight: 3 }} />
-                    <Text style={styles.qualityDurationText}>{durationFormatted}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Option 1: Auto (320 kbps MP3 Studio) */}
-              <TouchableOpacity
-                style={styles.qualityOptionItem}
-                activeOpacity={0.75}
-                onPress={() => startDownloadWithQuality('auto')}
-              >
-                <View style={[styles.qualityIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                  <Ionicons name="flash" size={20} color="#10B981" />
-                </View>
-                <View style={styles.qualityOptionTexts}>
-                  <View style={styles.qualityOptionTitleRow}>
-                    <Text style={[styles.qualityOptionTitle, { color: isDark ? '#FFF' : theme.textPrimary }]}>
-                      تلقائي (Auto)
-                    </Text>
-                    <View style={styles.recommendedBadge}>
-                      <Text style={styles.recommendedBadgeText}>موصى به</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.qualityOptionFormat}>MP3 • 320 kbps Studio</Text>
-                </View>
-                <View style={styles.qualitySizeBadge}>
-                  <Ionicons name="save-outline" size={12} color="#10B981" style={{ marginRight: 4 }} />
-                  <Text style={styles.qualitySizeBadgeText}>{autoSizeMB} MB</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 2: Studio High (256 kbps M4A / AAC HD) */}
-              <TouchableOpacity
-                style={styles.qualityOptionItem}
-                activeOpacity={0.75}
-                onPress={() => startDownloadWithQuality('high')}
-              >
-                <View style={[styles.qualityIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                  <Ionicons name="headset" size={20} color="#3B82F6" />
-                </View>
-                <View style={styles.qualityOptionTexts}>
-                  <View style={styles.qualityOptionTitleRow}>
-                    <Text style={[styles.qualityOptionTitle, { color: isDark ? '#FFF' : theme.textPrimary }]}>
-                      نقاء استوديو (Studio)
-                    </Text>
-                    <View style={[styles.recommendedBadge, styles.badgeBlue]}>
-                      <Text style={[styles.recommendedBadgeText, { color: '#3B82F6' }]}>AAC HD</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.qualityOptionFormat}>M4A • 256 kbps Crystal</Text>
-                </View>
-                <View style={[styles.qualitySizeBadge, styles.qualitySizeBadgeBlue]}>
-                  <Ionicons name="save-outline" size={12} color="#3B82F6" style={{ marginRight: 4 }} />
-                  <Text style={[styles.qualitySizeBadgeText, { color: '#3B82F6' }]}>{highSizeMB} MB</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 3: Normal / Medium (128 kbps Saver) */}
-              <TouchableOpacity
-                style={styles.qualityOptionItem}
-                activeOpacity={0.75}
-                onPress={() => startDownloadWithQuality('medium')}
-              >
-                <View style={[styles.qualityIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                  <Ionicons name="phone-portrait-outline" size={20} color="#F59E0B" />
-                </View>
-                <View style={styles.qualityOptionTexts}>
-                  <View style={styles.qualityOptionTitleRow}>
-                    <Text style={[styles.qualityOptionTitle, { color: isDark ? '#FFF' : theme.textPrimary }]}>
-                      موفر المساحة (Saver)
-                    </Text>
-                    <View style={[styles.recommendedBadge, styles.badgeAmber]}>
-                      <Text style={[styles.recommendedBadgeText, { color: '#F59E0B' }]}>توفير 60%</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.qualityOptionFormat}>MP3 • 128 kbps</Text>
-                </View>
-                <View style={[styles.qualitySizeBadge, styles.qualitySizeBadgeAmber]}>
-                  <Ionicons name="save-outline" size={12} color="#F59E0B" style={{ marginRight: 4 }} />
-                  <Text style={[styles.qualitySizeBadgeText, { color: '#F59E0B' }]}>{mediumSizeMB} MB</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.qualityCancelBtn}
-                activeOpacity={0.7}
-                onPress={() => setQualityModalVisible(false)}
-              >
-                <Text style={styles.qualityCancelText}>إلغاء</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        {/* ════════════════════════════════════════════════════════════════════════
             Apple Music Liquid Glass Options Sheet (... Context Menu)
            ════════════════════════════════════════════════════════════════════════ */}
         <Modal
@@ -2867,6 +2684,45 @@ return (
                       : isAr
                         ? 'إضافة إلى المفضلة'
                         : 'Favorite'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* 4.5 Download for Offline Listening */}
+                <TouchableOpacity
+                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
+                  activeOpacity={0.75}
+                  disabled={isDownloading}
+                  onPress={() => {
+                    setTrackMenuVisible(false);
+                    handleDownloadPress();
+                  }}
+                >
+                  {isDownloading ? (
+                    <ActivityIndicator size="small" color="#10B981" />
+                  ) : (
+                    <Ionicons
+                      name={isDownloaded ? 'checkmark-circle' : 'cloud-download-outline'}
+                      size={22}
+                      color={isDownloaded ? '#10B981' : isDark ? '#FFFFFF' : '#0F172A'}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.trackMenuRowText,
+                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isDownloading
+                      ? isAr
+                        ? `جاري التحميل... ${downloadPct}%`
+                        : `Downloading... ${downloadPct}%`
+                      : isDownloaded
+                        ? isAr
+                          ? 'محمّل على الهاتف (حذف)'
+                          : 'Downloaded (Remove)'
+                        : isAr
+                          ? 'تحميل على الهاتف (أوفلاين)'
+                          : 'Download for Offline'}
                   </Text>
                 </TouchableOpacity>
 

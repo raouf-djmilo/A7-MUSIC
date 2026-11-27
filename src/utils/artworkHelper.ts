@@ -160,6 +160,9 @@ export const getUniversalStudioArtwork = (
   }
 
   const clean = url.trim();
+  if (clean.startsWith('file://')) {
+    return clean;
+  }
 
   // 2. YouTube Channel Avatars: upgrade cleanly to strict 1:1 800x800 (preserving -p face-crop when present, else -c)
   if (clean.includes('yt3.googleusercontent.com') || clean.includes('yt3.ggpht.com')) {

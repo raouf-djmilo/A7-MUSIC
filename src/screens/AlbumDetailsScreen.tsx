@@ -30,6 +30,9 @@ import {
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { useDockScrollTracker } from '../utils/scrollDockTracker';
+import { downloadService, useDownloadStore } from '../services/downloadService';
+import { useNetworkStore } from '../services/networkService';
+import { ToastManager } from '../components/InAppToast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_COVER_SIZE = Math.min(256, Math.round(SCREEN_WIDTH * 0.64));
@@ -134,6 +137,8 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const toggleLike = useAudioStore((s) => s.toggleLike);
   const toggleSaveCollection = useAudioStore((s) => s.toggleSaveCollection);
+  const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
+  const activeDownloads = useDownloadStore((s) => s.activeDownloads);
 
   const [details, setDetails] = useState<PlaylistAlbumDetails | null>(
     initialTracks.length > 0
@@ -1169,6 +1174,86 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                   {isAr ? 'الانتقال إلى الفنان' : 'Go to Artist'}
                 </Text>
               </TouchableOpacity>
+
+              {(() => {
+                const trackVid = selectedTrackMenu.videoId;
+                const isTrackDownloaded = downloadedTracks.some((d) => d.videoId === trackVid);
+                const dlState = activeDownloads[trackVid];
+                const isTrackDownloading = dlState?.status === 'probing' || dlState?.status === 'downloading';
+                return (
+                  <TouchableOpacity
+                    style={[styles.sheetAction, { flexDirection: rowDirection }]}
+                    disabled={isTrackDownloading}
+                    onPress={async () => {
+                      const targetTrack = selectedTrackMenu;
+                      setSelectedTrackMenu(null);
+                      if (isTrackDownloaded) {
+                        await downloadService.deleteDownloadedTrack(targetTrack.videoId);
+                        ToastManager.show({
+                          title: isAr ? 'تم حذف التحميل' : 'Download Removed',
+                          subtitle: targetTrack.title,
+                          icon: 'trash-outline',
+                          duration: 2400,
+                        });
+                        return;
+                      }
+                      if (!useNetworkStore.getState().isOnline) {
+                        ToastManager.show({
+                          title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+                          subtitle: isAr ? 'يتطلب التحميل اتصالاً بالإنترنت' : 'Connect to internet to download',
+                          icon: 'cloud-offline-outline',
+                          duration: 2600,
+                        });
+                        return;
+                      }
+                      ToastManager.show({
+                        title: isAr ? 'بدأ تحميل المقطع' : 'Downloading Track',
+                        subtitle: targetTrack.title,
+                        icon: 'arrow-down-circle',
+                        duration: 2200,
+                      });
+                      downloadService.downloadTrack(targetTrack, 'auto').then(() => {
+                        ToastManager.show({
+                          title: isAr ? 'تم التنزيل بنجاح!' : 'Downloaded!',
+                          subtitle: targetTrack.title,
+                          icon: 'checkmark-circle',
+                          duration: 2600,
+                        });
+                      }).catch((err: any) => {
+                        ToastManager.show({
+                          title: isAr ? 'تعذر التنزيل' : 'Download Failed',
+                          subtitle: err?.message || '',
+                          icon: 'alert-circle',
+                          duration: 2800,
+                        });
+                      });
+                    }}
+                  >
+                    {isTrackDownloading ? (
+                      <ActivityIndicator size="small" color="#10B981" />
+                    ) : (
+                      <Ionicons
+                        name={isTrackDownloaded ? 'checkmark-circle' : 'cloud-download-outline'}
+                        size={22}
+                        color={isTrackDownloaded ? '#10B981' : uiColors.primaryText}
+                      />
+                    )}
+                    <Text style={[styles.sheetActionTxt, { color: uiColors.primaryText }]}>
+                      {isTrackDownloading
+                        ? isAr
+                          ? `جاري التحميل... ${Math.round((dlState?.progress || 0) * 100)}%`
+                          : `Downloading... ${Math.round((dlState?.progress || 0) * 100)}%`
+                        : isTrackDownloaded
+                        ? isAr
+                          ? 'محمّل على الهاتف (حذف)'
+                          : 'Downloaded (Remove)'
+                        : isAr
+                        ? 'تحميل على الهاتف (أوفلاين)'
+                        : 'Download for Offline'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </Pressable>
           )}
         </Pressable>

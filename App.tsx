@@ -24,6 +24,7 @@ import { configureAudioSession } from './src/services/audioSessionService';
 import { useAudioStore } from './src/store/useAudioStore';
 import { initNetworkMonitor } from './src/services/networkService';
 import { OfflineGuardModal } from './src/components/OfflineGuardModal';
+import { OfflineStatusBanner } from './src/components/OfflineStatusBanner';
 import { inspectOfflineStorage } from './src/services/downloadService';
 import { useUpdateStore, runSmartOtaMigrationIfNeeded } from './src/services/updateService';
 import { OtaUpdateProgressModal } from './src/components/OtaUpdateProgressModal';
@@ -54,6 +55,9 @@ const AppContent = () => {
 
       {/* 🛡️ Enterprise First-Time Offline Session Guard */}
       <OfflineGuardModal />
+
+      {/* ☁️ Non-blocking Apple Liquid Glass Offline Notification Pill */}
+      <OfflineStatusBanner />
 
       {/* ⚡ Professional OTA Update Progress & Restart Modal */}
       <OtaUpdateProgressModal />

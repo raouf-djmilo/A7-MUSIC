@@ -30,6 +30,7 @@ import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
 import { downloadService } from '../services/downloadService';
 import { nativeAudioService } from '../services/nativeAudioService';
+import { useNetworkStore } from '../services/networkService';
 import { fetchContextAwareNextBatch } from '../services/infiniteRecommendationEngine';
 
 
@@ -755,7 +756,40 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const isVideoMode = get().playerMediaMode === 'video';
       const hasTrackPlayer = Boolean(NativeModules.TrackPlayerModule);
 
-      // Optimistically render MiniPlayer & FullPlayer immediately at 0ms
+      // ── Step A: Check Local Offline Storage (Downloads) FIRST (0ms local hit & offline guard) ──
+      let hasOfflineCandidate = Boolean(streamUrl && streamUrl.startsWith('file://'));
+      try {
+        const localTrack = await downloadService.getLocalTrack(track.videoId);
+        if (get().playRequestId !== newRequestId) return;
+        if (localTrack && localTrack.audioLocalUri) {
+          streamUrl = localTrack.audioLocalUri;
+          isOffline = true;
+          hasOfflineCandidate = true;
+          if (localTrack.artworkLocalUri) {
+            finalArtwork = localTrack.artworkLocalUri;
+          }
+          if (localTrack.duration && localTrack.duration > 1000) {
+            totalDurationSec = Math.floor(localTrack.duration / 1000);
+          }
+        }
+      } catch (localErr) {
+        console.warn('[AudioStore] Local track check non-fatal error:', localErr);
+      }
+
+      // Block non-downloaded tracks cleanly when the device has no Internet connection
+      const isOnlineNow = useNetworkStore.getState().isOnline;
+      if (!isOnlineNow && !hasOfflineCandidate) {
+        set({ isLoading: false, loadingTrackId: null });
+        ToastManager.show({
+          title: 'أنت في وضع الأوفلاين',
+          subtitle: 'يمكن تشغيل المقاطع المحمّلة فقط بدون إنترنت',
+          icon: 'cloud-offline-outline',
+          duration: 2800,
+        });
+        return;
+      }
+
+      // Optimistically render MiniPlayer & FullPlayer
       const optimisticTrack: Track = {
         ...track,
         title: finalTitle,
@@ -764,7 +798,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         duration: totalDurationSec * 1000,
       };
 
-      // If valid YouTube track without explicit URL, start YoutubePlayer immediately at 0ms
+      // If valid YouTube track without explicit URL, start YoutubePlayer immediately
       if (!streamUrl && hasValidYtId) {
         nativeAudioService.stop().catch(() => { });
         set({
@@ -798,30 +832,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isUserPauseAction: false,
           isLoading: true,
           loadingTrackId: track.videoId,
-          isOfflinePlayback: false,
+          isOfflinePlayback: isOffline || hasOfflineCandidate,
           activeEngine: 'native',
           isSwitchingToFallback: false,
           durationMillis: totalDurationSec * 1000,
           positionMillis: initialPosition * 1000,
         });
-      }
-
-      // ── Step A: Check Local Offline Storage (Downloads) ──
-      try {
-        const localTrack = await downloadService.getLocalTrack(track.videoId);
-        if (get().playRequestId !== newRequestId) return;
-        if (localTrack && localTrack.audioLocalUri) {
-          streamUrl = localTrack.audioLocalUri;
-          isOffline = true;
-          if (localTrack.artworkLocalUri) {
-            finalArtwork = localTrack.artworkLocalUri;
-          }
-          if (localTrack.duration && localTrack.duration > 1000) {
-            totalDurationSec = Math.floor(localTrack.duration / 1000);
-          }
-        }
-      } catch (localErr) {
-        console.warn('[AudioStore] Local track check non-fatal error:', localErr);
       }
 
       // ── Step B: Direct Non-YouTube HTTP URL Fallback ──

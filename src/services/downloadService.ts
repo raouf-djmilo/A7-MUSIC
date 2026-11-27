@@ -3,27 +3,37 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Track } from '../store/useAudioStore';
 import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import { auth } from '../lib/firebase';
+import {
+  addFirebaseDownloadedCatalogItem,
+} from './firebaseMusicDb';
 
 // ── Directory & Storage Constants ──
 const DOWNLOAD_BASE_DIR = `${FileSystem.documentDirectory}a7flow_download_music/`;
 const TRACKS_DIR = `${DOWNLOAD_BASE_DIR}tracks/`;
 const MANIFEST_FILE_PATH = `${DOWNLOAD_BASE_DIR}a7flow_manifest.json`;
 
-// Global device-level key (NOT user specific: cross-account persistence)
+// Minimum physical size to reject empty / 403 error responses while keeping valid short tracks
+const MIN_AUDIO_BYTES = 150 * 1024;
+const MAX_LOCAL_MANIFEST_ITEMS = 500;
+
+// Global device-level key (NOT user specific: local phone audio files work across accounts & offline)
 export const DEVICE_OFFLINE_MANIFEST_KEY = '@a7flow_device_offline_manifest';
 
+// Kept for type compatibility; downloads now use a single native stream quality automatically
 export type AudioQualityOption = 'auto' | 'high' | 'medium';
 
 export interface DownloadedTrack {
   videoId: string;
   title: string;
   artist: string;
+  album?: string;
   thumbnail: string;
   artworkLocalUri: string;
   audioLocalUri: string;
   duration: number; // in milliseconds
   quality: AudioQualityOption;
-  bitrateLabel: string; // e.g. "320 kbps HD" | "128 kbps"
+  bitrateLabel: string;
   fileSizeBytes: number;
   fileSizeMB: string; // e.g. "5.2 MB"
   downloadedAt: number;
@@ -69,7 +79,7 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
         totalTrackCount: tracks.length,
         isLoadingManifest: false,
       });
-    } catch (e) {
+    } catch {
       set({ isLoadingManifest: false });
     }
   },
@@ -93,34 +103,90 @@ const PIPED_INSTANCES = [
   'https://pipedapi.leptons.xyz',
 ];
 
+const INVIDIOUS_INSTANCES = [
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+  'https://yewtu.be',
+];
+
+function isValidYouTubeId(id?: string | null): boolean {
+  return Boolean(id && /^[a-zA-Z0-9_-]{11}$/.test(id.trim()));
+}
+
+function pickBestAudioUrls(streams: Array<{ url?: string; mimeType?: string; type?: string; format?: string; bitrate?: number | string }>): string[] {
+  const valid = streams.filter((s) => typeof s?.url === 'string' && s.url.startsWith('http'));
+  const ranked = [...valid].sort((a, b) => {
+    const aMime = `${a.mimeType || a.type || a.format || ''}`.toLowerCase();
+    const bMime = `${b.mimeType || b.type || b.format || ''}`.toLowerCase();
+    const aIsM4a = aMime.includes('mp4') || aMime.includes('m4a') ? 1 : 0;
+    const bIsM4a = bMime.includes('mp4') || bMime.includes('m4a') ? 1 : 0;
+    if (aIsM4a !== bIsM4a) return bIsM4a - aIsM4a;
+    return (Number(b.bitrate) || 0) - (Number(a.bitrate) || 0);
+  });
+  return Array.from(new Set(ranked.map((s) => s.url!)));
+}
+
 /**
- * ⚡ Fast Direct Stream Resolver via Piped API (Parallel race — zero sequential dead-instance stalls)
+ * ⚡ Stage 1: Direct YouTube InnerTube Player API (iOS & Android VR native audio streams)
  */
-export async function extractPipedDirectAudioStream(videoId: string): Promise<string | null> {
-  const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const tasks = PIPED_INSTANCES.map(async (instance) => {
+async function extractInnerTubeAudioCandidates(cleanId: string): Promise<string[]> {
+  const clients = [
+    {
+      clientName: 'IOS',
+      clientVersion: '19.45.4',
+      deviceModel: 'iPhone16,2',
+      osVersion: '18.1.0.22B83',
+      hl: 'en',
+      gl: 'US',
+      ua: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X; en_US)',
+    },
+    {
+      clientName: 'ANDROID_VR',
+      clientVersion: '1.60.19',
+      androidSdkVersion: 34,
+      hl: 'en',
+      gl: 'US',
+      ua: 'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 14; en_US; Quest 3 Build/SQ3A.220605.009.A1) gzip',
+    },
+  ];
+
+  const tasks = clients.map(async (c) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
+    const timeout = setTimeout(() => controller.abort(), 3500);
     try {
-      const res = await fetch(`${instance}/streams/${cleanId}`, {
+      const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+        method: 'POST',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Content-Type': 'application/json',
+          'User-Agent': c.ua,
         },
+        body: JSON.stringify({
+          videoId: cleanId,
+          context: {
+            client: {
+              clientName: c.clientName,
+              clientVersion: c.clientVersion,
+              ...(c.deviceModel ? { deviceModel: c.deviceModel } : {}),
+              ...(c.osVersion ? { osVersion: c.osVersion } : {}),
+              ...(c.androidSdkVersion ? { androidSdkVersion: c.androidSdkVersion } : {}),
+              hl: c.hl,
+              gl: c.gl,
+            },
+          },
+          contentCheckOk: true,
+          racyCheckOk: true,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const audioStreams = data.audioStreams || [];
-      const m4aStream = audioStreams.find(
-        (s: any) => s.format === 'M4A' || s.mimeType?.includes('audio/mp4') || s.mimeType?.includes('m4a')
+      const json = await res.json();
+      const formats = json?.streamingData?.adaptiveFormats || [];
+      const audioFormats = formats.filter(
+        (f: any) => typeof f?.url === 'string' && `${f?.mimeType || ''}`.startsWith('audio/')
       );
-      const chosen = m4aStream || audioStreams[0];
-      if (chosen?.url) {
-        console.log(`[PipedAPI] ⚡ Found direct ad-free audio stream from ${instance}`);
-        return chosen.url as string;
-      }
-      throw new Error('No audio streams');
+      const urls = pickBestAudioUrls(audioFormats);
+      if (urls.length === 0) throw new Error('No direct audio formats');
+      return urls;
     } finally {
       clearTimeout(timeout);
     }
@@ -129,52 +195,84 @@ export async function extractPipedDirectAudioStream(videoId: string): Promise<st
   try {
     return await Promise.any(tasks);
   } catch {
+    return [];
+  }
+}
+
+/**
+ * ⚡ Stage 2: Fast Parallel Stream Resolver via Piped & Invidious APIs
+ */
+export async function extractPipedDirectAudioStream(videoId: string): Promise<string | null> {
+  const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const pipedTasks = PIPED_INSTANCES.map(async (instance) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    try {
+      const res = await fetch(`${instance}/streams/${cleanId}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15',
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const urls = pickBestAudioUrls(data?.audioStreams || []);
+      if (urls.length > 0) return urls[0];
+      throw new Error('No audio streams');
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  const invidiousTasks = INVIDIOUS_INSTANCES.map(async (instance) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3200);
+    try {
+      const res = await fetch(`${instance}/api/v1/videos/${cleanId}`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const audioFormats = (data?.adaptiveFormats || []).filter(
+        (f: any) => typeof f?.type === 'string' && f.type.startsWith('audio/')
+      );
+      const urls = pickBestAudioUrls(audioFormats);
+      if (urls.length > 0) return urls[0];
+      throw new Error('No invidious audio streams');
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  try {
+    return await Promise.any([...pipedTasks, ...invidiousTasks]);
+  } catch {
     return null;
   }
 }
 
 /**
- * 🎵 Extract Genuine YouTube Audio Stream (100% Real Song from YouTube)
- * Zero placeholder songs. Connects to Piped parallel race and mirror conversion APIs.
+ * ⚡ Stage 3: Converter Mirror Fallback
  */
-export async function extractRealYouTubeAudioStream(
-  videoId: string,
-  quality: AudioQualityOption = 'auto',
+async function extractMirrorAudioStream(
+  cleanId: string,
   onProgress?: (progressRatio: number, statusText: string) => void
 ): Promise<string> {
-  const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
-
-  // 1. ⚡ Parallel Piped API Race (0% Ads)
-  try {
-    const directPipedUrl = await extractPipedDirectAudioStream(cleanId);
-    if (directPipedUrl) {
-      if (onProgress) onProgress(1.0, 'تم جلب تدفق الصوت النقي المباشر');
-      return directPipedUrl;
-    }
-  } catch (pipedErr) {
-    console.warn('[DownloadService] Piped resolution skipped:', pipedErr);
-  }
-
   const youtubeUrl = `https://www.youtube.com/watch?v=${cleanId}`;
-
-  // 🛡️ High-Fidelity Audio Directive: Always extract raw uncompressed Apple AAC (.m4a / itag 140)
-  // NEVER request lossy MP3 transcoding which causes digital clipping (>0dBFS) and muffled trebles.
-  const format = 'm4a';
-
   const endpoints = [
-    `https://loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(youtubeUrl)}`,
-    `https://en.loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(youtubeUrl)}`,
+    `https://loader.to/ajax/download.php?format=m4a&url=${encodeURIComponent(youtubeUrl)}`,
+    `https://en.loader.to/ajax/download.php?format=m4a&url=${encodeURIComponent(youtubeUrl)}`,
   ];
 
   let conversionData: any = null;
-
   for (const endpoint of endpoints) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       const res = await fetch(endpoint, { signal: controller.signal });
       clearTimeout(timeout);
-
       if (res.ok) {
         const data = await res.json();
         if (data.id || data.success) {
@@ -182,89 +280,115 @@ export async function extractRealYouTubeAudioStream(
           break;
         }
       }
-    } catch (e) {
-      console.warn(`[DownloadService] Converter endpoint ${endpoint} failed:`, e);
+    } catch {
+      // Try next mirror
     }
   }
 
   if (!conversionData || (!conversionData.id && !conversionData.progress_url)) {
-    throw new Error('تعذر الاتصال بسيرفر استخراج الصوت من يوتيوب. يرجى التأكد من الاتصال بالإنترنت والمحاولة مجدداً.');
+    throw new Error('تعذر استخراج الصوت من السيرفر. تأكد من الاتصال بالإنترنت وحاول مجدداً.');
   }
 
-  const streamId = conversionData.id;
   const progressUrl =
     conversionData.progress_url ||
-    `https://lto2.affadaffa.com/api/progress?id=${streamId}`;
+    `https://lto2.affadaffa.com/api/progress?id=${conversionData.id}`;
 
-  // Poll progress until conversion completes (max 12 polls * 1.5s = ~18s)
-  const maxPolls = 12;
-  let finalDownloadUrl: string | null = null;
-
-  for (let poll = 0; poll < maxPolls; poll++) {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+  for (let poll = 0; poll < 12; poll++) {
+    await new Promise((resolve) => setTimeout(resolve, 1400));
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6000);
       const pRes = await fetch(progressUrl, { signal: controller.signal });
       clearTimeout(timeout);
-
       if (pRes.ok) {
         const pData = await pRes.json();
         const progressNum = Number(pData.progress) || 0;
-
-        // Map server conversion progress (0 -> 1000) to 0.05 -> 0.35 of UI download bar
-        const normalizedRatio = 0.05 + Math.min(progressNum / 1000, 1.0) * 0.3;
-        if (onProgress) {
-          onProgress(normalizedRatio, pData.text || 'جاري استخراج الصوت الأصلي من يوتيوب...');
-        }
-
-        if (pData.download_url && pData.download_url.startsWith('http')) {
-          finalDownloadUrl = pData.download_url;
-          break;
-        }
-
-        if (pData.success === 1 && pData.download_url) {
-          finalDownloadUrl = pData.download_url;
-          break;
+        const normalizedRatio = 0.08 + Math.min(progressNum / 1000, 1.0) * 0.25;
+        onProgress?.(normalizedRatio, pData.text || 'جاري تجهيز الملف الصوتي...');
+        if (typeof pData.download_url === 'string' && pData.download_url.startsWith('http')) {
+          return pData.download_url;
         }
       }
-    } catch (pollErr: any) {
-      console.warn(`[DownloadService] Polling attempt ${poll + 1} warning:`, pollErr?.message);
+    } catch {
+      // Retry poll
     }
   }
 
-  if (!finalDownloadUrl) {
-    throw new Error('استغرق استخراج الصوت من يوتيوب وقتاً طويلاً. يرجى المحاولة مرة أخرى.');
-  }
-
-  return finalDownloadUrl;
+  throw new Error('استغرق تجهيز المقطع وقتاً طويلاً. يرجى المحاولة مرة أخرى.');
 }
 
 /**
- * 🔍 Inspect physical device offline storage and log files + sizes in MB
+ * 🎵 Extract Genuine Audio Stream (InnerTube + Piped/Invidious + Mirror Cascade)
+ */
+export async function extractRealYouTubeAudioStream(
+  videoId: string,
+  _quality: AudioQualityOption = 'auto',
+  onProgress?: (progressRatio: number, statusText: string) => void
+): Promise<string> {
+  const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+
+  // 1. Direct InnerTube (fastest native bitrate match)
+  const innerTubeUrls = await extractInnerTubeAudioCandidates(cleanId);
+  if (innerTubeUrls.length > 0) {
+    onProgress?.(0.32, 'تم العثور على البث الصوتي الأصلي');
+    return innerTubeUrls[0];
+  }
+
+  // 2. Piped + Invidious parallel race
+  const mirrorStreamUrl = await extractPipedDirectAudioStream(cleanId);
+  if (mirrorStreamUrl) {
+    onProgress?.(0.32, 'تم تجهيز التدفق الصوتي النقي');
+    return mirrorStreamUrl;
+  }
+
+  // 3. Final converter fallback
+  return extractMirrorAudioStream(cleanId, onProgress);
+}
+
+/**
+ * Verify downloaded file is genuine audio (not HTML error or empty blob)
+ */
+async function verifyAudioFileIntegrity(uri: string): Promise<{ ok: boolean; size: number }> {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    const size = (info as any).size || 0;
+    if (!info.exists || size < MIN_AUDIO_BYTES) {
+      return { ok: false, size };
+    }
+    const headerSnippet = await FileSystem.readAsStringAsync(uri, { length: 128, position: 0 }).catch(() => '');
+    const lower = headerSnippet.trim().toLowerCase();
+    if (
+      lower.startsWith('<!doctype') ||
+      lower.startsWith('<html') ||
+      lower.startsWith('<head') ||
+      lower.startsWith('{"error"')
+    ) {
+      return { ok: false, size };
+    }
+    return { ok: true, size };
+  } catch {
+    return { ok: false, size: 0 };
+  }
+}
+
+/**
+ * 🔍 Inspect physical device offline storage and log files + sizes
  */
 export const inspectOfflineStorage = async (): Promise<void> => {
   try {
-    const dir = `${FileSystem.documentDirectory}a7flow_download_music/tracks/`;
-    const info = await FileSystem.getInfoAsync(dir);
-    if (!info.exists) {
-      return;
-    }
-    const files = await FileSystem.readDirectoryAsync(dir);
+    const info = await FileSystem.getInfoAsync(TRACKS_DIR);
+    if (!info.exists) return;
+    const files = await FileSystem.readDirectoryAsync(TRACKS_DIR);
     console.log(`[Storage Check] Offline files ready: ${files.length}`);
-  } catch (e) {
+  } catch {
     // Non-blocking
   }
 };
 
 class AudioDownloadService {
-  private isInitialized = false;
   private inFlightProbes = new Map<string, Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }>>();
+  private inFlightDownloads = new Map<string, Promise<DownloadedTrack>>();
 
-  /**
-   * 📁 Ensure permanent directory exists on device hardware
-   */
   async ensureDirectories(): Promise<void> {
     try {
       const dirInfo = await FileSystem.getInfoAsync(TRACKS_DIR);
@@ -276,61 +400,60 @@ class AudioDownloadService {
     }
   }
 
-  /**
-   * 📋 Load manifest from hardware & AsyncStorage
-   */
   async getDownloadedTracks(): Promise<DownloadedTrack[]> {
     await this.ensureDirectories();
 
     let manifestList: DownloadedTrack[] = [];
 
-    // 1. Try reading hardware manifest file first
     try {
       const fileInfo = await FileSystem.getInfoAsync(MANIFEST_FILE_PATH);
       if (fileInfo.exists) {
         const content = await FileSystem.readAsStringAsync(MANIFEST_FILE_PATH);
-        manifestList = JSON.parse(content);
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) manifestList = parsed;
       }
     } catch (e) {
       console.warn('[DownloadService] Error reading manifest file:', e);
     }
 
-    // 2. Fallback to AsyncStorage device manifest if file empty
-    if (!manifestList || manifestList.length === 0) {
+    if (manifestList.length === 0) {
       try {
         const raw = await AsyncStorage.getItem(DEVICE_OFFLINE_MANIFEST_KEY);
         if (raw) {
-          manifestList = JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) manifestList = parsed;
         }
       } catch (e) {
         console.warn('[DownloadService] Error reading AsyncStorage manifest:', e);
       }
     }
 
-    // 3. Hardware File Integrity Verification (filter out orphan or < 500 KB corrupted files)
     const validTracks: DownloadedTrack[] = [];
     let hasChanged = false;
 
     for (const track of manifestList) {
-      try {
-        const audioInfo = await FileSystem.getInfoAsync(track.audioLocalUri);
-        const actualSize = (audioInfo as any).size || 0;
-        if (audioInfo.exists && actualSize >= 500 * 1024) {
-          validTracks.push({
-            ...track,
-            fileSizeBytes: actualSize,
-          });
-        } else {
-          // Missing or corrupted HTML file under 500 KB: purge it
-          hasChanged = true;
-          if (audioInfo.exists) {
-            try {
-              await FileSystem.deleteAsync(track.audioLocalUri, { idempotent: true });
-            } catch (delErr) {}
+      if (!track?.videoId || !track?.audioLocalUri) {
+        hasChanged = true;
+        continue;
+      }
+      const { ok, size } = await verifyAudioFileIntegrity(track.audioLocalUri);
+      if (ok) {
+        let validArtworkUri = track.artworkLocalUri || '';
+        if (validArtworkUri) {
+          const artInfo = await FileSystem.getInfoAsync(validArtworkUri).catch(() => ({ exists: false } as any));
+          if (!artInfo.exists || (artInfo.size || 0) < 512) {
+            validArtworkUri = '';
           }
         }
-      } catch (e) {
+        validTracks.push({
+          ...track,
+          artworkLocalUri: validArtworkUri,
+          fileSizeBytes: size,
+          fileSizeMB: `${(size / (1024 * 1024)).toFixed(1)} MB`,
+        });
+      } else {
         hasChanged = true;
+        await FileSystem.deleteAsync(track.audioLocalUri, { idempotent: true }).catch(() => {});
       }
     }
 
@@ -341,11 +464,9 @@ class AudioDownloadService {
     return validTracks;
   }
 
-  /**
-   * 💾 Save manifest synchronously to both Hardware file and AsyncStorage
-   */
   private async saveManifest(tracks: DownloadedTrack[]): Promise<void> {
-    const json = JSON.stringify(tracks, null, 2);
+    const trimmed = tracks.slice(0, MAX_LOCAL_MANIFEST_ITEMS);
+    const json = JSON.stringify(trimmed, null, 2);
     try {
       await FileSystem.writeAsStringAsync(MANIFEST_FILE_PATH, json);
     } catch (e) {
@@ -358,47 +479,28 @@ class AudioDownloadService {
     }
   }
 
-  /**
-   * 🔍 Look up local track for instant 0ms offline playback
-   */
   async getLocalTrack(videoId?: string | null): Promise<DownloadedTrack | null> {
     if (!videoId) return null;
     const tracks = await this.getDownloadedTracks();
     const found = tracks.find((t) => t.videoId === videoId);
     if (!found) return null;
 
-    // Verify audio file still physically exists on disk and is >= 500 KB
-    try {
-      const audioInfo = await FileSystem.getInfoAsync(found.audioLocalUri);
-      const actualSize = (audioInfo as any).size || 0;
-      if (audioInfo.exists && actualSize >= 500 * 1024) {
-        return found;
-      }
-    } catch (e) {}
-
-    return null;
+    const { ok } = await verifyAudioFileIntegrity(found.audioLocalUri);
+    return ok ? found : null;
   }
 
-  /**
-   * ⚡ Stream Probe & Resolve URL
-   * Selects bitrate and extracts genuine YouTube audio stream URL. ZERO dummy fallbacks.
-   */
   async probeAudioStream(
     track: Track,
     quality: AudioQualityOption = 'auto',
     onProgress?: (progressRatio: number, statusText: string) => void
   ): Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }> {
     const probeKey = track.videoId || track.audioUrl || 'unknown';
-
-    // 🛡️ Single-Flight Mutex: Deduplicate concurrent calls for the exact same track
     if (this.inFlightProbes.has(probeKey)) {
-      console.log('[DownloadService] ⏳ Awaiting active in-flight download/probe promise for:', probeKey);
       return this.inFlightProbes.get(probeKey)!;
     }
 
     const probePromise = this.executeProbeAudioStream(track, quality, onProgress);
     this.inFlightProbes.set(probeKey, probePromise);
-
     try {
       return await probePromise;
     } finally {
@@ -408,18 +510,12 @@ class AudioDownloadService {
 
   private async executeProbeAudioStream(
     track: Track,
-    quality: AudioQualityOption = 'auto',
+    _quality: AudioQualityOption = 'auto',
     onProgress?: (progressRatio: number, statusText: string) => void
   ): Promise<{ streamUrl: string; candidateUrls: string[]; bitrateLabel: string }> {
     const candidates: string[] = [];
-    const bitrateLabel =
-      quality === 'medium'
-        ? '128 kbps AAC'
-        : quality === 'high'
-        ? '256 kbps AAC HD'
-        : 'Studio Master AAC (1:1)';
+    const bitrateLabel = 'AAC Master';
 
-    // 1. Direct audio link if already present on track (excluding SoundHelix or mock links)
     if (
       track.audioUrl &&
       (track.audioUrl.startsWith('http') || track.audioUrl.startsWith('file://')) &&
@@ -428,71 +524,30 @@ class AudioDownloadService {
       candidates.push(track.audioUrl);
     }
 
-    // 2. Extract genuine YouTube audio stream
-    if (track.videoId && track.videoId.length === 11) {
-      try {
-        const realStreamUrl = await extractRealYouTubeAudioStream(track.videoId, quality, onProgress);
-        if (realStreamUrl) {
-          const isDownloadAttachment =
-            realStreamUrl.includes('savenow.to') ||
-            realStreamUrl.includes('loader.to') ||
-            realStreamUrl.includes('affadaffa.com');
+    if (isValidYouTubeId(track.videoId)) {
+      const cleanId = track.videoId.trim();
+      const innerTubeUrls = await extractInnerTubeAudioCandidates(cleanId);
+      for (const u of innerTubeUrls) {
+        if (!candidates.includes(u)) candidates.push(u);
+      }
 
-          if (isDownloadAttachment) {
-            const cleanId = track.videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
-            const tempCacheUri = `${FileSystem.cacheDirectory}temp_stream_${cleanId}.m4a`;
-
-            try {
-              const cacheInfo = await FileSystem.getInfoAsync(tempCacheUri);
-              if (cacheInfo.exists && (cacheInfo as any).size >= 500 * 1024) {
-                console.log('[DownloadService] ⚡ Instant Cache Hit: using existing local file for 0ms native streaming:', tempCacheUri);
-                candidates.unshift(tempCacheUri);
-              } else {
-                console.log('[DownloadService] 📥 Caching download attachment stream locally for ExoPlayer/AVPlayer Range compatibility...');
-                const dlResult = await FileSystem.downloadAsync(realStreamUrl, tempCacheUri);
-                if (dlResult && dlResult.uri) {
-                  const check = await FileSystem.getInfoAsync(dlResult.uri);
-                  if (check.exists && (check as any).size >= 100 * 1024) {
-                    // 🛡️ Integrity check: Ensure downloaded file is not an HTML error / Cloudflare challenge page
-                    let isCorruptOrHtml = false;
-                    try {
-                      const snippet = await FileSystem.readAsStringAsync(dlResult.uri, { length: 64, position: 0 });
-                      if (snippet.includes('<!DOCTYPE') || snippet.includes('<html') || snippet.includes('{"error"')) {
-                        isCorruptOrHtml = true;
-                      }
-                    } catch {}
-
-                    if (isCorruptOrHtml) {
-                      console.warn('[DownloadService] ⚠️ Downloaded file is an HTML error response. Purging cache...');
-                      await FileSystem.deleteAsync(dlResult.uri, { idempotent: true }).catch(() => {});
-                      candidates.push(realStreamUrl);
-                    } else {
-                      console.log(`[DownloadService] ✅ Cached successfully (${(((check as any).size || 0) / 1024).toFixed(1)} KB):`, dlResult.uri);
-                      candidates.unshift(dlResult.uri);
-                    }
-                  } else {
-                    candidates.push(realStreamUrl);
-                  }
-                } else {
-                  candidates.push(realStreamUrl);
-                }
-              }
-            } catch (cacheErr) {
-              console.warn('[DownloadService] Local cache stream warning (falling back to direct URL):', cacheErr);
-              candidates.push(realStreamUrl);
-            }
-          } else {
-            candidates.push(realStreamUrl);
-          }
+      if (candidates.length < 2) {
+        const pipedUrl = await extractPipedDirectAudioStream(cleanId);
+        if (pipedUrl && !candidates.includes(pipedUrl)) {
+          candidates.push(pipedUrl);
         }
-      } catch (extractErr: any) {
-        console.warn('[DownloadService] Real YouTube extraction failed:', extractErr?.message);
-        throw extractErr;
+      }
+
+      if (candidates.length === 0) {
+        const mirrorUrl = await extractMirrorAudioStream(cleanId, onProgress);
+        if (mirrorUrl) candidates.push(mirrorUrl);
+      } else {
+        onProgress?.(0.32, 'تم تجهيز مصادر الصوت الأصلية');
       }
     }
 
     if (candidates.length === 0) {
-      throw new Error('تعذر العثور على رابط الصوت الأصلي من يوتيوب لهذا المقطع.');
+      throw new Error('تعذر العثور على رابط الصوت الأصلي لهذا المقطع.');
     }
 
     return {
@@ -503,20 +558,39 @@ class AudioDownloadService {
   }
 
   /**
-   * 📥 Download track to phone storage with multi-candidate resilience
+   * 📥 Single-flight atomic track download to device storage + lightweight cloud catalog metadata sync
    */
   async downloadTrack(
     track: Track,
     quality: AudioQualityOption = 'auto',
     onProgressUpdate?: (progress: number) => void
   ): Promise<DownloadedTrack> {
-    if (!track.videoId && !(track as any).id) {
-      throw new Error('Track must have a valid videoId or ID to download.');
+    const videoId = track.videoId || String((track as any).id || '').trim();
+    if (!videoId) {
+      throw new Error('Track must have a valid videoId to download.');
     }
 
-    const videoId = track.videoId || String((track as any).id);
+    const existingPromise = this.inFlightDownloads.get(videoId);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const downloadPromise = this.executeDownloadTrack(track, videoId, quality, onProgressUpdate);
+    this.inFlightDownloads.set(videoId, downloadPromise);
+    try {
+      return await downloadPromise;
+    } finally {
+      this.inFlightDownloads.delete(videoId);
+    }
+  }
+
+  private async executeDownloadTrack(
+    track: Track,
+    videoId: string,
+    quality: AudioQualityOption,
+    onProgressUpdate?: (progress: number) => void
+  ): Promise<DownloadedTrack> {
     await this.ensureDirectories();
-    await FileSystem.makeDirectoryAsync(TRACKS_DIR, { intermediates: true });
 
     const updateStoreProgress = (progressState: DownloadProgressState) => {
       useDownloadStore.setState((s) => ({
@@ -525,12 +599,9 @@ class AudioDownloadService {
           [videoId]: progressState,
         },
       }));
-      if (onProgressUpdate) {
-        onProgressUpdate(progressState.progress);
-      }
+      onProgressUpdate?.(progressState.progress);
     };
 
-    // 1. Mark status as probing
     updateStoreProgress({
       videoId,
       progress: 0.05,
@@ -540,14 +611,13 @@ class AudioDownloadService {
     });
 
     try {
-      // 2. Probe audio stream candidate cascade and bitrate (with real-time YouTube conversion progress)
       const { candidateUrls, bitrateLabel } = await this.probeAudioStream(
         track,
         quality,
         (ratio) => {
           updateStoreProgress({
             videoId,
-            progress: ratio,
+            progress: Math.min(0.32, Math.max(0.05, ratio)),
             totalBytes: 0,
             writtenBytes: 0,
             status: 'probing',
@@ -555,30 +625,37 @@ class AudioDownloadService {
         }
       );
 
-      // 3. Prepare file targets
       const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const artworkLocalUri = `${TRACKS_DIR}${cleanId}_art.jpg`;
+      const artworkTargetUri = `${TRACKS_DIR}${cleanId}_art.jpg`;
+      let verifiedArtworkUri = '';
 
-      // 4. Download studio artwork in parallel
-      const remoteArt = getUniversalStudioArtwork(track.thumbnail) || track.thumbnail;
-      if (remoteArt && remoteArt.startsWith('http')) {
-        try {
-          await FileSystem.downloadAsync(remoteArt, artworkLocalUri);
-        } catch (artErr) {
-          console.warn('[DownloadService] Artwork download non-fatal fallback:', artErr);
+      // Download cover art locally in parallel with probing completion
+      const remoteArt = getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, videoId) || track.thumbnail;
+      const artPromise = (async () => {
+        if (remoteArt && remoteArt.startsWith('http')) {
+          try {
+            const artRes = await FileSystem.downloadAsync(remoteArt, artworkTargetUri);
+            if (artRes?.uri) {
+              const artInfo = await FileSystem.getInfoAsync(artRes.uri);
+              if (artInfo.exists && ((artInfo as any).size || 0) >= 512) {
+                verifiedArtworkUri = artRes.uri;
+              }
+            }
+          } catch {
+            // Artwork cache optional
+          }
         }
-      }
+      })();
 
-      // 5. Multi-Candidate Robust Download Loop
-      let finalDownloadedUri: string | null = null;
+      const audioLocalUri = `${TRACKS_DIR}${cleanId}.m4a`;
+      const tempPartUri = `${TRACKS_DIR}${cleanId}.m4a.part`;
+
       let finalSizeBytes = 0;
+      let downloadSucceeded = false;
       let lastError: any = null;
 
       for (let i = 0; i < candidateUrls.length; i++) {
         const streamUrl = candidateUrls[i];
-        const audioExtension = 'm4a';
-        const audioLocalUri = `${TRACKS_DIR}${cleanId}.${audioExtension}`;
-
         updateStoreProgress({
           videoId,
           progress: 0.35,
@@ -588,138 +665,116 @@ class AudioDownloadService {
         });
 
         try {
-          // If candidate is already cached locally (file://), copy directly (0ms)
+          await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+
           if (streamUrl.startsWith('file://')) {
-            console.log('[DownloadService] ⚡ Candidate is cached locally! Copying directly to permanent storage...');
-            try {
-              await FileSystem.deleteAsync(audioLocalUri, { idempotent: true });
-            } catch (delErr) {}
-            await FileSystem.copyAsync({ from: streamUrl, to: audioLocalUri });
-            const fileInfo = await FileSystem.getInfoAsync(audioLocalUri);
-            const actualSize = (fileInfo as any).size || 0;
-            if (fileInfo.exists && actualSize >= 500 * 1024) {
-              finalDownloadedUri = audioLocalUri;
-              finalSizeBytes = actualSize;
-              break;
-            }
-          }
-
-          // Clean any previous incomplete file
-          try {
-            await FileSystem.deleteAsync(audioLocalUri, { idempotent: true });
-          } catch (e) {}
-
-          const downloadResumable = FileSystem.createDownloadResumable(
-            streamUrl,
-            audioLocalUri,
-            {},
-            (downloadProgress) => {
-              const expected = downloadProgress.totalBytesExpectedToWrite;
-              const written = downloadProgress.totalBytesWritten;
-              const pct = expected > 0 ? Math.min(0.35 + (written / expected) * 0.63, 0.98) : 0.6;
-
-              updateStoreProgress({
-                videoId,
-                progress: pct,
-                totalBytes: expected,
-                writtenBytes: written,
-                status: 'downloading',
-              });
-            }
-          );
-
-          const downloadResult = await downloadResumable.downloadAsync();
-          if (!downloadResult || !downloadResult.uri) {
-            throw new Error(`Failed to download audio stream from candidate #${i + 1}`);
-          }
-
-          // Strict physical verification (Zero 0-Byte / Zero < 500 KB corrupted files)
-          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-          const actualSize = (fileInfo as any).size || 0;
-
-          if (!fileInfo.exists || actualSize < 500 * 1024) {
-            console.warn(
-              `[DownloadService] ⚠️ Candidate #${i + 1} produced invalid file (${(actualSize / 1024).toFixed(1)} KB). Cascading to next candidate...`
+            await FileSystem.copyAsync({ from: streamUrl, to: tempPartUri });
+          } else {
+            const resumable = FileSystem.createDownloadResumable(
+              streamUrl,
+              tempPartUri,
+              {
+                headers: {
+                  'User-Agent': 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X; en_US)',
+                },
+              },
+              (downloadProgress) => {
+                const expected = downloadProgress.totalBytesExpectedToWrite;
+                const written = downloadProgress.totalBytesWritten;
+                const pct = expected > 0 ? Math.min(0.35 + (written / expected) * 0.63, 0.98) : 0.62;
+                updateStoreProgress({
+                  videoId,
+                  progress: pct,
+                  totalBytes: expected,
+                  writtenBytes: written,
+                  status: 'downloading',
+                });
+              }
             );
-            try {
-              await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
-            } catch (delErr) {}
-            continue; // Cascade to next candidate!
+            const result = await resumable.downloadAsync();
+            if (!result?.uri) {
+              throw new Error(`Empty response from source #${i + 1}`);
+            }
           }
 
-          // Verified success!
-          finalDownloadedUri = downloadResult.uri;
-          finalSizeBytes = actualSize;
+          const { ok, size } = await verifyAudioFileIntegrity(tempPartUri);
+          if (!ok) {
+            await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+            lastError = new Error(`Downloaded file invalid (${(size / 1024).toFixed(1)} KB)`);
+            continue;
+          }
+
+          // Atomic swap temp -> final path
+          await FileSystem.deleteAsync(audioLocalUri, { idempotent: true }).catch(() => {});
+          await FileSystem.moveAsync({ from: tempPartUri, to: audioLocalUri });
+          finalSizeBytes = size;
+          downloadSucceeded = true;
           break;
         } catch (candidateErr: any) {
-          console.warn(
-            `[DownloadService] ⚠️ Candidate #${i + 1} failed: ${candidateErr?.message}. Trying next candidate...`
-          );
           lastError = candidateErr;
+          await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
         }
       }
 
-      if (!finalDownloadedUri || finalSizeBytes < 500 * 1024) {
-        throw (
-          lastError ||
-          new Error('Downloaded audio stream was invalid or corrupted (size < 500 KB).')
-        );
+      // Wait briefly for artwork cache before saving manifest
+      await Promise.race([artPromise, new Promise((r) => setTimeout(r, 1500))]);
+
+      if (!downloadSucceeded || finalSizeBytes < MIN_AUDIO_BYTES) {
+        throw lastError || new Error('تعذر تحميل الملف الصوتي بشكل سليم.');
       }
 
-      const sizeBytes = finalSizeBytes;
-      const sizeMB = `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-
+      const sizeMB = `${(finalSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
       const newDownloadedTrack: DownloadedTrack = {
         videoId,
         title: track.title || 'Track',
         artist: track.artist || 'Artist',
+        album: track.album,
         thumbnail: track.thumbnail || '',
-        artworkLocalUri,
-        audioLocalUri: finalDownloadedUri,
+        artworkLocalUri: verifiedArtworkUri,
+        audioLocalUri,
         duration: track.duration || 180000,
         quality,
         bitrateLabel,
-        fileSizeBytes: sizeBytes,
+        fileSizeBytes: finalSizeBytes,
         fileSizeMB: sizeMB,
         downloadedAt: Date.now(),
       };
 
-      // 7. Update manifest (Cross-account persistent)
       const currentList = await this.getDownloadedTracks();
       const updatedList = [
         newDownloadedTrack,
         ...currentList.filter((t) => t.videoId !== videoId),
       ];
-
       await this.saveManifest(updatedList);
 
-      // 8. Update Zustand store
+      // Sync lightweight track metadata (no audio file) to user's Firestore catalog
+      // so logging in on another phone shows previously downloaded tracks to re-download
+      const currentUid = auth.currentUser?.uid;
+      if (currentUid) {
+        addFirebaseDownloadedCatalogItem(currentUid, newDownloadedTrack).catch(() => {});
+      }
+
       updateStoreProgress({
         videoId,
         progress: 1.0,
-        totalBytes: sizeBytes,
-        writtenBytes: sizeBytes,
+        totalBytes: finalSizeBytes,
+        writtenBytes: finalSizeBytes,
         status: 'completed',
       });
 
-      // Reload manifest in store
       await useDownloadStore.getState().loadManifest();
-
-      // Inspect storage in terminal
       await inspectOfflineStorage();
 
-      // Clean activeDownloads after 1.5s
       setTimeout(() => {
         useDownloadStore.setState((s) => {
           const copy = { ...s.activeDownloads };
           delete copy[videoId];
           return { activeDownloads: copy };
         });
-      }, 1500);
+      }, 1200);
 
       return newDownloadedTrack;
     } catch (error: any) {
-      console.error('[DownloadService] Download error:', error);
       updateStoreProgress({
         videoId,
         progress: 0,
@@ -728,40 +783,32 @@ class AudioDownloadService {
         status: 'error',
         error: error?.message || 'Download failed',
       });
+      setTimeout(() => {
+        useDownloadStore.setState((s) => {
+          if (s.activeDownloads[videoId]?.status !== 'error') return s;
+          const copy = { ...s.activeDownloads };
+          delete copy[videoId];
+          return { activeDownloads: copy };
+        });
+      }, 2500);
       throw error;
     }
   }
 
-  /**
-   * 🗑️ Delete downloaded track and reclaim device memory
-   */
   async deleteDownloadedTrack(videoId: string): Promise<boolean> {
     try {
       const currentList = await this.getDownloadedTracks();
       const target = currentList.find((t) => t.videoId === videoId);
       if (!target) return false;
 
-      // Delete audio file
-      try {
-        const audioInfo = await FileSystem.getInfoAsync(target.audioLocalUri);
-        if (audioInfo.exists) {
-          await FileSystem.deleteAsync(target.audioLocalUri, { idempotent: true });
-        }
-      } catch (e) {}
+      await FileSystem.deleteAsync(target.audioLocalUri, { idempotent: true }).catch(() => {});
+      if (target.artworkLocalUri) {
+        await FileSystem.deleteAsync(target.artworkLocalUri, { idempotent: true }).catch(() => {});
+      }
 
-      // Delete artwork file
-      try {
-        const artInfo = await FileSystem.getInfoAsync(target.artworkLocalUri);
-        if (artInfo.exists) {
-          await FileSystem.deleteAsync(target.artworkLocalUri, { idempotent: true });
-        }
-      } catch (e) {}
-
-      // Update manifest
       const updatedList = currentList.filter((t) => t.videoId !== videoId);
       await this.saveManifest(updatedList);
       await useDownloadStore.getState().loadManifest();
-
       return true;
     } catch (e) {
       console.warn('[DownloadService] Delete error:', e);
@@ -769,23 +816,16 @@ class AudioDownloadService {
     }
   }
 
-  /**
-   * 📊 Get device storage usage breakdown
-   */
   async getStorageUsage(): Promise<{ totalBytes: number; totalMB: string; trackCount: number }> {
     const tracks = await this.getDownloadedTracks();
     const totalBytes = tracks.reduce((sum, t) => sum + (t.fileSizeBytes || 0), 0);
-    const totalMB = `${(totalBytes / (1024 * 1024)).toFixed(1)} MB`;
     return {
       totalBytes,
-      totalMB,
+      totalMB: `${(totalBytes / (1024 * 1024)).toFixed(1)} MB`,
       trackCount: tracks.length,
     };
   }
 
-  /**
-   * 🧹 Clear all downloaded offline tracks and reset manifest
-   */
   async clearAllDownloads(): Promise<boolean> {
     try {
       const dirInfo = await FileSystem.getInfoAsync(DOWNLOAD_BASE_DIR);
