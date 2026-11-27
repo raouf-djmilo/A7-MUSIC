@@ -1,6 +1,4 @@
 import { Platform, UIManager } from 'react-native';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { isRunningInExpoGo } from 'expo';
 
 /**
  * [LOCKED MODULE - DO NOT REVERT]
@@ -16,21 +14,12 @@ export const USE_NATIVE_LIQUID_TABS = true as const;
 /**
  * Runtime native capability guard:
  * Prevents `Invariant Violation: View config not found for component RNSTabsScreenIOS`
- * when previewing in Expo Go (whose native binary lacks RNS 4.30 UIKit BottomTabs)
- * or on incompatible runtimes/platforms, while always enabling Native Liquid Tabs
- * in standalone custom A7-MUSIC iOS builds where `RNSTabsHostIOS` & `RNSTabsScreenIOS` exist.
+ * on runtimes/binaries that do not register `RNSTabsHostIOS` & `RNSTabsScreenIOS`,
+ * while enabling Native Liquid Tabs whenever the host iOS binary supports them
+ * (including standalone builds and Expo SDK 58+ runtimes with codegen view configs).
  */
 export function isNativeLiquidTabsAvailable(): boolean {
   if (!USE_NATIVE_LIQUID_TABS || Platform.OS !== 'ios') {
-    return false;
-  }
-
-  const runningInExpoGo =
-    isRunningInExpoGo() ||
-    Constants?.executionEnvironment === ExecutionEnvironment.StoreClient ||
-    (Constants as any)?.appOwnership === 'expo';
-
-  if (runningInExpoGo) {
     return false;
   }
 

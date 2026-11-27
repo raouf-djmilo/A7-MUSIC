@@ -16,6 +16,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
     };
   }
+  if (moduleName === 'react-native-screens' && platform !== 'web') {
+    return {
+      filePath: path.resolve(__dirname, 'node_modules/react-native-screens/src/index.tsx'),
+      type: 'sourceFile',
+    };
+  }
   if (defaultResolveRequest) {
     return defaultResolveRequest(context, moduleName, platform);
   }
