@@ -1,13 +1,13 @@
 {
-  "id": "32d5a675-f46f-4f97-be19-0b9920aaa857",
-  "createdAt": "2026-11-27T13:59:26.651Z",
+  "id": "dcf52ca0-9927-403e-8559-6057998d9f9f",
+  "createdAt": "2026-11-27T14:17:18.803Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "vJk4yfSoKUZCGxsT63detHDtyQs6s_f9M7aB7Gcg74U",
-    "key": "4045a2935919a6aab4240a3695371401",
+    "hash": "rasVfUJWeZRvBqGHn7gb7hAY4Iy5JAzcGQKVfR8elME",
+    "key": "112d99cd4b6d6a7502da207aa404969f",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-5f06fbd7514013f3a05bca8d81dea4ae.hbc"
+    "url": "./_expo/static/js/ios/index-ba629965c65f9f4bf0e1523f14b36350.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.5210172",
+      "otaVersion": "1.6.5-ota.abd6a5b",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "5210172",
-      "title": "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
+      "commitSha": "abd6a5b",
+      "title": "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
       "highlights": [
-        "feat(offline,downloads): unified native-quality download engine, 3-dot download UI, offline mode & account catalog",
+        "fix(playback,offline): repair playTrack token race, YouTube InnerTube iOS extraction, and full offline tab UX",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T13:59:26.651Z",
-      "bundleSizeBytes": 6945807
+      "publishedAt": "2026-11-27T14:17:18.803Z",
+      "bundleSizeBytes": 6968192
     }
   }
 }
