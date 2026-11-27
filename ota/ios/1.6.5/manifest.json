@@ -1,13 +1,13 @@
 {
-  "id": "c61e1cba-e066-4a78-83fa-0f20e7945d8b",
-  "createdAt": "2026-11-27T00:40:57.256Z",
+  "id": "e4eb4249-8c03-4d8b-b286-525cf1d1dbeb",
+  "createdAt": "2026-11-27T01:14:50.815Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "14vBKhFT4HSEClV8QxChoc3jo4BXYFF6kPgsgmfTQx8",
-    "key": "c55a320b248ab06493895489998d6a49",
+    "hash": "TSI73CwVqWjHPpsQYTNboSR-iKplREvZsdVL2aF4NQA",
+    "key": "569b52381e44c48a134d54724fdafe74",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-73c72e30f96965ebdae88118290f043e.hbc"
+    "url": "./_expo/static/js/ios/index-123cac98839bbddf8f05210069f3c730.hbc"
   },
   "assets": [
     {
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.fdca312",
+      "otaVersion": "1.6.5-ota.edade0d",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "fdca312",
-      "title": "feat(music): redesign universal Apple Music Liquid Glass AlbumDetailsScreen and persistent library save",
+      "commitSha": "edade0d",
+      "title": "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
       "highlights": [
-        "feat(music): redesign universal Apple Music Liquid Glass AlbumDetailsScreen and persistent library save",
+        "feat(player): Apple Music Liquid Glass player menu, marquee mini-player and scroll-reactive tabs dock",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T00:40:57.256Z",
-      "bundleSizeBytes": 6890848
+      "publishedAt": "2026-11-27T01:14:50.815Z",
+      "bundleSizeBytes": 6925901
     }
   }
 }
