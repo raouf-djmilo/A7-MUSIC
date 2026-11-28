@@ -35,7 +35,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { getUniversalStudioArtwork, getUniversalArtistAvatar } from '../utils/artworkHelper';
-import { useDownloadStore, downloadService, DownloadedTrack } from '../services/downloadService';
+import {
+  useDownloadStore,
+  downloadService,
+  downloadedTrackToQueueTrack,
+  resolveDownloadedMediaMode,
+  DownloadedTrack,
+} from '../services/downloadService';
+import { DownloadOptionsModal } from '../features/downloads/components/DownloadOptionsModal';
 import { useNetworkStore } from '../services/networkService';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { DynamicBottomSheet } from '../components/DynamicBottomSheet';
@@ -163,6 +170,7 @@ export const MusicLibrary = () => {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+  const [manageDownloadItem, setManageDownloadItem] = useState<DownloadedTrack | null>(null);
 
   const palette = isDark
     ? {
@@ -618,7 +626,7 @@ export const MusicLibrary = () => {
           thumbnail: item.thumbnail,
           duration: item.duration,
         },
-        'auto'
+        { mode: item.mediaType || 'audio', quality: 'auto' }
       );
       ToastManager.show({
         title: isAr ? 'تم التنزيل على الهاتف' : 'Downloaded to Device',
@@ -664,7 +672,7 @@ export const MusicLibrary = () => {
           thumbnail: item.thumbnail,
           duration: item.duration,
         },
-        'auto'
+        { mode: item.mediaType || 'audio', quality: 'auto' }
       ).catch(() => {});
     }
   }, [isOnline, missingCloudDownloads, isAr, t.trackUnit]);
@@ -760,14 +768,7 @@ export const MusicLibrary = () => {
   const handlePlayAllDownloads = () => {
     if (downloadedTracks.length === 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const trackQueue: Track[] = downloadedTracks.map((d) => ({
-      videoId: d.videoId,
-      title: d.title,
-      artist: d.artist,
-      thumbnail: d.artworkLocalUri || d.thumbnail,
-      audioUrl: d.audioLocalUri,
-      duration: d.duration,
-    }));
+    const trackQueue: Track[] = downloadedTracks.map(downloadedTrackToQueueTrack);
     useAudioStore.setState({ isOfflinePlayback: true });
     playAlbumContext(trackQueue, 0, t.downloadsHeroTitle);
     setPlayerModalVisible(true);
@@ -1069,7 +1070,7 @@ export const MusicLibrary = () => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.carouselContainer}
               >
-                {filteredLikedTracks.slice(0, 12).map((item) => {
+                {filteredLikedTracks.slice(0, 12).map((item, idx) => {
                   const isCurrent = currentTrack?.videoId === item.video_id;
                   return (
                     <TouchableOpacity
@@ -1077,16 +1078,22 @@ export const MusicLibrary = () => {
                       activeOpacity={0.85}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        const likedQueue = filteredLikedTracks.map((l) => ({
+                          videoId: l.video_id,
+                          title: l.title,
+                          artist: l.artist || t.artistTag,
+                          thumbnail: l.thumbnail,
+                          duration: (l.duration || 0) * 1000,
+                        }));
                         if (isCurrent) {
-                          togglePlay();
+                          const s = useAudioStore.getState();
+                          if (!s.isPlaying && s.activeEngine === 'youtube' && s.positionMillis <= 1200) {
+                            playTrack(likedQueue[idx], likedQueue, idx, 'LibraryFavorites');
+                          } else {
+                            togglePlay();
+                          }
                         } else {
-                          playTrack({
-                            videoId: item.video_id,
-                            title: item.title,
-                            artist: item.artist || t.artistTag,
-                            thumbnail: item.thumbnail,
-                            duration: (item.duration || 0) * 1000,
-                          });
+                          playTrack(likedQueue[idx], likedQueue, idx, 'LibraryFavorites');
                         }
                       }}
                     >
@@ -1495,8 +1502,34 @@ export const MusicLibrary = () => {
 
             {filteredDownloads.length > 0 ? (
               <View style={styles.downloadsListWrap}>
-                {filteredDownloads.map((item) => {
+                {filteredDownloads.map((item, idx) => {
                   const isCurrent = currentTrack?.videoId === item.videoId;
+                  const itemMode = resolveDownloadedMediaMode(item);
+                  const modeBadge =
+                    itemMode === 'full'
+                      ? {
+                          label: isAr ? 'موسيقى + فيديو' : 'Music + Video',
+                          color: '#0A84FF',
+                          bg: 'rgba(10, 132, 255, 0.16)',
+                          icon: 'layers' as const,
+                        }
+                      : itemMode === 'video'
+                        ? {
+                            label: isAr ? 'فيديو فقط' : 'Video Only',
+                            color: '#BF5AF2',
+                            bg: 'rgba(191, 90, 242, 0.16)',
+                            icon: 'videocam' as const,
+                          }
+                        : {
+                            label: isAr ? 'موسيقى فقط' : 'Music Only',
+                            color: '#30D158',
+                            bg: 'rgba(48, 209, 88, 0.15)',
+                            icon: 'musical-notes' as const,
+                          };
+                  const dlState = activeDownloads[item.videoId];
+                  const isRowUpgrading =
+                    dlState?.status === 'probing' || dlState?.status === 'downloading';
+
                   return (
                     <TouchableOpacity
                       key={item.videoId}
@@ -1504,16 +1537,16 @@ export const MusicLibrary = () => {
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         if (isCurrent) {
+                          if (!useAudioStore.getState().isPlaying) {
+                            useAudioStore.getState().resumeTrack();
+                          }
+                          if (itemMode === 'video') {
+                            useAudioStore.getState().setPlayerMediaMode('video');
+                          }
                           setPlayerModalVisible(true);
                         } else {
-                          playTrack({
-                            videoId: item.videoId,
-                            title: item.title,
-                            artist: item.artist,
-                            thumbnail: item.artworkLocalUri || item.thumbnail,
-                            audioUrl: item.audioLocalUri,
-                            duration: item.duration,
-                          });
+                          const offlineQueue = filteredDownloads.map(downloadedTrackToQueueTrack);
+                          playTrack(offlineQueue[idx], offlineQueue, idx, 'OfflineDownloads');
                         }
                       }}
                     >
@@ -1546,16 +1579,55 @@ export const MusicLibrary = () => {
                           >
                             {item.title}
                           </Text>
+                          <View style={[styles.rowMetaBadgeLine, { flexDirection: rowDirection }]}>
+                            <View style={[styles.downloadModePill, { backgroundColor: modeBadge.bg, flexDirection: rowDirection }]}>
+                              <Ionicons name={modeBadge.icon} size={11} color={modeBadge.color} />
+                              <Text style={[styles.downloadModePillText, { color: modeBadge.color }]}>
+                                {modeBadge.label}
+                              </Text>
+                            </View>
+                            <Text style={[styles.rowSubSize, { color: palette.textMuted }]} numberOfLines={1}>
+                              {item.fileSizeMB}
+                            </Text>
+                          </View>
                           <Text
                             style={[styles.rowSub, { color: palette.textSecondary, textAlign, writingDirection }]}
                             numberOfLines={1}
                           >
-                            {item.artist}
+                            {isRowUpgrading
+                              ? isAr
+                                ? `جاري الإكمال... ${Math.round((dlState?.progress || 0) * 100)}%`
+                                : `Upgrading... ${Math.round((dlState?.progress || 0) * 100)}%`
+                              : item.artist}
                           </Text>
                         </View>
                         <TouchableOpacity
-                          onPress={() => handleDeleteDownload(item)}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setManageDownloadItem(item);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                          style={{ padding: 4 }}
+                        >
+                          {isRowUpgrading ? (
+                            <CircularDownloadProgress
+                              status={(dlState?.status as 'probing' | 'downloading') || 'downloading'}
+                              progress={dlState?.progress || 0}
+                              size={20}
+                              activeColor="#0A84FF"
+                              trackColor={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(15,23,42,0.16)'}
+                            />
+                          ) : (
+                            <Ionicons name="ellipsis-horizontal" size={19} color={palette.textSecondary} />
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            handleDeleteDownload(item);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 10 }}
                         >
                           <Ionicons name="trash-outline" size={19} color="#EF4444" />
                         </TouchableOpacity>
@@ -1714,19 +1786,20 @@ export const MusicLibrary = () => {
           showsVerticalScrollIndicator={false}
         >
           {viewAllType === 'songs' &&
-            filteredLikedTracks.map((item) => (
+            filteredLikedTracks.map((item, idx) => (
               <TouchableOpacity
                 key={`va-song-${item.video_id}`}
                 activeOpacity={0.8}
                 onPress={() => {
                   setViewAllType(null);
-                  playTrack({
-                    videoId: item.video_id,
-                    title: item.title,
-                    artist: item.artist || t.artistTag,
-                    thumbnail: item.thumbnail,
-                    duration: (item.duration || 0) * 1000,
-                  });
+                  const likedQueue = filteredLikedTracks.map((l) => ({
+                    videoId: l.video_id,
+                    title: l.title,
+                    artist: l.artist || t.artistTag,
+                    thumbnail: l.thumbnail,
+                    duration: (l.duration || 0) * 1000,
+                  }));
+                  playTrack(likedQueue[idx], likedQueue, idx, 'LibraryFavorites');
                 }}
               >
                 <LiquidGlassSurface
@@ -2088,6 +2161,62 @@ export const MusicLibrary = () => {
           <ActivityIndicator color="#007AFF" size="large" />
         </View>
       )}
+
+      <DownloadOptionsModal
+        visible={Boolean(manageDownloadItem)}
+        onClose={() => setManageDownloadItem(null)}
+        track={manageDownloadItem ? downloadedTrackToQueueTrack(manageDownloadItem) : null}
+        sourceContext={
+          manageDownloadItem && resolveDownloadedMediaMode(manageDownloadItem) === 'video'
+            ? 'video'
+            : 'music'
+        }
+        downloadedTrack={manageDownloadItem}
+        isDark={isDark}
+        isAr={isAr}
+        onSelectDownload={(mode) => {
+          const item = manageDownloadItem;
+          if (!item) return;
+          if (!isOnline) {
+            ToastManager.show({
+              title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+              subtitle: isAr ? 'يتطلب التحميل اتصالاً بالإنترنت' : 'Connect to internet to upgrade download',
+              icon: 'cloud-offline-outline',
+              duration: 2600,
+            });
+            return;
+          }
+          downloadService
+            .downloadTrack(downloadedTrackToQueueTrack(item), { mode, quality: 'auto' })
+            .then(() => {
+              ToastManager.show({
+                title: isAr ? 'تم إكمال النسخة!' : 'Download Updated!',
+                subtitle: item.title,
+                icon: 'checkmark-circle',
+                duration: 2400,
+              });
+            })
+            .catch((err: any) => {
+              ToastManager.show({
+                title: isAr ? 'تعذر التحديث' : 'Update Failed',
+                subtitle: err?.message || '',
+                icon: 'alert-circle',
+                duration: 2600,
+              });
+            });
+        }}
+        onSelectRemove={async (removeMode) => {
+          const item = manageDownloadItem;
+          if (!item) return;
+          await downloadService.deleteDownloadedTrack(item.videoId, removeMode);
+          ToastManager.show({
+            title: isAr ? 'تم حذف التحميل' : 'Download Updated',
+            subtitle: item.title,
+            icon: 'trash-outline',
+            duration: 2400,
+          });
+        }}
+      />
     </View>
   );
 };
@@ -2407,6 +2536,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.16)',
+  },
+  rowMetaBadgeLine: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  downloadModePill: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  downloadModePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  rowSubSize: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 

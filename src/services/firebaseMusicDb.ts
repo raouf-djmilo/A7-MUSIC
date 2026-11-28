@@ -359,6 +359,7 @@ export interface DownloadedCatalogItem {
   album?: string;
   thumbnail: string;
   duration: number; // ms
+  mediaType?: 'audio' | 'video' | 'full';
   downloadedAt: string;
 }
 
@@ -380,12 +381,16 @@ export async function getFirebaseDownloadedCatalog(uid: string): Promise<Downloa
       album: item.album || undefined,
       thumbnail: item.thumbnail || '',
       duration: sanitizeDurationMs(item.duration),
+      mediaType: item.mediaType === 'video' || item.mediaType === 'full' ? item.mediaType : 'audio',
       downloadedAt: item.downloadedAt || new Date().toISOString(),
     };
   });
 }
 
-export async function addFirebaseDownloadedCatalogItem(uid: string, track: Track): Promise<void> {
+export async function addFirebaseDownloadedCatalogItem(
+  uid: string,
+  track: Track & { mediaType?: 'audio' | 'video' | 'full' }
+): Promise<void> {
   const cleanVideoId = sanitizeVideoId(track?.videoId);
   if (!uid || !cleanVideoId) return;
   const authUid = await ensureAuthenticatedUid(uid);
@@ -402,6 +407,7 @@ export async function addFirebaseDownloadedCatalogItem(uid: string, track: Track
     album: cleanAlbum,
     thumbnail: sanitizeHttpUrl(track.thumbnail),
     duration: sanitizeDurationMs(track.duration),
+    mediaType: track.mediaType === 'video' || track.mediaType === 'full' ? track.mediaType : 'audio',
     downloadedAt: new Date().toISOString(),
   });
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import TrackPlayer, { RepeatMode as TrackPlayerRepeatMode } from 'react-native-track-player';
+import TrackPlayer, { RepeatMode as TrackPlayerRepeatMode, TrackType } from 'react-native-track-player';
 import {
   getFirebaseLikedSongs,
   addFirebaseLikedSong,
@@ -18,9 +18,11 @@ import {
 } from '../services/listeningTimeService';
 import {
   beginTrackPlayerTransition,
+  cleanArtistForLockScreen,
   configureAudioSession,
   updateNowPlayingLockScreen,
   getActivePlayerBridge,
+  prepareNativeEngineForYouTube,
   startSilentBackgroundKeepAlive,
   pauseSilentBackgroundKeepAlive,
   stopSilentBackgroundKeepAlive,
@@ -28,7 +30,12 @@ import {
 import { getUniversalStudioArtwork, fetchStudioAlbumArtAsync, resolveLockScreenSquareArtworkAsync } from '../utils/artworkHelper';
 import { ToastManager } from '../components/InAppToast';
 import { musicDnaService } from '../services/musicDnaService';
-import { downloadService } from '../services/downloadService';
+import {
+  downloadService,
+  resolveDownloadedMediaMode,
+  downloadedTrackToQueueTrack,
+  type DownloadMediaMode,
+} from '../services/downloadService';
 import { nativeAudioService } from '../services/nativeAudioService';
 import { useNetworkStore } from '../services/networkService';
 import { fetchContextAwareNextBatch } from '../services/infiniteRecommendationEngine';
@@ -41,6 +48,8 @@ export interface Track {
   thumbnail: string | null;
   duration?: number; // in ms
   audioUrl?: string;
+  videoUrl?: string;
+  offlineMode?: DownloadMediaMode;
   category?: string;
   bpm?: number;
   type?: string;
@@ -189,7 +198,6 @@ const NAV_THROTTLE_MS = 280;
 let lastUserToggleTimestamp = Date.now();
 let lastReportedPlaybackSec = 0;
 let isAudioLoadingMutex = false;
-let loadingSafetyTimer: any = null;
 let fallbackInProgressVideoId: string | null = null;
 let lastNativeErrorRecoveryKey: string | null = null;
 
@@ -206,16 +214,27 @@ async function startNativeEnginePlayback(
   artworkUrl: string | undefined,
   durationSec: number
 ): Promise<boolean> {
+  stopSilentBackgroundKeepAlive();
   if (NativeModules.TrackPlayerModule) {
     try {
       beginTrackPlayerTransition(1800);
-      await configureAudioSession(true);
+      await configureAudioSession(useAudioStore.getState().backgroundAudioEnabled, true, 'native');
 
+      const isHlsStream = streamUrl.includes('.m3u8') || streamUrl.includes('/playlist');
       const tpTrack = {
         id: track.videoId || `track_${Date.now()}`,
         url: streamUrl,
+        ...(isHlsStream ? { type: TrackType.HLS } : {}),
+        ...(streamUrl.startsWith('http')
+          ? {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1',
+              },
+            }
+          : {}),
         title: track.title || 'Unknown Title',
-        artist: track.artist || 'Unknown Artist',
+        artist: cleanArtistForLockScreen(track.artist),
         artwork: artworkUrl || undefined,
         duration: durationSec > 0 ? durationSec : 180,
       };
@@ -242,7 +261,7 @@ async function startNativeEnginePlayback(
   // Fallback for Expo Go (where TrackPlayerModule is absent)
   await nativeAudioService.play(streamUrl, startPosSec, {
     title: track.title || 'Track',
-    artist: track.artist || 'Artist',
+    artist: cleanArtistForLockScreen(track.artist),
     artwork: artworkUrl,
   });
   return true;
@@ -672,8 +691,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     );
 
     const canReuseSameTrack = useNetworkStore.getState().isOnline || state.isOfflinePlayback;
+    const isEffectivelyStarted = state.positionMillis > 1200 || state.activeEngine === 'native';
     if (isSameTrack && canReuseSameTrack) {
-      if (!state.isPlaying) {
+      if (!state.isPlaying && isEffectivelyStarted) {
         if (targetQueue.length > 0 && targetQueue !== state.queue) {
           const foundIdx = (targetIndex >= 0 && targetIndex < targetQueue.length)
             ? targetIndex
@@ -689,10 +709,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         await get().resumeTrack();
         return;
       }
-      if ((!targetQueue.length || targetQueue === state.queue) && (state.positionMillis > 1200 || state.activeEngine === 'native')) {
+      if (state.isPlaying && (!targetQueue.length || targetQueue === state.queue) && isEffectivelyStarted) {
         return;
       }
-      // If activeEngine === 'youtube' stalled at 0:00, fall through to force-start cleanly
+      // If activeEngine === 'youtube' stalled at <= 1.2s, fall through to cleanly re-load stream
     }
 
     // ── 1. Atomic Request Token (Supersedes all prior in-flight starts cleanly) ──
@@ -701,14 +721,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     fallbackInProgressVideoId = null;
     lastNativeErrorRecoveryKey = null;
-
-    if (loadingSafetyTimer) clearTimeout(loadingSafetyTimer);
-    loadingSafetyTimer = setTimeout(() => {
-      const s = get();
-      if (s.playRequestId === newRequestId && s.isLoading) {
-        set({ isLoading: false, loadingTrackId: null });
-      }
-    }, 6500);
 
     try {
       let streamUrl: string | undefined = track.audioUrl;
@@ -722,19 +734,41 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const hasTrackPlayer = Boolean(NativeModules.TrackPlayerModule);
 
       // ── Step A: Check Local Offline Storage (Downloads) FIRST (0ms local hit & offline guard) ──
-      let hasOfflineCandidate = Boolean(streamUrl && streamUrl.startsWith('file://'));
+      let localTrackRecord: Awaited<ReturnType<typeof downloadService.getLocalTrack>> = null;
+      let hasOfflineCandidate = Boolean(
+        (streamUrl && streamUrl.startsWith('file://')) ||
+        (track.videoUrl && track.videoUrl.startsWith('file://'))
+      );
       try {
-        const localTrack = await downloadService.getLocalTrack(track.videoId);
+        localTrackRecord = await downloadService.getLocalTrack(track.videoId);
         if (get().playRequestId !== newRequestId) return;
-        if (localTrack && localTrack.audioLocalUri) {
-          streamUrl = localTrack.audioLocalUri;
-          isOffline = true;
-          hasOfflineCandidate = true;
-          if (localTrack.artworkLocalUri) {
-            finalArtwork = localTrack.artworkLocalUri;
+        if (localTrackRecord) {
+          const resolvedMode = resolveDownloadedMediaMode(localTrackRecord);
+          // For Video Only tracks, play local video mp4 directly & switch UI stage to video if offline or opened from Downloads
+          if (resolvedMode === 'video' && localTrackRecord.videoLocalUri) {
+            streamUrl = localTrackRecord.videoLocalUri;
+            isOffline = true;
+            hasOfflineCandidate = true;
+            if (!isVideoMode && (!useNetworkStore.getState().isOnline || resolvedContextName === 'Downloads' || resolvedContextName === 'OfflineDownloads')) {
+              get().setPlayerMediaMode('video');
+            }
+          } else if (resolvedMode === 'full') {
+            streamUrl =
+              !hasTrackPlayer && isVideoMode && localTrackRecord.videoLocalUri
+                ? localTrackRecord.videoLocalUri
+                : localTrackRecord.audioLocalUri;
+            isOffline = true;
+            hasOfflineCandidate = true;
+          } else if (localTrackRecord.audioLocalUri) {
+            streamUrl = localTrackRecord.audioLocalUri;
+            isOffline = true;
+            hasOfflineCandidate = true;
           }
-          if (localTrack.duration && localTrack.duration > 1000) {
-            totalDurationSec = Math.floor(localTrack.duration / 1000);
+          if (localTrackRecord.artworkLocalUri) {
+            finalArtwork = localTrackRecord.artworkLocalUri;
+          }
+          if (localTrackRecord.duration && localTrackRecord.duration > 1000) {
+            totalDurationSec = Math.floor(localTrackRecord.duration / 1000);
           }
         }
       } catch (localErr) {
@@ -801,29 +835,48 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         duration: totalDurationSec * 1000,
       };
 
-      // If valid YouTube track without explicit URL, start YoutubePlayer immediately
+      // If valid YouTube track without explicit URL, prepare session first and load cleanly in WKWebView
       if (!streamUrl && hasValidYtId) {
+        await prepareNativeEngineForYouTube();
+        if (get().playRequestId !== newRequestId) return;
         nativeAudioService.stop().catch(() => { });
+        if (get().backgroundAudioEnabled) {
+          startSilentBackgroundKeepAlive().catch(() => { });
+        } else {
+          pauseSilentBackgroundKeepAlive();
+        }
+        const bridge = getActivePlayerBridge();
+        if (bridge?.loadVideo) {
+          bridge.loadVideo(track.videoId, initialPosition, true, {
+            videoId: track.videoId,
+            title: finalTitle,
+            artist: cleanArtistForLockScreen(finalArtist),
+            artworkUrl: getUniversalStudioArtwork(finalArtwork, finalTitle, finalArtist, track.videoId),
+            durationSec: totalDurationSec,
+          });
+        }
         set({
           playRequestId: newRequestId,
           currentTrack: optimisticTrack,
           isPlaying: true,
           isUserPauseAction: false,
-          isLoading: false,
-          loadingTrackId: null,
+          isLoading: true,
+          loadingTrackId: track.videoId,
           isOfflinePlayback: false,
           activeEngine: 'youtube',
           isSwitchingToFallback: false,
           durationMillis: totalDurationSec * 1000,
           positionMillis: initialPosition * 1000,
-          audioEngineAction: {
-            type: 'play',
-            videoId: track.videoId,
-            url: undefined,
-            position: initialPosition,
-            isOfflinePlayback: false,
-            id: Date.now(),
-          },
+          audioEngineAction: bridge?.loadVideo
+            ? null
+            : {
+                type: 'play',
+                videoId: track.videoId,
+                url: undefined,
+                position: initialPosition,
+                isOfflinePlayback: false,
+                id: Date.now(),
+              },
         });
       } else {
         // Offline / direct audio URL dispatch
@@ -861,13 +914,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         artist: finalArtist,
         thumbnail: finalArtwork,
         duration: totalDurationSec * 1000,
-        audioUrl: streamUrl,
+        audioUrl: localTrackRecord?.audioLocalUri || streamUrl,
+        videoUrl: localTrackRecord?.videoLocalUri || track.videoUrl,
+        offlineMode: localTrackRecord ? resolveDownloadedMediaMode(localTrackRecord) : track.offlineMode,
       };
 
-      const lockArtwork = getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined;
+      const rawLockArtwork = getUniversalStudioArtwork(finalTrack.thumbnail, finalTrack.title, finalTrack.artist, finalTrack.videoId) || undefined;
+      const lockArtwork = rawLockArtwork
+        ? await resolveLockScreenSquareArtworkAsync(rawLockArtwork, finalTrack.title, finalTrack.artist, finalTrack.videoId).catch(() => rawLockArtwork)
+        : undefined;
 
       // ── Step C: Play Offline File or Explicit Non-YouTube HTTP URL directly on Native Engine ──
-      if ((isOffline && streamUrl) || (!hasValidYtId && streamUrl) || (streamUrl && streamUrl.startsWith('file://'))) {
+      const hasLocalMediaUri = Boolean(streamUrl?.startsWith('file://') || finalTrack.videoUrl?.startsWith('file://'));
+      if ((isOffline && streamUrl) || (!hasValidYtId && streamUrl) || hasLocalMediaUri) {
         pauseSilentBackgroundKeepAlive();
         set({
           playRequestId: newRequestId,
@@ -876,7 +935,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           isUserPauseAction: false,
           isLoading: true,
           loadingTrackId: finalTrack.videoId,
-          isOfflinePlayback: isOffline || Boolean(streamUrl?.startsWith('file://')),
+          isOfflinePlayback: isOffline || hasLocalMediaUri,
           activeEngine: 'native',
           isSwitchingToFallback: false,
           durationMillis: totalDurationSec * 1000,
@@ -888,18 +947,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         if (get().playRequestId !== newRequestId) return;
         set({ isLoading: false, loadingTrackId: null });
       } else if (hasValidYtId) {
-        // ── Step D: Online YouTube Track — Always Play Cleanly in WKWebView YoutubePlayer (Zero 403) ──
-        // Never feed unauthenticated googlevideo URLs into AVPlayer (which triggers CoreMedia HTTP 403).
-        if (hasTrackPlayer) {
-          TrackPlayer.getActiveTrackIndex()
-            .then((idx) => {
-              if (idx !== null && idx !== undefined) {
-                beginTrackPlayerTransition(800);
-                TrackPlayer.reset().catch(() => { });
-              }
-            })
-            .catch(() => { });
-        }
+        // ── Step D: Online YouTube Track — Always Play Cleanly in WKWebView (Zero 403) ──
+        if (get().playRequestId !== newRequestId) return;
         nativeAudioService.stop().catch(() => { });
 
         if (get().backgroundAudioEnabled) {
@@ -908,28 +957,42 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           pauseSilentBackgroundKeepAlive();
         }
 
-        // Only re-dispatch if optimistic step above went to 'native' while checking local downloads
+        // Only dispatch if optimistic branch hadn't already loaded YouTube for this exact track
         if (get().activeEngine !== 'youtube' || get().currentTrack?.videoId !== finalTrack.videoId) {
+          await prepareNativeEngineForYouTube();
+          if (get().playRequestId !== newRequestId) return;
+          const bridge = getActivePlayerBridge();
+          if (bridge?.loadVideo) {
+            bridge.loadVideo(track.videoId, initialPosition, true, {
+              videoId: track.videoId,
+              title: finalTitle,
+              artist: cleanArtistForLockScreen(finalArtist),
+              artworkUrl: getUniversalStudioArtwork(finalArtwork, finalTitle, finalArtist, track.videoId),
+              durationSec: totalDurationSec,
+            });
+          }
           set({
             playRequestId: newRequestId,
             currentTrack: finalTrack,
             isPlaying: true,
             isUserPauseAction: false,
-            isLoading: false,
-            loadingTrackId: null,
+            isLoading: true,
+            loadingTrackId: track.videoId,
             isOfflinePlayback: false,
             activeEngine: 'youtube',
             isSwitchingToFallback: false,
             durationMillis: totalDurationSec * 1000,
             positionMillis: initialPosition * 1000,
-            audioEngineAction: {
-              type: 'play',
-              videoId: track.videoId,
-              url: undefined,
-              position: initialPosition,
-              isOfflinePlayback: false,
-              id: Date.now(),
-            },
+            audioEngineAction: bridge?.loadVideo
+              ? null
+              : {
+                  type: 'play',
+                  videoId: track.videoId,
+                  url: undefined,
+                  position: initialPosition,
+                  isOfflinePlayback: false,
+                  id: Date.now(),
+                },
           });
         }
       }
@@ -943,7 +1006,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         musicDnaService.recordListeningSignal(finalTrack, 'play').catch(() => { });
         prefetchUpcomingQueueTrack(calibratedQueue, calibratedIndex, get().preferredQuality);
 
-        configureAudioSession(get().backgroundAudioEnabled);
+        configureAudioSession(get().backgroundAudioEnabled, true, get().activeEngine);
         updateNowPlayingLockScreen(finalTrack, initialPosition * 1000, totalDurationSec * 1000, true);
 
         // Preserve the exact cover shown in lists/search so list cover === MiniPlayer === FullPlayer.
@@ -988,10 +1051,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ isLoading: false, loadingTrackId: null });
     } finally {
       isAudioLoadingMutex = false;
-      if (loadingSafetyTimer) {
-        clearTimeout(loadingSafetyTimer);
-        loadingSafetyTimer = null;
-      }
     }
   },
 
@@ -1017,14 +1076,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const downloaded = await downloadService.getDownloadedTracks();
       if (downloaded.length === 0) return;
 
-      const trackQueue: Track[] = downloaded.map((d) => ({
-        videoId: d.videoId,
-        title: d.title,
-        artist: d.artist,
-        thumbnail: d.artworkLocalUri || d.thumbnail,
-        audioUrl: d.audioLocalUri,
-        duration: d.duration,
-      }));
+      const trackQueue: Track[] = downloaded.map(downloadedTrackToQueueTrack);
 
       const safeIdx = Math.max(0, Math.min(startIndex, trackQueue.length - 1));
       set({ isOfflinePlayback: true });
@@ -1241,7 +1293,17 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: async () => {
-    const { isPlaying } = get();
+    const { isPlaying, activeEngine } = get();
+    if (activeEngine === 'youtube' && !isPlaying) {
+      const snap = await getActivePlayerBridge()?.getSnapshot?.().catch(() => null);
+      if (snap && (snap.ytState === 1 || snap.videoPaused === false)) {
+        // If Control Center / Lock Screen resumed audio while JS was suspended, honor real playing state -> Pause
+        set({ isPlaying: true, isUserPauseAction: false, isLoading: false, loadingTrackId: null });
+        get().pauseTrack();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+    }
     if (isPlaying) {
       get().pauseTrack();
     } else {
@@ -1254,6 +1316,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     const { activeEngine } = get();
     pauseSilentBackgroundKeepAlive();
+    const bridge = getActivePlayerBridge();
     if (activeEngine === 'native') {
       if (NativeModules.TrackPlayerModule) {
         try {
@@ -1263,13 +1326,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         nativeAudioService.pause().catch(() => { });
       }
     } else if (activeEngine === 'youtube') {
-      getActivePlayerBridge()?.pause?.();
+      bridge?.pause?.();
     }
 
     set({
       isPlaying: false,
       isUserPauseAction: true,
-      audioEngineAction: activeEngine === 'youtube' ? { type: 'pause', id: Date.now() } : null,
+      isLoading: false,
+      loadingTrackId: null,
+      audioEngineAction: activeEngine === 'youtube' && !bridge ? { type: 'pause', id: Date.now() } : null,
     });
     flushListeningSecondsToSupabase();
     const state = get();
@@ -1282,6 +1347,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (!currentTrack) return;
 
     const hasValidYtId = Boolean(currentTrack.videoId && !currentTrack.videoId.startsWith('http') && currentTrack.videoId.length >= 5);
+    const bridge = getActivePlayerBridge();
 
     if (activeEngine === 'native') {
       if (NativeModules.TrackPlayerModule) {
@@ -1292,20 +1358,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             const local = currentTrack.videoId
               ? await downloadService.getLocalTrack(currentTrack.videoId).catch(() => null)
               : null;
-            const urlToLoad = local?.audioLocalUri || (!hasValidYtId ? currentTrack.audioUrl : undefined);
+            const urlToLoad = local?.audioLocalUri || local?.videoLocalUri || (!hasValidYtId ? currentTrack.audioUrl : undefined);
             if (urlToLoad) {
               const lockArt = getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist, currentTrack.videoId) || undefined;
               await startNativeEnginePlayback(currentTrack, urlToLoad, posSec, lockArt, Math.floor((currentTrack.duration || 180000) / 1000));
             } else if (hasValidYtId) {
               if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => { });
+              bridge?.loadVideo?.(currentTrack.videoId, posSec, true);
               set({
                 activeEngine: 'youtube',
                 isOfflinePlayback: false,
                 isPlaying: true,
                 isUserPauseAction: false,
-                isLoading: false,
-                loadingTrackId: null,
-                audioEngineAction: { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
+                isLoading: true,
+                loadingTrackId: currentTrack.videoId,
+                audioEngineAction: bridge?.loadVideo ? null : { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
               });
               return;
             }
@@ -1320,17 +1387,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         }
       } else {
         // Expo Go: if nativeAudioService lost its player (e.g. previous 403/stop), self-heal back to YoutubePlayer
-        if (nativeAudioService && hasValidYtId && !currentTrack.audioUrl?.startsWith('file://')) {
+        const hasLocalOfflineUri = Boolean(
+          currentTrack.audioUrl?.startsWith('file://') || currentTrack.videoUrl?.startsWith('file://')
+        );
+        if (nativeAudioService && hasValidYtId && !hasLocalOfflineUri) {
           const posSec = Math.max(0, Math.floor(positionMillis / 1000));
           if (backgroundAudioEnabled) startSilentBackgroundKeepAlive().catch(() => { });
+          bridge?.loadVideo?.(currentTrack.videoId, posSec, true);
           set({
             activeEngine: 'youtube',
             isOfflinePlayback: false,
             isPlaying: true,
             isUserPauseAction: false,
-            isLoading: false,
-            loadingTrackId: null,
-            audioEngineAction: { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
+            isLoading: true,
+            loadingTrackId: currentTrack.videoId,
+            audioEngineAction: bridge?.loadVideo ? null : { type: 'play', videoId: currentTrack.videoId, position: posSec, id: Date.now() },
           });
           return;
         }
@@ -1340,13 +1411,34 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       if (backgroundAudioEnabled) {
         startSilentBackgroundKeepAlive().catch(() => { });
       }
-      getActivePlayerBridge()?.play?.();
+      bridge?.play?.();
+      // Recover cleanly ONLY if snapshot positively confirms the embed player is unstarted or on wrong video;
+      // NEVER reload when getSnapshot() times out (`!snap`) in background, which would cut playback.
+      if (hasValidYtId && bridge?.getSnapshot && bridge?.loadVideo) {
+        bridge.getSnapshot().then((snap) => {
+          if (!snap) return;
+          const latest = get();
+          if (latest.activeEngine !== 'youtube' || !latest.isPlaying || latest.isUserPauseAction || latest.currentTrack?.videoId !== currentTrack.videoId) {
+            return;
+          }
+          if (!snap.isReady || snap.ytState === -1 || snap.ytState === -99 || (snap.videoId && snap.videoId !== currentTrack.videoId)) {
+            const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+            bridge.loadVideo?.(currentTrack.videoId, posSec, true, {
+              videoId: currentTrack.videoId,
+              title: currentTrack.title || 'A7 MUSIC',
+              artist: cleanArtistForLockScreen(currentTrack.artist),
+              artworkUrl: getUniversalStudioArtwork(currentTrack.thumbnail, currentTrack.title, currentTrack.artist, currentTrack.videoId),
+              durationSec: currentTrack.duration ? Math.floor(currentTrack.duration / 1000) : undefined,
+            });
+          }
+        }).catch(() => {});
+      }
     }
 
     set({
       isPlaying: true,
       isUserPauseAction: false,
-      audioEngineAction: activeEngine === 'youtube' ? { type: 'resume', id: Date.now() } : null,
+      audioEngineAction: activeEngine === 'youtube' && !bridge ? { type: 'resume', id: Date.now() } : null,
     });
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, state.positionMillis, state.durationMillis, true);
@@ -1356,6 +1448,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     lastUserToggleTimestamp = Date.now();
     const validPos = Math.max(0, position);
     const { activeEngine } = get();
+    const bridge = getActivePlayerBridge();
+
+    // Update positionMillis immediately so UI timeline & AppleTimelineScrubber never snap backward
+    set({
+      positionMillis: validPos,
+      audioEngineAction: activeEngine === 'youtube' && !bridge?.seekTo ? { type: 'seek', position: validPos / 1000, id: Date.now() } : null,
+    });
+
     if (activeEngine === 'native') {
       if (NativeModules.TrackPlayerModule) {
         try {
@@ -1365,12 +1465,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         nativeAudioService.seekTo(validPos).catch(() => { });
       }
     } else if (activeEngine === 'youtube') {
-      getActivePlayerBridge()?.seekTo?.(validPos / 1000);
+      bridge?.seekTo?.(validPos / 1000);
     }
-    set({
-      positionMillis: validPos,
-      audioEngineAction: activeEngine === 'youtube' ? { type: 'seek', position: validPos / 1000, id: Date.now() } : null,
-    });
+
     const state = get();
     updateNowPlayingLockScreen(state.currentTrack, validPos, state.durationMillis, true);
   },

@@ -67,17 +67,25 @@
     "typescript": "~6.0.3"
   },
   "private": true,
-  "description": "",
+  "description": "A7 MUSIC (A7 Flow) — Open-source, ad-free iOS music & video player with smart offline downloads.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/a7flowdzd-16/speed.git"
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "ios",
+    "iphone",
+    "music-player",
+    "offline-music",
+    "react-native",
+    "expo",
+    "open-source"
+  ],
+  "author": "raouf-djmilo",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/a7flowdzd-16/speed/issues"
+    "url": "https://github.com/raouf-djmilo/A7-MUSIC/issues"
   },
-  "homepage": "https://github.com/a7flowdzd-16/speed#readme"
+  "homepage": "https://github.com/raouf-djmilo/A7-MUSIC#readme"
 }

@@ -30,7 +30,12 @@ import {
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useMiniPlayerBottomGap } from '../hooks/useMiniPlayerBottomGap';
 import { useDockScrollTracker } from '../utils/scrollDockTracker';
-import { downloadService, useDownloadStore } from '../services/downloadService';
+import {
+  downloadService,
+  useDownloadStore,
+  type DownloadMediaMode,
+} from '../services/downloadService';
+import { DownloadOptionsModal } from '../features/downloads/components/DownloadOptionsModal';
 import { useNetworkStore } from '../services/networkService';
 import { ToastManager } from '../components/InAppToast';
 import { CircularDownloadProgress } from '../components/CircularDownloadProgress';
@@ -164,6 +169,7 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(initialTracks.length === 0);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const [selectedTrackMenu, setSelectedTrackMenu] = useState<Track | null>(null);
+  const [downloadModalTrack, setDownloadModalTrack] = useState<Track | null>(null);
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -1207,49 +1213,10 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                   <TouchableOpacity
                     style={[styles.sheetAction, { flexDirection: rowDirection }]}
                     disabled={isTrackDownloading}
-                    onPress={async () => {
+                    onPress={() => {
                       const targetTrack = selectedTrackMenu;
                       setSelectedTrackMenu(null);
-                      if (isTrackDownloaded) {
-                        await downloadService.deleteDownloadedTrack(targetTrack.videoId);
-                        ToastManager.show({
-                          title: isAr ? 'تم حذف التحميل' : 'Download Removed',
-                          subtitle: targetTrack.title,
-                          icon: 'trash-outline',
-                          duration: 2400,
-                        });
-                        return;
-                      }
-                      if (!useNetworkStore.getState().isOnline) {
-                        ToastManager.show({
-                          title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
-                          subtitle: isAr ? 'يتطلب التحميل اتصالاً بالإنترنت' : 'Connect to internet to download',
-                          icon: 'cloud-offline-outline',
-                          duration: 2600,
-                        });
-                        return;
-                      }
-                      ToastManager.show({
-                        title: isAr ? 'بدأ تحميل المقطع' : 'Downloading Track',
-                        subtitle: targetTrack.title,
-                        icon: 'arrow-down-circle',
-                        duration: 2200,
-                      });
-                      downloadService.downloadTrack(targetTrack, 'auto').then(() => {
-                        ToastManager.show({
-                          title: isAr ? 'تم التنزيل بنجاح!' : 'Downloaded!',
-                          subtitle: targetTrack.title,
-                          icon: 'checkmark-circle',
-                          duration: 2600,
-                        });
-                      }).catch((err: any) => {
-                        ToastManager.show({
-                          title: isAr ? 'تعذر التنزيل' : 'Download Failed',
-                          subtitle: err?.message || '',
-                          icon: 'alert-circle',
-                          duration: 2800,
-                        });
-                      });
+                      setDownloadModalTrack(targetTrack);
                     }}
                   >
                     {isTrackDownloading ? (
@@ -1276,8 +1243,8 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
                           : `Downloading... ${Math.round((dlState?.progress || 0) * 100)}%`
                         : isTrackDownloaded
                         ? isAr
-                          ? 'محمّل على الهاتف (حذف)'
-                          : 'Downloaded (Remove)'
+                          ? 'إدارة التحميل (ترقية / حذف)'
+                          : 'Manage Offline Download'
                         : isAr
                         ? 'تحميل على الهاتف (أوفلاين)'
                         : 'Download for Offline'}
@@ -1289,6 +1256,73 @@ export const AlbumDetailsScreen = ({ route, navigation }: any) => {
           )}
         </Pressable>
       </Modal>
+
+      <DownloadOptionsModal
+        visible={Boolean(downloadModalTrack)}
+        onClose={() => setDownloadModalTrack(null)}
+        track={downloadModalTrack}
+        sourceContext="music"
+        downloadedTrack={
+          downloadModalTrack?.videoId
+            ? downloadedTracks.find((d) => d.videoId === downloadModalTrack.videoId)
+            : undefined
+        }
+        isDark={isDark}
+        isAr={isAr}
+        onSelectDownload={(mode: DownloadMediaMode) => {
+          const targetTrack = downloadModalTrack;
+          if (!targetTrack) return;
+          if (!useNetworkStore.getState().isOnline) {
+            ToastManager.show({
+              title: isAr ? 'أنت في وضع الأوفلاين' : 'Offline Mode',
+              subtitle: isAr ? 'يتطلب التحميل اتصالاً بالإنترنت' : 'Connect to internet to download',
+              icon: 'cloud-offline-outline',
+              duration: 2600,
+            });
+            return;
+          }
+          ToastManager.show({
+            title: isAr ? 'بدأ التحميل' : 'Downloading Track',
+            subtitle:
+              mode === 'full'
+                ? isAr
+                  ? 'جاري تحميل الموسيقى + الفيديو...'
+                  : 'Downloading Music + Video...'
+                : targetTrack.title,
+            icon: 'arrow-down-circle',
+            duration: 2400,
+          });
+          downloadService
+            .downloadTrack(targetTrack, { mode, quality: 'auto' })
+            .then(() => {
+              ToastManager.show({
+                title: isAr ? 'تم التنزيل بنجاح!' : 'Downloaded!',
+                subtitle: targetTrack.title,
+                icon: 'checkmark-circle',
+                duration: 2600,
+              });
+            })
+            .catch((err: any) => {
+              ToastManager.show({
+                title: isAr ? 'تعذر التنزيل' : 'Download Failed',
+                subtitle: err?.message || '',
+                icon: 'alert-circle',
+                duration: 2800,
+              });
+            });
+        }}
+        onSelectRemove={async (removeMode) => {
+          const targetTrack = downloadModalTrack;
+          if (!targetTrack?.videoId) return;
+          await downloadService.deleteDownloadedTrack(targetTrack.videoId, removeMode);
+          ToastManager.show({
+            title: isAr ? 'تم حذف التحميل' : 'Download Updated',
+            subtitle: targetTrack.title,
+            icon: 'trash-outline',
+            duration: 2400,
+          });
+        }}
+      />
     </View>
   );
 };

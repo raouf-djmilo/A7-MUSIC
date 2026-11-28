@@ -27,7 +27,10 @@ export const PlaybackService = async () => {
 
   try {
     TrackPlayer.addEventListener(Event.RemotePlay, async () => {
-      await useAudioStore.getState().resumeTrack();
+      const store = useAudioStore.getState();
+      if (!store.currentTrack) return;
+      useAudioStore.setState({ isUserPauseAction: false });
+      await store.resumeTrack();
     });
 
     TrackPlayer.addEventListener(Event.RemotePause, () => {
@@ -74,6 +77,9 @@ export const PlaybackService = async () => {
         store.pauseTrack();
         return;
       }
+      // Only let native TrackPlayer transient ducks toggle pause when TrackPlayer itself owns audio;
+      // WKWebView YouTube playback handles transient ducks via OS WebContent without bouncing TrackPlayer.
+      if (store.activeEngine !== 'native') return;
       if (event?.paused === true) {
         if (store.isPlaying && !store.isUserPauseAction) {
           wasPausedByDuck = true;
@@ -109,17 +115,23 @@ export const PlaybackService = async () => {
         if (store.isLoading || store.loadingTrackId) {
           useAudioStore.setState({ isLoading: false, loadingTrackId: null });
         }
-        if (!store.isPlaying && !store.isUserPauseAction && timeSinceToggle > 500) {
-          useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
+        // Reconcile Control Center / Lock Screen remote resume cleanly even if isUserPauseAction was true
+        if (!store.isPlaying && timeSinceToggle > 650) {
+          useAudioStore.setState({
+            isPlaying: true,
+            isUserPauseAction: false,
+            isLoading: false,
+            loadingTrackId: null,
+          });
         }
       } else if (event?.state === State.Paused) {
         if (
           !isTrackPlayerTransitioning() &&
           !store.isLoading &&
           store.isPlaying &&
-          timeSinceToggle > 1100
+          timeSinceToggle > 950
         ) {
-          useAudioStore.setState({ isPlaying: false });
+          useAudioStore.setState({ isPlaying: false, isUserPauseAction: true });
         }
       } else if (event?.state === State.Error) {
         if (!isTrackPlayerTransitioning() && typeof store.recoverFromNativeError === 'function') {

@@ -8,20 +8,13 @@ import {
   useWindowDimensions,
   Platform,
   Share,
-  Modal,
-  ActivityIndicator,
   Alert,
-  AppState,
   NativeModules,
 } from 'react-native';
-import TrackPlayer, { State } from 'react-native-track-player';
-import { startSilentBackgroundKeepAlive, pauseSilentBackgroundKeepAlive } from '../services/audioSessionService';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import YoutubePlayer, { YoutubeIframeRef } from 'react-native-youtube-iframe';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
@@ -49,7 +42,15 @@ import {
   getUniversalArtistAvatar,
   STUDIO_IMAGE_PROPS,
 } from '../utils/artworkHelper';
-import { useDownloadStore, downloadService } from '../services/downloadService';
+import {
+  useDownloadStore,
+  downloadService,
+  resolveDownloadedMediaMode,
+  type DownloadMediaMode,
+} from '../services/downloadService';
+import { nativeAudioService } from '../services/nativeAudioService';
+import { DownloadOptionsModal } from '../features/downloads/components/DownloadOptionsModal';
+import { OfflineVideoStage } from '../features/player/components/OfflineVideoStage';
 import { useNetworkStore } from '../services/networkService';
 import { isNativeLiquidTabsAvailable } from '../navigation/navigationConfig';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
@@ -59,9 +60,18 @@ import { PlayerArtworkStage } from '../features/player/components/PlayerArtworkS
 import { AppleTimelineScrubber } from '../features/player/components/AppleTimelineScrubber';
 import { FullscreenVideoModal } from '../features/player/components/FullscreenVideoModal';
 import { InPlaceFullscreenHud } from '../features/player/components/InPlaceFullscreenHud';
+import { TrackOptionsModal } from '../features/player/components/TrackOptionsModal';
+import { YoutubeAudioEngine } from '../features/player/engines/YoutubeAudioEngine';
 import { ToastManager } from './InAppToast';
 import { playerModalTranslateY, PLAYER_SPRING_CONFIG, DEFAULT_HIDDEN_OFFSET } from '../utils/playerMotion';
-import { registerActivePlayerBridge } from '../services/audioSessionService';
+import {
+  cleanArtistForLockScreen,
+  getActivePlayerBridge,
+  isVideoUnembeddable,
+  pauseSilentBackgroundKeepAlive,
+  prepareNativeEngineForYouTube,
+  startSilentBackgroundKeepAlive,
+} from '../services/audioSessionService';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { resolveTrackAlbumAsync } from '../services/youtubeMusicService';
 import {
@@ -259,28 +269,15 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const isVideoFullscreen = useAudioStore((s) => s.isVideoFullscreen);
   const setVideoFullscreen = useAudioStore((s) => s.setVideoFullscreen);
   const activeEngine = useAudioStore((s) => s.activeEngine);
+  const isOnline = useNetworkStore((s) => s.isOnline);
+  const downloadedTracks = useDownloadStore((s) => s.downloadedTracks);
+  const currentDownloadedTrack = useMemo(
+    () => (currentTrack?.videoId ? downloadedTracks.find((d) => d.videoId === currentTrack.videoId) : undefined),
+    [downloadedTracks, currentTrack?.videoId]
+  );
+  const [downloadModalVisible, setDownloadModalVisible] = useState(false);
   const mediaContainerRef = useRef<any>(null);
-  const youtubePlayerRef = useRef<YoutubeIframeRef>(null);
-  const isSwitchingModeRef = useRef<boolean>(false);
-  // Tracks which videoId has actually emitted 'playing' in YoutubePlayer (avoids time-based lockouts)
-  const startedYoutubeVideoIdRef = useRef<string | null>(null);
-  const bgRecoveryTimerRef = useRef<any>(null);
-  const pendingYoutubeSeekSecRef = useRef<number | null>(null);
-  const enteredBackgroundAtRef = useRef<number>(0);
-  const bgAutoNudgeCountRef = useRef<number>(0);
-  const retriedVideoIdRef = useRef<string | null>(null);
-  const [youtubeRemountKey, setYoutubeRemountKey] = useState(0);
   const [isScrubbingFullscreen, setIsScrubbingFullscreen] = useState(false);
-
-  useEffect(() => {
-    startedYoutubeVideoIdRef.current = null;
-    retriedVideoIdRef.current = null;
-    bgAutoNudgeCountRef.current = 0;
-    if (bgRecoveryTimerRef.current) {
-      clearTimeout(bgRecoveryTimerRef.current);
-      bgRecoveryTimerRef.current = null;
-    }
-  }, [currentTrack?.videoId]);
 
   const cardWidth = Math.min(windowWidth - 48, windowHeight * 0.39, 360);
   const cardVideoHeight = Math.round((cardWidth * 9) / 16);
@@ -291,237 +288,12 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     isVideoFullscreenSV.value = isVideoFullscreen;
   }, [isVideoFullscreen]);
 
-  // 1. تثبيت إعدادات المشغل بـ useMemo لمنع إعادة بناء WebView نهائياً عند التكبير أو الإغلاق
-  const stablePlayerParams = useMemo(
-    () => ({
-      controls: false,
-      modestbranding: true,
-      rel: false,
-      fs: false,
-      iv_load_policy: 3,
-      preventFullScreen: true,
-      showClosedCaptions: false,
-    }),
-    []
-  );
-
-  // 2. حقن CSS لإخفاء شعار وعنوان وأزرار يوتيوب بالكامل ليظهر الفيديو كأنه من مصدرنا الشخصي
-  const cleanYoutubeWebViewProps = useMemo(
-    () => ({
-      androidLayerType: 'hardware' as const,
-      allowsInlineMediaPlayback: true,
-      mediaPlaybackRequiresUserAction: false,
-      allowsPictureInPictureMediaPlayback: true,
-      allowsAirPlayForMediaPlayback: true,
-      scrollEnabled: false,
-      injectedJavaScriptForMainFrameOnly: false,
-      injectedJavaScriptBeforeContentLoadedForMainFrameOnly: false,
-      injectedJavaScriptBeforeContentLoaded: `
-        (function() {
-          if (navigator.audioSession) {
-            try { navigator.audioSession.type = 'playback'; } catch(e) {}
-          }
-          try {
-            Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-            Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-            Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-          } catch(e) {}
-          try {
-            var origAddEventListener = EventTarget.prototype.addEventListener;
-            EventTarget.prototype.addEventListener = function(type, listener, options) {
-              if (
-                type === 'visibilitychange' || 
-                type === 'webkitvisibilitychange' || 
-                type === 'pagehide' || 
-                type === 'blur' || 
-                type === 'freeze'
-              ) {
-                return;
-              }
-              return origAddEventListener.call(this, type, listener, options);
-            };
-          } catch(e) {}
-          try {
-            Object.defineProperty(document, 'onvisibilitychange', { get: function() { return null; }, set: function() {}, configurable: true });
-            Object.defineProperty(window, 'onpagehide', { get: function() { return null; }, set: function() {}, configurable: true });
-            Object.defineProperty(window, 'onblur', { get: function() { return null; }, set: function() {}, configurable: true });
-          } catch(e) {}
-          try {
-            var origPlay = HTMLMediaElement.prototype.play;
-            HTMLMediaElement.prototype.play = function() {
-              this.setAttribute('playsinline', 'true');
-              this.setAttribute('webkit-playsinline', 'true');
-              return origPlay.call(this);
-            };
-          } catch(e) {}
-          var css = [
-            '.ytp-chrome-top',
-            '.ytp-chrome-bottom',
-            '.ytp-watermark',
-            '.ytp-pause-overlay',
-            '.ytp-pause-overlay-container',
-            '.ytp-gradient-top',
-            '.ytp-gradient-bottom',
-            '.ytp-show-cards-title',
-            '.ytp-youtube-button',
-            '.ytp-title',
-            '.ytp-title-link',
-            '.ytp-title-text',
-            '.ytp-title-channel',
-            '.ytp-share-button',
-            '.ytp-share-panel',
-            '.ytp-large-play-button',
-            '.ytp-contextmenu',
-            '.ytp-cued-thumbnail-overlay',
-            '.ytp-impression-link',
-            '.ytm-paused-overlay',
-            '.player-controls-content',
-            '.fullscreen-overlay',
-            '.ytp-ce-element',
-            '.ytp-paid-content-overlay',
-            '[class*="ytp-pause-overlay"]',
-            '[class*="ytp-title"]',
-            '[class*="ytp-watermark"]',
-            '[class*="ytp-chrome"]',
-            '[class*="ytp-button"]',
-            'a[href*="youtube.com"]'
-          ].join(', ') + ' { display: none !important; opacity: 0 !important; pointer-events: none !important; visibility: hidden !important; }';
-          var el = document.createElement('style');
-          el.id = 'ag-anti-chrome';
-          el.innerHTML = css;
-          (document.head || document.documentElement).appendChild(el);
-        })();
-        true;
-      `,
-      injectedJavaScript: `
-        (function() {
-          if (navigator.audioSession) {
-            try { navigator.audioSession.type = 'playback'; } catch(e) {}
-          }
-          try {
-            Object.defineProperty(document, 'hidden', { get: function() { return false; }, configurable: true });
-            Object.defineProperty(document, 'visibilityState', { get: function() { return 'visible'; }, configurable: true });
-            Object.defineProperty(document, 'webkitVisibilityState', { get: function() { return 'visible'; }, configurable: true });
-          } catch(e) {}
-          
-          // 🛡️ CSS injection: مسح شامل لجميع عناصر وواجهات يوتيوب وشعاراته
-          var css = [
-            '.ytp-chrome-top',
-            '.ytp-chrome-bottom',
-            '.ytp-watermark',
-            '.ytp-pause-overlay',
-            '.ytp-pause-overlay-container',
-            '.ytp-gradient-top',
-            '.ytp-gradient-bottom',
-            '.ytp-show-cards-title',
-            '.ytp-youtube-button',
-            '.ytp-title',
-            '.ytp-title-link',
-            '.ytp-title-text',
-            '.ytp-title-channel',
-            '.ytp-share-button',
-            '.ytp-share-panel',
-            '.ytp-large-play-button',
-            '.ytp-contextmenu',
-            '.ytp-cued-thumbnail-overlay',
-            '.ytp-impression-link',
-            '.ytm-paused-overlay',
-            '.player-controls-content',
-            '.fullscreen-overlay',
-            '.ytp-ce-element',
-            '.ytp-paid-content-overlay',
-            '[class*="ytp-pause-overlay"]',
-            '[class*="ytp-title"]',
-            '[class*="ytp-watermark"]',
-            '[class*="ytp-chrome"]',
-            '[class*="ytp-button"]',
-            'a[href*="youtube.com"]'
-          ].join(', ') + ' { display: none !important; opacity: 0 !important; pointer-events: none !important; visibility: hidden !important; }';
-
-          function applyAntiChrome() {
-            var existing = document.getElementById('ag-anti-chrome');
-            if (!existing) {
-              var el = document.createElement('style');
-              el.id = 'ag-anti-chrome';
-              el.innerHTML = css;
-              (document.head || document.documentElement).appendChild(el);
-            }
-          }
-          applyAntiChrome();
-          setInterval(applyAntiChrome, 350);
-
-          function hookVideos() {
-            var videos = document.querySelectorAll('video');
-            for (var i = 0; i < videos.length; i++) {
-              var v = videos[i];
-              if (!v._bgHooked) {
-                v._bgHooked = true;
-                v.setAttribute('playsinline', 'true');
-                v.setAttribute('webkit-playsinline', 'true');
-              }
-            }
-          }
-          hookVideos();
-          setInterval(hookVideos, 500);
-        })();
-        true;
-      `,
-      onContentProcessDidTerminate: () => {
-        const s = useAudioStore.getState();
-        const curSec = Math.max(0, Math.floor(s.positionMillis / 1000));
-        if (curSec > 0) pendingYoutubeSeekSecRef.current = curSec;
-        setYoutubeRemountKey((k) => k + 1);
-      },
-    }),
-    []
-  );
-
-  // 3. حاوية الفيديو الثابتة في الشجرة (Direct Root Child - Zero Unmount)
-  const unifiedVideoWrapperStyle = isVideoFullscreen
-    ? {
-      position: 'absolute' as const,
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100%',
-      height: '100%',
-      backgroundColor: '#000000',
-      zIndex: 99999,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-    }
-    : playerMediaMode === 'video'
-      ? {
-        position: 'absolute' as const,
-        top: normalStageTop,
-        left: normalVideoLeft,
-        width: cardWidth,
-        height: cardVideoHeight,
-        borderRadius: 18,
-        overflow: 'hidden' as const,
-        zIndex: 20,
-      }
-      : {
-        position: 'absolute' as const,
-        left: -9999,
-        top: 0,
-        width: 1,
-        height: 1,
-        opacity: 0,
-        pointerEvents: 'none' as const,
-      };
-
   const durationMillis = useAudioStore((s) => s.durationMillis);
   const seekTo = useAudioStore((s) => s.seekTo);
 
   const handleScrubberSeek = useCallback(async (millis: number) => {
-    const sec = Math.floor(millis / 1000);
-    if (activeEngine === 'youtube') {
-      youtubePlayerRef.current?.seekTo(sec, true);
-    }
     await seekTo(millis);
-  }, [activeEngine, seekTo]);
+  }, [seekTo]);
 
   const renderFullscreenTimeline = useCallback(
     () => (
@@ -539,277 +311,23 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const pos = useAudioStore.getState().positionMillis;
     const target = Math.max(0, pos - 10000);
-    const sec = Math.floor(target / 1000);
-    if (activeEngine === 'youtube') {
-      youtubePlayerRef.current?.seekTo(sec, true);
-    }
     await seekTo(target);
-  }, [activeEngine, seekTo]);
+  }, [seekTo]);
 
   const seekForward10 = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const { positionMillis: pos, durationMillis: dur, currentTrack: track } = useAudioStore.getState();
     const validDuration = dur > 0 ? dur : (track?.duration || 180000);
     const target = Math.min(validDuration, pos + 10000);
-    const sec = Math.floor(target / 1000);
-    if (activeEngine === 'youtube') {
-      youtubePlayerRef.current?.seekTo(sec, true);
-    }
     await seekTo(target);
-  }, [activeEngine, seekTo]);
+  }, [seekTo]);
 
   // ── Unified Play / Pause Action (Single Source of Truth in useAudioStore) ──
   const handlePlayPausePress = useCallback(async () => {
     await togglePlay();
   }, [togglePlay]);
 
-  // ── 🛡️ Direct Native Remote Control & Audio Session Bridge ──
-  useEffect(() => {
-    registerActivePlayerBridge({
-      play: () => {
-        (youtubePlayerRef.current as any)?.playVideo?.();
-      },
-      pause: () => {
-        (youtubePlayerRef.current as any)?.pauseVideo?.();
-      },
-      seekTo: (sec: number) => {
-        youtubePlayerRef.current?.seekTo?.(sec, true);
-      },
-    });
-
-    return () => {
-      registerActivePlayerBridge(null);
-    };
-  }, []);
-
-  // ── 🛡️ Guarantee YouTube WebView stays silent whenever Native Engine owns playback ──
-  useEffect(() => {
-    if (activeEngine !== 'youtube') {
-      (youtubePlayerRef.current as any)?.pauseVideo?.();
-    }
-  }, [activeEngine]);
-
-  // ── 🛡️ Startup Watchdog: auto-recover only if YoutubePlayer genuinely stalls without ever starting ──
-  useEffect(() => {
-    if (activeEngine !== 'youtube' || !isPlaying || !currentTrack?.videoId) return;
-    const targetVid = currentTrack.videoId;
-
-    const nudgeTimer = setTimeout(() => {
-      const latest = useAudioStore.getState();
-      if (
-        startedYoutubeVideoIdRef.current !== targetVid &&
-        latest.activeEngine === 'youtube' &&
-        latest.isPlaying &&
-        !latest.isUserPauseAction &&
-        latest.currentTrack?.videoId === targetVid
-      ) {
-        (youtubePlayerRef.current as any)?.playVideo?.();
-      }
-    }, 2200);
-
-    const remountTimer = setTimeout(() => {
-      const latest = useAudioStore.getState();
-      if (
-        startedYoutubeVideoIdRef.current !== targetVid &&
-        latest.activeEngine === 'youtube' &&
-        latest.isPlaying &&
-        !latest.isUserPauseAction &&
-        latest.currentTrack?.videoId === targetVid
-      ) {
-        if (retriedVideoIdRef.current !== targetVid) {
-          retriedVideoIdRef.current = targetVid;
-          setYoutubeRemountKey((k) => k + 1);
-        }
-      }
-    }, 8000);
-
-    return () => {
-      clearTimeout(nudgeTimer);
-      clearTimeout(remountTimer);
-    };
-  }, [activeEngine, isPlaying, currentTrack?.videoId]);
-
-  // ── 📱 AppState Lifecycle: Background Keep-Alive + Non-Glitching Control Center + Instant Foreground Recovery ──
-  useEffect(() => {
-    let prevAppState = AppState.currentState;
-    const timers: any[] = [];
-    const clearTimers = () => {
-      while (timers.length > 0) {
-        clearTimeout(timers.pop());
-      }
-    };
-
-    const sub = AppState.addEventListener('change', (nextState) => {
-      const cameFromState = prevAppState;
-      prevAppState = nextState;
-      const latest = useAudioStore.getState();
-
-      if (nextState === 'background') {
-        enteredBackgroundAtRef.current = Date.now();
-        bgAutoNudgeCountRef.current = 0;
-
-        if (
-          latest.backgroundAudioEnabled &&
-          latest.isPlaying &&
-          !latest.isUserPauseAction &&
-          latest.activeEngine === 'youtube' &&
-          latest.currentTrack?.videoId
-        ) {
-          startSilentBackgroundKeepAlive().catch(() => { });
-          try {
-            (youtubePlayerRef.current as any)?.playVideo?.();
-          } catch { }
-          clearTimers();
-          timers.push(
-            setTimeout(() => {
-              const s = useAudioStore.getState();
-              if (s.backgroundAudioEnabled && s.isPlaying && !s.isUserPauseAction && s.activeEngine === 'youtube') {
-                (youtubePlayerRef.current as any)?.playVideo?.();
-              }
-            }, 150),
-            setTimeout(() => {
-              const s = useAudioStore.getState();
-              if (s.backgroundAudioEnabled && s.isPlaying && !s.isUserPauseAction && s.activeEngine === 'youtube') {
-                (youtubePlayerRef.current as any)?.playVideo?.();
-              }
-            }, 420)
-          );
-        }
-      } else if (nextState === 'active') {
-        clearTimers();
-        enteredBackgroundAtRef.current = 0;
-        bgAutoNudgeCountRef.current = 0;
-
-        if (latest.activeEngine === 'youtube' && latest.currentTrack?.videoId) {
-          const yt = youtubePlayerRef.current as any;
-          if (yt) {
-            Promise.all([yt.getCurrentTime?.(), yt.getDuration?.()])
-              .then(([curSec, durSec]: any[]) => {
-                if (typeof curSec === 'number' && !isNaN(curSec) && curSec >= 0) {
-                  const curMs = Math.round(curSec * 1000);
-                  const durMs =
-                    typeof durSec === 'number' && durSec > 0
-                      ? Math.round(durSec * 1000)
-                      : latest.durationMillis;
-                  useAudioStore.getState().updateProgress(curMs, durMs);
-                }
-
-                // Only auto-nudge & freeze-verify when actually returning from 'background' (screen lock / other app),
-                // NEVER when merely closing Control Center ('inactive' -> 'active'), so Control Center Pause never bounces!
-                if (cameFromState === 'background') {
-                  const s = useAudioStore.getState();
-                  if (s.isPlaying && !s.isUserPauseAction && s.activeEngine === 'youtube') {
-                    yt.playVideo?.();
-                    const baselineSec = typeof curSec === 'number' ? curSec : Math.floor(s.positionMillis / 1000);
-                    const targetVid = s.currentTrack?.videoId;
-                    timers.push(
-                      setTimeout(() => {
-                        const after = useAudioStore.getState();
-                        if (
-                          AppState.currentState !== 'active' ||
-                          !after.isPlaying ||
-                          after.isUserPauseAction ||
-                          after.activeEngine !== 'youtube' ||
-                          after.currentTrack?.videoId !== targetVid ||
-                          startedYoutubeVideoIdRef.current !== targetVid
-                        ) {
-                          return;
-                        }
-                        yt.getCurrentTime?.()
-                          .then((nowSec: number) => {
-                            if (typeof nowSec === 'number' && Math.abs(nowSec - baselineSec) < 0.15) {
-                              // Media decoder froze in backgrounded WebKit -> cleanly remount & seek to exact second
-                              pendingYoutubeSeekSecRef.current = Math.max(0, Math.floor(baselineSec));
-                              setYoutubeRemountKey((k) => k + 1);
-                            }
-                          })
-                          .catch(() => { });
-                      }, 2200)
-                    );
-                  }
-                }
-              })
-              .catch(() => { });
-          }
-        } else if (NativeModules?.TrackPlayerModule && latest.activeEngine === 'native' && latest.currentTrack) {
-          Promise.all([
-            TrackPlayer.getProgress().catch(() => null),
-            TrackPlayer.getPlaybackState().catch(() => null),
-          ])
-            .then(([prog, pb]) => {
-              const cur = useAudioStore.getState();
-              if (cur.activeEngine !== 'native') return;
-              if (prog && typeof prog.position === 'number' && prog.position >= 0) {
-                const durMs =
-                  typeof prog.duration === 'number' && prog.duration > 2
-                    ? Math.round(prog.duration * 1000)
-                    : cur.durationMillis;
-                useAudioStore.setState({
-                  positionMillis: Math.round(prog.position * 1000),
-                  durationMillis: durMs,
-                });
-              }
-              if (pb?.state === State.Playing) {
-                useAudioStore.setState({ isPlaying: true, isLoading: false, loadingTrackId: null });
-              } else if (pb?.state === State.Paused || pb?.state === State.Stopped) {
-                if (!cur.isLoading) {
-                  useAudioStore.setState({ isPlaying: false });
-                }
-              }
-            })
-            .catch(() => { });
-        }
-      }
-    });
-    return () => {
-      clearTimers();
-      sub.remove();
-    };
-  }, []);
-
-  // ── 🛡️ Foreground Playback Progress Monitor: auto-recovers only an already-started WebView that freezes ──
-  useEffect(() => {
-    if (!isPlaying || activeEngine !== 'youtube' || !currentTrack?.videoId) return;
-    let lastCheckedPos = useAudioStore.getState().positionMillis;
-    let stagnantTicks = 0;
-    let recoveredOnceForPos = -1;
-
-    const monitor = setInterval(() => {
-      if (AppState.currentState !== 'active') {
-        stagnantTicks = 0;
-        return;
-      }
-      const s = useAudioStore.getState();
-      if (
-        !s.isPlaying ||
-        s.isUserPauseAction ||
-        s.activeEngine !== 'youtube' ||
-        startedYoutubeVideoIdRef.current !== s.currentTrack?.videoId
-      ) {
-        stagnantTicks = 0;
-        return;
-      }
-      if (Math.abs(s.positionMillis - lastCheckedPos) > 150) {
-        lastCheckedPos = s.positionMillis;
-        stagnantTicks = 0;
-        return;
-      }
-      stagnantTicks += 1;
-      if (stagnantTicks === 4) {
-        (youtubePlayerRef.current as any)?.playVideo?.();
-      } else if (stagnantTicks >= 9 && recoveredOnceForPos !== Math.floor(s.positionMillis / 1000)) {
-        const sec = Math.max(0, Math.floor(s.positionMillis / 1000));
-        recoveredOnceForPos = sec;
-        stagnantTicks = 0;
-        pendingYoutubeSeekSecRef.current = sec;
-        setYoutubeRemountKey((k) => k + 1);
-      }
-    }, 1000);
-
-    return () => clearInterval(monitor);
-  }, [isPlaying, activeEngine, currentTrack?.videoId]);
-
-  // ── Unified Next / Prev Handlers (Avoids async seekTo collision before track switch) ──
+  // ── Unified Next / Prev Handlers ──
   const handleNextPress = useCallback(async () => {
     await nextTrack();
   }, [nextTrack]);
@@ -817,28 +335,6 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   const handlePrevPress = useCallback(async () => {
     await prevTrack();
   }, [prevTrack]);
-
-  // ── Sync Scrubber & Time during YouTube Playback (500ms low-overhead polling) ──
-  useEffect(() => {
-    if (!isPlaying || activeEngine !== 'youtube') return;
-    const interval = setInterval(async () => {
-      try {
-        const activeRef = youtubePlayerRef.current;
-        if (activeRef) {
-          const [curSec, durSec] = await Promise.all([
-            activeRef.getCurrentTime(),
-            activeRef.getDuration(),
-          ]);
-          if (typeof curSec === 'number' && !isNaN(curSec) && curSec >= 0) {
-            const curMs = Math.round(curSec * 1000);
-            const durMs = typeof durSec === 'number' && durSec > 0 ? Math.round(durSec * 1000) : (currentTrack?.duration || 0);
-            useAudioStore.getState().updateProgress(curMs, durMs);
-          }
-        }
-      } catch (e) { }
-    }, 500);
-    return () => clearInterval(interval);
-  }, [isPlaying, activeEngine, currentTrack?.duration]);
 
   // ── Navigation-Aware Docking Guard ──
   const TAB_BAR_SCREENS = [
@@ -906,13 +402,9 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
   });
 
   // ── Intelligent Seamless Timeline Switchers (Music ◄──► Video) ──
-  const handleSwitchToCover = useCallback(() => {
+  const handleSwitchToCover = useCallback(async () => {
     Haptics.selectionAsync();
     setLastUserToggleTimestamp(Date.now());
-    isSwitchingModeRef.current = true;
-    setTimeout(() => {
-      isSwitchingModeRef.current = false;
-    }, 600);
 
     modeTranslate.value = withSpring(0, {
       stiffness: 280,
@@ -920,16 +412,70 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
       mass: 0.8,
     });
 
+    const latest = useAudioStore.getState();
+    const trk = latest.currentTrack;
+    const onlineNow = useNetworkStore.getState().isOnline;
+    const localRecord = trk?.videoId ? await downloadService.getLocalTrack(trk.videoId).catch(() => null) : null;
+    const localMode = localRecord ? resolveDownloadedMediaMode(localRecord) : trk?.offlineMode;
+
+    // Video-Only offline track: switching to Music prompts user to download Music Audio
+    if (!onlineNow && localMode === 'video' && !localRecord?.audioLocalUri) {
+      if (latest.isPlaying) {
+        latest.pauseTrack();
+      }
+      setPlayerMediaMode('cover');
+      return;
+    }
+
+    // Expo Go Full offline track: only swap if audio URI differs from active video player URI
+    if (
+      localRecord?.audioLocalUri &&
+      latest.activeEngine === 'native' &&
+      !NativeModules.TrackPlayerModule &&
+      nativeAudioService.getCurrentUri() !== localRecord.audioLocalUri
+    ) {
+      const posSec = Math.max(0, (latest.positionMillis || 0) / 1000);
+      await nativeAudioService
+        .swapMediaUri(localRecord.audioLocalUri, posSec, latest.isPlaying, {
+          title: trk?.title || 'Track',
+          artist: cleanArtistForLockScreen(trk?.artist),
+          artwork: localRecord.artworkLocalUri || trk?.thumbnail || undefined,
+        })
+        .catch(() => {});
+    } else if (
+      onlineNow &&
+      trk?.videoId &&
+      latest.activeEngine === 'native' &&
+      !localRecord?.audioLocalUri &&
+      localMode === 'video'
+    ) {
+      // Online Video-Only track: allow switching to online YouTube stream cleanly for Music
+      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+      nativeAudioService.stop().catch(() => {});
+      await prepareNativeEngineForYouTube();
+      if (latest.backgroundAudioEnabled) {
+        startSilentBackgroundKeepAlive().catch(() => {});
+      }
+      const bridge = getActivePlayerBridge();
+      bridge?.loadVideo?.(trk.videoId, posSec, latest.isPlaying, {
+        videoId: trk.videoId,
+        title: trk.title || 'A7 MUSIC',
+        artist: cleanArtistForLockScreen(trk.artist),
+        artworkUrl: getUniversalStudioArtwork(trk.thumbnail, trk.title, trk.artist, trk.videoId),
+        durationSec: trk.duration ? Math.floor(trk.duration / 1000) : undefined,
+      });
+      useAudioStore.setState({
+        activeEngine: 'youtube',
+        isOfflinePlayback: false,
+      });
+    }
+
     setPlayerMediaMode('cover');
   }, [setPlayerMediaMode]);
 
-  const handleSwitchToVideo = useCallback(() => {
+  const handleSwitchToVideo = useCallback(async () => {
     Haptics.selectionAsync();
     setLastUserToggleTimestamp(Date.now());
-    isSwitchingModeRef.current = true;
-    setTimeout(() => {
-      isSwitchingModeRef.current = false;
-    }, 600);
 
     modeTranslate.value = withSpring(1, {
       stiffness: 280,
@@ -938,13 +484,69 @@ export const UnifiedPlayerSheet: React.FC = React.memo(() => {
     });
 
     const latest = useAudioStore.getState();
-    if (latest.currentTrack?.videoId && latest.activeEngine === 'native') {
-      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
-      pendingYoutubeSeekSecRef.current = posSec;
-      if (NativeModules?.TrackPlayerModule) {
-        TrackPlayer.pause().catch(() => { });
+    const trk = latest.currentTrack;
+    const onlineNow = useNetworkStore.getState().isOnline;
+    const localRecord = trk?.videoId ? await downloadService.getLocalTrack(trk.videoId).catch(() => null) : null;
+
+    // 1. Offline / Local Video Ready ('video' or 'full'): switch to OfflineVideoStage with zero network request
+    if (localRecord?.videoLocalUri && trk) {
+      const posSec = Math.max(0, (latest.positionMillis || 0) / 1000);
+      if (latest.activeEngine === 'youtube') {
+        getActivePlayerBridge()?.pause?.();
+        pauseSilentBackgroundKeepAlive();
       }
-      useAudioStore.setState({ activeEngine: 'youtube' });
+      useAudioStore.setState({
+        activeEngine: 'native',
+        isOfflinePlayback: true,
+        currentTrack: {
+          ...trk,
+          audioUrl: localRecord.audioLocalUri || localRecord.videoLocalUri,
+          videoUrl: localRecord.videoLocalUri,
+          offlineMode: resolveDownloadedMediaMode(localRecord),
+        },
+      });
+      if (!NativeModules.TrackPlayerModule && nativeAudioService.getCurrentUri() !== localRecord.videoLocalUri) {
+        await nativeAudioService
+          .swapMediaUri(localRecord.videoLocalUri, posSec, latest.isPlaying, {
+            title: trk.title || 'Track',
+            artist: cleanArtistForLockScreen(trk.artist),
+            artwork: localRecord.artworkLocalUri || trk.thumbnail || undefined,
+          })
+          .catch(() => {});
+      }
+      setPlayerMediaMode('video');
+      return;
+    }
+
+    // 2. Offline & NO Video Downloaded ('audio' only): keep audio playing cleanly & show "Video Not Downloaded" card
+    if (!onlineNow) {
+      setPlayerMediaMode('video');
+      return;
+    }
+
+    // 3. Online: seamless handover to YouTube embed video
+    if (
+      trk?.videoId &&
+      latest.activeEngine === 'native' &&
+      !isVideoUnembeddable(trk.videoId)
+    ) {
+      const posSec = Math.max(0, Math.floor(latest.positionMillis / 1000));
+      await prepareNativeEngineForYouTube();
+      if (latest.backgroundAudioEnabled) {
+        startSilentBackgroundKeepAlive().catch(() => {});
+      }
+      const bridge = getActivePlayerBridge();
+      bridge?.loadVideo?.(trk.videoId, posSec, latest.isPlaying, {
+        videoId: trk.videoId,
+        title: trk.title || 'A7 MUSIC',
+        artist: cleanArtistForLockScreen(trk.artist),
+        artworkUrl: getUniversalStudioArtwork(trk.thumbnail, trk.title, trk.artist, trk.videoId),
+        durationSec: trk.duration ? Math.floor(trk.duration / 1000) : undefined,
+      });
+      useAudioStore.setState({
+        activeEngine: 'youtube',
+        audioEngineAction: bridge?.loadVideo ? null : { type: 'play', videoId: trk.videoId, position: posSec, id: Date.now() },
+      });
     }
 
     setPlayerMediaMode('video');
@@ -982,7 +584,7 @@ const downloadProgress = useDownloadStore((s) => s.getTrackProgress(currentTrack
 const isDownloading = downloadProgress?.status === 'downloading' || downloadProgress?.status === 'probing';
 const downloadPct = Math.round((downloadProgress?.progress || 0) * 100);
 
-const startDirectDownload = useCallback(async (trackToSave: Track) => {
+const startDirectDownload = useCallback(async (trackToSave: Track, mode: DownloadMediaMode = 'audio') => {
   if (!trackToSave) return;
   if (!useNetworkStore.getState().isOnline) {
     ToastManager.show({
@@ -997,22 +599,54 @@ const startDirectDownload = useCallback(async (trackToSave: Track) => {
   }
 
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const modeToast =
+    mode === 'full'
+      ? isAr
+        ? 'جاري تحميل الموسيقى + الفيديو + الغلاف بجودة عالية...'
+        : 'Downloading Full Music (Audio + Video + HD Cover)...'
+      : mode === 'video'
+        ? isAr
+          ? 'جاري تحميل الفيديو بجودة عالية مع الغلاف...'
+          : 'Downloading Video Only + HD Cover...'
+        : isAr
+          ? 'جاري تحميل الموسيقى بنفس الجودة الأصلية...'
+          : 'Downloading studio Music Audio + HD Cover...';
+
   ToastManager.show({
-    title: isAr ? 'بدأ تحميل المقطع' : 'Downloading Track',
-    subtitle: isAr
-      ? 'جاري الحفظ بنفس الجودة على ذاكرة الهاتف...'
-      : 'Saving native quality directly to your phone...',
+    title: isAr ? 'بدأ التحميل' : 'Downloading',
+    subtitle: modeToast,
     icon: 'arrow-down-circle',
-    duration: 2400,
+    duration: 2500,
   });
 
   try {
-    await downloadService.downloadTrack(trackToSave, 'auto');
+    const saved = await downloadService.downloadTrack(trackToSave, { mode, quality: 'auto' });
+    const curState = useAudioStore.getState();
+    if (curState.currentTrack?.videoId === saved.videoId) {
+      useAudioStore.setState({
+        currentTrack: {
+          ...curState.currentTrack,
+          audioUrl: saved.audioLocalUri || curState.currentTrack.audioUrl,
+          videoUrl: saved.videoLocalUri || curState.currentTrack.videoUrl,
+          offlineMode: resolveDownloadedMediaMode(saved),
+          thumbnail: saved.artworkLocalUri || curState.currentTrack.thumbnail,
+        },
+      });
+    }
     ToastManager.show({
       title: isAr ? 'تم التنزيل بنجاح!' : 'Downloaded!',
-      subtitle: isAr
-        ? 'المقطع محفوظ الآن في المكتبة وجاهز بدون إنترنت'
-        : 'Saved in Library • Downloads for offline listening',
+      subtitle:
+        saved.mediaType === 'full'
+          ? isAr
+            ? 'الموسيقى + الفيديو جاهزان للتشغيل أوفلاين'
+            : 'Music + Video saved for seamless offline playback'
+          : saved.mediaType === 'video'
+            ? isAr
+              ? 'تم حفظ الفيديو أوفلاين في قسم الفيديو'
+              : 'Video saved offline for Video mode playback'
+            : isAr
+              ? 'الموسيقى الصوتية جاهزة للتشغيل بدون إنترنت'
+              : 'Music Audio saved in Downloads for offline playback',
       icon: 'checkmark-circle',
       duration: 3200,
     });
@@ -1026,39 +660,65 @@ const startDirectDownload = useCallback(async (trackToSave: Track) => {
   }
 }, [isAr]);
 
+const handleRemoveDownload = useCallback(async (removeMode: 'audio' | 'video' | 'all') => {
+  if (!currentTrack?.videoId) return;
+  const ok = await downloadService.deleteDownloadedTrack(currentTrack.videoId, removeMode);
+  if (!ok) return;
+  const remaining = await downloadService.getLocalTrack(currentTrack.videoId).catch(() => null);
+  const curState = useAudioStore.getState();
+  if (curState.currentTrack?.videoId === currentTrack.videoId) {
+    if (removeMode === 'video' && curState.playerMediaMode === 'video') {
+      curState.setVideoFullscreen(false);
+      curState.setPlayerMediaMode('cover');
+    }
+    if (
+      removeMode === 'video' &&
+      remaining?.audioLocalUri &&
+      !NativeModules.TrackPlayerModule &&
+      nativeAudioService.getCurrentUri() !== remaining.audioLocalUri
+    ) {
+      await nativeAudioService
+        .swapMediaUri(
+          remaining.audioLocalUri,
+          Math.max(0, (curState.positionMillis || 0) / 1000),
+          curState.isPlaying,
+          {
+            title: curState.currentTrack.title || 'Track',
+            artist: cleanArtistForLockScreen(curState.currentTrack.artist),
+            artwork: remaining.artworkLocalUri || curState.currentTrack.thumbnail || undefined,
+          }
+        )
+        .catch(() => {});
+    }
+    useAudioStore.setState({
+      currentTrack: {
+        ...curState.currentTrack,
+        audioUrl: remaining?.audioLocalUri || undefined,
+        videoUrl: remaining?.videoLocalUri || undefined,
+        offlineMode: remaining ? resolveDownloadedMediaMode(remaining) : undefined,
+      },
+    });
+  }
+  ToastManager.show({
+    title: isAr ? 'تم التحديث' : 'Download Updated',
+    subtitle:
+      removeMode === 'video'
+        ? isAr
+          ? 'تم حذف الفيديو مع الإبقاء على الموسيقى'
+          : 'Removed Video • Kept Music Audio'
+        : isAr
+          ? 'تم حذف التحميل من الهاتف'
+          : 'Removed from device storage',
+    icon: 'trash-outline',
+    duration: 2400,
+  });
+}, [currentTrack?.videoId, isAr]);
+
 const handleDownloadPress = useCallback(() => {
   if (!currentTrack || isDownloading) return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-  if (isDownloaded) {
-    Alert.alert(
-      isAr ? 'المقطع محمّل على الهاتف' : 'Downloaded on Device',
-      isAr
-        ? `تم تنزيل "${currentTrack.title}" على هذا الهاتف للاستماع بدون إنترنت.\n\nهل تريد حذفه من ذاكرة الهاتف؟`
-        : `"${currentTrack.title}" is saved on this phone for offline listening.\n\nRemove the downloaded file from this device?`,
-      [
-        { text: isAr ? 'إلغاء' : 'Cancel', style: 'cancel' },
-        {
-          text: isAr ? 'حذف من الهاتف' : 'Remove from Device',
-          style: 'destructive',
-          onPress: async () => {
-            if (currentTrack.videoId) {
-              await downloadService.deleteDownloadedTrack(currentTrack.videoId);
-              ToastManager.show({
-                title: isAr ? 'تم حذف المقطع' : 'Download Removed',
-                subtitle: isAr ? 'تم تفريغ مساحة التخزين على الهاتف' : 'Freed local device storage',
-                icon: 'trash-outline',
-                duration: 2400,
-              });
-            }
-          },
-        },
-      ]
-    );
-  } else {
-    startDirectDownload(currentTrack);
-  }
-}, [currentTrack, isDownloaded, isDownloading, isAr, startDirectDownload]);
+  setDownloadModalVisible(true);
+}, [currentTrack, isDownloading]);
 
 const syncModalState = useCallback(
   (expanded: boolean) => {
@@ -1090,11 +750,7 @@ const expandToFull = useCallback(() => {
 // ── Intelligent Zero-Cut Collapse Handover ──
 // Keeps UnifiedPlayerSheet persistent audio uninterrupted when collapsing to mini player
 const triggerCollapseHandover = useCallback(() => {
-  isSwitchingModeRef.current = true;
   setPlayerModalVisible(false);
-  setTimeout(() => {
-    isSwitchingModeRef.current = false;
-  }, 450);
 }, [setPlayerModalVisible]);
 
 const collapseToMini = useCallback(() => {
@@ -1421,12 +1077,12 @@ const handleAddTrackToPlaylist = useCallback(
 );
 
 const isAuthScreen = currentRouteName === 'Login' || currentRouteName === 'SignUp';
-if (isMiniPlayerSuppressed || isAuthScreen) return null;
-
-// Render at minimum the scroll-collapsed [Home] & [Search] quick dock on Artist/Album/Music screens even when no song is queued
 const showQuickDockWithoutTrack =
   !currentTrack && isCompactDockActive && currentRouteName !== 'DashboardTab';
-if (!currentTrack && !showQuickDockWithoutTrack) return null;
+const shouldRenderPlayerUi =
+  !isMiniPlayerSuppressed &&
+  !isAuthScreen &&
+  Boolean(currentTrack || showQuickDockWithoutTrack);
 
 const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.videoId) : false;
 const isSavedInLibrary = currentTrack ? savedLibraryTrackIds.includes(currentTrack.videoId) : false;
@@ -1435,8 +1091,74 @@ const resolvedArtistAvatar = getUniversalArtistAvatar(
   currentTrack?.artist
 );
 
-return (
-  <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    const useOfflineVideoStage = Boolean(
+      currentTrack &&
+      (Boolean(currentDownloadedTrack?.videoLocalUri) ||
+        (!isOnline && playerMediaMode === 'video') ||
+        (!isOnline &&
+          playerMediaMode === 'cover' &&
+          Boolean(currentDownloadedTrack?.videoLocalUri) &&
+          !currentDownloadedTrack?.audioLocalUri))
+    );
+
+    return (
+      <GestureHandlerRootView style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        {/* Pre-warmed at app launch (opacity 0.015 behind UI in Cover mode) & synchronized 120fps in Video mode */}
+        <YoutubeAudioEngine
+          isVideoVisible={
+            playerMediaMode === 'video' &&
+            isPlayerModalVisible &&
+            !useOfflineVideoStage
+          }
+          isVideoFullscreen={isVideoFullscreen && !useOfflineVideoStage}
+          stageTop={normalStageTop}
+          stageLeft={normalVideoLeft}
+          stageWidth={cardWidth}
+          stageHeight={cardVideoHeight}
+          fullscreenWidth={fullscreenVideoDims.width}
+          fullscreenHeight={fullscreenVideoDims.height}
+          videoAspectMode={videoAspectMode}
+          sheetTranslateY={fullTranslateY}
+          onVideoPress={handlePlayPausePress}
+          onEnterFullscreen={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setVideoFullscreen(true);
+          }}
+          onSwitchToCover={handleSwitchToCover}
+        />
+
+        {currentTrack && (
+          <OfflineVideoStage
+            track={currentTrack}
+            downloadedTrack={currentDownloadedTrack}
+            playerMediaMode={playerMediaMode}
+            isPlaying={isPlaying}
+            isOnline={isOnline}
+            isDark={isDark}
+            isAr={isAr}
+            videoAspectMode={videoAspectMode}
+            isVideoFullscreen={isVideoFullscreen}
+            fullscreenWidth={fullscreenVideoDims.width}
+            fullscreenHeight={fullscreenVideoDims.height}
+            cardWidth={cardWidth}
+            cardVideoHeight={cardVideoHeight}
+            normalStageTop={normalStageTop}
+            normalVideoLeft={normalVideoLeft}
+            sheetTranslateY={fullTranslateY}
+            isPlayerModalVisible={isPlayerModalVisible}
+            onPressTogglePlay={handlePlayPausePress}
+            onEnterFullscreen={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setVideoFullscreen(true);
+            }}
+            onSwitchToCover={handleSwitchToCover}
+            onSwitchToVideo={handleSwitchToVideo}
+            onRequestDownload={(mode) => startDirectDownload(currentTrack, mode)}
+          />
+        )}
+
+    {shouldRenderPlayerUi && (
+      <>
     {/* ── Flanking Liquid Glass Home Circle (Scroll-Collapsed Dock on Tabs & Stack Screens) ── */}
     <Animated.View
       style={[
@@ -1952,21 +1674,27 @@ return (
                   />
                 </TouchableOpacity>
 
-                {(isDownloading || isDownloaded) && (
-                  <TouchableOpacity
-                    activeOpacity={0.78}
-                    hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                    onPress={handleDownloadPress}
-                    style={[
-                      styles.metaGlassCircle,
-                      {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
-                        borderColor: isDownloading
-                          ? 'rgba(10, 132, 255, 0.5)'
-                          : 'rgba(48, 209, 88, 0.45)',
-                      },
-                    ]}
-                  >
+                {/* ↓ Download / Manage Offline Button (shows 2 smart options for Music vs Video section) */}
+                <TouchableOpacity
+                  activeOpacity={0.78}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  disabled={isDownloading}
+                  onPress={handleDownloadPress}
+                  style={[
+                    styles.metaGlassCircle,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.08)',
+                      borderColor: isDownloading
+                        ? 'rgba(10, 132, 255, 0.5)'
+                        : isDownloaded
+                          ? 'rgba(48, 209, 88, 0.45)'
+                          : isDark
+                            ? 'rgba(255,255,255,0.22)'
+                            : 'rgba(0,0,0,0.08)',
+                    },
+                  ]}
+                >
+                  {isDownloading || isDownloaded ? (
                     <CircularDownloadProgress
                       status={
                         isDownloading
@@ -1979,8 +1707,14 @@ return (
                       completedColor="#30D158"
                       trackColor={isDark ? 'rgba(255,255,255,0.25)' : 'rgba(15,23,42,0.18)'}
                     />
-                  </TouchableOpacity>
-                )}
+                  ) : (
+                    <Ionicons
+                      name="cloud-download-outline"
+                      size={18}
+                      color={isDark ? '#FFFFFF' : theme.textPrimary}
+                    />
+                  )}
+                </TouchableOpacity>
 
                 {/* ⋯ Three-Dot Apple Music Options Menu */}
                 <TouchableOpacity
@@ -2228,588 +1962,75 @@ return (
           </View>
         </GestureDetector>
 
-        {/* ════════════════════════════════════════════════════════════════════════
-            3. UNIFIED ZERO-UNMOUNT VIDEO STAGE (Direct Root Child of fullPlayerOverlay)
-            - Cover Mode: Placed offscreen (left: -9999), audio plays with 0 interruption
-            - Normal Video Mode: Absolute positioned right above the center stage placeholder
-            - Fullscreen Video Mode: 100% viewport coverage, covers header, grabs full screen
-           ════════════════════════════════════════════════════════════════════════ */}
-        {/* 🛡️ Zero-Glitch Fullscreen Solid Black Curtain (Blocks any rotation gradient flash 100%) */}
-        {isVideoFullscreen && (
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: '#000000',
-                zIndex: 99998,
-              },
-            ]}
-            pointerEvents="none"
-          />
-        )}
-
-        <View
-          style={unifiedVideoWrapperStyle}
-          pointerEvents={
-            isVideoFullscreen
-              ? 'box-none'
-              : playerMediaMode === 'video'
-                ? 'auto'
-                : 'none'
-          }
-        >
-          {/* Clean 16:9 Cinema Video Box (Spotify & YouTube Music Standard) OR Edge-to-Edge Fullscreen Frame */}
-          <View
-            style={
-              isVideoFullscreen
-                ? [
-                  styles.videoFullscreenFrame,
-                  {
-                    width: fullscreenVideoDims.width,
-                    height: fullscreenVideoDims.height,
-                  },
-                ]
-                : [
-                  styles.videoFrameContainer,
-                  {
-                    width: cardWidth,
-                    height: cardVideoHeight,
-                  },
-                ]
-            }
-            pointerEvents={isVideoFullscreen ? 'none' : 'auto'}
-          >
-            {activeEngine === 'youtube' && currentTrack?.videoId ? (
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={handlePlayPausePress}
-                style={[
-                  styles.videoPlayerInnerWrapper,
-                  isVideoFullscreen && { borderRadius: 0 },
-                ]}
-                disabled={playerMediaMode === 'cover' || isVideoFullscreen}
-              >
-                <YoutubePlayer
-                  key={youtubeRemountKey}
-                  ref={youtubePlayerRef}
-                  height={isVideoFullscreen ? fullscreenVideoDims.height : cardVideoHeight}
-                  width={isVideoFullscreen ? fullscreenVideoDims.width : cardWidth}
-                  play={activeEngine === 'youtube' && isPlaying}
-                  videoId={currentTrack.videoId}
-                  initialPlayerParams={stablePlayerParams}
-                  onReady={() => {
-                    const seekSec = pendingYoutubeSeekSecRef.current;
-                    if (typeof seekSec === 'number' && seekSec > 0) {
-                      pendingYoutubeSeekSecRef.current = null;
-                      youtubePlayerRef.current?.seekTo?.(seekSec, true);
-                    }
-                    const latest = useAudioStore.getState();
-                    if (latest.activeEngine === 'youtube' && latest.isPlaying && !latest.isUserPauseAction) {
-                      (youtubePlayerRef.current as any)?.playVideo?.();
-                    }
-                  }}
-                  onChangeState={(state: string) => {
-                    if (state === 'ended') {
-                      if (bgRecoveryTimerRef.current) {
-                        clearTimeout(bgRecoveryTimerRef.current);
-                        bgRecoveryTimerRef.current = null;
-                      }
-                      useAudioStore.getState().handleTrackEnded();
-                    } else if (state === 'playing') {
-                      bgAutoNudgeCountRef.current = 0;
-                      if (bgRecoveryTimerRef.current) {
-                        clearTimeout(bgRecoveryTimerRef.current);
-                        bgRecoveryTimerRef.current = null;
-                      }
-                      if (typeof pendingYoutubeSeekSecRef.current === 'number' && pendingYoutubeSeekSecRef.current > 0) {
-                        const seekSec = pendingYoutubeSeekSecRef.current;
-                        pendingYoutubeSeekSecRef.current = null;
-                        youtubePlayerRef.current?.seekTo?.(seekSec, true);
-                      }
-                      startedYoutubeVideoIdRef.current = currentTrack?.videoId || null;
-                      const storeState = useAudioStore.getState();
-                      if (storeState.backgroundAudioEnabled) {
-                        startSilentBackgroundKeepAlive().catch(() => { });
-                      }
-                      useAudioStore.setState({
-                        isPlaying: true,
-                        isUserPauseAction: false,
-                        isLoading: false,
-                        loadingTrackId: null,
-                      });
-                    } else if (state === 'paused') {
-                      if (isSwitchingModeRef.current) return;
-                      const storeState = useAudioStore.getState();
-                      if (storeState.isUserPauseAction || !storeState.isPlaying) {
-                        pauseSilentBackgroundKeepAlive();
-                        useAudioStore.setState({ isPlaying: false, isLoading: false });
-                        return;
-                      }
-                      // Ignore transient 'paused' emitted while unloading previous video before new videoId starts
-                      if (startedYoutubeVideoIdRef.current !== currentTrack?.videoId) {
-                        return;
-                      }
-
-                      // Background Audio Guard: ONLY fight WebKit's automatic background suspension during the initial 1800ms
-                      // right after AppState === 'background'. In 'inactive' (Control Center white badge) or after 1800ms (Lock Screen pause),
-                      // ALWAYS respect the user's Pause command cleanly without bounce-back glitching!
-                      if (AppState.currentState === 'background') {
-                        if (!storeState.backgroundAudioEnabled) {
-                          storeState.pauseTrack();
-                          return;
-                        }
-                        const inBgTransitionWindow =
-                          enteredBackgroundAtRef.current > 0 &&
-                          Date.now() - enteredBackgroundAtRef.current < 1800;
-
-                        if (inBgTransitionWindow && bgAutoNudgeCountRef.current < 3) {
-                          bgAutoNudgeCountRef.current += 1;
-                          startSilentBackgroundKeepAlive().catch(() => { });
-                          try {
-                            (youtubePlayerRef.current as any)?.playVideo?.();
-                          } catch { }
-                          return;
-                        }
-                      }
-
-                      // User tapped Pause in Control Center ('inactive'), Lock Screen, or App
-                      pauseSilentBackgroundKeepAlive();
-                      useAudioStore.setState({ isPlaying: false, isUserPauseAction: true, isLoading: false });
-                    }
-                  }}
-                  onError={(err: string) => {
-                    // Only trigger native embed fallback on fatal embed copyright blocks (101/150/embed_not_allowed)
-                    if (err === 'embed_not_allowed' || err === 'video_not_found') {
-                      useAudioStore.getState().handlePlaybackFallback();
-                    }
-                  }}
-                  webViewProps={cleanYoutubeWebViewProps}
-                />
-
-                {/* YouTube Style Fullscreen Expand Icon (Bottom-Right Corner Only, Video Mode Only, Not in Fullscreen) */}
-                {playerMediaMode === 'video' && !isVideoFullscreen && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={(e) => {
-                      e?.stopPropagation?.();
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      isSwitchingModeRef.current = true;
-                      setVideoFullscreen(true);
-                      setTimeout(() => {
-                        isSwitchingModeRef.current = false;
-                      }, 800);
-                    }}
-                    style={styles.youtubeFullscreenBtn}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <Ionicons name="scan-outline" size={17} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-            ) : (
-              /* Clean Minimal Fallback if offline */
-              <View style={styles.videoNativeFallbackWrap}>
-                <Ionicons name="musical-notes" size={32} color={tint.accent || '#1DB954'} />
-                <TouchableOpacity
-                  style={styles.videoReturnCoverBtn}
-                  onPress={handleSwitchToCover}
-                >
-                  <Text style={styles.videoReturnCoverBtnText}>Music</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          {/* ── IN-PLACE FULLSCREEN HUD OVERLAY (Mounted directly above single uninterrupted YouTube player) ── */}
-          {isVideoFullscreen && (
-            <InPlaceFullscreenHud
-              visible={isVideoFullscreen}
-              screenWidth={windowWidth}
-              screenHeight={windowHeight}
-              onClose={() => {
-                isSwitchingModeRef.current = true;
-                setVideoFullscreen(false);
-                setTimeout(() => {
-                  isSwitchingModeRef.current = false;
-                }, 500);
-              }}
-              isPlaying={isPlaying}
-              onTogglePlay={handlePlayPausePress}
-              onSeekRelative={(deltaSec) => {
-                if (deltaSec < 0) {
-                  seekBackward10();
-                } else {
-                  seekForward10();
-                }
-              }}
-              isScrubbing={isScrubbingFullscreen}
-              renderTimeline={renderFullscreenTimeline}
-            />
-          )}
-        </View>
-        {/* ════════════════════════════════════════════════════════════════════════
-            Apple Music Liquid Glass Options Sheet (... Context Menu)
-           ════════════════════════════════════════════════════════════════════════ */}
-        <Modal
+        <TrackOptionsModal
           visible={trackMenuVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setTrackMenuVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.trackMenuBackdrop}
-            activeOpacity={1}
-            onPress={() => setTrackMenuVisible(false)}
-          >
-            <BlurView
-              intensity={isDark ? 35 : 28}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={[styles.trackMenuCardWrap, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
-            >
-              <LiquidGlassSurface
-                glassStyle="regular"
-                isInteractive={false}
-                isDark={isDark}
-                borderRadius={26}
-                style={[
-                  styles.trackMenuCard,
-                  {
-                    backgroundColor: isDark ? 'rgba(24, 26, 36, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-                    borderColor: isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.08)',
-                  },
-                ]}
-              >
-                {/* Track Preview Header */}
-                <View
-                  style={[
-                    styles.trackMenuHeader,
-                    {
-                      flexDirection: isAr ? 'row-reverse' : 'row',
-                      borderBottomColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-                    },
-                  ]}
-                >
-                  <Image
-                    source={heroArtworkSources}
-                    style={styles.trackMenuThumb}
-                    {...STUDIO_IMAGE_PROPS}
-                  />
-                  <View style={[styles.trackMenuMeta, { marginHorizontal: 12 }]}>
-                    <MarqueeText
-                      text={currentTrack.title || 'Track'}
-                      style={[
-                        styles.trackMenuTitle,
-                        { color: isDark ? '#FFFFFF' : '#0F172A', writingDirection: isAr ? 'rtl' : 'ltr' },
-                      ]}
-                      speedPxPerSec={26}
-                    />
-                    <Text
-                      style={[
-                        styles.trackMenuArtist,
-                        {
-                          color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(15,23,42,0.65)',
-                          textAlign: isAr ? 'right' : 'left',
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {currentTrack.artist || 'Artist'}
-                    </Text>
-                  </View>
-                </View>
+          onClose={() => setTrackMenuVisible(false)}
+          currentTrack={currentTrack}
+          heroArtworkSources={heroArtworkSources}
+          isDark={isDark}
+          isAr={isAr}
+          bottomInset={insets.bottom}
+          hasUser={Boolean(user?.id)}
+          isLiked={isLiked}
+          isSavedInLibrary={isSavedInLibrary}
+          isDownloading={isDownloading}
+          isDownloaded={isDownloaded}
+          downloadProgress={downloadProgress}
+          downloadPct={downloadPct}
+          resolvingAlbum={resolvingAlbum}
+          showPlaylistPicker={showPlaylistPicker}
+          onTogglePlaylistPicker={() => setShowPlaylistPicker((prev) => !prev)}
+          loadingPlaylists={loadingPlaylists}
+          userPlaylists={userPlaylists}
+          onGoToArtist={handleGoToArtist}
+          onGoToAlbum={handleGoToAlbum}
+          onAddToLibrary={handleAddToLibraryPress}
+          onAddTrackToPlaylist={handleAddTrackToPlaylist}
+          onToggleLike={() => toggleLike(currentTrack)}
+          onDownloadPress={handleDownloadPress}
+          onShare={handleShare}
+        />
 
-                {/* 1. Go to Artist */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  onPress={handleGoToArtist}
-                >
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={22}
-                    color={isDark ? '#FFFFFF' : '#0F172A'}
-                  />
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isAr ? 'الانتقال إلى الفنان' : 'Go to Artist'}
-                  </Text>
-                  <Ionicons
-                    name={isAr ? 'chevron-back' : 'chevron-forward'}
-                    size={16}
-                    color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
-                  />
-                </TouchableOpacity>
-
-                {/* 2. Go to Album */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  disabled={resolvingAlbum}
-                  onPress={handleGoToAlbum}
-                >
-                  {resolvingAlbum ? (
-                    <ActivityIndicator size="small" color={isDark ? '#FFFFFF' : '#0F172A'} />
-                  ) : (
-                    <Ionicons
-                      name="disc-outline"
-                      size={22}
-                      color={isDark ? '#FFFFFF' : '#0F172A'}
-                    />
-                  )}
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isAr ? 'الانتقال إلى الألبوم' : 'Go to Album'}
-                  </Text>
-                  <Ionicons
-                    name={isAr ? 'chevron-back' : 'chevron-forward'}
-                    size={16}
-                    color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
-                  />
-                </TouchableOpacity>
-
-                {/* 3. Add to Library + Quick Playlists */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  onPress={async () => {
-                    await handleAddToLibraryPress();
-                    setTrackMenuVisible(false);
-                  }}
-                >
-                  <Ionicons
-                    name={isSavedInLibrary ? 'checkmark-circle' : 'add-circle-outline'}
-                    size={22}
-                    color={isSavedInLibrary ? '#34D399' : isDark ? '#FFFFFF' : '#0F172A'}
-                  />
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isSavedInLibrary
-                      ? isAr
-                        ? 'مضافة في مكتبتك (إزالة)'
-                        : 'Saved in Library (Remove)'
-                      : isAr
-                        ? 'إضافة إلى المكتبة'
-                        : 'Add to Library'}
-                  </Text>
-                </TouchableOpacity>
-
-                {user?.id && (
-                  <TouchableOpacity
-                    style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                    activeOpacity={0.75}
-                    onPress={() => setShowPlaylistPicker((prev) => !prev)}
-                  >
-                    <Ionicons
-                      name="list-outline"
-                      size={22}
-                      color={isDark ? '#FFFFFF' : '#0F172A'}
-                    />
-                    <Text
-                      style={[
-                        styles.trackMenuRowText,
-                        { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                      ]}
-                    >
-                      {isAr ? 'إضافة إلى قائمة تشغيل' : 'Add to Playlist'}
-                    </Text>
-                    <Ionicons
-                      name={showPlaylistPicker ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(15,23,42,0.40)'}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {showPlaylistPicker && (
-                  <View style={styles.playlistSubList}>
-                    {loadingPlaylists ? (
-                      <ActivityIndicator size="small" color="#0A84FF" style={{ marginVertical: 8 }} />
-                    ) : userPlaylists.length === 0 ? (
-                      <Text
-                        style={{
-                          fontSize: 12.5,
-                          color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.55)',
-                          paddingVertical: 6,
-                          textAlign: isAr ? 'right' : 'left',
-                        }}
-                      >
-                        {isAr ? 'لا توجد قوائم تشغيل بعد — أنشئ واحدة من المكتبة' : 'No playlists yet — create one in Library'}
-                      </Text>
-                    ) : (
-                      userPlaylists.slice(0, 5).map((pl) => (
-                        <TouchableOpacity
-                          key={pl.id}
-                          activeOpacity={0.75}
-                          onPress={() => handleAddTrackToPlaylist(pl)}
-                          style={[
-                            styles.playlistSubRow,
-                            {
-                              flexDirection: isAr ? 'row-reverse' : 'row',
-                              backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.05)',
-                            },
-                          ]}
-                        >
-                          <Ionicons name="musical-notes" size={16} color="#0A84FF" />
-                          <Text
-                            style={{
-                              flex: 1,
-                              color: isDark ? '#FFFFFF' : '#0F172A',
-                              fontSize: 13.5,
-                              fontWeight: '600',
-                              marginHorizontal: 10,
-                              textAlign: isAr ? 'right' : 'left',
-                            }}
-                            numberOfLines={1}
-                          >
-                            {pl.name}
-                          </Text>
-                          <Ionicons name="add" size={18} color="#0A84FF" />
-                        </TouchableOpacity>
-                      ))
-                    )}
-                  </View>
-                )}
-
-                {/* 4. Favorite */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    toggleLike(currentTrack);
-                    setTrackMenuVisible(false);
-                  }}
-                >
-                  <Ionicons
-                    name={isLiked ? 'heart' : 'heart-outline'}
-                    size={22}
-                    color={isLiked ? '#FF375F' : isDark ? '#FFFFFF' : '#0F172A'}
-                  />
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isLiked
-                      ? isAr
-                        ? 'إزالة من المفضلة'
-                        : 'Remove from Favorites'
-                      : isAr
-                        ? 'إضافة إلى المفضلة'
-                        : 'Favorite'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 4.5 Download for Offline Listening */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  disabled={isDownloading}
-                  onPress={() => {
-                    setTrackMenuVisible(false);
-                    handleDownloadPress();
-                  }}
-                >
-                  {isDownloading ? (
-                    <CircularDownloadProgress
-                      status={(downloadProgress?.status as 'probing' | 'downloading') || 'downloading'}
-                      progress={downloadProgress?.progress || 0}
-                      size={22}
-                      activeColor="#0A84FF"
-                      trackColor={isDark ? 'rgba(255,255,255,0.22)' : 'rgba(15,23,42,0.16)'}
-                    />
-                  ) : isDownloaded ? (
-                    <CircularDownloadProgress status="completed" size={22} completedColor="#30D158" />
-                  ) : (
-                    <Ionicons
-                      name="cloud-download-outline"
-                      size={22}
-                      color={isDark ? '#FFFFFF' : '#0F172A'}
-                    />
-                  )}
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isDownloading
-                      ? isAr
-                        ? `جاري التحميل... ${downloadPct}%`
-                        : `Downloading... ${downloadPct}%`
-                      : isDownloaded
-                        ? isAr
-                          ? 'محمّل على الهاتف (حذف)'
-                          : 'Downloaded (Remove)'
-                        : isAr
-                          ? 'تحميل على الهاتف (أوفلاين)'
-                          : 'Download for Offline'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 5. Share */}
-                <TouchableOpacity
-                  style={[styles.trackMenuRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    setTrackMenuVisible(false);
-                    handleShare();
-                  }}
-                >
-                  <Ionicons
-                    name="share-outline"
-                    size={22}
-                    color={isDark ? '#FFFFFF' : '#0F172A'}
-                  />
-                  <Text
-                    style={[
-                      styles.trackMenuRowText,
-                      { color: isDark ? '#FFFFFF' : '#0F172A', textAlign: isAr ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isAr ? 'مشاركة' : 'Share'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 6. Cancel */}
-                <TouchableOpacity
-                  style={[
-                    styles.trackMenuCancelBtn,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)' },
-                  ]}
-                  activeOpacity={0.75}
-                  onPress={() => setTrackMenuVisible(false)}
-                >
-                  <Text style={[styles.trackMenuCancelTxt, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
-                    {isAr ? 'إلغاء' : 'Cancel'}
-                  </Text>
-                </TouchableOpacity>
-              </LiquidGlassSurface>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+        <DownloadOptionsModal
+          visible={downloadModalVisible}
+          onClose={() => setDownloadModalVisible(false)}
+          track={currentTrack}
+          sourceContext={playerMediaMode === 'video' ? 'video' : 'music'}
+          downloadedTrack={currentDownloadedTrack}
+          isDark={isDark}
+          isAr={isAr}
+          onSelectDownload={(mode) => startDirectDownload(currentTrack, mode)}
+          onSelectRemove={handleRemoveDownload}
+        />
       </Animated.View>
+
+      {/* In-Place Fullscreen Video HUD rendered at root stacking context above YoutubeAudioEngine */}
+      {isVideoFullscreen && (
+        <View style={styles.fullscreenHudOverlay} pointerEvents="box-none">
+          <InPlaceFullscreenHud
+            visible={isVideoFullscreen}
+            screenWidth={windowWidth}
+            screenHeight={windowHeight}
+            onClose={() => setVideoFullscreen(false)}
+            isPlaying={isPlaying}
+            onTogglePlay={handlePlayPausePress}
+            onSeekRelative={(deltaSec) => {
+              if (deltaSec < 0) {
+                seekBackward10();
+              } else {
+                seekForward10();
+              }
+            }}
+            isScrubbing={isScrubbingFullscreen}
+            renderTimeline={renderFullscreenTimeline}
+          />
+        </View>
+      )}
     </>
   )
 }
+    </>
+    )}
     </GestureHandlerRootView >
   );
 });
@@ -3151,75 +2372,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  videoFullscreenFrame: {
-    overflow: 'hidden',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoFrameContainer: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    position: 'relative',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.4,
-        shadowRadius: 18,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-  videoPlayerInnerWrapper: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  youtubeFullscreenBtn: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  videoNativeFallbackWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  videoReturnCoverBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  videoReturnCoverBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+  fullscreenHudOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 100005,
+    elevation: 30,
   },
 
   // ── Fullscreen Cinema Video Theatre ──
@@ -3356,78 +2512,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-  },
-  trackMenuBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  trackMenuCardWrap: {
-    paddingHorizontal: 14,
-  },
-  trackMenuCard: {
-    borderRadius: 26,
-    borderWidth: 1,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
-    overflow: 'hidden',
-  },
-  trackMenuHeader: {
-    alignItems: 'center',
-    paddingBottom: 14,
-    marginBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  trackMenuThumb: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-  },
-  trackMenuMeta: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  trackMenuTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  trackMenuArtist: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  trackMenuRow: {
-    alignItems: 'center',
-    gap: 13,
-    paddingVertical: 13,
-  },
-  trackMenuRowText: {
-    flex: 1,
-    fontSize: 15.5,
-    fontWeight: '600',
-  },
-  playlistSubList: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  playlistSubRow: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  trackMenuCancelBtn: {
-    marginTop: 8,
-    paddingVertical: 13,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  trackMenuCancelTxt: {
-    fontSize: 15.5,
-    fontWeight: '700',
   },
   fullDownloadBtn: {
     padding: 4,

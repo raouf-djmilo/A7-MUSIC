@@ -77,7 +77,7 @@ export const UnifiedMusicCard: React.FC<UnifiedMusicCardProps> = memo(({
       return;
     }
     const storeTrack = toStoreTrack(entity.track, 'single');
-    useAudioStore.getState().playTrack(storeTrack);
+    useAudioStore.getState().playTrack(storeTrack, [storeTrack], 0, storeTrack.title || 'Single');
   }, [entity, onPlayPress]);
 
   // ── 2. تشغيل الألبوم بالكامل ──

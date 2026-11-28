@@ -8,18 +8,16 @@ import {
 } from '../../../services/infiniteRecommendationEngine';
 import { musicDnaService } from '../../../services/musicDnaService';
 import { useNetworkStore } from '../../../services/networkService';
-import { useDownloadStore, DownloadedTrack } from '../../../services/downloadService';
+import { useDownloadStore, DownloadedTrack, downloadedTrackToQueueTrack } from '../../../services/downloadService';
 import type { HomeTrack } from '../types/home.types';
 import { buildInitialHomeQueue } from '../utils/homeTrackUtils';
 
 function mapDownloadedToHomeTracks(list: DownloadedTrack[]): HomeTrack[] {
   return list
-    .filter((d) => Boolean(d?.videoId && d?.audioLocalUri))
+    .filter((d) => Boolean(d?.videoId && (d?.audioLocalUri || d?.videoLocalUri)))
     .map((d) => ({
-      ...d,
+      ...downloadedTrackToQueueTrack(d),
       id: d.videoId,
-      thumbnail: d.artworkLocalUri || d.thumbnail,
-      audioUrl: d.audioLocalUri,
     }));
 }
 

@@ -2,7 +2,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { Track } from '../store/useAudioStore';
-import { getUniversalStudioArtwork } from '../utils/artworkHelper';
+import {
+  getUniversalStudioArtwork,
+  resolveLockScreenSquareArtworkAsync,
+} from '../utils/artworkHelper';
 import { auth } from '../lib/firebase';
 import {
   addFirebaseDownloadedCatalogItem,
@@ -13,15 +16,23 @@ const DOWNLOAD_BASE_DIR = `${FileSystem.documentDirectory}a7flow_download_music/
 const TRACKS_DIR = `${DOWNLOAD_BASE_DIR}tracks/`;
 const MANIFEST_FILE_PATH = `${DOWNLOAD_BASE_DIR}a7flow_manifest.json`;
 
-// Minimum physical size to reject empty / 403 error responses while keeping valid short tracks
+// Minimum physical sizes to reject empty / 403 HTML responses while keeping valid short tracks
 const MIN_AUDIO_BYTES = 150 * 1024;
+const MIN_VIDEO_BYTES = 250 * 1024;
 const MAX_LOCAL_MANIFEST_ITEMS = 500;
 
-// Global device-level key (NOT user specific: local phone audio files work across accounts & offline)
+// Global device-level key (NOT user specific: local phone files work across accounts & offline)
 export const DEVICE_OFFLINE_MANIFEST_KEY = '@a7flow_device_offline_manifest';
 
-// Kept for type compatibility; downloads now use a single native stream quality automatically
+// Kept for type compatibility; downloads select highest reliable native stream automatically
 export type AudioQualityOption = 'auto' | 'high' | 'medium';
+export type DownloadMediaMode = 'audio' | 'video' | 'full';
+
+export interface DownloadTrackOptions {
+  quality?: AudioQualityOption;
+  mode?: DownloadMediaMode;
+  onProgressUpdate?: (progress: number) => void;
+}
 
 export interface DownloadedTrack {
   videoId: string;
@@ -31,12 +42,26 @@ export interface DownloadedTrack {
   thumbnail: string;
   artworkLocalUri: string;
   audioLocalUri: string;
+  videoLocalUri?: string;
+  mediaType?: DownloadMediaMode;
   duration: number; // in milliseconds
   quality: AudioQualityOption;
   bitrateLabel: string;
+  videoQualityLabel?: string;
+  audioFileSizeBytes?: number;
+  videoFileSizeBytes?: number;
   fileSizeBytes: number;
   fileSizeMB: string; // e.g. "5.2 MB"
   downloadedAt: number;
+}
+
+export function resolveDownloadedMediaMode(track?: DownloadedTrack | null): DownloadMediaMode {
+  if (!track) return 'audio';
+  const hasAudio = Boolean(track.audioLocalUri);
+  const hasVideo = Boolean(track.videoLocalUri);
+  if (hasAudio && hasVideo) return 'full';
+  if (hasVideo) return 'video';
+  return track.mediaType || 'audio';
 }
 
 export interface DownloadProgressState {
@@ -44,6 +69,7 @@ export interface DownloadProgressState {
   progress: number; // 0.0 -> 1.0
   totalBytes: number;
   writtenBytes: number;
+  downloadingMode?: DownloadMediaMode;
   status: 'probing' | 'downloading' | 'completed' | 'error';
   error?: string;
 }
@@ -56,7 +82,11 @@ interface DownloadStoreState {
   isLoadingManifest: boolean;
 
   loadManifest: () => Promise<void>;
+  getDownloadedTrack: (videoId?: string | null) => DownloadedTrack | undefined;
   isTrackDownloaded: (videoId?: string | null) => boolean;
+  hasAudioDownloaded: (videoId?: string | null) => boolean;
+  hasVideoDownloaded: (videoId?: string | null) => boolean;
+  isFullyDownloaded: (videoId?: string | null) => boolean;
   getTrackProgress: (videoId?: string | null) => DownloadProgressState | undefined;
 }
 
@@ -84,9 +114,29 @@ export const useDownloadStore = create<DownloadStoreState>((set, get) => ({
     }
   },
 
+  getDownloadedTrack: (videoId) => {
+    if (!videoId) return undefined;
+    return get().downloadedTracks.find((t) => t.videoId === videoId);
+  },
+
   isTrackDownloaded: (videoId) => {
     if (!videoId) return false;
     return get().downloadedTracks.some((t) => t.videoId === videoId);
+  },
+
+  hasAudioDownloaded: (videoId) => {
+    const found = get().getDownloadedTrack(videoId);
+    return Boolean(found?.audioLocalUri);
+  },
+
+  hasVideoDownloaded: (videoId) => {
+    const found = get().getDownloadedTrack(videoId);
+    return Boolean(found?.videoLocalUri);
+  },
+
+  isFullyDownloaded: (videoId) => {
+    const found = get().getDownloadedTrack(videoId);
+    return Boolean(found?.audioLocalUri && found?.videoLocalUri);
   },
 
   getTrackProgress: (videoId) => {
@@ -116,7 +166,8 @@ function isValidYouTubeId(id?: string | null): boolean {
 interface ResolvedStreamCandidate {
   url: string;
   kind?: 'direct' | 'hls_m4a' | 'hls_mp3';
-  ext?: 'm4a' | 'mp3';
+  ext?: 'm4a' | 'mp3' | 'mp4';
+  qualityLabel?: string;
   headers?: Record<string, string>;
 }
 
@@ -124,7 +175,10 @@ const IOS_CLIENT_VERSION = '20.03.2';
 const IOS_CLIENT_USER_AGENT =
   'com.google.ios.youtube/20.03.2 (iPhone16,2; U; CPU iOS 18_2_0 like Mac OS X; en_US)';
 const ANDROID_VR_USER_AGENT =
-  'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 14; en_US; Quest 3 Build/SQ3A.220605.009.A1) gzip';
+  'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip';
+const ANDROID_CLIENT_VERSION = '20.10.38';
+const ANDROID_CLIENT_USER_AGENT =
+  'com.google.android.youtube/20.10.38 (Linux; U; Android 14; en_US) gzip';
 const BROWSER_WATCH_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const MOBILE_SAFARI_USER_AGENT =
@@ -339,7 +393,7 @@ async function extractSoundCloudAudioCandidates(track: Track): Promise<ResolvedS
 
   const ranked = collected
     .map((sc) => ({ sc, score: scoreSoundCloudMatch(sc, cleanTitle, cleanArtist, track.duration || 0) }))
-    .filter((entry) => entry.score > 40)
+    .filter((entry) => entry.score > 140)
     .sort((a, b) => b.score - a.score)
     .slice(0, 2);
 
@@ -555,45 +609,137 @@ function pickBestAudioUrls(streams: Array<{ url?: string; mimeType?: string; typ
   return Array.from(new Set(ranked.map((s) => s.url!)));
 }
 
+function pickBestMuxedVideoFormats(
+  streams: Array<{
+    url?: string;
+    mimeType?: string;
+    type?: string;
+    container?: string;
+    qualityLabel?: string;
+    quality?: string;
+    height?: number;
+    itag?: number;
+    videoOnly?: boolean;
+  }>
+): Array<{ url: string; qualityLabel: string }> {
+  const valid = streams.filter((s) => {
+    if (typeof s?.url !== 'string' || !s.url.startsWith('http') || s.url.includes('.m3u8')) {
+      return false;
+    }
+    if (s.videoOnly === true) return false;
+    const mime = `${s.mimeType || s.type || s.container || ''}`.toLowerCase();
+    return mime.includes('mp4') || mime.includes('video');
+  });
+
+  const ranked = [...valid].sort((a, b) => {
+    const aHeight = Number(a.height) || parseInt(`${a.qualityLabel || a.quality || '0'}`, 10) || 0;
+    const bHeight = Number(b.height) || parseInt(`${b.qualityLabel || b.quality || '0'}`, 10) || 0;
+    const aIsMp4 = `${a.mimeType || a.type || a.container || ''}`.toLowerCase().includes('mp4') ? 1 : 0;
+    const bIsMp4 = `${b.mimeType || b.type || b.container || ''}`.toLowerCase().includes('mp4') ? 1 : 0;
+    if (aIsMp4 !== bIsMp4) return bIsMp4 - aIsMp4;
+    if (bHeight !== aHeight) return bHeight - aHeight;
+    return (Number(b.itag) || 0) - (Number(a.itag) || 0);
+  });
+
+  const seen = new Set<string>();
+  const out: Array<{ url: string; qualityLabel: string }> = [];
+  for (const s of ranked) {
+    if (s.url && !seen.has(s.url)) {
+      seen.add(s.url);
+      out.push({
+        url: s.url,
+        qualityLabel: s.qualityLabel || (s.height ? `${s.height}p MP4` : 'HD MP4'),
+      });
+    }
+  }
+  return out;
+}
+
 /**
- * ⚡ Stage 1: Verified YouTube InnerTube Player API (iOS 20.03.2 with live API key & visitorData + Android VR)
+ * Queries YouTube InnerTube player API for direct audio or progressive muxed video+audio streams
+ * tied strictly to the exact videoId.
  */
-async function extractInnerTubeAudioCandidates(cleanId: string): Promise<ResolvedStreamCandidate[]> {
+async function queryInnerTubeMediaCandidates(
+  cleanId: string,
+  mediaKind: 'audio' | 'video'
+): Promise<ResolvedStreamCandidate[]> {
   const queryWithSession = async (session: InnerTubeSessionContext | null): Promise<ResolvedStreamCandidate[]> => {
-    const clients = [
-      {
-        priority: 0,
-        clientName: 'IOS',
-        clientVersion: IOS_CLIENT_VERSION,
-        clientNameId: '5',
-        deviceMake: 'Apple',
-        deviceModel: 'iPhone16,2',
-        osName: 'iPhone',
-        osVersion: '18.2.0.22C152',
-        hl: 'en',
-        gl: 'US',
-        ua: IOS_CLIENT_USER_AGENT,
-      },
-      {
-        priority: 1,
-        clientName: 'ANDROID_VR',
-        clientVersion: '1.60.19',
-        clientNameId: '28',
-        androidSdkVersion: 34,
-        hl: 'en',
-        gl: 'US',
-        ua: ANDROID_VR_USER_AGENT,
-      },
-    ];
+    const clients =
+      mediaKind === 'video'
+        ? [
+            {
+              priority: 0,
+              clientName: 'ANDROID_VR',
+              clientVersion: '1.60.19',
+              clientNameId: '28',
+              deviceMake: 'Oculus',
+              deviceModel: 'Quest 3',
+              osName: 'Android',
+              osVersion: '12L',
+              androidSdkVersion: 32,
+              hl: 'en',
+              gl: 'US',
+              ua: ANDROID_VR_USER_AGENT,
+            },
+            {
+              priority: 1,
+              clientName: 'ANDROID',
+              clientVersion: ANDROID_CLIENT_VERSION,
+              clientNameId: '3',
+              androidSdkVersion: 34,
+              hl: 'en',
+              gl: 'US',
+              ua: ANDROID_CLIENT_USER_AGENT,
+            },
+          ]
+        : [
+            {
+              priority: 0,
+              clientName: 'IOS',
+              clientVersion: IOS_CLIENT_VERSION,
+              clientNameId: '5',
+              deviceMake: 'Apple',
+              deviceModel: 'iPhone16,2',
+              osName: 'iPhone',
+              osVersion: '18.2.0.22C152',
+              hl: 'en',
+              gl: 'US',
+              ua: IOS_CLIENT_USER_AGENT,
+            },
+            {
+              priority: 1,
+              clientName: 'ANDROID_VR',
+              clientVersion: '1.60.19',
+              clientNameId: '28',
+              deviceMake: 'Oculus',
+              deviceModel: 'Quest 3',
+              osName: 'Android',
+              osVersion: '12L',
+              androidSdkVersion: 32,
+              hl: 'en',
+              gl: 'US',
+              ua: ANDROID_VR_USER_AGENT,
+            },
+            {
+              priority: 2,
+              clientName: 'ANDROID',
+              clientVersion: ANDROID_CLIENT_VERSION,
+              clientNameId: '3',
+              androidSdkVersion: 34,
+              hl: 'en',
+              gl: 'US',
+              ua: ANDROID_CLIENT_USER_AGENT,
+            },
+          ];
 
     const playerEndpoint = session?.apiKey
       ? `https://www.youtube.com/youtubei/v1/player?key=${encodeURIComponent(session.apiKey)}&prettyPrint=false`
       : 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 
     const settled = await Promise.allSettled(
-      clients.map(async (c) => {
+      clients.map(async (c: any) => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4500);
+        const timeout = setTimeout(() => controller.abort(), 5000);
         try {
           const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -630,15 +776,37 @@ async function extractInnerTubeAudioCandidates(cleanId: string): Promise<Resolve
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
-          const formats = json?.streamingData?.adaptiveFormats || [];
-          const audioFormats = formats.filter(
+          const streamingData = json?.streamingData || {};
+
+          if (mediaKind === 'video') {
+            const muxed = pickBestMuxedVideoFormats(streamingData.formats || []);
+            if (muxed.length === 0) throw new Error('No direct muxed video formats');
+            return {
+              priority: c.priority,
+              candidates: muxed.map((item) => ({
+                url: item.url,
+                kind: 'direct' as const,
+                ext: 'mp4' as const,
+                qualityLabel: item.qualityLabel,
+                headers: { 'User-Agent': c.ua },
+              })),
+            };
+          }
+
+          const adaptive = streamingData.adaptiveFormats || [];
+          const audioFormats = adaptive.filter(
             (f: any) => typeof f?.url === 'string' && `${f?.mimeType || ''}`.startsWith('audio/')
           );
           const urls = pickBestAudioUrls(audioFormats);
           if (urls.length === 0) throw new Error('No direct audio formats');
           return {
             priority: c.priority,
-            candidates: urls.map((url) => ({ url, headers: { 'User-Agent': c.ua } })),
+            candidates: urls.map((url) => ({
+              url,
+              kind: 'direct' as const,
+              ext: 'm4a' as const,
+              headers: { 'User-Agent': c.ua },
+            })),
           };
         } finally {
           clearTimeout(timeout);
@@ -656,16 +824,33 @@ async function extractInnerTubeAudioCandidates(cleanId: string): Promise<Resolve
     return groups.flatMap((g) => g.candidates);
   };
 
+  // Run fast direct query first (proven HTTP 206 across iOS/Android InnerTube), retry with watch session if needed
+  const directPass = await queryWithSession(null);
+  if (directPass.length > 0) return directPass;
+
   const session = await fetchInnerTubeSession(cleanId, false);
   const firstPass = await queryWithSession(session);
   if (firstPass.length > 0) return firstPass;
 
-  // Retry once with a fresh watch-page InnerTube API key & visitorData if cached session expired
   const refreshedSession = await fetchInnerTubeSession(cleanId, true);
   if (refreshedSession && refreshedSession !== session) {
     return queryWithSession(refreshedSession);
   }
   return [];
+}
+
+/**
+ * Stage 1 Audio: Direct InnerTube (exact videoId)
+ */
+async function extractInnerTubeAudioCandidates(cleanId: string): Promise<ResolvedStreamCandidate[]> {
+  return queryInnerTubeMediaCandidates(cleanId, 'audio');
+}
+
+/**
+ * Stage 1 Video: Direct InnerTube progressive MP4 with video + AAC audio (exact videoId)
+ */
+async function extractInnerTubeVideoCandidates(cleanId: string): Promise<ResolvedStreamCandidate[]> {
+  return queryInnerTubeMediaCandidates(cleanId, 'video');
 }
 
 /**
@@ -722,17 +907,82 @@ export async function extractPipedDirectAudioStream(videoId: string): Promise<st
   }
 }
 
+async function extractPipedDirectVideoCandidates(videoId: string): Promise<ResolvedStreamCandidate[]> {
+  const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const pipedTasks = PIPED_INSTANCES.map(async (instance) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3200);
+    try {
+      const res = await fetch(`${instance}/streams/${cleanId}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15',
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const muxed = pickBestMuxedVideoFormats(data?.videoStreams || []);
+      if (muxed.length > 0) {
+        return muxed.map((m) => ({
+          url: m.url,
+          kind: 'direct' as const,
+          ext: 'mp4' as const,
+          qualityLabel: m.qualityLabel,
+          headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+        }));
+      }
+      throw new Error('No muxed video streams');
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  const invidiousTasks = INVIDIOUS_INSTANCES.map(async (instance) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3400);
+    try {
+      const res = await fetch(`${instance}/api/v1/videos/${cleanId}`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const muxed = pickBestMuxedVideoFormats(data?.formatStreams || []);
+      if (muxed.length > 0) {
+        return muxed.map((m) => ({
+          url: m.url,
+          kind: 'direct' as const,
+          ext: 'mp4' as const,
+          qualityLabel: m.qualityLabel,
+          headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+        }));
+      }
+      throw new Error('No invidious muxed video streams');
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  try {
+    return await Promise.any([...pipedTasks, ...invidiousTasks]);
+  } catch {
+    return [];
+  }
+}
+
 /**
- * ⚡ Stage 3: Converter Mirror Fallback
+ * Converter Mirror Fallback (supports both audio m4a & muxed mp4 video)
  */
-async function extractMirrorAudioStream(
+async function extractMirrorMediaStream(
   cleanId: string,
+  format: 'm4a' | '720' | '360' = 'm4a',
   onProgress?: (progressRatio: number, statusText: string) => void
 ): Promise<string> {
   const youtubeUrl = `https://www.youtube.com/watch?v=${cleanId}`;
   const endpoints = [
-    `https://loader.to/ajax/download.php?format=m4a&url=${encodeURIComponent(youtubeUrl)}`,
-    `https://en.loader.to/ajax/download.php?format=m4a&url=${encodeURIComponent(youtubeUrl)}`,
+    `https://loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(youtubeUrl)}`,
+    `https://en.loader.to/ajax/download.php?format=${format}&url=${encodeURIComponent(youtubeUrl)}`,
   ];
 
   let conversionData: any = null;
@@ -811,17 +1061,20 @@ export async function extractRealYouTubeAudioStream(
   }
 
   // 3. Final converter fallback
-  return extractMirrorAudioStream(cleanId, onProgress);
+  return extractMirrorMediaStream(cleanId, 'm4a', onProgress);
 }
 
 /**
- * Verify downloaded file is genuine audio (not HTML error or empty blob)
+ * Verify downloaded media file is genuine audio/video (not HTML error or empty blob)
  */
-async function verifyAudioFileIntegrity(uri: string): Promise<{ ok: boolean; size: number }> {
+async function verifyMediaFileIntegrity(
+  uri: string,
+  minBytes: number = MIN_AUDIO_BYTES
+): Promise<{ ok: boolean; size: number }> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
     const size = (info as any).size || 0;
-    if (!info.exists || size < MIN_AUDIO_BYTES) {
+    if (!info.exists || size < minBytes) {
       return { ok: false, size };
     }
     const headerSnippet = await FileSystem.readAsStringAsync(uri, { length: 128, position: 0 }).catch(() => '');
@@ -839,6 +1092,217 @@ async function verifyAudioFileIntegrity(uri: string): Promise<{ ok: boolean; siz
   } catch {
     return { ok: false, size: 0 };
   }
+}
+
+async function verifyAudioFileIntegrity(uri: string): Promise<{ ok: boolean; size: number }> {
+  return verifyMediaFileIntegrity(uri, MIN_AUDIO_BYTES);
+}
+
+/**
+ * Persist crisp High-Definition square/HD cover art locally for offline UI & White Widget.
+ */
+async function persistLocalHqArtwork(
+  track: Track,
+  cleanId: string
+): Promise<string> {
+  const artworkTargetUri = `${TRACKS_DIR}${cleanId}_art.jpg`;
+  const remoteArt =
+    getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, track.videoId) ||
+    track.thumbnail ||
+    '';
+
+  try {
+    const squareUri = await resolveLockScreenSquareArtworkAsync(
+      remoteArt,
+      track.title,
+      track.artist,
+      track.videoId
+    ).catch(() => '');
+
+    if (squareUri) {
+      if (squareUri.startsWith('file://')) {
+        await FileSystem.copyAsync({ from: squareUri, to: artworkTargetUri }).catch(() => {});
+        const info = await FileSystem.getInfoAsync(artworkTargetUri).catch(() => ({ exists: false } as any));
+        if (info.exists && (info.size || 0) >= 512) {
+          return artworkTargetUri;
+        }
+      } else if (squareUri.startsWith('http')) {
+        const res = await FileSystem.downloadAsync(squareUri, artworkTargetUri).catch(() => null);
+        if (res?.uri) {
+          const info = await FileSystem.getInfoAsync(res.uri).catch(() => ({ exists: false } as any));
+          if (info.exists && (info.size || 0) >= 512) {
+            return res.uri;
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall through to direct candidate URLs
+  }
+
+  const artCandidates = Array.from(
+    new Set(
+      [
+        remoteArt,
+        track.thumbnail || '',
+        isValidYouTubeId(track.videoId)
+          ? `https://i.ytimg.com/vi/${track.videoId.trim()}/maxresdefault.jpg`
+          : '',
+        isValidYouTubeId(track.videoId)
+          ? `https://i.ytimg.com/vi/${track.videoId.trim()}/hqdefault.jpg`
+          : '',
+      ].filter((u) => Boolean(u && u.startsWith('http')))
+    )
+  );
+
+  for (const artUrl of artCandidates) {
+    try {
+      const res = await FileSystem.downloadAsync(artUrl, artworkTargetUri);
+      if (res?.uri && (!res.status || res.status < 400)) {
+        const info = await FileSystem.getInfoAsync(res.uri).catch(() => ({ exists: false } as any));
+        if (info.exists && (info.size || 0) >= 1024) {
+          return res.uri;
+        }
+      }
+    } catch {
+      // Try next candidate
+    }
+  }
+  return '';
+}
+
+/**
+ * Fast preflight verification: aborts unreachable / HTTP 403 PO-Token-gated streams
+ * in ~150ms before entering file download, keeping only streams that serve real bytes.
+ */
+async function preflightVerifiedCandidates(
+  candidates: ResolvedStreamCandidate[],
+  minBytes: number
+): Promise<ResolvedStreamCandidate[]> {
+  if (candidates.length === 0) return [];
+  const checks = await Promise.allSettled(
+    candidates.map(async (c) => {
+      if (c.url.startsWith('file://') || c.kind === 'hls_m4a' || c.kind === 'hls_mp3') {
+        return c;
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3200);
+      try {
+        const res = await fetch(c.url, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: c.headers || { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const cl = Number(res.headers.get('content-length') || 0);
+        if (cl > 0 && cl < minBytes) {
+          throw new Error(`Content too small (${cl})`);
+        }
+        return c;
+      } finally {
+        controller.abort();
+        clearTimeout(timeout);
+      }
+    })
+  );
+
+  const valid: ResolvedStreamCandidate[] = [];
+  for (const res of checks) {
+    if (res.status === 'fulfilled') {
+      valid.push(res.value);
+    }
+  }
+  return valid;
+}
+
+/**
+ * Shared atomic media candidate downloader with range-scaled progress reporting.
+ */
+async function downloadCandidatesToLocalFile(params: {
+  candidates: ResolvedStreamCandidate[];
+  cleanId: string;
+  mediaKind: 'audio' | 'video';
+  progressStart: number;
+  progressEnd: number;
+  onProgress: (ratio: number, writtenBytes: number, totalBytes: number) => void;
+}): Promise<{ localUri: string; size: number; qualityLabel?: string }> {
+  const { candidates, cleanId, mediaKind, progressStart, progressEnd, onProgress } = params;
+  const tempPartUri = `${TRACKS_DIR}${cleanId}.${mediaKind}.part`;
+  const minBytes = mediaKind === 'video' ? MIN_VIDEO_BYTES : MIN_AUDIO_BYTES;
+  let lastError: any = null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const { url: streamUrl, kind = 'direct', ext, qualityLabel, headers: candidateHeaders } = candidates[i];
+    const resolvedAudioExt = ext || (streamUrl.toLowerCase().includes('.mp3') ? 'mp3' : 'm4a');
+    const targetLocalUri =
+      mediaKind === 'video'
+        ? `${TRACKS_DIR}${cleanId}.mp4`
+        : resolvedAudioExt === 'mp4'
+          ? `${TRACKS_DIR}${cleanId}_aud.mp4`
+          : `${TRACKS_DIR}${cleanId}.${resolvedAudioExt}`;
+
+    onProgress(progressStart, 0, 0);
+
+    try {
+      await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+
+      if (streamUrl.startsWith('file://')) {
+        await FileSystem.copyAsync({ from: streamUrl, to: tempPartUri });
+      } else if (kind === 'hls_m4a' || kind === 'hls_mp3') {
+        await downloadHlsSegmentsToFile(streamUrl, tempPartUri, (pct, written, total) => {
+          const scaled = progressStart + pct * (progressEnd - progressStart);
+          onProgress(Math.min(progressEnd, Math.max(progressStart, scaled)), written, total);
+        });
+      } else {
+        const resumable = FileSystem.createDownloadResumable(
+          streamUrl,
+          tempPartUri,
+          {
+            headers: candidateHeaders || {
+              'User-Agent': MOBILE_SAFARI_USER_AGENT,
+            },
+          },
+          (downloadProgress) => {
+            const expected = downloadProgress.totalBytesExpectedToWrite;
+            const written = downloadProgress.totalBytesWritten;
+            const rawFraction = expected > 0 ? Math.min(written / expected, 1) : 0.45;
+            const scaled = progressStart + rawFraction * (progressEnd - progressStart);
+            onProgress(Math.min(progressEnd, Math.max(progressStart, scaled)), written, expected);
+          }
+        );
+        const result = await resumable.downloadAsync();
+        if (!result?.uri) {
+          throw new Error(`Empty response from source #${i + 1}`);
+        }
+        if ((result as any).status && (result as any).status >= 400) {
+          throw new Error(`HTTP ${(result as any).status} from source #${i + 1}`);
+        }
+      }
+
+      const { ok, size } = await verifyMediaFileIntegrity(tempPartUri, minBytes);
+      if (!ok) {
+        await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+        lastError = new Error(`Downloaded ${mediaKind} file invalid (${(size / 1024).toFixed(1)} KB)`);
+        continue;
+      }
+
+      if (mediaKind === 'audio') {
+        await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.m4a`, { idempotent: true }).catch(() => {});
+        await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.mp3`, { idempotent: true }).catch(() => {});
+        await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}_aud.mp4`, { idempotent: true }).catch(() => {});
+      } else {
+        await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.mp4`, { idempotent: true }).catch(() => {});
+      }
+
+      await FileSystem.moveAsync({ from: tempPartUri, to: targetLocalUri });
+      return { localUri: targetLocalUri, size, qualityLabel };
+    } catch (candidateErr: any) {
+      lastError = candidateErr;
+      await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+    }
+  }
+
+  throw lastError || new Error(`Could not download ${mediaKind} file`);
 }
 
 /**
@@ -866,6 +1330,59 @@ class AudioDownloadService {
     }>
   >();
   private inFlightDownloads = new Map<string, Promise<DownloadedTrack>>();
+  private cachedTracksById = new Map<string, DownloadedTrack>();
+  private hasLoadedManifestCache = false;
+  private manifestPrimePromise: Promise<void> | null = null;
+
+  private syncCacheFromTracks(tracks: DownloadedTrack[]): void {
+    this.cachedTracksById.clear();
+    for (const track of tracks) {
+      if (track?.videoId) {
+        this.cachedTracksById.set(track.videoId, track);
+      }
+    }
+    this.hasLoadedManifestCache = true;
+  }
+
+  private async primeManifestCacheFast(): Promise<void> {
+    if (this.hasLoadedManifestCache) return;
+    if (this.manifestPrimePromise) {
+      await this.manifestPrimePromise;
+      return;
+    }
+
+    this.manifestPrimePromise = (async () => {
+      try {
+        await this.ensureDirectories();
+        let manifestList: DownloadedTrack[] = [];
+
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(MANIFEST_FILE_PATH);
+          if (fileInfo.exists) {
+            const content = await FileSystem.readAsStringAsync(MANIFEST_FILE_PATH);
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) manifestList = parsed;
+          }
+        } catch {}
+
+        if (manifestList.length === 0) {
+          try {
+            const raw = await AsyncStorage.getItem(DEVICE_OFFLINE_MANIFEST_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) manifestList = parsed;
+            }
+          } catch {}
+        }
+
+        this.syncCacheFromTracks(manifestList);
+      } finally {
+        this.manifestPrimePromise = null;
+      }
+    })();
+
+    await this.manifestPrimePromise;
+  }
 
   async ensureDirectories(): Promise<void> {
     try {
@@ -910,12 +1427,28 @@ class AudioDownloadService {
     let hasChanged = false;
 
     for (const track of manifestList) {
-      if (!track?.videoId || !track?.audioLocalUri) {
+      if (!track?.videoId) {
         hasChanged = true;
         continue;
       }
-      const { ok, size } = await verifyAudioFileIntegrity(track.audioLocalUri);
-      if (ok) {
+
+      const audioCheck = track.audioLocalUri
+        ? await verifyMediaFileIntegrity(track.audioLocalUri, MIN_AUDIO_BYTES)
+        : { ok: false, size: 0 };
+      const videoCheck = track.videoLocalUri
+        ? await verifyMediaFileIntegrity(track.videoLocalUri, MIN_VIDEO_BYTES)
+        : { ok: false, size: 0 };
+
+      if (!audioCheck.ok && track.audioLocalUri) {
+        hasChanged = true;
+        await FileSystem.deleteAsync(track.audioLocalUri, { idempotent: true }).catch(() => {});
+      }
+      if (!videoCheck.ok && track.videoLocalUri) {
+        hasChanged = true;
+        await FileSystem.deleteAsync(track.videoLocalUri, { idempotent: true }).catch(() => {});
+      }
+
+      if (audioCheck.ok || videoCheck.ok) {
         let validArtworkUri = track.artworkLocalUri || '';
         if (validArtworkUri) {
           const artInfo = await FileSystem.getInfoAsync(validArtworkUri).catch(() => ({ exists: false } as any));
@@ -923,20 +1456,37 @@ class AudioDownloadService {
             validArtworkUri = '';
           }
         }
+        const resolvedAudioUri = audioCheck.ok ? track.audioLocalUri : '';
+        const resolvedVideoUri = videoCheck.ok ? track.videoLocalUri : undefined;
+        const resolvedMode: DownloadMediaMode =
+          audioCheck.ok && videoCheck.ok ? 'full' : videoCheck.ok ? 'video' : 'audio';
+        const isSharedFile = Boolean(
+          resolvedAudioUri && resolvedVideoUri && resolvedAudioUri === resolvedVideoUri
+        );
+        const combinedBytes = isSharedFile
+          ? videoCheck.size
+          : (audioCheck.ok ? audioCheck.size : 0) + (videoCheck.ok ? videoCheck.size : 0);
+
         validTracks.push({
           ...track,
           artworkLocalUri: validArtworkUri,
-          fileSizeBytes: size,
-          fileSizeMB: `${(size / (1024 * 1024)).toFixed(1)} MB`,
+          audioLocalUri: resolvedAudioUri,
+          videoLocalUri: resolvedVideoUri,
+          mediaType: resolvedMode,
+          audioFileSizeBytes: audioCheck.ok ? (isSharedFile ? 0 : audioCheck.size) : 0,
+          videoFileSizeBytes: videoCheck.ok ? videoCheck.size : 0,
+          fileSizeBytes: combinedBytes,
+          fileSizeMB: `${(combinedBytes / (1024 * 1024)).toFixed(1)} MB`,
         });
       } else {
         hasChanged = true;
-        await FileSystem.deleteAsync(track.audioLocalUri, { idempotent: true }).catch(() => {});
       }
     }
 
     if (hasChanged) {
       await this.saveManifest(validTracks);
+    } else {
+      this.syncCacheFromTracks(validTracks);
     }
 
     return validTracks;
@@ -944,6 +1494,7 @@ class AudioDownloadService {
 
   private async saveManifest(tracks: DownloadedTrack[]): Promise<void> {
     const trimmed = tracks.slice(0, MAX_LOCAL_MANIFEST_ITEMS);
+    this.syncCacheFromTracks(trimmed);
     const json = JSON.stringify(trimmed, null, 2);
     try {
       await FileSystem.writeAsStringAsync(MANIFEST_FILE_PATH, json);
@@ -959,12 +1510,139 @@ class AudioDownloadService {
 
   async getLocalTrack(videoId?: string | null): Promise<DownloadedTrack | null> {
     if (!videoId) return null;
-    const tracks = await this.getDownloadedTracks();
-    const found = tracks.find((t) => t.videoId === videoId);
+
+    if (!this.hasLoadedManifestCache) {
+      await this.primeManifestCacheFast();
+    }
+
+    const found = this.cachedTracksById.get(videoId);
     if (!found) return null;
 
-    const { ok } = await verifyAudioFileIntegrity(found.audioLocalUri);
-    return ok ? found : null;
+    const audioCheck = found.audioLocalUri
+      ? await verifyMediaFileIntegrity(found.audioLocalUri, MIN_AUDIO_BYTES)
+      : { ok: false, size: 0 };
+    const videoCheck = found.videoLocalUri
+      ? await verifyMediaFileIntegrity(found.videoLocalUri, MIN_VIDEO_BYTES)
+      : { ok: false, size: 0 };
+
+    if (!audioCheck.ok && !videoCheck.ok) {
+      this.cachedTracksById.delete(videoId);
+      return null;
+    }
+
+    if (found.artworkLocalUri) {
+      const artInfo = await FileSystem.getInfoAsync(found.artworkLocalUri).catch(() => ({ exists: false } as any));
+      if (!artInfo.exists || (artInfo.size || 0) < 512) {
+        found.artworkLocalUri = '';
+      }
+    }
+
+    const mediaType: DownloadMediaMode =
+      audioCheck.ok && videoCheck.ok ? 'full' : videoCheck.ok ? 'video' : 'audio';
+
+    return {
+      ...found,
+      audioLocalUri: audioCheck.ok ? found.audioLocalUri : '',
+      videoLocalUri: videoCheck.ok ? found.videoLocalUri : undefined,
+      mediaType,
+      audioFileSizeBytes: audioCheck.ok ? audioCheck.size : 0,
+      videoFileSizeBytes: videoCheck.ok ? videoCheck.size : 0,
+    };
+  }
+
+  async probeVideoStream(
+    track: Track,
+    onProgress?: (progressRatio: number, statusText: string) => void
+  ): Promise<{
+    streamUrl: string;
+    candidateUrls: string[];
+    candidates: ResolvedStreamCandidate[];
+    videoQualityLabel: string;
+  }> {
+    const probeKey = `video:${track.videoId || 'unknown'}`;
+    if (this.inFlightProbes.has(probeKey)) {
+      const cached = await this.inFlightProbes.get(probeKey)!;
+      return {
+        streamUrl: cached.streamUrl,
+        candidateUrls: cached.candidateUrls,
+        candidates: cached.candidates,
+        videoQualityLabel: cached.bitrateLabel,
+      };
+    }
+
+    const probePromise = this.executeProbeVideoStream(track, onProgress);
+    this.inFlightProbes.set(probeKey, probePromise);
+    try {
+      const resolved = await probePromise;
+      return {
+        streamUrl: resolved.streamUrl,
+        candidateUrls: resolved.candidateUrls,
+        candidates: resolved.candidates,
+        videoQualityLabel: resolved.bitrateLabel,
+      };
+    } finally {
+      this.inFlightProbes.delete(probeKey);
+    }
+  }
+
+  private async executeProbeVideoStream(
+    track: Track,
+    onProgress?: (progressRatio: number, statusText: string) => void
+  ): Promise<{
+    streamUrl: string;
+    candidateUrls: string[];
+    candidates: ResolvedStreamCandidate[];
+    bitrateLabel: string;
+  }> {
+    const candidates: ResolvedStreamCandidate[] = [];
+    const seenUrls = new Set<string>();
+    const addCandidate = (candidate: ResolvedStreamCandidate) => {
+      if (!candidate.url || seenUrls.has(candidate.url)) return;
+      seenUrls.add(candidate.url);
+      candidates.push(candidate);
+    };
+
+    const rawVid = track.videoId?.trim() || '';
+    if (isValidYouTubeId(rawVid)) {
+      onProgress?.(0.12, 'جاري استخراج الفيديو الأصلي...');
+      const ytVideoRaw = await extractInnerTubeVideoCandidates(rawVid).catch(() => []);
+      const ytVideoVerified = await preflightVerifiedCandidates(ytVideoRaw, MIN_VIDEO_BYTES);
+      for (const c of ytVideoVerified) addCandidate(c);
+
+      if (candidates.length === 0) {
+        onProgress?.(0.2, 'جاري فحص خوادم الفيديو البديلة...');
+        const mirrorVideoRaw = await extractPipedDirectVideoCandidates(rawVid).catch(() => []);
+        const mirrorVideoVerified = await preflightVerifiedCandidates(mirrorVideoRaw, MIN_VIDEO_BYTES);
+        for (const c of mirrorVideoVerified) addCandidate(c);
+      }
+
+      if (candidates.length === 0) {
+        onProgress?.(0.26, 'جاري تجهيز ملف الفيديو MP4...');
+        const mirrorMp4 = await extractMirrorMediaStream(rawVid, '360', onProgress).catch(() => '');
+        if (mirrorMp4) {
+          addCandidate({
+            url: mirrorMp4,
+            kind: 'direct',
+            ext: 'mp4',
+            qualityLabel: '360p MP4',
+            headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+          });
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      throw new Error('تعذر العثور على مصدر فيديو متاح لهذا المقطع حالياً.');
+    }
+
+    onProgress?.(0.32, 'تم تجهيز مصادر الفيديو الأصلية');
+
+    return {
+      streamUrl: candidates[0].url,
+      candidateUrls: candidates.map((c) => c.url),
+      candidates,
+      bitrateLabel: candidates[0].qualityLabel || 'HD MP4',
+    };
   }
 
   async probeAudioStream(
@@ -1024,26 +1702,64 @@ class AudioDownloadService {
       });
     }
 
-    // Primary Full-Song Source: Smart SoundCloud Resolver (Progressive MP3 & AAC fMP4 HLS)
-    if (candidates.length === 0) {
-      onProgress?.(0.14, 'جاري البحث عن أعلى جودة صوتية...');
-      const scCandidates = await extractSoundCloudAudioCandidates(track).catch(() => []);
-      for (const c of scCandidates) {
+    // 1. Direct InnerTube adaptive audio (verified no-403 preflight)
+    if (candidates.length === 0 && isValidYouTubeId(track.videoId)) {
+      const cleanId = track.videoId.trim();
+      onProgress?.(0.10, 'جاري فحص النسخة الصوتية الأصلية...');
+      const ytAudioRaw = await extractInnerTubeAudioCandidates(cleanId).catch(() => []);
+      const ytAudioVerified = await preflightVerifiedCandidates(ytAudioRaw, MIN_AUDIO_BYTES);
+      for (const c of ytAudioVerified) {
         addCandidate(c);
       }
     }
 
-    // Secondary Fast Mirror Check: Piped & Invidious (if reachable)
+    // 2. Exact-Track Mirrors: Piped & Invidious audio for exact videoId
     if (candidates.length === 0 && isValidYouTubeId(track.videoId)) {
       const cleanId = track.videoId.trim();
-      const pipedUrl = await extractPipedDirectAudioStream(cleanId);
+      onProgress?.(0.16, 'جاري الاتصال بمصدر الصوت المباشر...');
+      const pipedUrl = await extractPipedDirectAudioStream(cleanId).catch(() => null);
       if (pipedUrl) {
+        const verified = await preflightVerifiedCandidates(
+          [{ url: pipedUrl, kind: 'direct', ext: 'm4a', headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } }],
+          MIN_AUDIO_BYTES
+        );
+        for (const c of verified) addCandidate(c);
+      }
+    }
+
+    // 3. Exact-Track Converter Mirror (exact videoId -> m4a)
+    if (candidates.length === 0 && isValidYouTubeId(track.videoId)) {
+      const cleanId = track.videoId.trim();
+      const mirrorUrl = await extractMirrorMediaStream(cleanId, 'm4a', onProgress).catch(() => '');
+      if (mirrorUrl) {
+        const verified = await preflightVerifiedCandidates(
+          [{ url: mirrorUrl, kind: 'direct', ext: 'm4a', headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT } }],
+          MIN_AUDIO_BYTES
+        );
+        for (const c of verified) addCandidate(c);
+      }
+    }
+
+    // 4. Guaranteed Exact-Track Progressive MP4 Audio+Video (ANDROID itag 18, HTTP 200 verified end-to-end)
+    if (candidates.length === 0 && isValidYouTubeId(track.videoId)) {
+      const cleanId = track.videoId.trim();
+      onProgress?.(0.22, 'جاري تجهيز البث الصوتي المباشر...');
+      const ytMuxRaw = await extractInnerTubeVideoCandidates(cleanId).catch(() => []);
+      const ytMuxVerified = await preflightVerifiedCandidates(ytMuxRaw, MIN_AUDIO_BYTES);
+      for (const c of ytMuxVerified) {
         addCandidate({
-          url: pipedUrl,
-          kind: 'direct',
-          ext: 'm4a',
-          headers: { 'User-Agent': MOBILE_SAFARI_USER_AGENT },
+          ...c,
+          ext: 'mp4',
         });
+      }
+    }
+
+    // 5. Last-Resort High-Threshold SoundCloud Fallback ONLY when all YouTube exact sources failed
+    if (candidates.length === 0) {
+      onProgress?.(0.28, 'جاري البحث عن مصدر بديل مطابق...');
+      const scCandidates = await extractSoundCloudAudioCandidates(track).catch(() => []);
+      for (const c of scCandidates) {
+        addCandidate(c);
       }
     }
 
@@ -1062,11 +1778,12 @@ class AudioDownloadService {
   }
 
   /**
-   * 📥 Single-flight atomic track download to device storage + lightweight cloud catalog metadata sync
+   * Single-flight atomic track download supporting 'audio' (Music Only), 'video' (Video Only),
+   * or 'full' (Music + Video), plus incremental upgrades without re-downloading existing media.
    */
   async downloadTrack(
     track: Track,
-    quality: AudioQualityOption = 'auto',
+    qualityOrOptions: AudioQualityOption | DownloadTrackOptions = 'auto',
     onProgressUpdate?: (progress: number) => void
   ): Promise<DownloadedTrack> {
     const videoId = track.videoId || String((track as any).id || '').trim();
@@ -1074,12 +1791,27 @@ class AudioDownloadService {
       throw new Error('Track must have a valid videoId to download.');
     }
 
+    const opts: DownloadTrackOptions =
+      typeof qualityOrOptions === 'string'
+        ? { quality: qualityOrOptions, mode: 'audio', onProgressUpdate }
+        : {
+            quality: qualityOrOptions?.quality || 'auto',
+            mode: qualityOrOptions?.mode || 'audio',
+            onProgressUpdate: qualityOrOptions?.onProgressUpdate || onProgressUpdate,
+          };
+
     const existingPromise = this.inFlightDownloads.get(videoId);
     if (existingPromise) {
       return existingPromise;
     }
 
-    const downloadPromise = this.executeDownloadTrack(track, videoId, quality, onProgressUpdate);
+    const downloadPromise = this.executeDownloadTrack(
+      track,
+      videoId,
+      opts.quality || 'auto',
+      opts.mode || 'audio',
+      opts.onProgressUpdate
+    );
     this.inFlightDownloads.set(videoId, downloadPromise);
     try {
       return await downloadPromise;
@@ -1092,6 +1824,7 @@ class AudioDownloadService {
     track: Track,
     videoId: string,
     quality: AudioQualityOption,
+    mode: DownloadMediaMode,
     onProgressUpdate?: (progress: number) => void
   ): Promise<DownloadedTrack> {
     await this.ensureDirectories();
@@ -1108,156 +1841,274 @@ class AudioDownloadService {
 
     updateStoreProgress({
       videoId,
-      progress: 0.05,
+      progress: 0.04,
       totalBytes: 0,
       writtenBytes: 0,
+      downloadingMode: mode,
       status: 'probing',
     });
 
     try {
-      const { candidates, bitrateLabel } = await this.probeAudioStream(
-        track,
-        quality,
-        (ratio) => {
+      const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const existing = await this.getLocalTrack(videoId);
+
+      const needAudio = (mode === 'audio' || mode === 'full') && !existing?.audioLocalUri;
+      const needVideo = (mode === 'video' || mode === 'full') && !existing?.videoLocalUri;
+
+      const existingArtInfo = existing?.artworkLocalUri
+        ? await FileSystem.getInfoAsync(existing.artworkLocalUri).catch(() => ({ exists: false } as any))
+        : null;
+      const hasCrispExistingArt = Boolean(
+        existingArtInfo?.exists && ((existingArtInfo as any).size || 0) >= 15 * 1024
+      );
+      const artPromise = hasCrispExistingArt
+        ? Promise.resolve(existing!.artworkLocalUri)
+        : persistLocalHqArtwork(track, cleanId);
+
+      let audioLocalUri = existing?.audioLocalUri || '';
+      let audioSizeBytes = existing?.audioFileSizeBytes || 0;
+      let bitrateLabel = existing?.bitrateLabel || 'AAC Master';
+
+      let videoLocalUri = existing?.videoLocalUri;
+      let videoSizeBytes = existing?.videoFileSizeBytes || 0;
+      let videoQualityLabel = existing?.videoQualityLabel;
+
+      const bothToFetch = needAudio && needVideo;
+
+      // Upgrade case 1: Audio-Only already saved as `_aud.mp4` -> 0ms promote to Full `.mp4`!
+      if (
+        !needAudio &&
+        needVideo &&
+        audioLocalUri.endsWith('_aud.mp4')
+      ) {
+        const promotedVideoUri = `${TRACKS_DIR}${cleanId}.mp4`;
+        await FileSystem.deleteAsync(promotedVideoUri, { idempotent: true }).catch(() => {});
+        await FileSystem.moveAsync({ from: audioLocalUri, to: promotedVideoUri });
+        const promotedInfo = await verifyMediaFileIntegrity(promotedVideoUri, MIN_VIDEO_BYTES);
+        audioLocalUri = promotedVideoUri;
+        videoLocalUri = promotedVideoUri;
+        audioSizeBytes = 0;
+        videoSizeBytes = promotedInfo.size || existing?.fileSizeBytes || 0;
+        videoQualityLabel = videoQualityLabel || '360p MP4';
+      } else if (bothToFetch) {
+        // Fresh Full (Music + Video) download
+        const audioProbe = await this.probeAudioStream(track, quality, (ratio) => {
           updateStoreProgress({
             videoId,
-            progress: Math.min(0.32, Math.max(0.05, ratio)),
+            progress: Math.min(0.18, Math.max(0.05, ratio * 0.55)),
             totalBytes: 0,
             writtenBytes: 0,
+            downloadingMode: mode,
             status: 'probing',
           });
-        }
-      );
-
-      const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const artworkTargetUri = `${TRACKS_DIR}${cleanId}_art.jpg`;
-      let verifiedArtworkUri = '';
-
-      // Download cover art locally in parallel with probing completion
-      const remoteArt = getUniversalStudioArtwork(track.thumbnail, track.title, track.artist, videoId) || track.thumbnail;
-      const artPromise = (async () => {
-        if (remoteArt && remoteArt.startsWith('http')) {
-          try {
-            const artRes = await FileSystem.downloadAsync(remoteArt, artworkTargetUri);
-            if (artRes?.uri) {
-              const artInfo = await FileSystem.getInfoAsync(artRes.uri);
-              if (artInfo.exists && ((artInfo as any).size || 0) >= 512) {
-                verifiedArtworkUri = artRes.uri;
-              }
-            }
-          } catch {
-            // Artwork cache optional
-          }
-        }
-      })();
-
-      let audioLocalUri = `${TRACKS_DIR}${cleanId}.m4a`;
-      const tempPartUri = `${TRACKS_DIR}${cleanId}.audio.part`;
-
-      let finalSizeBytes = 0;
-      let downloadSucceeded = false;
-      let lastError: any = null;
-
-      for (let i = 0; i < candidates.length; i++) {
-        const { url: streamUrl, kind = 'direct', ext, headers: candidateHeaders } = candidates[i];
-        const targetExt = ext || (streamUrl.toLowerCase().includes('.mp3') ? 'mp3' : 'm4a');
-        const targetLocalUri = `${TRACKS_DIR}${cleanId}.${targetExt}`;
-
-        updateStoreProgress({
-          videoId,
-          progress: 0.35,
-          totalBytes: 0,
-          writtenBytes: 0,
-          status: 'downloading',
         });
+        bitrateLabel = audioProbe.bitrateLabel;
 
-        try {
-          await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+        const firstAudioExt = audioProbe.candidates[0]?.ext;
+        if (firstAudioExt === 'mp4') {
+          // Single progressive MP4 (contains both Video + AAC Audio) -> 1 download, 0ms instant Music<->Video sync!
+          const videoProbe = await this.probeVideoStream(track, (ratio) => {
+            updateStoreProgress({
+              videoId,
+              progress: Math.min(0.30, 0.18 + ratio * 0.12),
+              totalBytes: 0,
+              writtenBytes: 0,
+              downloadingMode: mode,
+              status: 'probing',
+            });
+          });
+          const mergedCandidates =
+            videoProbe.candidates.length > 0 ? videoProbe.candidates : audioProbe.candidates;
+          videoQualityLabel = videoProbe.videoQualityLabel || mergedCandidates[0]?.qualityLabel || '360p MP4';
 
-          if (streamUrl.startsWith('file://')) {
-            await FileSystem.copyAsync({ from: streamUrl, to: tempPartUri });
-          } else if (kind === 'hls_m4a' || kind === 'hls_mp3') {
-            await downloadHlsSegmentsToFile(streamUrl, tempPartUri, (pct, written, total) => {
+          const fullRes = await downloadCandidatesToLocalFile({
+            candidates: mergedCandidates,
+            cleanId,
+            mediaKind: 'video',
+            progressStart: 0.32,
+            progressEnd: 0.96,
+            onProgress: (ratio, written, total) => {
               updateStoreProgress({
                 videoId,
-                progress: pct,
+                progress: ratio,
                 totalBytes: total,
                 writtenBytes: written,
+                downloadingMode: mode,
                 status: 'downloading',
               });
+            },
+          });
+          videoLocalUri = fullRes.localUri;
+          audioLocalUri = fullRes.localUri;
+          videoSizeBytes = fullRes.size;
+          audioSizeBytes = 0;
+          if (fullRes.qualityLabel) videoQualityLabel = fullRes.qualityLabel;
+        } else {
+          // Distinct compact audio (.m4a/.mp3) + video (.mp4)
+          const audioRes = await downloadCandidatesToLocalFile({
+            candidates: audioProbe.candidates,
+            cleanId,
+            mediaKind: 'audio',
+            progressStart: 0.20,
+            progressEnd: 0.48,
+            onProgress: (ratio, written, total) => {
+              updateStoreProgress({
+                videoId,
+                progress: ratio,
+                totalBytes: total,
+                writtenBytes: written,
+                downloadingMode: mode,
+                status: 'downloading',
+              });
+            },
+          });
+          audioLocalUri = audioRes.localUri;
+          audioSizeBytes = audioRes.size;
+
+          const videoProbe = await this.probeVideoStream(track, (ratio) => {
+            updateStoreProgress({
+              videoId,
+              progress: Math.min(0.62, 0.50 + ratio * 0.12),
+              totalBytes: 0,
+              writtenBytes: 0,
+              downloadingMode: mode,
+              status: 'probing',
             });
+          });
+          videoQualityLabel = videoProbe.videoQualityLabel;
+
+          const videoRes = await downloadCandidatesToLocalFile({
+            candidates: videoProbe.candidates,
+            cleanId,
+            mediaKind: 'video',
+            progressStart: 0.64,
+            progressEnd: 0.96,
+            onProgress: (ratio, written, total) => {
+              updateStoreProgress({
+                videoId,
+                progress: ratio,
+                totalBytes: total,
+                writtenBytes: written,
+                downloadingMode: mode,
+                status: 'downloading',
+              });
+            },
+          });
+          videoLocalUri = videoRes.localUri;
+          videoSizeBytes = videoRes.size;
+          if (videoRes.qualityLabel) videoQualityLabel = videoRes.qualityLabel;
+        }
+      } else {
+        if (needAudio) {
+          const audioProbe = await this.probeAudioStream(track, quality, (ratio) => {
+            updateStoreProgress({
+              videoId,
+              progress: Math.min(0.30, Math.max(0.05, ratio)),
+              totalBytes: 0,
+              writtenBytes: 0,
+              downloadingMode: mode,
+              status: 'probing',
+            });
+          });
+          bitrateLabel = audioProbe.bitrateLabel;
+
+          // Upgrade case 2: Video Only already downloaded & audio fell back to same MP4 -> unlock in 0ms!
+          if (videoLocalUri && audioProbe.candidates[0]?.ext === 'mp4') {
+            audioLocalUri = videoLocalUri;
+            audioSizeBytes = 0;
           } else {
-            const resumable = FileSystem.createDownloadResumable(
-              streamUrl,
-              tempPartUri,
-              {
-                headers: candidateHeaders || {
-                  'User-Agent': MOBILE_SAFARI_USER_AGENT,
-                },
-              },
-              (downloadProgress) => {
-                const expected = downloadProgress.totalBytesExpectedToWrite;
-                const written = downloadProgress.totalBytesWritten;
-                const pct = expected > 0 ? Math.min(0.35 + (written / expected) * 0.63, 0.98) : 0.62;
+            const audioRes = await downloadCandidatesToLocalFile({
+              candidates: audioProbe.candidates,
+              cleanId,
+              mediaKind: 'audio',
+              progressStart: 0.32,
+              progressEnd: 0.96,
+              onProgress: (ratio, written, total) => {
                 updateStoreProgress({
                   videoId,
-                  progress: pct,
-                  totalBytes: expected,
+                  progress: ratio,
+                  totalBytes: total,
                   writtenBytes: written,
+                  downloadingMode: mode,
                   status: 'downloading',
                 });
-              }
-            );
-            const result = await resumable.downloadAsync();
-            if (!result?.uri) {
-              throw new Error(`Empty response from source #${i + 1}`);
-            }
-            if ((result as any).status && (result as any).status >= 400) {
-              throw new Error(`HTTP ${(result as any).status} from source #${i + 1}`);
-            }
+              },
+            });
+            audioLocalUri = audioRes.localUri;
+            audioSizeBytes = audioRes.size;
           }
+        }
 
-          const { ok, size } = await verifyAudioFileIntegrity(tempPartUri);
-          if (!ok) {
-            await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
-            lastError = new Error(`Downloaded file invalid (${(size / 1024).toFixed(1)} KB)`);
-            continue;
-          }
+        if (needVideo) {
+          const videoProbe = await this.probeVideoStream(track, (ratio) => {
+            updateStoreProgress({
+              videoId,
+              progress: Math.min(0.30, Math.max(0.06, ratio)),
+              totalBytes: 0,
+              writtenBytes: 0,
+              downloadingMode: mode,
+              status: 'probing',
+            });
+          });
+          videoQualityLabel = videoProbe.videoQualityLabel;
 
-          // Atomic swap temp -> final path (remove any alternate .m4a / .mp3 extension first)
-          await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.m4a`, { idempotent: true }).catch(() => {});
-          await FileSystem.deleteAsync(`${TRACKS_DIR}${cleanId}.mp3`, { idempotent: true }).catch(() => {});
-          await FileSystem.moveAsync({ from: tempPartUri, to: targetLocalUri });
-          audioLocalUri = targetLocalUri;
-          finalSizeBytes = size;
-          downloadSucceeded = true;
-          break;
-        } catch (candidateErr: any) {
-          lastError = candidateErr;
-          await FileSystem.deleteAsync(tempPartUri, { idempotent: true }).catch(() => {});
+          const videoRes = await downloadCandidatesToLocalFile({
+            candidates: videoProbe.candidates,
+            cleanId,
+            mediaKind: 'video',
+            progressStart: 0.32,
+            progressEnd: 0.96,
+            onProgress: (ratio, written, total) => {
+              updateStoreProgress({
+                videoId,
+                progress: ratio,
+                totalBytes: total,
+                writtenBytes: written,
+                downloadingMode: mode,
+                status: 'downloading',
+              });
+            },
+          });
+          videoLocalUri = videoRes.localUri;
+          videoSizeBytes = videoRes.size;
+          if (videoRes.qualityLabel) videoQualityLabel = videoRes.qualityLabel;
         }
       }
 
-      // Wait briefly for artwork cache before saving manifest
-      await Promise.race([artPromise, new Promise((r) => setTimeout(r, 1500))]);
+      const verifiedArtworkUri = await Promise.race([
+        artPromise,
+        new Promise<string>((r) => setTimeout(() => r(''), 2200)),
+      ]);
 
-      if (!downloadSucceeded || finalSizeBytes < MIN_AUDIO_BYTES) {
-        throw lastError || new Error('تعذر تحميل الملف الصوتي بشكل سليم.');
+      const resolvedMode: DownloadMediaMode =
+        audioLocalUri && videoLocalUri ? 'full' : videoLocalUri ? 'video' : 'audio';
+      const isSharedFile = Boolean(audioLocalUri && videoLocalUri && audioLocalUri === videoLocalUri);
+      const combinedSizeBytes = isSharedFile
+        ? videoSizeBytes
+        : (audioLocalUri ? audioSizeBytes : 0) + (videoLocalUri ? videoSizeBytes : 0);
+
+      if (combinedSizeBytes < MIN_AUDIO_BYTES) {
+        throw new Error('تعذر حفظ الملف بشكل سليم على ذاكرة الهاتف.');
       }
 
-      const sizeMB = `${(finalSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+      const sizeMB = `${(combinedSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
       const newDownloadedTrack: DownloadedTrack = {
         videoId,
-        title: track.title || 'Track',
-        artist: track.artist || 'Artist',
-        album: track.album,
-        thumbnail: track.thumbnail || '',
-        artworkLocalUri: verifiedArtworkUri,
+        title: track.title || existing?.title || 'Track',
+        artist: track.artist || existing?.artist || 'Artist',
+        album: track.album || existing?.album,
+        thumbnail: track.thumbnail || existing?.thumbnail || '',
+        artworkLocalUri: verifiedArtworkUri || existing?.artworkLocalUri || '',
         audioLocalUri,
-        duration: track.duration || 180000,
+        videoLocalUri,
+        mediaType: resolvedMode,
+        duration: track.duration || existing?.duration || 180000,
         quality,
         bitrateLabel,
-        fileSizeBytes: finalSizeBytes,
+        videoQualityLabel,
+        audioFileSizeBytes: audioSizeBytes,
+        videoFileSizeBytes: videoSizeBytes,
+        fileSizeBytes: combinedSizeBytes,
         fileSizeMB: sizeMB,
         downloadedAt: Date.now(),
       };
@@ -1269,18 +2120,21 @@ class AudioDownloadService {
       ];
       await this.saveManifest(updatedList);
 
-      // Sync lightweight track metadata (no audio file) to user's Firestore catalog
-      // so logging in on another phone shows previously downloaded tracks to re-download
+      // Sync lightweight track metadata (no media file) to user's Firestore catalog
       const currentUid = auth.currentUser?.uid;
       if (currentUid) {
-        addFirebaseDownloadedCatalogItem(currentUid, newDownloadedTrack).catch(() => {});
+        addFirebaseDownloadedCatalogItem(currentUid, {
+          ...newDownloadedTrack,
+          thumbnail: track.thumbnail || newDownloadedTrack.thumbnail,
+        }).catch(() => {});
       }
 
       updateStoreProgress({
         videoId,
         progress: 1.0,
-        totalBytes: finalSizeBytes,
-        writtenBytes: finalSizeBytes,
+        totalBytes: combinedSizeBytes,
+        writtenBytes: combinedSizeBytes,
+        downloadingMode: resolvedMode,
         status: 'completed',
       });
 
@@ -1302,6 +2156,7 @@ class AudioDownloadService {
         progress: 0,
         totalBytes: 0,
         writtenBytes: 0,
+        downloadingMode: mode,
         status: 'error',
         error: error?.message || 'Download failed',
       });
@@ -1317,13 +2172,75 @@ class AudioDownloadService {
     }
   }
 
-  async deleteDownloadedTrack(videoId: string): Promise<boolean> {
+  async deleteDownloadedTrack(
+    videoId: string,
+    removeMode: 'audio' | 'video' | 'all' = 'all'
+  ): Promise<boolean> {
     try {
       const currentList = await this.getDownloadedTracks();
       const target = currentList.find((t) => t.videoId === videoId);
       if (!target) return false;
 
-      await FileSystem.deleteAsync(target.audioLocalUri, { idempotent: true }).catch(() => {});
+      const cleanId = videoId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const isSharedFile = Boolean(
+        target.audioLocalUri && target.videoLocalUri && target.audioLocalUri === target.videoLocalUri
+      );
+
+      if (removeMode === 'video' && target.videoLocalUri && target.audioLocalUri) {
+        let keptAudioUri = target.audioLocalUri;
+        let audioSize = target.audioFileSizeBytes || target.fileSizeBytes || 0;
+        if (isSharedFile) {
+          // Move shared .mp4 -> _aud.mp4 so Video UI turns off while Music Audio stays intact offline
+          const audMp4 = `${TRACKS_DIR}${cleanId}_aud.mp4`;
+          await FileSystem.deleteAsync(audMp4, { idempotent: true }).catch(() => {});
+          await FileSystem.moveAsync({ from: target.videoLocalUri, to: audMp4 });
+          keptAudioUri = audMp4;
+          audioSize = target.videoFileSizeBytes || target.fileSizeBytes || 0;
+        } else {
+          await FileSystem.deleteAsync(target.videoLocalUri, { idempotent: true }).catch(() => {});
+        }
+        const downgraded: DownloadedTrack = {
+          ...target,
+          audioLocalUri: keptAudioUri,
+          audioFileSizeBytes: audioSize,
+          videoLocalUri: undefined,
+          videoFileSizeBytes: 0,
+          videoQualityLabel: undefined,
+          mediaType: 'audio',
+          fileSizeBytes: audioSize,
+          fileSizeMB: `${(audioSize / (1024 * 1024)).toFixed(1)} MB`,
+        };
+        const updatedList = currentList.map((t) => (t.videoId === videoId ? downgraded : t));
+        await this.saveManifest(updatedList);
+        await useDownloadStore.getState().loadManifest();
+        return true;
+      }
+
+      if (removeMode === 'audio' && target.audioLocalUri && target.videoLocalUri) {
+        if (!isSharedFile) {
+          await FileSystem.deleteAsync(target.audioLocalUri, { idempotent: true }).catch(() => {});
+        }
+        const videoSize = target.videoFileSizeBytes || target.fileSizeBytes || 0;
+        const downgraded: DownloadedTrack = {
+          ...target,
+          audioLocalUri: '',
+          audioFileSizeBytes: 0,
+          mediaType: 'video',
+          fileSizeBytes: videoSize,
+          fileSizeMB: `${(videoSize / (1024 * 1024)).toFixed(1)} MB`,
+        };
+        const updatedList = currentList.map((t) => (t.videoId === videoId ? downgraded : t));
+        await this.saveManifest(updatedList);
+        await useDownloadStore.getState().loadManifest();
+        return true;
+      }
+
+      if (target.audioLocalUri) {
+        await FileSystem.deleteAsync(target.audioLocalUri, { idempotent: true }).catch(() => {});
+      }
+      if (target.videoLocalUri) {
+        await FileSystem.deleteAsync(target.videoLocalUri, { idempotent: true }).catch(() => {});
+      }
       if (target.artworkLocalUri) {
         await FileSystem.deleteAsync(target.artworkLocalUri, { idempotent: true }).catch(() => {});
       }
@@ -1355,6 +2272,7 @@ class AudioDownloadService {
         await FileSystem.deleteAsync(DOWNLOAD_BASE_DIR, { idempotent: true });
       }
       await AsyncStorage.removeItem(DEVICE_OFFLINE_MANIFEST_KEY);
+      this.syncCacheFromTracks([]);
       await this.ensureDirectories();
       await useDownloadStore.getState().loadManifest();
       return true;
@@ -1366,3 +2284,22 @@ class AudioDownloadService {
 }
 
 export const downloadService = new AudioDownloadService();
+
+/**
+ * Shared queue mapper ensuring Audio Only, Video Only, and Full offline items
+ * map consistently across Home, Library, Search, and Offline Queues.
+ */
+export function downloadedTrackToQueueTrack(d: DownloadedTrack): Track {
+  const mode = resolveDownloadedMediaMode(d);
+  return {
+    videoId: d.videoId,
+    title: d.title,
+    artist: d.artist,
+    album: d.album,
+    thumbnail: d.artworkLocalUri || d.thumbnail,
+    audioUrl: d.audioLocalUri || d.videoLocalUri,
+    videoUrl: d.videoLocalUri,
+    offlineMode: mode,
+    duration: d.duration,
+  };
+}

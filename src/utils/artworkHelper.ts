@@ -365,6 +365,9 @@ export async function resolveLockScreenSquareArtworkAsync(
 ): Promise<string> {
   const cleanTitle = (title || '').toLowerCase().trim();
   const cleanArtist = (artist || '').toLowerCase().trim();
+  if (thumbnail && typeof thumbnail === 'string' && thumbnail.trim().startsWith('file://')) {
+    return thumbnail.trim();
+  }
   const resolvedVid = videoId || (thumbnail && thumbnail.includes('/vi/') ? thumbnail.split('/vi/')[1]?.split('/')[0] : null);
   const cacheKey = resolvedVid || (cleanArtist && cleanTitle ? `${cleanArtist}::${cleanTitle}` : null);
 

@@ -25,7 +25,7 @@ import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useTheme } from '../theme/ThemeContext';
 import { useNetworkStore } from '../services/networkService';
-import { useDownloadStore } from '../services/downloadService';
+import { useDownloadStore, downloadedTrackToQueueTrack } from '../services/downloadService';
 import { CURATED_TRACKS, searchCuratedMusic } from '../data/curatedMusic';
 import {
   searchUnifiedMusicCatalog,
@@ -242,9 +242,7 @@ export const MusicSearch = ({ route }: any) => {
   const offlineReadyTracks = useMemo(
     () =>
       downloadedTracks.map((d) => ({
-        ...d,
-        thumbnail: d.artworkLocalUri || d.thumbnail,
-        audioUrl: d.audioLocalUri,
+        ...downloadedTrackToQueueTrack(d),
         durationFormatted: `${Math.floor((d.duration || 180000) / 60000)}:${String(
           Math.floor(((d.duration || 180000) % 60000) / 1000)
         ).padStart(2, '0')}`,
@@ -752,9 +750,12 @@ export const MusicSearch = ({ route }: any) => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (query.trim()) handleCommitSearch(query);
           if (isCurrent) {
+            if (!useAudioStore.getState().isPlaying) {
+              playTrack(item, results?.tracks || [item], index, 'Search');
+            }
             setPlayerModalVisible(true);
           } else {
-            playTrack(item, results?.tracks || [], index, 'Search');
+            playTrack(item, results?.tracks || [item], index, 'Search');
             setPlayerModalVisible(true);
           }
         }}
@@ -827,9 +828,14 @@ export const MusicSearch = ({ route }: any) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               if (query.trim()) handleCommitSearch(query);
               if (isCurrent) {
-                togglePlay();
+                const s = useAudioStore.getState();
+                if (!s.isPlaying && s.activeEngine === 'youtube' && s.positionMillis <= 1200) {
+                  playTrack(item, results?.tracks || [item], index, 'Search');
+                } else {
+                  togglePlay();
+                }
               } else {
-                playTrack(item, results?.tracks || [], index, 'Search');
+                playTrack(item, results?.tracks || [item], index, 'Search');
               }
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

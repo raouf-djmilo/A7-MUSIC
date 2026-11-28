@@ -233,7 +233,7 @@ export const CoverFlowMusicCarousel: React.FC<CoverFlowMusicCarouselProps> = Rea
         if (currentTrack?.videoId !== tappedTrack.videoId) {
           playTrack(tappedTrack, tracks, clampedIdx, 'Dashboard');
         } else if (!useAudioStore.getState().isPlaying) {
-          useAudioStore.getState().resumeTrack();
+          playTrack(tappedTrack, tracks, clampedIdx, 'Dashboard');
         }
         setPlayerModalVisible(true);
       } else {

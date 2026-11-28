@@ -21,7 +21,7 @@ import { LiquidGlassSurface } from '../../components/LiquidGlassSurface';
 import { DynamicHomeSections, musicDnaService } from '../../services/musicDnaService';
 import { promptForRegionAccessIfNeeded } from '../../services/regionService';
 import { useNetworkStore } from '../../services/networkService';
-import { useDownloadStore } from '../../services/downloadService';
+import { useDownloadStore, downloadedTrackToQueueTrack } from '../../services/downloadService';
 import { getUniversalStudioArtworkSource } from '../../utils/artworkHelper';
 
 import { MusicDataEngine, TimeContextInfo } from './engines/musicData.engine';
@@ -65,12 +65,7 @@ export const MusicScreenOrchestrator: React.FC<MusicScreenOrchestratorProps> = (
   const isAr = useLanguageStore((s) => s.language) === 'ar';
 
   const offlineReadyTracks: Track[] = useMemo(
-    () =>
-      downloadedTracks.map((d) => ({
-        ...d,
-        thumbnail: d.artworkLocalUri || d.thumbnail,
-        audioUrl: d.audioLocalUri,
-      })),
+    () => downloadedTracks.map(downloadedTrackToQueueTrack),
     [downloadedTracks]
   );
 

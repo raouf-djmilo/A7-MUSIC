@@ -26,6 +26,58 @@ class NativeAudioService {
   private listeners: Array<() => void> = [];
   private currentUri: string | null = null;
   private activeEngine: 'video' | 'av' | 'none' = 'none';
+  private playerSubscribers = new Set<(player: any) => void>();
+
+  private notifyPlayerSubscribers() {
+    for (const cb of this.playerSubscribers) {
+      try {
+        cb(this.videoPlayer);
+      } catch {}
+    }
+  }
+
+  getVideoPlayer(): any {
+    return this.videoPlayer;
+  }
+
+  getCurrentUri(): string | null {
+    return this.currentUri;
+  }
+
+  subscribeVideoPlayer(cb: (player: any) => void): () => void {
+    this.playerSubscribers.add(cb);
+    try {
+      cb(this.videoPlayer);
+    } catch {}
+    return () => {
+      this.playerSubscribers.delete(cb);
+    };
+  }
+
+  async swapMediaUri(
+    newUri: string,
+    initialPositionSec: number = 0,
+    shouldPlay: boolean = true,
+    metadata?: { title?: string; artist?: string; artwork?: string }
+  ): Promise<boolean> {
+    if (!newUri) return false;
+    if (this.currentUri === newUri && this.videoPlayer) {
+      if (initialPositionSec >= 0) {
+        await this.seekTo(initialPositionSec * 1000);
+      }
+      if (shouldPlay) {
+        await this.resume();
+      } else {
+        await this.pause();
+      }
+      return true;
+    }
+    await this.play(newUri, initialPositionSec, metadata);
+    if (!shouldPlay) {
+      await this.pause();
+    }
+    return true;
+  }
 
   /**
    * Safely checks and loads expo-video without top-level crash
@@ -169,6 +221,7 @@ class NativeAudioService {
         player.play();
         this.videoPlayer = player;
         this.activeEngine = 'video';
+        this.notifyPlayerSubscribers();
 
         const store = getAudioStore();
         if (store) {
@@ -343,6 +396,7 @@ class NativeAudioService {
 
       this.currentUri = null;
       this.activeEngine = 'none';
+      this.notifyPlayerSubscribers();
     } catch (e) {
       console.warn('[NativeAudioService] stop error:', e);
     }

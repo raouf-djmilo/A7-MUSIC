@@ -31,8 +31,8 @@ export const LoginScreen = ({ navigation }: any) => {
   const topPadding = Math.max(insets.top, Platform.OS === 'ios' ? 48 : 24);
   const bottomPadding = Math.max(insets.bottom, 16);
 
-  const identifierRef = useRef<any>(null);
-  const passwordRef = useRef<any>(null);
+  const identifierRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -568,6 +568,8 @@ const styles = StyleSheet.create({
   loginBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.4,
     fontWeight: '700',
     textAlign: 'center',
     writingDirection: 'rtl',

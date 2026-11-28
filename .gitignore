@@ -6,9 +6,12 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Builds
+# Builds & Local Export Caches
 *.apk
 *.ipa
 *.aab
 node_modules
 .expo/
+dist/
+dist-ota/
+watch.htm

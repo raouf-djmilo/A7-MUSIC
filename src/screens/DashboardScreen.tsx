@@ -20,7 +20,7 @@ import { HomeAmbientCanvas } from '../features/home/components/HomeAmbientCanvas
 import { useHomeRadioQueue } from '../features/home/hooks/useHomeRadioQueue';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import { useNetworkStore } from '../services/networkService';
-import { useDownloadStore } from '../services/downloadService';
+import { useDownloadStore, downloadedTrackToQueueTrack } from '../services/downloadService';
 import { useAudioStore } from '../store/useAudioStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 
@@ -131,12 +131,7 @@ export const DashboardScreen: React.FC = () => {
   } = useHomeRadioQueue();
 
   const offlineQueue = useMemo(
-    () =>
-      downloadedTracks.map((d) => ({
-        ...d,
-        thumbnail: d.artworkLocalUri || d.thumbnail,
-        audioUrl: d.audioLocalUri,
-      })),
+    () => downloadedTracks.map(downloadedTrackToQueueTrack),
     [downloadedTracks]
   );
 

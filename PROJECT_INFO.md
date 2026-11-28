@@ -1,6 +1,6 @@
-﻿# 📋 Project Overview & Architecture — A7-MUSIC
+# 📋 Project Overview & Architecture — A7 MUSIC (A7 Flow)
 
-This document details the architectural foundation, audio engineering pipeline, capabilities, and system design powering **A7-MUSIC**.
+Open-source iOS music & synchronized video streaming + multi-mode offline player built **exclusively for iPhone (iOS)** devices.
 
 ---
 
@@ -8,48 +8,35 @@ This document details the architectural foundation, audio engineering pipeline, 
 
 | Layer | Technologies / Libraries |
 | :--- | :--- |
-| **Client Framework** | React Native 0.86, Expo 57, TypeScript |
-| **UI & Styling** | Apple Liquid Glassmorphism, React Native Reanimated 4, React Native Gesture Handler |
-| **Audio Playback Engine** | Native Background Service, React Native Track Player 4.1.2, ExoPlayer (Android) / AVPlayer (iOS) |
-| **Cloud & Data Layer** | Supabase Cloud Database, Row-Level Security (RLS), Realtime Channels, Edge Functions |
-| **Media & Stories** | Expo Camera, Expo Video, React Native ViewShot, Haptics |
-| **State & Networking** | React Hooks, Realtime Presence Listeners, WebSocket Audio Sync |
+| **Client Framework** | React Native `0.88.1`, Expo SDK `~58.0.26`, TypeScript |
+| **UI & Styling** | Apple iOS Liquid Glass (`expo-glass-effect`), React Native Reanimated `4.7.1`, Gesture Handler `3.3` |
+| **Audio & Video Engine** | `react-native-track-player 4.1.2` (AVPlayer), `expo-video`, `YoutubeAudioEngine` (WKWebView) |
+| **Offline Download Engine** | Multi-mode `AudioDownloadService` (`audio` / `video` / `full`) with HTTP preflight anti-403 verification & `expo-file-system` |
+| **Cloud & Auth Layer** | Firebase Authentication, Cloud Firestore (`downloaded_catalog`, likes, playlists) |
+| **Updates & Delivery** | `expo-updates` via GitHub Pages Fast OTA + GitHub Actions unsigned `.ipa` release pipeline |
 
 ---
 
-## 🎧 Audio Engineering Highlights
+## 🎧 Core Capabilities
 
-1. **Native Background Service**:
-   - Registered Android Foreground Service (FOREGROUND_SERVICE_MEDIA_PLAYBACK) with WAKE_LOCK to ensure high-priority playback without thermal throttling or task killing.
-   - iOS UIBackgroundModes: ["audio"] integration enabling uninterrupted playback across app switching and screen lock states.
-
-2. **Synchronized Playback ("Listen Together")**:
-   - Sub-second latency synchronization layer utilizing WebSockets / Realtime Presence channels to align audio timestamps across multiple remote listeners.
-
-3. **Audio Waveform Visualizer**:
-   - Hardware-accelerated dynamic spectrum visualization rendered with SVG and Reanimated 60fps drivers.
+1. **Ad-Free Streaming & Background Continuity (`UIBackgroundModes: ["audio"]`)**:
+   - Seamless transition between foreground and background/Control Center on iOS with synchronized MediaMetadata & artwork.
+2. **Music ◄──► Video Real-Time Stage**:
+   - Instant toggle between Studio Artwork (`Music`) and synchronized 16:9 / Fullscreen Cinema (`Video`).
+3. **Smart Offline Architecture (`audio` / `video` / `full`)**:
+   - Downloads exact track media (`InnerTube` verified pipeline + fallback cascade) alongside locally persisted HD square cover art.
+   - Deduplicates shared muxed `.mp4` streams in `Full` mode and enforces clean offline mode guards when only Video or only Music Audio is stored locally.
 
 ---
 
-## 🔒 Security & Privacy Model
+## 🍏 Release & Distribution Strategy
 
-- **Zero Plaintext Secrets**: The client application connects securely over SSL/TLS with Row-Level Security policies governing user-to-user data access.
-- **Granular Permissions**:
-  - Audio: Necessary for local & streamed media playback.
-  - Microphone: Used solely when recording voice notes or custom story audio.
-  - Camera / Media Library: Requested only when capturing or attaching photos/videos for stories or chat.
-  - Notifications: Used to display playback notification controls and friend activity alerts.
-
----
-
-## 📱 Release & Distribution Strategy
-
-A7-MUSIC binaries are packaged and distributed through official **GitHub Releases**:
-- **Android**: Standalone APK packages optimized for ARM64 and universal device profiles.
-- **iOS**: Unsigned/Developer IPA packages suitable for personal sideloading via AltStore / Sideloadly and TestFlight staging.
+A7 MUSIC targets **iPhone / iOS (`15.0+`)** with a two-tier update model:
+- **Fast OTA Updates**: JS/UI/engine updates published automatically via `.github/workflows/ota-ios.yml` to matching installed `runtimeVersion` binaries (`1.6.5+`) without wiping offline storage.
+- **GitHub Releases (`.ipa`)**: Unsigned `.ipa` packages compiled automatically by GitHub Actions (`.github/workflows/build-ios.yml`) for fresh installs via Sideloadly, AltStore, or TrollStore.
 
 ---
 
 <div align="center">
-  <sub>Maintained by <a href="https://github.com/raouf-djmilo">Raouf Djemel</a></sub>
+  <sub>Open Source (MIT License) • Maintained by <a href="https://github.com/raouf-djmilo">@raouf-djmilo</a></sub>
 </div>

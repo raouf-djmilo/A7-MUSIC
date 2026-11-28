@@ -115,7 +115,10 @@ export default function App() {
         const bgEnabled = savedBg !== null ? savedBg === 'true' : true;
         await SetupService();
         useAudioStore.getState().setBackgroundAudioEnabled(bgEnabled);
-        await configureAudioSession(bgEnabled);
+        await configureAudioSession(bgEnabled, false, 'youtube');
+        if (bgEnabled) {
+          require('./src/services/audioSessionService').prewarmSilentBackgroundAnchor().catch(() => {});
+        }
       } catch (e) {
         console.warn('Audio Setup Error:', e);
       }
@@ -161,9 +164,9 @@ export default function App() {
           pauseTrack();
         }
       }
-      // When returning to foreground with background audio ON, ensure audio session stays configured
+      // Only refresh if session mode was not already set for active engine
       if (nextAppState === 'active' && backgroundAudioEnabled && isPlaying) {
-        configureAudioSession(true).catch(() => {});
+        configureAudioSession(true, false, useAudioStore.getState().activeEngine).catch(() => {});
       }
       // Check OTA silently when returning to foreground (throttled every 10 minutes)
       if (nextAppState === 'active' && Date.now() - lastForegroundOtaCheck > 10 * 60 * 1000) {

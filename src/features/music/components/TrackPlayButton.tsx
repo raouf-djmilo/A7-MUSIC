@@ -79,6 +79,16 @@ export const TrackPlayButton: React.FC<TrackPlayButtonProps> = memo(
       )
     );
 
+    const isPausedSameContext = useAudioStore(
+      useCallback(
+        (s) => {
+          if (!contextId || videoId) return false;
+          return !s.isPlaying && Boolean(s.currentTrack) && (s.currentContextName === contextId || s.queueContextName === contextId);
+        },
+        [contextId, videoId]
+      )
+    );
+
     const isPlaying = videoId ? isTrackPlaying : isContextPlaying;
 
     const handlePress = useCallback(
@@ -87,11 +97,13 @@ export const TrackPlayButton: React.FC<TrackPlayButtonProps> = memo(
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (isPlaying) {
           useAudioStore.getState().togglePlay();
+        } else if (isPausedSameContext) {
+          useAudioStore.getState().resumeTrack();
         } else {
           onPressAction();
         }
       },
-      [isPlaying, onPressAction]
+      [isPausedSameContext, isPlaying, onPressAction]
     );
 
     // Dynamic Apple Liquid Glass Colors
