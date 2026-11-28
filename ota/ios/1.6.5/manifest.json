@@ -1,13 +1,13 @@
 {
-  "id": "7e1bf48d-1f4f-459f-a70d-bbd211ecd4b8",
-  "createdAt": "2026-11-27T14:48:51.394Z",
+  "id": "2776486b-24c4-4490-80fe-ba17c8387d5d",
+  "createdAt": "2026-11-28T15:38:38.881Z",
   "runtimeVersion": "1.6.5",
   "launchAsset": {
-    "hash": "LROn_9AYkWGMgmKP5KSB8xnEo2vnvNRZzdEwPq7jM8M",
-    "key": "44cc42a3b5de6d253af4999f569767f0",
+    "hash": "o4OlTayDWb6NmbyNyPgs6w7EBYm7-Br3S9dTvzU7dyA",
+    "key": "a208adabf4f29240f78af7d26b4ac15c",
     "contentType": "application/javascript",
     "fileExtension": ".bundle",
-    "url": "./_expo/static/js/ios/index-56b0c0d2a7d228791fd4afdaf4515164.hbc"
+    "url": "./_expo/static/js/ios/index-44d7c3e55f2d75e78c76641ae636117f.hbc"
   },
   "assets": [
     {
@@ -355,7 +355,7 @@
           "projectId": "e4a2fac6-c96c-4930-825a-dc56ce8bcc75"
         }
       },
-      "description": "",
+      "description": "A7 MUSIC (A7 Flow) — Open-source, ad-free iOS music & video player with smart offline downloads.",
       "sdkVersion": "58.0.0",
       "platforms": [
         "ios",
@@ -364,18 +364,18 @@
       ]
     },
     "a7Update": {
-      "otaVersion": "1.6.5-ota.dc7a4bb",
+      "otaVersion": "1.6.5-ota.9eb3d70",
       "appVersion": "1.6.5",
       "runtimeVersion": "1.6.5",
-      "commitSha": "dc7a4bb",
-      "title": "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
+      "commitSha": "9eb3d70",
+      "title": "feat(player,downloads,docs): fix bg exit drop, exact 200-OK Music/Video/Full downloads, open-source README",
       "highlights": [
-        "A7 MUSIC v1.6.11: محرك تحميل أوفلاين، حلقات التقدم، وإشعارات Liquid Glass",
+        "feat(player,downloads,docs): fix bg exit drop, exact 200-OK Music/Video/Full downloads, open-source README",
         "تحديث مباشر فوري عبر GitHub Pages بدون إعادة تثبيت التطبيق",
         "تحسينات في الأداء واستقرار تشغيل الموسيقى على iOS"
       ],
-      "publishedAt": "2026-11-27T14:48:51.394Z",
-      "bundleSizeBytes": 7176811
+      "publishedAt": "2026-11-28T15:38:38.881Z",
+      "bundleSizeBytes": 7269921
     }
   }
 }
